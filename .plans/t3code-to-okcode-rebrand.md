@@ -214,9 +214,11 @@ This document tracks all conversions needed to rebrand from T3Code to OKCode.
 ## 12. Verification Checklist
 
 After conversion, verify:
-- [ ] `bun run typecheck` passes
-- [ ] `bun run lint` passes
-- [ ] `bun run fmt:check` passes
-- [ ] `bun run test` passes
-- [ ] All imports resolve correctly
-- [ ] No remaining `@t3tools/` or `t3code` references (except in .git history)
+- [x] `bun run typecheck` passes
+- [x] `bun run lint` passes
+- [x] `bun run fmt:check` passes
+- [x] `bun run test` passes
+- [x] All imports resolve correctly
+- [x] No remaining `@t3tools/` or `t3code` references (except in .git history and this plan’s historical checklist text)
+
+**Follow-up applied in-repo:** `OKCODE_*` env vars, `okcode` CLI (`okcodeCli`), desktop bundle IDs / `okcode://` scheme, shell capture markers `__OKCODE_*`, Effect `ServiceMap` keys `okcode/...` (replacing `t3/...`), `scripts/build-desktop-artifact` `OKCODE_DESKTOP_*`, dev-runner `okcodeHome`, root `start` script `--filter=okcode`. Legacy `t3code` userData dir and `t3codeCommitHash` in `package.json` are still recognized where migration matters.

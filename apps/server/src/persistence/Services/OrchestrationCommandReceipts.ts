@@ -66,4 +66,6 @@ export interface OrchestrationCommandReceiptRepositoryShape {
 export class OrchestrationCommandReceiptRepository extends ServiceMap.Service<
   OrchestrationCommandReceiptRepository,
   OrchestrationCommandReceiptRepositoryShape
->()("okcode/persistence/Services/OrchestrationCommandReceipts/OrchestrationCommandReceiptRepository") {}
+>()(
+  "okcode/persistence/Services/OrchestrationCommandReceipts/OrchestrationCommandReceiptRepository",
+) {}

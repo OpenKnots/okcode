@@ -19,7 +19,22 @@ describe("validateDesktopPreviewUrl", () => {
     });
   });
 
-  it("rejects missing, malformed, or remote URLs", () => {
+  it("accepts https and remote http URLs", () => {
+    expect(validateDesktopPreviewUrl("https://localhost:3000")).toEqual({
+      ok: true,
+      url: "https://localhost:3000/",
+    });
+    expect(validateDesktopPreviewUrl("http://example.com:3000")).toEqual({
+      ok: true,
+      url: "http://example.com:3000/",
+    });
+    expect(validateDesktopPreviewUrl("http://localhost")).toEqual({
+      ok: true,
+      url: "http://localhost/",
+    });
+  });
+
+  it("rejects missing, malformed, or non-http URLs", () => {
     expect(validateDesktopPreviewUrl("")).toEqual({
       ok: false,
       error: {
@@ -34,25 +49,11 @@ describe("validateDesktopPreviewUrl", () => {
         message: "Preview URL is not a valid URL.",
       },
     });
-    expect(validateDesktopPreviewUrl("https://localhost:3000")).toEqual({
-      ok: false,
-      error: {
-        code: "non-local-url",
-        message: "Preview only supports local http URLs.",
-      },
-    });
-    expect(validateDesktopPreviewUrl("http://example.com:3000")).toEqual({
-      ok: false,
-      error: {
-        code: "non-local-url",
-        message: "Preview only supports localhost, 127.0.0.1, or ::1.",
-      },
-    });
-    expect(validateDesktopPreviewUrl("http://localhost")).toEqual({
+    expect(validateDesktopPreviewUrl("ftp://localhost:3000")).toEqual({
       ok: false,
       error: {
         code: "invalid-url",
-        message: "Preview URL must include an explicit port.",
+        message: "Preview only supports http and https URLs.",
       },
     });
   });

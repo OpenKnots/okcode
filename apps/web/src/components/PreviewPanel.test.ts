@@ -12,7 +12,7 @@ describe("resolvePreviewStatusCopy", () => {
         visible: false,
         error: null,
       }),
-    ).toContain("localhost URL");
+    ).toContain("Enter a URL");
 
     expect(
       resolvePreviewStatusCopy({

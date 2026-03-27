@@ -24,9 +24,7 @@ export function ThemeModeSwitcher() {
             aria-label={label}
             className={cn(
               "flex h-6 flex-1 items-center justify-center rounded-md text-muted-foreground transition-colors",
-              isActive
-                ? "bg-background text-foreground shadow-xs"
-                : "hover:text-foreground/80",
+              isActive ? "bg-background text-foreground shadow-xs" : "hover:text-foreground/80",
             )}
             onClick={() => setTheme(value)}
           >

@@ -209,6 +209,9 @@ function formatOutgoingPrompt(params: {
 const COMPOSER_PATH_QUERY_DEBOUNCE_MS = 120;
 const SCRIPT_TERMINAL_COLS = 120;
 const SCRIPT_TERMINAL_ROWS = 30;
+const PREVIEW_SPLIT_MIN_SIZE_PX = 220;
+const PREVIEW_SPLIT_DEFAULT_SIZE_PX = 384;
+const PREVIEW_CHAT_MIN_SIZE_PX = 360;
 
 const extendReplacementRangeForTrailingSpace = (
   text: string,
@@ -259,8 +262,20 @@ export default function ChatView({ threadId }: ChatViewProps) {
   const togglePreviewOpen = usePreviewStateStore((state) => state.toggleThreadOpen);
   const setPreviewOpen = usePreviewStateStore((state) => state.setThreadOpen);
   const previewDock = usePreviewStateStore((state) => state.dockByThreadId[threadId] ?? "right");
+  const previewSize = usePreviewStateStore(
+    (state) => state.sizeByThreadId[threadId] ?? PREVIEW_SPLIT_DEFAULT_SIZE_PX,
+  );
   const previewStacked = previewDock === "top" || previewDock === "bottom";
+  const setPreviewDock = usePreviewStateStore((state) => state.setThreadDock);
   const togglePreviewLayout = usePreviewStateStore((state) => state.toggleThreadLayout);
+  const setPreviewSize = usePreviewStateStore((state) => state.setThreadSize);
+  const previewSplitRef = useRef<HTMLDivElement | null>(null);
+  const previewResizeStateRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    startSize: number;
+  } | null>(null);
   const rawSearch = useSearch({
     strict: false,
     select: (params) => parseDiffRouteSearch(params),
@@ -3458,6 +3473,126 @@ export default function ChatView({ threadId }: ChatViewProps) {
     void onRevertToTurnCount(targetTurnCount);
   };
 
+  const handlePreviewResizePointerDown = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (!previewOpen || !activeProject || event.button !== 0) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      previewResizeStateRef.current = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        startSize: previewSize,
+      };
+      event.currentTarget.setPointerCapture(event.pointerId);
+      document.body.style.cursor = previewStacked ? "row-resize" : "col-resize";
+      document.body.style.userSelect = "none";
+    },
+    [activeProject, previewOpen, previewSize, previewStacked],
+  );
+
+  const handlePreviewResizePointerMove = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      const resizeState = previewResizeStateRef.current;
+      if (!resizeState || resizeState.pointerId !== event.pointerId) {
+        return;
+      }
+
+      const container = previewSplitRef.current;
+      if (!container) {
+        return;
+      }
+
+      const nextSizeUnclamped = previewStacked
+        ? previewDock === "top"
+          ? resizeState.startSize + (event.clientY - resizeState.startY)
+          : resizeState.startSize + (resizeState.startY - event.clientY)
+        : previewDock === "left"
+          ? resizeState.startSize + (event.clientX - resizeState.startX)
+          : resizeState.startSize + (resizeState.startX - event.clientX);
+      const containerRect = container.getBoundingClientRect();
+      const containerMainAxisSize = previewStacked ? containerRect.height : containerRect.width;
+      const maxSize = Math.max(
+        PREVIEW_SPLIT_MIN_SIZE_PX,
+        containerMainAxisSize - PREVIEW_CHAT_MIN_SIZE_PX,
+      );
+      const nextSize = Math.max(
+        PREVIEW_SPLIT_MIN_SIZE_PX,
+        Math.min(Math.round(nextSizeUnclamped), maxSize),
+      );
+      setPreviewSize(threadId, nextSize);
+    },
+    [previewDock, previewStacked, setPreviewSize, threadId],
+  );
+
+  const handlePreviewResizePointerEnd = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    const resizeState = previewResizeStateRef.current;
+    if (!resizeState || resizeState.pointerId !== event.pointerId) {
+      return;
+    }
+
+    previewResizeStateRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    document.body.style.removeProperty("cursor");
+    document.body.style.removeProperty("user-select");
+  }, []);
+
+  useEffect(() => {
+    if (!activeProject) {
+      return;
+    }
+
+    const onWindowKeyDown = (event: KeyboardEvent) => {
+      if (!event.metaKey && !event.ctrlKey) {
+        return;
+      }
+      if (event.altKey || event.shiftKey) {
+        return;
+      }
+
+      let targetDock: "left" | "right" | "top" | "bottom" | null = null;
+      switch (event.key) {
+        case "ArrowLeft":
+          targetDock = "left";
+          break;
+        case "ArrowRight":
+          targetDock = "right";
+          break;
+        case "ArrowUp":
+          targetDock = "top";
+          break;
+        case "ArrowDown":
+          targetDock = "bottom";
+          break;
+        default:
+          break;
+      }
+
+      if (!targetDock) {
+        return;
+      }
+
+      event.preventDefault();
+      if (previewOpen && previewDock === targetDock) {
+        setPreviewOpen(threadId, false);
+        return;
+      }
+
+      setPreviewOpen(threadId, true);
+      setPreviewDock(threadId, targetDock);
+    };
+
+    window.addEventListener("keydown", onWindowKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onWindowKeyDown);
+    };
+  }, [activeProject, previewDock, previewOpen, setPreviewDock, setPreviewOpen, threadId]);
+
   // Empty state: no active thread
   if (!activeThread) {
     return (
@@ -3536,11 +3671,43 @@ export default function ChatView({ threadId }: ChatViewProps) {
       {/* Main content area with optional plan sidebar */}
       <div className="flex min-h-0 min-w-0 flex-1">
         <div
+          ref={previewSplitRef}
           className={cn(
             "flex min-h-0 min-w-0 flex-1",
             previewOpen && activeProject && previewStacked ? "flex-col" : "flex-row",
           )}
         >
+          {previewOpen && activeProject && (previewDock === "left" || previewDock === "top") ? (
+            <>
+              <div
+                className="min-h-0 min-w-0 flex-none overflow-hidden bg-background"
+                style={
+                  previewStacked ? { height: `${previewSize}px` } : { width: `${previewSize}px` }
+                }
+              >
+                <PreviewPanel
+                  threadId={activeThread.id}
+                  projectId={activeProject.id}
+                  projectName={activeProject.name}
+                  onClose={() => setPreviewOpen(activeThread.id, false)}
+                />
+              </div>
+              <div
+                className={cn(
+                  "relative z-10 shrink-0 bg-border/80 transition-colors hover:bg-border",
+                  previewStacked ? "h-1.5 cursor-row-resize" : "w-1.5 cursor-col-resize",
+                )}
+                onPointerDown={handlePreviewResizePointerDown}
+                onPointerMove={handlePreviewResizePointerMove}
+                onPointerUp={handlePreviewResizePointerEnd}
+                onPointerCancel={handlePreviewResizePointerEnd}
+                role="separator"
+                aria-label="Resize preview panel"
+                aria-orientation={previewStacked ? "horizontal" : "vertical"}
+              />
+            </>
+          ) : null}
+
           {/* Chat column */}
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             {/* Messages Wrapper */}
@@ -4129,22 +4296,35 @@ export default function ChatView({ threadId }: ChatViewProps) {
           </div>
           {/* end chat column */}
 
-          {previewOpen && activeProject ? (
-            <div
-              className={cn(
-                "min-h-0 min-w-0 flex-none overflow-hidden bg-background",
-                previewStacked
-                  ? "h-[min(42%,24rem)] min-h-[16rem] border-t border-border"
-                  : "w-[min(36vw,32rem)] min-w-[22rem] border-l border-border",
-              )}
-            >
-              <PreviewPanel
-                threadId={activeThread.id}
-                projectId={activeProject.id}
-                projectName={activeProject.name}
-                onClose={() => setPreviewOpen(activeThread.id, false)}
+          {previewOpen && activeProject && (previewDock === "right" || previewDock === "bottom") ? (
+            <>
+              <div
+                className={cn(
+                  "relative z-10 shrink-0 bg-border/80 transition-colors hover:bg-border",
+                  previewStacked ? "h-1.5 cursor-row-resize" : "w-1.5 cursor-col-resize",
+                )}
+                onPointerDown={handlePreviewResizePointerDown}
+                onPointerMove={handlePreviewResizePointerMove}
+                onPointerUp={handlePreviewResizePointerEnd}
+                onPointerCancel={handlePreviewResizePointerEnd}
+                role="separator"
+                aria-label="Resize preview panel"
+                aria-orientation={previewStacked ? "horizontal" : "vertical"}
               />
-            </div>
+              <div
+                className="min-h-0 min-w-0 flex-none overflow-hidden bg-background"
+                style={
+                  previewStacked ? { height: `${previewSize}px` } : { width: `${previewSize}px` }
+                }
+              >
+                <PreviewPanel
+                  threadId={activeThread.id}
+                  projectId={activeProject.id}
+                  projectName={activeProject.name}
+                  onClose={() => setPreviewOpen(activeThread.id, false)}
+                />
+              </div>
+            </>
           ) : null}
         </div>
 

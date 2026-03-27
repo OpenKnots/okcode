@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   dedupeRemoteBranchesWithLocalMatches,
   deriveLocalBranchNameFromRemoteRef,
+  filterSelectableBranches,
   resolveBranchSelectionTarget,
   resolveDraftEnvModeAfterBranchChange,
   resolveBranchToolbarValue,
@@ -92,6 +93,46 @@ describe("deriveLocalBranchNameFromRemoteRef", () => {
   });
 });
 
+describe("filterSelectableBranches", () => {
+  it("shows only local branches in the branch selector", () => {
+    const input: GitBranch[] = [
+      {
+        name: "main",
+        current: true,
+        isDefault: true,
+        worktreePath: null,
+      },
+      {
+        name: "feature/demo",
+        current: false,
+        isDefault: false,
+        worktreePath: null,
+      },
+      {
+        name: "origin/feature/demo",
+        isRemote: true,
+        remoteName: "origin",
+        current: false,
+        isDefault: false,
+        worktreePath: null,
+      },
+      {
+        name: "jason/feature/old-fork",
+        isRemote: true,
+        remoteName: "jason",
+        current: false,
+        isDefault: false,
+        worktreePath: null,
+      },
+    ];
+
+    expect(filterSelectableBranches(input).map((branch) => branch.name)).toEqual([
+      "main",
+      "feature/demo",
+    ]);
+  });
+});
+
 describe("dedupeRemoteBranchesWithLocalMatches", () => {
   it("hides remote refs when the matching local branch exists", () => {
     const input: GitBranch[] = [
@@ -149,7 +190,7 @@ describe("dedupeRemoteBranchesWithLocalMatches", () => {
     ]);
   });
 
-  it("keeps non-origin remote refs visible even when a matching local branch exists", () => {
+  it("hides non-origin remote refs too when a matching local branch exists", () => {
     const input: GitBranch[] = [
       {
         name: "feature/demo",
@@ -169,11 +210,43 @@ describe("dedupeRemoteBranchesWithLocalMatches", () => {
 
     expect(dedupeRemoteBranchesWithLocalMatches(input).map((branch) => branch.name)).toEqual([
       "feature/demo",
-      "my-org/upstream/feature/demo",
     ]);
   });
 
-  it("keeps non-origin remote refs visible when git tracks with first-slash local naming", () => {
+  it("hides non-preferred remote refs when a preferred remote is configured", () => {
+    const input: GitBranch[] = [
+      {
+        name: "feature/demo",
+        current: false,
+        isDefault: false,
+        worktreePath: null,
+      },
+      {
+        name: "origin/feature/remote-only",
+        isRemote: true,
+        remoteName: "origin",
+        current: false,
+        isDefault: false,
+        worktreePath: null,
+      },
+      {
+        name: "my-org/upstream/feature/demo",
+        isRemote: true,
+        remoteName: "my-org/upstream",
+        current: false,
+        isDefault: false,
+        worktreePath: null,
+      },
+    ];
+
+    expect(
+      dedupeRemoteBranchesWithLocalMatches(input, { preferredRemoteName: "origin" }).map(
+        (branch) => branch.name,
+      ),
+    ).toEqual(["feature/demo", "origin/feature/remote-only"]);
+  });
+
+  it("hides preferred-remote refs too when a matching local branch exists", () => {
     const input: GitBranch[] = [
       {
         name: "upstream/feature",
@@ -191,10 +264,11 @@ describe("dedupeRemoteBranchesWithLocalMatches", () => {
       },
     ];
 
-    expect(dedupeRemoteBranchesWithLocalMatches(input).map((branch) => branch.name)).toEqual([
-      "upstream/feature",
-      "my-org/upstream/feature",
-    ]);
+    expect(
+      dedupeRemoteBranchesWithLocalMatches(input, {
+        preferredRemoteName: "my-org/upstream",
+      }).map((branch) => branch.name),
+    ).toEqual(["upstream/feature"]);
   });
 });
 

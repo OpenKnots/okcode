@@ -1,9 +1,15 @@
 ---
 import Layout from "../layouts/Layout.astro";
+
+const description =
+  "A minimal GUI for coding agents like Codex and Claude. Web and desktop. Open source.";
 ---
 
-<Layout>
-  <h1 class="tagline">OK Code is the best way to code with AI.</h1>
+<Layout title="OK Code" {description}>
+  <h1 class="tagline">A minimal GUI for coding agents</h1>
+  <p class="subtagline">
+    Codex and Claude today. Web and desktop. From OpenKnots.
+  </p>
 
   <a
     id="download-btn"
@@ -105,9 +111,22 @@ import Layout from "../layouts/Layout.astro";
     letter-spacing: -0.035em;
     line-height: 1.15;
     text-align: center;
-    margin: 0 0 6vh;
+    margin: 0 0 1rem;
     opacity: 0;
     animation: fade-in 1s ease-out forwards;
+  }
+
+  .subtagline {
+    font-size: clamp(1rem, 2.2vw, 1.2rem);
+    font-weight: 400;
+    color: var(--fg-muted);
+    text-align: center;
+    line-height: 1.5;
+    max-width: 28rem;
+    margin: 0 0 5vh;
+    padding: 0 1rem;
+    opacity: 0;
+    animation: fade-in 1s ease-out 0.08s forwards;
   }
 
   /* ── Hero button ── */

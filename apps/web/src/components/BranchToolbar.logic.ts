@@ -71,20 +71,28 @@ function deriveLocalBranchNameCandidatesFromRemoteRef(
   return [...candidates];
 }
 
+export function filterSelectableBranches(branches: ReadonlyArray<GitBranch>): ReadonlyArray<GitBranch> {
+  return branches.filter((branch) => !branch.isRemote);
+}
+
 export function dedupeRemoteBranchesWithLocalMatches(
   branches: ReadonlyArray<GitBranch>,
+  options?: {
+    preferredRemoteName?: string | null;
+  },
 ): ReadonlyArray<GitBranch> {
   const localBranchNames = new Set(
     branches.filter((branch) => !branch.isRemote).map((branch) => branch.name),
   );
+  const preferredRemoteName = options?.preferredRemoteName?.trim() || null;
 
   return branches.filter((branch) => {
     if (!branch.isRemote) {
       return true;
     }
 
-    if (branch.remoteName !== "origin") {
-      return true;
+    if (preferredRemoteName && branch.remoteName !== preferredRemoteName) {
+      return false;
     }
 
     const localBranchCandidates = deriveLocalBranchNameCandidatesFromRemoteRef(

@@ -76,6 +76,15 @@ export function collectUserMessageBlobPreviewUrls(message: ChatMessage): string[
 
 export type SendPhase = "idle" | "preparing-worktree" | "sending-turn";
 
+/** A message queued locally while the agent is busy processing a turn. */
+export interface QueuedMessage {
+  id: string;
+  text: string;
+  images: ComposerImageAttachment[];
+  terminalContexts: TerminalContextDraft[];
+  createdAt: string;
+}
+
 export interface PullRequestDialogState {
   initialReference: string | null;
   key: number;

@@ -370,9 +370,10 @@ export const MessagesTimeline = memo(function MessagesTimeline({
           const displayedUserMessage = deriveDisplayedUserMessageState(row.message.text);
           const terminalContexts = displayedUserMessage.contexts;
           const canRevertAgentWork = revertTurnCountByUserMessageId.has(row.message.id);
+          const isQueued = row.message.queued === true;
           return (
             <div className="flex justify-end">
-              <div className="group relative max-w-[80%] rounded-2xl rounded-br-sm border border-border bg-secondary px-4 py-3">
+              <div className={cn("group relative max-w-[80%] rounded-2xl rounded-br-sm border px-4 py-3", isQueued ? "border-dashed border-border/60 bg-secondary/60" : "border-border bg-secondary")}>
                 {userImages.length > 0 && (
                   <div className="mb-2 grid max-w-[420px] grid-cols-2 gap-2">
                     {userImages.map(
@@ -435,9 +436,16 @@ export const MessagesTimeline = memo(function MessagesTimeline({
                       </Button>
                     )}
                   </div>
-                  <p className="text-right text-[10px] text-muted-foreground/30">
-                    {formatTimestamp(row.message.createdAt, timestampFormat)}
-                  </p>
+                  <div className="flex items-center gap-1.5">
+                    {isQueued && (
+                      <span className="inline-flex items-center rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-medium text-amber-600 dark:text-amber-400">
+                        Queued
+                      </span>
+                    )}
+                    <p className="text-right text-[10px] text-muted-foreground/30">
+                      {formatTimestamp(row.message.createdAt, timestampFormat)}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>

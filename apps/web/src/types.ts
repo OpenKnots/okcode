@@ -47,6 +47,8 @@ export interface ChatMessage {
   createdAt: string;
   completedAt?: string | undefined;
   streaming: boolean;
+  /** When true, this message is queued locally and has not yet been dispatched to the server. */
+  queued?: boolean | undefined;
 }
 
 export interface ProposedPlan {

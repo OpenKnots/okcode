@@ -179,6 +179,7 @@ import {
   LAST_INVOKED_SCRIPT_BY_PROJECT_KEY,
   LastInvokedScriptByProjectSchema,
   PullRequestDialogState,
+  QueuedMessage,
   readFileAsDataUrl,
   revokeBlobPreviewUrl,
   revokeUserMessagePreviewUrls,
@@ -347,6 +348,9 @@ export default function ChatView({ threadId }: ChatViewProps) {
   const [optimisticUserMessages, setOptimisticUserMessages] = useState<ChatMessage[]>([]);
   const optimisticUserMessagesRef = useRef(optimisticUserMessages);
   optimisticUserMessagesRef.current = optimisticUserMessages;
+  const [queuedMessages, setQueuedMessages] = useState<QueuedMessage[]>([]);
+  const queuedMessagesRef = useRef(queuedMessages);
+  queuedMessagesRef.current = queuedMessages;
   const composerTerminalContextsRef = useRef<TerminalContextDraft[]>(composerTerminalContexts);
   const [localDraftErrorsByThreadId, setLocalDraftErrorsByThreadId] = useState<
     Record<ThreadId, string | null>
@@ -1874,6 +1878,27 @@ export default function ChatView({ threadId }: ChatViewProps) {
     scheduleStickToBottom();
   }, [phase, scheduleStickToBottom, timelineEntries]);
 
+  // Aggressively scroll to bottom after the user submits a new message.
+  // The virtualizer may not have settled by the time the first scroll fires,
+  // so we schedule multiple backup attempts similar to the thread-change handler.
+  const optimisticUserMessageCount = optimisticUserMessages.length;
+  useEffect(() => {
+    if (optimisticUserMessageCount === 0) return;
+    shouldAutoScrollRef.current = true;
+    setShowScrollToBottom(false);
+    forceStickToBottom();
+    const t1 = window.setTimeout(() => {
+      forceStickToBottom();
+    }, 50);
+    const t2 = window.setTimeout(() => {
+      forceStickToBottom();
+    }, 150);
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+    };
+  }, [optimisticUserMessageCount, forceStickToBottom]);
+
   useEffect(() => {
     setExpandedWorkGroups({});
     setPullRequestDialogState(null);
@@ -1960,6 +1985,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
       }
       return [];
     });
+    setQueuedMessages([]);
     setSendPhase("idle");
     setSendStartedAt(null);
     setComposerHighlightedItemId(null);
@@ -2131,6 +2157,99 @@ export default function ChatView({ threadId }: ChatViewProps) {
     resetSendPhase,
     sendPhase,
   ]);
+
+  // ── Queue drain: dispatch next queued message when the current turn settles ──
+  const isDrainingQueueRef = useRef(false);
+  useEffect(() => {
+    if (!latestTurnSettled || queuedMessages.length === 0) return;
+    if (isSendBusy || isConnecting || sendInFlightRef.current || isDrainingQueueRef.current) return;
+    if (!activeThread || !activeProject) return;
+    const api = readNativeApi();
+    if (!api) return;
+
+    const [nextQueued, ...rest] = queuedMessages;
+    if (!nextQueued) return;
+
+    isDrainingQueueRef.current = true;
+    setQueuedMessages(rest);
+
+    // Mark the optimistic message as no longer queued
+    setOptimisticUserMessages((existing) =>
+      existing.map((msg) => (msg.id === nextQueued.id ? { ...msg, queued: false } : msg)),
+    );
+
+    const threadIdForSend = activeThread.id;
+    const messageIdForSend = nextQueued.id;
+    const messageCreatedAt = new Date().toISOString();
+    const composerTerminalContextsSnapshot = nextQueued.terminalContexts;
+    const messageTextForSend = appendTerminalContextsToPrompt(
+      nextQueued.text,
+      composerTerminalContextsSnapshot,
+    );
+    const outgoingMessageText = formatOutgoingPrompt({
+      provider: selectedProvider,
+      effort: selectedPromptEffort,
+      text: messageTextForSend || IMAGE_ONLY_BOOTSTRAP_PROMPT,
+    });
+
+    sendInFlightRef.current = true;
+    beginSendPhase("sending-turn");
+
+    (async () => {
+      await persistThreadSettingsForNextTurn({
+        threadId: threadIdForSend,
+        createdAt: messageCreatedAt,
+        ...(selectedModel ? { model: selectedModel } : {}),
+        runtimeMode,
+        interactionMode,
+      });
+      const turnAttachments = await Promise.all(
+        nextQueued.images.map(async (image) => ({
+          type: "image" as const,
+          name: image.name,
+          mimeType: image.mimeType,
+          sizeBytes: image.sizeBytes,
+          dataUrl: await readFileAsDataUrl(image.file),
+        })),
+      );
+      await api.orchestration.dispatchCommand({
+        type: "thread.turn.start",
+        commandId: newCommandId(),
+        threadId: threadIdForSend,
+        message: {
+          messageId: messageIdForSend,
+          role: "user",
+          text: outgoingMessageText,
+          attachments: turnAttachments,
+        },
+        model: selectedModel || undefined,
+        ...(selectedModelOptionsForDispatch
+          ? { modelOptions: selectedModelOptionsForDispatch }
+          : {}),
+        ...(providerOptionsForDispatch ? { providerOptions: providerOptionsForDispatch } : {}),
+        provider: selectedProvider,
+        assistantDeliveryMode: settings.enableAssistantStreaming ? "streaming" : "buffered",
+        runtimeMode,
+        interactionMode,
+        createdAt: messageCreatedAt,
+      });
+    })()
+      .catch((err: unknown) => {
+        setOptimisticUserMessages((existing) =>
+          existing.filter((msg) => msg.id !== nextQueued.id),
+        );
+        setThreadError(
+          threadIdForSend,
+          err instanceof Error ? err.message : "Failed to send queued message.",
+        );
+        resetSendPhase();
+      })
+      .finally(() => {
+        sendInFlightRef.current = false;
+        isDrainingQueueRef.current = false;
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [latestTurnSettled, queuedMessages.length, isSendBusy, isConnecting]);
 
   useEffect(() => {
     if (!activeThreadId) return;
@@ -2461,6 +2580,72 @@ export default function ChatView({ threadId }: ChatViewProps) {
       }
       return;
     }
+
+    // ── Queue message if a turn is already running ────────────────────
+    if (phase === "running") {
+      const composerImagesSnapshot = [...composerImages];
+      const messageTextForSend = appendTerminalContextsToPrompt(
+        promptForSend,
+        sendableComposerTerminalContexts,
+      );
+      const messageCreatedAt = new Date().toISOString();
+      const outgoingMessageText = formatOutgoingPrompt({
+        provider: selectedProvider,
+        effort: selectedPromptEffort,
+        text: messageTextForSend || IMAGE_ONLY_BOOTSTRAP_PROMPT,
+      });
+      const optimisticAttachments = composerImagesSnapshot.map((image) => ({
+        type: "image" as const,
+        id: image.id,
+        name: image.name,
+        mimeType: image.mimeType,
+        sizeBytes: image.sizeBytes,
+        previewUrl: image.previewUrl,
+      }));
+      const queuedId = newMessageId();
+      setQueuedMessages((existing) => [
+        ...existing,
+        {
+          id: queuedId,
+          text: promptForSend,
+          images: composerImagesSnapshot,
+          terminalContexts: [...sendableComposerTerminalContexts],
+          createdAt: messageCreatedAt,
+        },
+      ]);
+      setOptimisticUserMessages((existing) => [
+        ...existing,
+        {
+          id: queuedId,
+          role: "user",
+          text: outgoingMessageText,
+          ...(optimisticAttachments.length > 0 ? { attachments: optimisticAttachments } : {}),
+          createdAt: messageCreatedAt,
+          streaming: false,
+          queued: true,
+        },
+      ]);
+      shouldAutoScrollRef.current = true;
+      forceStickToBottom();
+      promptRef.current = "";
+      clearComposerDraftContent(activeThread.id);
+      setComposerHighlightedItemId(null);
+      setComposerCursor(0);
+      setComposerTrigger(null);
+      if (expiredTerminalContextCount > 0) {
+        const toastCopy = buildExpiredTerminalContextToastCopy(
+          expiredTerminalContextCount,
+          "omitted",
+        );
+        toastManager.add({
+          type: "warning",
+          title: toastCopy.title,
+          description: toastCopy.description,
+        });
+      }
+      return;
+    }
+
     if (!activeProject) return;
     const threadIdForSend = activeThread.id;
     const isFirstMessage = !isServerThread || activeThread.messages.length === 0;
@@ -4158,6 +4343,11 @@ export default function ChatView({ threadId }: ChatViewProps) {
                               Preparing worktree...
                             </span>
                           ) : null}
+                          {queuedMessages.length > 0 && phase === "running" ? (
+                            <span className="text-muted-foreground/60 text-xs">
+                              {queuedMessages.length} queued
+                            </span>
+                          ) : null}
                           {activePendingProgress ? (
                             <div className="flex items-center gap-2">
                               {activePendingProgress.questionIndex > 0 ? (
@@ -4190,22 +4380,51 @@ export default function ChatView({ threadId }: ChatViewProps) {
                               </Button>
                             </div>
                           ) : phase === "running" ? (
-                            <button
-                              type="button"
-                              className="flex size-8 cursor-pointer items-center justify-center rounded-full bg-rose-500/90 text-white transition-all duration-150 hover:bg-rose-500 hover:scale-105 sm:h-8 sm:w-8"
-                              onClick={() => void onInterrupt()}
-                              aria-label="Stop generation"
-                            >
-                              <svg
-                                width="12"
-                                height="12"
-                                viewBox="0 0 12 12"
-                                fill="currentColor"
-                                aria-hidden="true"
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                className="flex size-8 cursor-pointer items-center justify-center rounded-full bg-rose-500/90 text-white transition-all duration-150 hover:bg-rose-500 hover:scale-105 sm:h-8 sm:w-8"
+                                onClick={() => void onInterrupt()}
+                                aria-label="Stop generation"
                               >
-                                <rect x="2" y="2" width="8" height="8" rx="1.5" />
-                              </svg>
-                            </button>
+                                <svg
+                                  width="12"
+                                  height="12"
+                                  viewBox="0 0 12 12"
+                                  fill="currentColor"
+                                  aria-hidden="true"
+                                >
+                                  <rect x="2" y="2" width="8" height="8" rx="1.5" />
+                                </svg>
+                              </button>
+                              <button
+                                type="submit"
+                                className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/90 text-primary-foreground transition-all duration-150 hover:bg-primary hover:scale-105 disabled:opacity-30 disabled:hover:scale-100 sm:h-8 sm:w-8"
+                                disabled={
+                                  isSendBusy ||
+                                  isConnecting ||
+                                  !composerSendState.hasSendableContent
+                                }
+                                aria-label="Queue message"
+                                title="Queue message (will send after current turn completes)"
+                              >
+                                <svg
+                                  width="14"
+                                  height="14"
+                                  viewBox="0 0 14 14"
+                                  fill="none"
+                                  aria-hidden="true"
+                                >
+                                  <path
+                                    d="M7 11.5V2.5M7 2.5L3 6.5M7 2.5L11 6.5"
+                                    stroke="currentColor"
+                                    strokeWidth="1.8"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
+                                </svg>
+                              </button>
+                            </div>
                           ) : pendingUserInputs.length === 0 ? (
                             showPlanFollowUpPrompt ? (
                               prompt.trim().length > 0 ? (

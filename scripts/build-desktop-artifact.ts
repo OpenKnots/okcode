@@ -454,10 +454,6 @@ const createBuildConfig = Effect.fn("createBuildConfig")(function* (
     appId: "com.okcode.okcode",
     productName,
     artifactName: "OK-Code-${version}-${arch}.${ext}",
-    // Production dependencies are installed into the staged app ahead of packaging.
-    // Skip electron-builder's extra native rebuild step so packaged builds can use
-    // shipped prebuilds like node-pty on Windows instead of requiring local Spectre libs.
-    npmRebuild: false,
     directories: {
       buildResources: "apps/desktop/resources",
     },
@@ -511,6 +507,10 @@ const createBuildConfig = Effect.fn("createBuildConfig")(function* (
     if (signed) {
       winConfig.azureSignOptions = yield* AzureTrustedSigningOptionsConfig;
     } else {
+      // Production dependencies are installed into the staged app ahead of packaging.
+      // Skip electron-builder's extra native rebuild step so Windows builds can use
+      // shipped prebuilds like node-pty instead of requiring local Spectre libs.
+      buildConfig.npmRebuild = false;
       // Unsigned local builds shouldn't need the Windows code-signing toolchain or
       // rcedit metadata pass; skipping it avoids symlink-privileged cache extraction.
       winConfig.signAndEditExecutable = false;

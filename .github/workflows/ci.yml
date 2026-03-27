@@ -105,7 +105,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Build Windows desktop artifact
-        run: bun run dist:desktop:win
+        run: bun run dist:desktop:artifact -- --platform win --target nsis --arch x64 --verbose
 
       - name: Upload Windows desktop artifact
         uses: actions/upload-artifact@v7

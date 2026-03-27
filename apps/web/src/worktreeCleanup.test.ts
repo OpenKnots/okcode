@@ -86,7 +86,7 @@ describe("formatWorktreePathForDisplay", () => {
 
   it("normalizes windows separators before selecting the final segment", () => {
     const result = formatWorktreePathForDisplay(
-      "C:\\Users\\julius\\.t3\\worktrees\\okcode-mvp\\okcode-4e609bb8",
+      "C:\\Users\\julius\\.okcode\\worktrees\\okcode-mvp\\okcode-4e609bb8",
     );
     expect(result).toBe("okcode-4e609bb8");
   });

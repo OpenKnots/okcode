@@ -355,8 +355,8 @@ function resolveEmbeddedCommitHash(): string | null {
 
   try {
     const raw = FS.readFileSync(packageJsonPath, "utf8");
-    const parsed = JSON.parse(raw) as { okcodeCommitHash?: unknown; t3codeCommitHash?: unknown };
-    return normalizeCommitHash(parsed.okcodeCommitHash ?? parsed.t3codeCommitHash);
+    const parsed = JSON.parse(raw) as { okcodeCommitHash?: unknown };
+    return normalizeCommitHash(parsed.okcodeCommitHash ?? parsed.okcodeCommitHash);
   } catch {
     return null;
   }

@@ -46,7 +46,7 @@ it.layer(NodeServices.layer)("dev-runner", (it) => {
   });
 
   describe("createDevRunnerEnv", () => {
-    it.effect("defaults OKCODE_HOME to ~/.t3 when not provided", () =>
+    it.effect("defaults OKCODE_HOME to ~/.okcode when not provided", () =>
       Effect.gen(function* () {
         const env = yield* createDevRunnerEnv({
           mode: "dev",
@@ -74,7 +74,7 @@ it.layer(NodeServices.layer)("dev-runner", (it) => {
           baseEnv: {},
           serverOffset: 0,
           webOffset: 0,
-          okcodeHome: "/tmp/custom-t3",
+          okcodeHome: "/tmp/custom-okcode",
           authToken: "secret",
           noBrowser: true,
           autoBootstrapProjectFromCwd: false,
@@ -84,7 +84,7 @@ it.layer(NodeServices.layer)("dev-runner", (it) => {
           devUrl: new URL("http://localhost:7331"),
         });
 
-        assert.equal(env.OKCODE_HOME, resolve("/tmp/custom-t3"));
+        assert.equal(env.OKCODE_HOME, resolve("/tmp/custom-okcode"));
         assert.equal(env.OKCODE_PORT, "4222");
         assert.equal(env.VITE_WS_URL, "ws://localhost:4222");
         assert.equal(env.OKCODE_NO_BROWSER, "1");

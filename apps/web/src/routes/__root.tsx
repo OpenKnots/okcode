@@ -24,6 +24,7 @@ import { onServerConfigUpdated, onServerWelcome } from "../wsNativeApi";
 import { providerQueryKeys } from "../lib/providerReactQuery";
 import { projectQueryKeys } from "../lib/projectReactQuery";
 import { collectActiveTerminalThreadIds } from "../lib/terminalStateCleanup";
+import { OnboardingDialog } from "../components/onboarding/OnboardingDialog";
 
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient;
@@ -54,6 +55,7 @@ function RootRouteView() {
         <EventRouter />
         <DesktopProjectBootstrap />
         <Outlet />
+        <OnboardingDialog />
       </AnchoredToastProvider>
     </ToastProvider>
   );

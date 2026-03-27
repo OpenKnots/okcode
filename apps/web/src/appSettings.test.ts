@@ -255,7 +255,7 @@ describe("AppSettingsSchema", () => {
       claudeBinaryPath: "",
       codexBinaryPath: "/usr/local/bin/codex",
       codexHomePath: "",
-      defaultThreadEnvMode: "local",
+      defaultThreadEnvMode: "worktree",
       confirmThreadDelete: false,
       enableAssistantStreaming: false,
       sidebarProjectSortOrder: DEFAULT_SIDEBAR_PROJECT_SORT_ORDER,

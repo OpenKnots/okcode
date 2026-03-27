@@ -99,7 +99,7 @@ export function useHandleNewThread() {
           createdAt,
           branch: options?.branch ?? null,
           worktreePath: options?.worktreePath ?? null,
-          envMode: options?.envMode ?? "local",
+          envMode: options?.envMode ?? "worktree",
           runtimeMode: DEFAULT_RUNTIME_MODE,
         });
         if (stickyModel) {

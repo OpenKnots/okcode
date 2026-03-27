@@ -4,14 +4,59 @@ A minimal web GUI for coding agents. Currently supports Codex and Claude, with m
 
 ## Quick Start
 
-> [!WARNING]
-> You need [Codex CLI](https://github.com/openai/codex) installed and authorized for OK Code to work.
-
 ```bash
 npx okcode
 ```
 
+This starts the OK Code server and opens your browser. The app automatically detects which providers you have installed.
+
 Or install the [desktop app from the Releases page](https://github.com/OpenKnots/okcode/releases).
+
+### Provider Setup
+
+OK Code supports multiple AI providers. You need **at least one** configured to start coding.
+
+<details>
+<summary><strong>Option A: OpenAI (Codex CLI)</strong></summary>
+
+1. Install: `npm install -g @openai/codex`
+2. Authenticate: `codex login`
+3. Verify: `codex login status`
+
+If using a custom model provider (Azure OpenAI, Portkey, etc.), configure `model_provider` in `~/.codex/config.toml` instead — no `codex login` needed.
+
+</details>
+
+<details>
+<summary><strong>Option B: Anthropic (Claude Code)</strong></summary>
+
+1. Install: `npm install -g @anthropic-ai/claude-code`
+2. Authenticate: `claude auth login`
+3. Verify: `claude auth status`
+
+</details>
+
+> [!TIP]
+> You can install both providers and switch between them per session.
+
+### Troubleshooting
+
+Run the built-in diagnostic to check your setup:
+
+```bash
+npx okcode doctor
+```
+
+If OK Code shows a provider error banner after launch:
+
+| Banner message                 | Fix                                               |
+| ------------------------------ | ------------------------------------------------- |
+| "not installed or not on PATH" | Install the CLI (see above), then restart OK Code |
+| "not authenticated"            | Run the login command for that provider           |
+| "version check failed"         | Update the CLI to the latest version              |
+
+> [!NOTE]
+> OK Code launches even without providers configured — you can explore the UI and configure provider binary paths from **Settings** before starting a session.
 
 ## Development Setup
 

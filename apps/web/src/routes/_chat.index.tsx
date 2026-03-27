@@ -1,9 +1,16 @@
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { isElectron } from "../env";
+import { ProviderSetupCard } from "../components/chat/ProviderSetupCard";
 import { SidebarTrigger } from "../components/ui/sidebar";
+import { serverConfigQueryOptions } from "../lib/serverReactQuery";
 
 function ChatIndexRouteView() {
+  const serverConfigQuery = useQuery(serverConfigQueryOptions());
+  const providers = serverConfigQuery.data?.providers ?? [];
+  const hasReadyProvider = providers.some((p) => p.status === "ready");
+
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-background text-muted-foreground/40">
       {!isElectron && (
@@ -21,10 +28,14 @@ function ChatIndexRouteView() {
         </div>
       )}
 
-      <div className="flex flex-1 items-center justify-center">
-        <div className="text-center">
-          <p className="text-sm">Select a thread or create a new one to get started.</p>
-        </div>
+      <div className="flex flex-1 items-center justify-center p-6">
+        {!hasReadyProvider && providers.length > 0 ? (
+          <ProviderSetupCard providers={providers} />
+        ) : (
+          <div className="text-center">
+            <p className="text-sm">Select a thread or create a new one to get started.</p>
+          </div>
+        )}
       </div>
     </div>
   );

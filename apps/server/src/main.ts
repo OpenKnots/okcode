@@ -27,6 +27,7 @@ import { Server } from "./wsServer";
 import { ServerLoggerLive } from "./serverLogger";
 import { AnalyticsServiceLayerLive } from "./telemetry/Layers/AnalyticsService";
 import { AnalyticsService } from "./telemetry/Services/AnalyticsService";
+import { doctorCmd } from "./doctor";
 
 export class StartupError extends Data.TaggedError("StartupError")<{
   readonly message: string;
@@ -329,7 +330,7 @@ const logWebSocketEventsFlag = Flag.boolean("log-websocket-events").pipe(
   Flag.optional,
 );
 
-export const okcodeCli = Command.make("okcode", {
+const serveCmd = Command.make("okcode", {
   mode: modeFlag,
   port: portFlag,
   host: hostFlag,
@@ -342,4 +343,7 @@ export const okcodeCli = Command.make("okcode", {
 }).pipe(
   Command.withDescription("Run the OK Code server."),
   Command.withHandler((input) => Effect.scoped(makeServerProgram(input))),
+  Command.withSubcommands([doctorCmd]),
 );
+
+export { serveCmd as okcodeCli };

@@ -96,9 +96,11 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   CircleAlertIcon,
+  ImagePlusIcon,
   ListTodoIcon,
   LockIcon,
   LockOpenIcon,
+  PaperclipIcon,
   XIcon,
 } from "lucide-react";
 import { Button } from "./ui/button";
@@ -414,6 +416,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
   const attachmentPreviewHandoffTimeoutByMessageIdRef = useRef<Record<string, number>>({});
   const sendInFlightRef = useRef(false);
   const dragDepthRef = useRef(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const terminalOpenByThreadRef = useRef<Record<string, boolean>>({});
   const setMessagesScrollContainerRef = useCallback((element: HTMLDivElement | null) => {
     messagesScrollRef.current = element;
@@ -2339,6 +2342,19 @@ export default function ChatView({ threadId }: ChatViewProps) {
     focusComposer();
   };
 
+  const onFileInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    if (files.length > 0) {
+      addComposerImages(files);
+    }
+    // Reset so the same file can be selected again
+    event.target.value = "";
+  };
+
+  const openFilePicker = () => {
+    fileInputRef.current?.click();
+  };
+
   const onRevertToTurnCount = useCallback(
     async (turnCount: number) => {
       const api = readNativeApi();
@@ -3776,9 +3792,18 @@ export default function ChatView({ threadId }: ChatViewProps) {
                 className="mx-auto w-full min-w-0 max-w-3xl"
                 data-chat-composer-form="true"
               >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={onFileInputChange}
+                  tabIndex={-1}
+                />
                 <div
                   className={cn(
-                    "group rounded-[22px] p-px transition-colors duration-200",
+                    "group relative rounded-[22px] p-px transition-colors duration-200",
                     composerProviderState.composerFrameClassName,
                   )}
                   onDragEnter={onComposerDragEnter}
@@ -3786,6 +3811,14 @@ export default function ChatView({ threadId }: ChatViewProps) {
                   onDragLeave={onComposerDragLeave}
                   onDrop={onComposerDrop}
                 >
+                  {isDragOverComposer && (
+                    <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-[22px] border-2 border-dashed border-primary/60 bg-primary/5">
+                      <div className="flex items-center gap-2 rounded-lg bg-background/90 px-4 py-2 text-sm font-medium text-primary shadow-sm">
+                        <ImagePlusIcon className="size-4" />
+                        Drop images to attach
+                      </div>
+                    </div>
+                  )}
                   <div
                     className={cn(
                       "rounded-[20px] border bg-card transition-colors duration-200 focus-within:border-ring/45",
@@ -4100,6 +4133,19 @@ export default function ChatView({ threadId }: ChatViewProps) {
                           data-chat-composer-actions="right"
                           className="flex shrink-0 items-center gap-2"
                         >
+                          {pendingUserInputs.length === 0 && (
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              type="button"
+                              className="text-muted-foreground/70 hover:text-foreground/80"
+                              onClick={openFilePicker}
+                              title="Attach images"
+                              aria-label="Attach images"
+                            >
+                              <PaperclipIcon className="size-4" />
+                            </Button>
+                          )}
                           {activeContextWindow ? (
                             <ContextWindowMeter usage={activeContextWindow} />
                           ) : null}

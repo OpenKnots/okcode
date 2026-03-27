@@ -150,6 +150,8 @@ const GitStatusPr = Schema.Struct({
 export const GitStatusResult = Schema.Struct({
   branch: TrimmedNonEmptyStringSchema.pipe(Schema.NullOr),
   hasWorkingTreeChanges: Schema.Boolean,
+  hasConflicts: Schema.Boolean,
+  conflictedFiles: Schema.Array(TrimmedNonEmptyStringSchema),
   workingTree: Schema.Struct({
     files: Schema.Array(
       Schema.Struct({

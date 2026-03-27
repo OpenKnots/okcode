@@ -111,6 +111,13 @@ function parsePorcelainPath(line: string): string | null {
   return filePath.length > 0 ? filePath : null;
 }
 
+function parsePorcelainConflictPath(line: string): string | null {
+  if (!line.startsWith("u ")) {
+    return null;
+  }
+  return parsePorcelainPath(line);
+}
+
 function parseBranchLine(line: string): { name: string; current: boolean } | null {
   const trimmed = line.trim();
   if (trimmed.length === 0) return null;
@@ -1050,6 +1057,7 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
         let behindCount = 0;
         let hasWorkingTreeChanges = false;
         const changedFilesWithoutNumstat = new Set<string>();
+        const conflictedFiles = new Set<string>();
 
         for (const line of statusStdout.split(/\r?\n/g)) {
           if (line.startsWith("# branch.head ")) {
@@ -1073,6 +1081,8 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
             hasWorkingTreeChanges = true;
             const pathValue = parsePorcelainPath(line);
             if (pathValue) changedFilesWithoutNumstat.add(pathValue);
+            const conflictPath = parsePorcelainConflictPath(line);
+            if (conflictPath) conflictedFiles.add(conflictPath);
           }
         }
 
@@ -1113,6 +1123,8 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
           branch,
           upstreamRef,
           hasWorkingTreeChanges,
+          hasConflicts: conflictedFiles.size > 0,
+          conflictedFiles: Array.from(conflictedFiles).sort((a, b) => a.localeCompare(b)),
           workingTree: {
             files,
             insertions,
@@ -1129,6 +1141,8 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
         Effect.map((details) => ({
           branch: details.branch,
           hasWorkingTreeChanges: details.hasWorkingTreeChanges,
+          hasConflicts: details.hasConflicts,
+          conflictedFiles: details.conflictedFiles,
           workingTree: details.workingTree,
           hasUpstream: details.hasUpstream,
           aheadCount: details.aheadCount,

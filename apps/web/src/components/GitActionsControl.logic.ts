@@ -20,7 +20,7 @@ export interface GitActionMenuItem {
 export interface GitQuickAction {
   label: string;
   disabled: boolean;
-  kind: "run_action" | "run_pull" | "open_pr" | "show_hint";
+  kind: "run_action" | "run_pull" | "open_pr" | "show_hint" | "resolve_conflicts";
   action?: GitStackedAction;
   hint?: string;
 }
@@ -119,14 +119,16 @@ export function buildMenuItems(
 
   const hasBranch = gitStatus.branch !== null;
   const hasChanges = gitStatus.hasWorkingTreeChanges;
+  const hasConflicts = gitStatus.hasConflicts;
   const hasOpenPr = gitStatus.pr?.state === "open";
   const isBehind = gitStatus.behindCount > 0;
   const canPushWithoutUpstream = hasOriginRemote && !gitStatus.hasUpstream;
-  const canCommit = !isBusy && hasChanges;
+  const canCommit = !isBusy && hasChanges && !hasConflicts;
   const canPush =
     !isBusy &&
     hasBranch &&
     !hasChanges &&
+    !hasConflicts &&
     !isBehind &&
     gitStatus.aheadCount > 0 &&
     (gitStatus.hasUpstream || canPushWithoutUpstream);
@@ -134,6 +136,7 @@ export function buildMenuItems(
     !isBusy &&
     hasBranch &&
     !hasChanges &&
+    !hasConflicts &&
     !hasOpenPr &&
     gitStatus.aheadCount > 0 &&
     !isBehind &&
@@ -201,6 +204,7 @@ export function resolveQuickAction(
   const isAhead = gitStatus.aheadCount > 0;
   const isBehind = gitStatus.behindCount > 0;
   const isDiverged = isAhead && isBehind;
+  const hasConflicts = gitStatus.hasConflicts;
 
   if (!hasBranch) {
     return {
@@ -208,6 +212,18 @@ export function resolveQuickAction(
       disabled: true,
       kind: "show_hint",
       hint: "Create and checkout a branch before pushing or opening a PR.",
+    };
+  }
+
+  if (hasConflicts) {
+    return {
+      label: "Resolve conflicts",
+      disabled: false,
+      kind: "resolve_conflicts",
+      hint:
+        gitStatus.conflictedFiles.length > 0
+          ? `Open ${gitStatus.conflictedFiles.length === 1 ? "the conflicted file" : `${gitStatus.conflictedFiles.length} conflicted files`} in your editor.`
+          : "Resolve merge conflicts before committing, pulling, or pushing.",
     };
   }
 

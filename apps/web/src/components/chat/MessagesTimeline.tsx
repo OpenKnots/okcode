@@ -22,6 +22,7 @@ import ChatMarkdown from "../ChatMarkdown";
 import {
   BotIcon,
   CheckIcon,
+  ChevronRightIcon,
   CircleAlertIcon,
   EyeIcon,
   GlobeIcon,
@@ -303,6 +304,16 @@ export const MessagesTimeline = memo(function MessagesTimeline({
     }));
   }, []);
 
+  const [collapsedFileSectionsByTurnId, setCollapsedFileSectionsByTurnId] = useState<
+    Record<string, boolean>
+  >({});
+  const onToggleFileSection = useCallback((turnId: TurnId) => {
+    setCollapsedFileSectionsByTurnId((current) => ({
+      ...current,
+      [turnId]: !(current[turnId] ?? false),
+    }));
+  }, []);
+
   const renderRowContent = (row: TimelineRow) => (
     <div
       className="pb-4"
@@ -463,10 +474,23 @@ export const MessagesTimeline = memo(function MessagesTimeline({
                   const changedFileCountLabel = String(checkpointFiles.length);
                   const allDirectoriesExpanded =
                     allDirectoriesExpandedByTurnId[turnSummary.turnId] ?? true;
+                  const isFileSectionCollapsed =
+                    collapsedFileSectionsByTurnId[turnSummary.turnId] ?? false;
                   return (
                     <div className="mt-2 rounded-lg border border-border/80 bg-card/45 p-2.5">
-                      <div className="mb-1.5 flex items-center justify-between gap-2">
-                        <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground/65">
+                      <div className="flex items-center justify-between gap-2">
+                        <button
+                          type="button"
+                          className="group flex items-center gap-1.5 text-[10px] uppercase tracking-[0.12em] text-muted-foreground/65 hover:text-muted-foreground/90 transition-colors duration-150"
+                          onClick={() => onToggleFileSection(turnSummary.turnId)}
+                        >
+                          <ChevronRightIcon
+                            aria-hidden="true"
+                            className={cn(
+                              "size-3 shrink-0 transition-transform duration-150",
+                              !isFileSectionCollapsed && "rotate-90",
+                            )}
+                          />
                           <span>Changed files ({changedFileCountLabel})</span>
                           {hasNonZeroStat(summaryStat) && (
                             <>
@@ -477,16 +501,18 @@ export const MessagesTimeline = memo(function MessagesTimeline({
                               />
                             </>
                           )}
-                        </p>
+                        </button>
                         <div className="flex items-center gap-1.5">
-                          <Button
-                            type="button"
-                            size="xs"
-                            variant="outline"
-                            onClick={() => onToggleAllDirectories(turnSummary.turnId)}
-                          >
-                            {allDirectoriesExpanded ? "Collapse all" : "Expand all"}
-                          </Button>
+                          {!isFileSectionCollapsed && (
+                            <Button
+                              type="button"
+                              size="xs"
+                              variant="outline"
+                              onClick={() => onToggleAllDirectories(turnSummary.turnId)}
+                            >
+                              {allDirectoriesExpanded ? "Collapse all" : "Expand all"}
+                            </Button>
+                          )}
                           <Button
                             type="button"
                             size="xs"
@@ -499,14 +525,18 @@ export const MessagesTimeline = memo(function MessagesTimeline({
                           </Button>
                         </div>
                       </div>
-                      <ChangedFilesTree
-                        key={`changed-files-tree:${turnSummary.turnId}`}
-                        turnId={turnSummary.turnId}
-                        files={checkpointFiles}
-                        allDirectoriesExpanded={allDirectoriesExpanded}
-                        resolvedTheme={resolvedTheme}
-                        onOpenTurnDiff={onOpenTurnDiff}
-                      />
+                      {!isFileSectionCollapsed && (
+                        <div className="mt-1.5">
+                          <ChangedFilesTree
+                            key={`changed-files-tree:${turnSummary.turnId}`}
+                            turnId={turnSummary.turnId}
+                            files={checkpointFiles}
+                            allDirectoriesExpanded={allDirectoriesExpanded}
+                            resolvedTheme={resolvedTheme}
+                            onOpenTurnDiff={onOpenTurnDiff}
+                          />
+                        </div>
+                      )}
                     </div>
                   );
                 })()}

@@ -38,7 +38,7 @@
     }
   },
   "scripts": {
-    "prepare": "effect-language-service patch",
+    "prepare": "node -e \"process.exit(process.env.CI ? 0 : 1)\" || effect-language-service patch",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },

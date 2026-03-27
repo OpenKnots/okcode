@@ -76,6 +76,7 @@ export const WS_METHODS = {
   // Server meta
   serverGetConfig: "server.getConfig",
   serverUpsertKeybinding: "server.upsertKeybinding",
+  serverPickFolder: "server.pickFolder",
 } as const;
 
 // ── Push Event Channels ──────────────────────────────────────────────
@@ -141,6 +142,7 @@ const WebSocketRequestBody = Schema.Union([
   // Server meta
   tagRequestBody(WS_METHODS.serverGetConfig, Schema.Struct({})),
   tagRequestBody(WS_METHODS.serverUpsertKeybinding, KeybindingRule),
+  tagRequestBody(WS_METHODS.serverPickFolder, Schema.Struct({})),
 ]);
 
 export const WebSocketRequest = Schema.Struct({

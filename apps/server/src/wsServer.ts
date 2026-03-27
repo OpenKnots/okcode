@@ -45,7 +45,18 @@ import {
 } from "effect";
 import { WebSocketServer, type WebSocket } from "ws";
 
+function isLocalWebSocketClient(ws: WebSocket): boolean {
+  const raw = ws as WebSocket & {
+    socket?: { remoteAddress?: string | undefined };
+    _socket?: { remoteAddress?: string | undefined };
+  };
+  const addr = raw.socket?.remoteAddress ?? raw._socket?.remoteAddress;
+  if (!addr) return false;
+  return addr === "127.0.0.1" || addr === "::1" || addr === "::ffff:127.0.0.1";
+}
+
 import { createLogger } from "./logger";
+import { pickFolderNative } from "./nativeFolderPicker.ts";
 import { GitManager } from "./git/Services/GitManager.ts";
 import { TerminalManager } from "./terminal/Services/Manager.ts";
 import { Keybindings } from "./keybindings";
@@ -887,6 +898,14 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
         const body = stripRequestTag(request.body);
         const keybindingsConfig = yield* keybindingsManager.upsertKeybindingRule(body);
         return { keybindings: keybindingsConfig, issues: [] };
+      }
+
+      case WS_METHODS.serverPickFolder: {
+        if (!isLocalWebSocketClient(ws)) {
+          return { path: null };
+        }
+        const pickedPath = yield* Effect.sync(() => pickFolderNative());
+        return { path: pickedPath };
       }
 
       default: {

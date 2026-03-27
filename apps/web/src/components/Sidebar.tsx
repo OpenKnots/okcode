@@ -389,6 +389,7 @@ export default function Sidebar() {
   const [isPickingFolder, setIsPickingFolder] = useState(false);
   const [isAddingProject, setIsAddingProject] = useState(false);
   const [addProjectError, setAddProjectError] = useState<string | null>(null);
+  const [manualProjectPathEntry, setManualProjectPathEntry] = useState(false);
   const addProjectInputRef = useRef<HTMLInputElement | null>(null);
   const [renamingThreadId, setRenamingThreadId] = useState<ThreadId | null>(null);
   const [renamingTitle, setRenamingTitle] = useState("");
@@ -594,6 +595,7 @@ export default function Sidebar() {
       void handlePickFolder();
       return;
     }
+    setManualProjectPathEntry(false);
     setAddingProject((prev) => !prev);
   };
 
@@ -1707,15 +1709,25 @@ export default function Sidebar() {
 
           {shouldShowProjectPathEntry && (
             <div className="mb-2 px-1">
-              {isElectron && (
+              <button
+                type="button"
+                className="mb-1.5 flex w-full items-center justify-center gap-2 rounded-md border border-border bg-secondary py-1.5 text-xs text-foreground/80 transition-colors duration-150 hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={() => void handlePickFolder()}
+                disabled={isPickingFolder || isAddingProject}
+              >
+                <FolderIcon className="size-3.5" />
+                {isPickingFolder ? "Picking folder..." : "Browse for folder"}
+              </button>
+              {!manualProjectPathEntry && (
                 <button
                   type="button"
-                  className="mb-1.5 flex w-full items-center justify-center gap-2 rounded-md border border-border bg-secondary py-1.5 text-xs text-foreground/80 transition-colors duration-150 hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-                  onClick={() => void handlePickFolder()}
-                  disabled={isPickingFolder || isAddingProject}
+                  className="mb-1.5 w-full text-left text-[11px] text-muted-foreground/70 transition-colors hover:text-muted-foreground"
+                  onClick={() => {
+                    setManualProjectPathEntry(true);
+                    queueMicrotask(() => addProjectInputRef.current?.focus());
+                  }}
                 >
-                  <FolderIcon className="size-3.5" />
-                  {isPickingFolder ? "Picking folder..." : "Browse for folder"}
+                  Type path instead
                 </button>
               )}
               <div className="flex gap-1.5">
@@ -1725,21 +1737,30 @@ export default function Sidebar() {
                     addProjectError
                       ? "border-red-500/70 focus:border-red-500"
                       : "border-border focus:border-ring"
-                  }`}
-                  placeholder="/path/to/project"
+                  } ${!manualProjectPathEntry ? "cursor-pointer" : ""}`}
+                  readOnly={!manualProjectPathEntry}
+                  placeholder={
+                    manualProjectPathEntry ? "/path/to/project" : "Click to choose folder"
+                  }
                   value={newCwd}
                   onChange={(event) => {
                     setNewCwd(event.target.value);
                     setAddProjectError(null);
+                  }}
+                  onClick={() => {
+                    if (!manualProjectPathEntry) {
+                      void handlePickFolder();
+                    }
                   }}
                   onKeyDown={(event) => {
                     if (event.key === "Enter") handleAddProject();
                     if (event.key === "Escape") {
                       setAddingProject(false);
                       setAddProjectError(null);
+                      setManualProjectPathEntry(false);
                     }
                   }}
-                  autoFocus
+                  autoFocus={manualProjectPathEntry}
                 />
                 <button
                   type="button"
@@ -1762,6 +1783,7 @@ export default function Sidebar() {
                   onClick={() => {
                     setAddingProject(false);
                     setAddProjectError(null);
+                    setManualProjectPathEntry(false);
                   }}
                 >
                   Cancel

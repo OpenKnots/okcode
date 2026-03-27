@@ -103,8 +103,15 @@ export function createWsNativeApi(): NativeApi {
   const api: NativeApi = {
     dialogs: {
       pickFolder: async () => {
-        if (!window.desktopBridge) return null;
-        return window.desktopBridge.pickFolder();
+        if (window.desktopBridge) {
+          return window.desktopBridge.pickFolder();
+        }
+        const result = await transport.request<{ path: string | null }>(
+          WS_METHODS.serverPickFolder,
+          undefined,
+          { timeoutMs: null },
+        );
+        return result?.path ?? null;
       },
       confirm: async (message) => {
         if (window.desktopBridge) {

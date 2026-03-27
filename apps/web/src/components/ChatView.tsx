@@ -518,6 +518,9 @@ export default function ChatView({ threadId }: ChatViewProps) {
   );
   const latestTurnSettled = isLatestTurnSettled(activeLatestTurn, activeThread?.session ?? null);
   const activeProject = projects.find((p) => p.id === activeThread?.projectId);
+  const previewPanelKey = activeThread
+    ? `${activeThread.id}:${activeProject?.id ?? "no-project"}:${previewDock}`
+    : null;
 
   const openPullRequestDialog = useCallback(
     (reference?: string) => {
@@ -3702,6 +3705,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
                 }
               >
                 <PreviewPanel
+                  key={previewPanelKey ?? undefined}
                   threadId={activeThread.id}
                   projectId={activeProject.id}
                   projectName={activeProject.name}
@@ -4364,6 +4368,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
                 }
               >
                 <PreviewPanel
+                  key={previewPanelKey ?? undefined}
                   threadId={activeThread.id}
                   projectId={activeProject.id}
                   projectName={activeProject.name}

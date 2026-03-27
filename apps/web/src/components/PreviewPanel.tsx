@@ -92,8 +92,10 @@ export function PreviewPanel({ threadId, projectId, projectName, onClose }: Prev
       return;
     }
 
-    void previewBridge.open({ url: storedUrl, title: `${projectName} preview` });
-  }, [previewBridge, projectName, storedUrl]);
+    void previewBridge.close().finally(() => {
+      void previewBridge.open({ url: storedUrl, title: `${projectName} preview` });
+    });
+  }, [previewBridge, projectName, storedUrl, threadId]);
 
   useEffect(() => {
     return () => {
@@ -107,12 +109,18 @@ export function PreviewPanel({ threadId, projectId, projectName, onClose }: Prev
     }
 
     let frameId = 0;
+    let destroyed = false;
     let lastBoundsKey = "";
+    let resizeObserver: ResizeObserver | null = null;
 
     const syncBounds = () => {
+      frameId = 0;
+      if (destroyed) {
+        return;
+      }
+
       const element = surfaceRef.current;
       if (!element) {
-        frameId = window.requestAnimationFrame(syncBounds);
         return;
       }
 
@@ -129,13 +137,43 @@ export function PreviewPanel({ threadId, projectId, projectName, onClose }: Prev
         lastBoundsKey = nextKey;
         void previewBridge.setBounds(nextBounds);
       }
+    };
 
+    const scheduleSync = () => {
+      if (destroyed || frameId !== 0) {
+        return;
+      }
       frameId = window.requestAnimationFrame(syncBounds);
     };
 
-    frameId = window.requestAnimationFrame(syncBounds);
+    const element = surfaceRef.current;
+    if (typeof ResizeObserver !== "undefined" && element) {
+      resizeObserver = new ResizeObserver(() => {
+        scheduleSync();
+      });
+      resizeObserver.observe(element);
+    }
+
+    const visualViewport = window.visualViewport;
+    window.addEventListener("resize", scheduleSync);
+    window.addEventListener("scroll", scheduleSync, true);
+    visualViewport?.addEventListener("resize", scheduleSync);
+    visualViewport?.addEventListener("scroll", scheduleSync);
+
+    scheduleSync();
+    const settleTimeoutId = window.setTimeout(scheduleSync, 50);
+
     return () => {
-      window.cancelAnimationFrame(frameId);
+      destroyed = true;
+      window.clearTimeout(settleTimeoutId);
+      if (frameId !== 0) {
+        window.cancelAnimationFrame(frameId);
+      }
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", scheduleSync);
+      window.removeEventListener("scroll", scheduleSync, true);
+      visualViewport?.removeEventListener("resize", scheduleSync);
+      visualViewport?.removeEventListener("scroll", scheduleSync);
       void previewBridge.setBounds({
         x: 0,
         y: 0,
@@ -144,7 +182,7 @@ export function PreviewPanel({ threadId, projectId, projectName, onClose }: Prev
         visible: false,
       });
     };
-  }, [previewBridge, storedUrl]);
+  }, [previewBridge, storedUrl, threadId, projectId]);
 
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

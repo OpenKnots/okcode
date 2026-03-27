@@ -1,16 +1,16 @@
 export const BRAND_ASSET_PATHS = {
-  productionMacIconPng: "assets/prod/black-macos-1024.png",
-  productionLinuxIconPng: "assets/prod/black-universal-1024.png",
-  productionWindowsIconIco: "assets/prod/t3-black-windows.ico",
-  productionWebFaviconIco: "assets/prod/t3-black-web-favicon.ico",
-  productionWebFavicon16Png: "assets/prod/t3-black-web-favicon-16x16.png",
-  productionWebFavicon32Png: "assets/prod/t3-black-web-favicon-32x32.png",
-  productionWebAppleTouchIconPng: "assets/prod/t3-black-web-apple-touch-180.png",
-  developmentWindowsIconIco: "assets/dev/blueprint-windows.ico",
-  developmentWebFaviconIco: "assets/dev/blueprint-web-favicon.ico",
-  developmentWebFavicon16Png: "assets/dev/blueprint-web-favicon-16x16.png",
-  developmentWebFavicon32Png: "assets/dev/blueprint-web-favicon-32x32.png",
-  developmentWebAppleTouchIconPng: "assets/dev/blueprint-web-apple-touch-180.png",
+  productionMacIconPng: "assets/prod/okcode-macos-1024.png",
+  productionLinuxIconPng: "assets/prod/okcode-linux-1024.png",
+  productionWindowsIconIco: "assets/prod/okcode-windows.ico",
+  productionWebFaviconIco: "assets/prod/okcode-web-favicon.ico",
+  productionWebFavicon16Png: "assets/prod/okcode-web-favicon-16x16.png",
+  productionWebFavicon32Png: "assets/prod/okcode-web-favicon-32x32.png",
+  productionWebAppleTouchIconPng: "assets/prod/okcode-web-apple-touch-180.png",
+  developmentWindowsIconIco: "assets/dev/okcode-dev-windows.ico",
+  developmentWebFaviconIco: "assets/dev/okcode-dev-web-favicon.ico",
+  developmentWebFavicon16Png: "assets/dev/okcode-dev-web-favicon-16x16.png",
+  developmentWebFavicon32Png: "assets/dev/okcode-dev-web-favicon-32x32.png",
+  developmentWebAppleTouchIconPng: "assets/dev/okcode-dev-web-apple-touch-180.png",
 } as const;
 
 export interface IconOverride {

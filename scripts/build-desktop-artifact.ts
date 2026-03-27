@@ -349,6 +349,42 @@ function stageLinuxIcons(stageResourcesDir: string) {
   });
 }
 
+function icoContains256Frame(bytes: Uint8Array): boolean {
+  if (bytes.byteLength < 6) {
+    return false;
+  }
+
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const reserved = view.getUint16(0, true);
+  const imageType = view.getUint16(2, true);
+  const imageCount = view.getUint16(4, true);
+
+  if (reserved !== 0 || imageType !== 1 || imageCount <= 0) {
+    return false;
+  }
+
+  const directoryEnd = 6 + imageCount * 16;
+  if (directoryEnd > bytes.byteLength) {
+    return false;
+  }
+
+  for (let index = 0; index < imageCount; index += 1) {
+    const entryOffset = 6 + index * 16;
+    const widthRaw = bytes[entryOffset];
+    const heightRaw = bytes[entryOffset + 1];
+    if (widthRaw === undefined || heightRaw === undefined) {
+      return false;
+    }
+    const width = widthRaw === 0 ? 256 : widthRaw;
+    const height = heightRaw === 0 ? 256 : heightRaw;
+    if (width >= 256 && height >= 256) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 function stageWindowsIcons(stageResourcesDir: string) {
   return Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -357,6 +393,16 @@ function stageWindowsIcons(stageResourcesDir: string) {
     if (!(yield* fs.exists(iconSource))) {
       return yield* new BuildScriptError({
         message: `Production Windows icon source is missing at ${iconSource}`,
+      });
+    }
+
+    const iconBytes = yield* fs.readFile(iconSource);
+    if (!icoContains256Frame(iconBytes)) {
+      return yield* new BuildScriptError({
+        message:
+          `Production Windows icon at ${iconSource} must include a 256x256 frame. ` +
+          `Regenerate ${BRAND_ASSET_PATHS.productionWindowsIconIco} with multi-size ICO entries ` +
+          `(for example 16,32,48,64,128,256) before packaging.`,
       });
     }
 

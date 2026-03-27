@@ -1,4 +1,4 @@
-import { memo, useState, useCallback } from "react";
+import { memo, useState, useCallback, useRef, useEffect } from "react";
 import { type TimestampFormat } from "../appSettings";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -27,6 +27,13 @@ import { Menu, MenuItem, MenuPopup, MenuTrigger } from "./ui/menu";
 import { readNativeApi } from "~/nativeApi";
 import { toastManager } from "./ui/toast";
 import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
+import { getLocalStorageItem, setLocalStorageItem } from "~/hooks/useLocalStorage";
+import { Schema } from "effect";
+
+const PLAN_SIDEBAR_WIDTH_STORAGE_KEY = "plan_sidebar_width";
+const PLAN_SIDEBAR_DEFAULT_WIDTH = 340;
+const PLAN_SIDEBAR_MIN_WIDTH = 260;
+const PLAN_SIDEBAR_MAX_WIDTH = 800;
 
 function stepStatusIcon(status: string): React.ReactNode {
   if (status === "completed") {
@@ -59,6 +66,101 @@ interface PlanSidebarProps {
   onClose: () => void;
 }
 
+function clampWidth(width: number): number {
+  return Math.max(PLAN_SIDEBAR_MIN_WIDTH, Math.min(width, PLAN_SIDEBAR_MAX_WIDTH));
+}
+
+function useResizablePlanSidebar() {
+  const [width, setWidth] = useState<number>(() => {
+    const stored = getLocalStorageItem(PLAN_SIDEBAR_WIDTH_STORAGE_KEY, Schema.Finite);
+    return stored !== null ? clampWidth(stored) : PLAN_SIDEBAR_DEFAULT_WIDTH;
+  });
+  const resizeRef = useRef<{
+    startX: number;
+    startWidth: number;
+    pointerId: number;
+    moved: boolean;
+  } | null>(null);
+  const railRef = useRef<HTMLButtonElement | null>(null);
+
+  const handlePointerDown = useCallback(
+    (event: React.PointerEvent<HTMLButtonElement>) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      resizeRef.current = {
+        startX: event.clientX,
+        startWidth: width,
+        pointerId: event.pointerId,
+        moved: false,
+      };
+      event.currentTarget.setPointerCapture(event.pointerId);
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+    },
+    [width],
+  );
+
+  const handlePointerMove = useCallback((event: React.PointerEvent<HTMLButtonElement>) => {
+    const state = resizeRef.current;
+    if (!state || state.pointerId !== event.pointerId) return;
+    event.preventDefault();
+    // Dragging left increases width (right-side sidebar)
+    const delta = state.startX - event.clientX;
+    if (Math.abs(delta) > 2) {
+      state.moved = true;
+    }
+    const newWidth = clampWidth(state.startWidth + delta);
+    setWidth(newWidth);
+  }, []);
+
+  const handlePointerUp = useCallback((event: React.PointerEvent<HTMLButtonElement>) => {
+    const state = resizeRef.current;
+    if (!state || state.pointerId !== event.pointerId) return;
+    event.preventDefault();
+    const delta = state.startX - event.clientX;
+    const finalWidth = clampWidth(state.startWidth + delta);
+    setLocalStorageItem(PLAN_SIDEBAR_WIDTH_STORAGE_KEY, finalWidth, Schema.Finite);
+    resizeRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    document.body.style.removeProperty("cursor");
+    document.body.style.removeProperty("user-select");
+  }, []);
+
+  const handlePointerCancel = useCallback((event: React.PointerEvent<HTMLButtonElement>) => {
+    const state = resizeRef.current;
+    if (!state || state.pointerId !== event.pointerId) return;
+    resizeRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    document.body.style.removeProperty("cursor");
+    document.body.style.removeProperty("user-select");
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      document.body.style.removeProperty("cursor");
+      document.body.style.removeProperty("user-select");
+    };
+  }, []);
+
+  return {
+    width,
+    railRef,
+    railProps: {
+      ref: railRef,
+      onPointerDown: handlePointerDown,
+      onPointerMove: handlePointerMove,
+      onPointerUp: handlePointerUp,
+      onPointerCancel: handlePointerCancel,
+    },
+  };
+}
+
 const PlanSidebar = memo(function PlanSidebar({
   activePlan,
   activeProposedPlan,
@@ -70,6 +172,7 @@ const PlanSidebar = memo(function PlanSidebar({
   const [proposedPlanExpanded, setProposedPlanExpanded] = useState(false);
   const [isSavingToWorkspace, setIsSavingToWorkspace] = useState(false);
   const { copyToClipboard, isCopied } = useCopyToClipboard();
+  const { width, railProps } = useResizablePlanSidebar();
 
   const planMarkdown = activeProposedPlan?.planMarkdown ?? null;
   const displayedPlanMarkdown = planMarkdown ? stripDisplayedPlanMarkdown(planMarkdown) : null;
@@ -118,7 +221,18 @@ const PlanSidebar = memo(function PlanSidebar({
   }, [planMarkdown, workspaceRoot]);
 
   return (
-    <div className="flex h-full w-[340px] shrink-0 flex-col border-l border-border/70 bg-card/50">
+    <div
+      className="relative flex h-full shrink-0 flex-col border-l border-border/70 bg-card/50"
+      style={{ width: `${width}px` }}
+    >
+      {/* Resize handle */}
+      <button
+        type="button"
+        aria-label="Resize plan sidebar"
+        title="Drag to resize"
+        className="absolute inset-y-0 left-0 z-20 w-1 -translate-x-1/2 cursor-col-resize touch-none select-none hover:bg-primary/20 active:bg-primary/30 transition-colors"
+        {...railProps}
+      />
       {/* Header */}
       <div className="flex h-12 shrink-0 items-center justify-between border-b border-border/60 px-3">
         <div className="flex items-center gap-2">

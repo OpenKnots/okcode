@@ -10,12 +10,49 @@ on:
         description: "Release version (for example 1.2.3 or v1.2.3)"
         required: true
         type: string
+      mac_arm64_only:
+        description: "Apple Silicon (M-series) Mac only — build and publish only the macOS arm64 DMG (skip Intel Mac, Linux, Windows). Ignored when releasing via tag push."
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
   id-token: write
 
 jobs:
+  configure:
+    name: Configure build matrix
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.set.outputs.matrix }}
+      mac_arm64_only: ${{ steps.set.outputs.mac_arm64_only }}
+    steps:
+      - id: set
+        name: Select desktop targets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mac_arm64_only="false"
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            input="${{ github.event.inputs.mac_arm64_only }}"
+            if [[ "$input" == "true" ]]; then
+              mac_arm64_only="true"
+            fi
+          fi
+          echo "mac_arm64_only=$mac_arm64_only" >> "$GITHUB_OUTPUT"
+
+          if [[ "$mac_arm64_only" == "true" ]]; then
+            matrix_json='[{"label":"macOS arm64","runner":"macos-14","platform":"mac","target":"dmg","arch":"arm64"}]'
+          else
+            matrix_json='[{"label":"macOS arm64","runner":"macos-14","platform":"mac","target":"dmg","arch":"arm64"},{"label":"macOS x64","runner":"macos-15-intel","platform":"mac","target":"dmg","arch":"x64"},{"label":"Linux x64","runner":"ubuntu-24.04","platform":"linux","target":"AppImage","arch":"x64"},{"label":"Windows x64","runner":"windows-2022","platform":"win","target":"nsis","arch":"x64"}]'
+          fi
+          {
+            echo "matrix<<MATRIX_JSON_EOF"
+            echo "$matrix_json"
+            echo "MATRIX_JSON_EOF"
+          } >> "$GITHUB_OUTPUT"
+
   preflight:
     name: Preflight
     runs-on: ubuntu-24.04
@@ -79,32 +116,12 @@ jobs:
 
   build:
     name: Build ${{ matrix.label }}
-    needs: preflight
+    needs: [preflight, configure]
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - label: macOS arm64
-            runner: macos-14
-            platform: mac
-            target: dmg
-            arch: arm64
-          - label: macOS x64
-            runner: macos-15-intel
-            platform: mac
-            target: dmg
-            arch: x64
-          - label: Linux x64
-            runner: ubuntu-24.04
-            platform: linux
-            target: AppImage
-            arch: x64
-          - label: Windows x64
-            runner: windows-2022
-            platform: win
-            target: nsis
-            arch: x64
+        include: ${{ fromJson(needs.configure.outputs.matrix) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -258,7 +275,7 @@ jobs:
 
   release:
     name: Publish GitHub Release
-    needs: [preflight, build, publish_cli]
+    needs: [preflight, build, publish_cli, configure]
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
@@ -280,10 +297,17 @@ jobs:
 
       - name: Merge macOS updater manifests
         run: |
-          node scripts/merge-mac-update-manifests.ts \
-            release-assets/latest-mac.yml \
-            release-assets/latest-mac-x64.yml
-          rm -f release-assets/latest-mac-x64.yml
+          set -euo pipefail
+          if [[ "${{ needs.configure.outputs.mac_arm64_only }}" == "true" ]]; then
+            echo "macOS arm64-only build: using latest-mac.yml from the arm64 builder as-is."
+          elif [[ -f release-assets/latest-mac-x64.yml ]]; then
+            node scripts/merge-mac-update-manifests.ts \
+              release-assets/latest-mac.yml \
+              release-assets/latest-mac-x64.yml
+            rm -f release-assets/latest-mac-x64.yml
+          else
+            echo "No latest-mac-x64.yml present; using latest-mac.yml as-is."
+          fi
 
       - name: Stage documentation for release assets
         env:
@@ -314,16 +338,7 @@ jobs:
           generate_release_notes: true
           prerelease: ${{ needs.preflight.outputs.is_prerelease }}
           make_latest: ${{ needs.preflight.outputs.make_latest }}
-          files: |
-            release-assets/*.dmg
-            release-assets/*.zip
-            release-assets/*.AppImage
-            release-assets/*.exe
-            release-assets/*.blockmap
-            release-assets/latest*.yml
-            release-assets/okcode-CHANGELOG.md
-            release-assets/okcode-RELEASE-NOTES.md
-            release-assets/okcode-ASSETS-MANIFEST.md
+          files: release-assets/*
           fail_on_unmatched_files: true
 
   finalize:

@@ -127,7 +127,22 @@ Checklist:
 6. Add Azure secrets listed above in GitHub Actions secrets.
 7. Re-run a tag release and confirm Windows installer is signed.
 
-## 4) Ongoing release checklist
+## 4) Apple Silicon (M-series) Mac–only release (manual dispatch)
+
+To ship **only** the macOS **arm64** DMG (M-series / Apple Silicon) and skip Intel Mac, Linux, and Windows builds:
+
+1. Open **Actions → Release Desktop → Run workflow**.
+2. Set **version** to the SemVer you are releasing (for example `0.0.2` or `v0.0.2`).
+3. Enable **mac_arm64_only** (workflow input).
+4. Run the workflow.
+
+Tag pushes always build the **full** matrix (all platforms); the M-series-only option applies only to **workflow_dispatch**.
+
+To build the same arm64 DMG locally on an Apple Silicon Mac:
+
+`bun run dist:desktop:dmg:arm64`
+
+## 5) Ongoing release checklist
 
 1. Ensure `main` is green in CI.
 2. Bump app version as needed (see `scripts/update-release-package-versions.ts` and [CHANGELOG.md](../CHANGELOG.md) / [docs/releases/](releases/README.md) for notes).
@@ -139,7 +154,7 @@ Checklist:
    - release job uploads expected files
 6. Smoke test downloaded artifacts.
 
-## 5) Troubleshooting
+## 6) Troubleshooting
 
 - macOS build unsigned when expected signed:
   - Check all Apple secrets are populated and non-empty.

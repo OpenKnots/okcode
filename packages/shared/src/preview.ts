@@ -1,9 +1,6 @@
 import type { DesktopPreviewBounds, DesktopPreviewError } from "@okcode/contracts";
 
-function makePreviewError(
-  code: DesktopPreviewError["code"],
-  message: string,
-): DesktopPreviewError {
+function makePreviewError(code: DesktopPreviewError["code"], message: string): DesktopPreviewError {
   return { code, message };
 }
 

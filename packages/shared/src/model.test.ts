@@ -64,9 +64,7 @@ describe("normalizeModelSlug", () => {
     expect(normalizeModelSlug("anthropic/claude-sonnet-4-6", "claudeAgent")).toBe(
       "claude-sonnet-4-6",
     );
-    expect(normalizeModelSlug("Anthropic/claude-opus-4-6", "claudeAgent")).toBe(
-      "claude-opus-4-6",
-    );
+    expect(normalizeModelSlug("Anthropic/claude-opus-4-6", "claudeAgent")).toBe("claude-opus-4-6");
   });
 });
 

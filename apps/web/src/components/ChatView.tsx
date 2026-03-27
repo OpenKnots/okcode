@@ -182,6 +182,7 @@ import {
   SendPhase,
 } from "./ChatView.logic";
 import { useLocalStorage } from "~/hooks/useLocalStorage";
+import { usePreviewStateStore } from "~/previewStateStore";
 
 const ATTACHMENT_PREVIEW_HANDOFF_TTL_MS = 5000;
 const IMAGE_SIZE_LIMIT_LABEL = `${Math.round(PROVIDER_SEND_TURN_MAX_IMAGE_BYTES / (1024 * 1024))}MB`;
@@ -253,6 +254,8 @@ export default function ChatView({ threadId }: ChatViewProps) {
   const setStickyComposerModel = useComposerDraftStore((store) => store.setStickyModel);
   const timestampFormat = settings.timestampFormat;
   const navigate = useNavigate();
+  const previewOpen = usePreviewStateStore((state) => state.openByThreadId[threadId] === true);
+  const togglePreviewOpen = usePreviewStateStore((state) => state.toggleThreadOpen);
   const rawSearch = useSearch({
     strict: false,
     select: (params) => parseDiffRouteSearch(params),
@@ -3501,6 +3504,8 @@ export default function ChatView({ threadId }: ChatViewProps) {
           terminalOpen={terminalState.terminalOpen}
           terminalToggleShortcutLabel={terminalToggleShortcutLabel}
           diffToggleShortcutLabel={diffPanelShortcutLabel}
+          previewAvailable={isElectron && activeProject !== undefined}
+          previewOpen={previewOpen}
           gitCwd={gitCwd}
           diffOpen={diffOpen}
           onRunProjectScript={(script) => {
@@ -3511,6 +3516,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
           onDeleteProjectScript={deleteProjectScript}
           onToggleTerminal={toggleTerminalVisibility}
           onToggleDiff={onToggleDiff}
+          onTogglePreview={() => togglePreviewOpen(activeThread.id)}
         />
       </header>
 

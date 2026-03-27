@@ -762,7 +762,9 @@ function getPreviewController(window: BrowserWindow): DesktopPreviewController {
 }
 
 function resolvePreviewWindow(sender: Electron.WebContents): BrowserWindow | null {
-  return BrowserWindow.fromWebContents(sender) ?? mainWindow ?? BrowserWindow.getFocusedWindow() ?? null;
+  return (
+    BrowserWindow.fromWebContents(sender) ?? mainWindow ?? BrowserWindow.getFocusedWindow() ?? null
+  );
 }
 
 function setUpdateState(patch: Partial<DesktopUpdateState>): void {

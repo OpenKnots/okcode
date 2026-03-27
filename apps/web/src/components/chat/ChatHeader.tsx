@@ -6,7 +6,7 @@ import {
 } from "@okcode/contracts";
 import { memo } from "react";
 import GitActionsControl from "../GitActionsControl";
-import { DiffIcon, TerminalSquareIcon } from "lucide-react";
+import { DiffIcon, MonitorIcon, TerminalSquareIcon } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import ProjectScriptsControl, { type NewProjectScriptInput } from "../ProjectScriptsControl";
@@ -28,6 +28,8 @@ interface ChatHeaderProps {
   terminalOpen: boolean;
   terminalToggleShortcutLabel: string | null;
   diffToggleShortcutLabel: string | null;
+  previewAvailable: boolean;
+  previewOpen: boolean;
   gitCwd: string | null;
   diffOpen: boolean;
   onRunProjectScript: (script: ProjectScript) => void;
@@ -36,6 +38,7 @@ interface ChatHeaderProps {
   onDeleteProjectScript: (scriptId: string) => Promise<void>;
   onToggleTerminal: () => void;
   onToggleDiff: () => void;
+  onTogglePreview: () => void;
 }
 
 export const ChatHeader = memo(function ChatHeader({
@@ -52,6 +55,8 @@ export const ChatHeader = memo(function ChatHeader({
   terminalOpen,
   terminalToggleShortcutLabel,
   diffToggleShortcutLabel,
+  previewAvailable,
+  previewOpen,
   gitCwd,
   diffOpen,
   onRunProjectScript,
@@ -60,6 +65,7 @@ export const ChatHeader = memo(function ChatHeader({
   onDeleteProjectScript,
   onToggleTerminal,
   onToggleDiff,
+  onTogglePreview,
 }: ChatHeaderProps) {
   return (
     <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -124,6 +130,30 @@ export const ChatHeader = memo(function ChatHeader({
               : terminalToggleShortcutLabel
                 ? `Toggle terminal drawer (${terminalToggleShortcutLabel})`
                 : "Toggle terminal drawer"}
+          </TooltipPopup>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Toggle
+                className="shrink-0"
+                pressed={previewOpen}
+                onPressedChange={onTogglePreview}
+                aria-label="Toggle preview panel"
+                variant="outline"
+                size="xs"
+                disabled={!previewAvailable}
+              >
+                <MonitorIcon className="size-3" />
+              </Toggle>
+            }
+          />
+          <TooltipPopup side="bottom">
+            {!previewAvailable
+              ? "Preview is available in the desktop app when this thread has an active project."
+              : previewOpen
+                ? "Hide preview panel"
+                : "Show preview panel"}
           </TooltipPopup>
         </Tooltip>
         <Tooltip>

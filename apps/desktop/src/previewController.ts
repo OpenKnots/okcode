@@ -1,9 +1,4 @@
-import {
-  type BrowserWindow,
-  type HandlerDetails,
-  shell,
-  WebContentsView,
-} from "electron";
+import { type BrowserWindow, type HandlerDetails, shell, WebContentsView } from "electron";
 import type {
   DesktopPreviewBounds,
   DesktopPreviewState,
@@ -66,7 +61,8 @@ export class DesktopPreviewController {
       return { accepted: false, state: this.state };
     }
 
-    const nextTitle = typeof input.title === "string" && input.title.trim().length > 0 ? input.title : null;
+    const nextTitle =
+      typeof input.title === "string" && input.title.trim().length > 0 ? input.title : null;
     const view = this.ensureView();
     this.setState({
       status: "loading",
@@ -90,10 +86,14 @@ export class DesktopPreviewController {
         return;
       }
       this.setState(
-        createPreviewErrorState("load-failed", error instanceof Error ? error.message : String(error), {
-          url: validatedUrl.url,
-          title: this.state.title,
-        }),
+        createPreviewErrorState(
+          "load-failed",
+          error instanceof Error ? error.message : String(error),
+          {
+            url: validatedUrl.url,
+            title: this.state.title,
+          },
+        ),
       );
     });
 

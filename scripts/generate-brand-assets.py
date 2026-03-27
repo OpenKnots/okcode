@@ -28,13 +28,11 @@ def resize(img: Image.Image, size: int) -> Image.Image:
 
 
 def save_ico(path: Path, source: Image.Image, sizes: tuple[int, ...]) -> None:
-    images = [resize(source, s) for s in sizes]
     path.parent.mkdir(parents=True, exist_ok=True)
-    images[0].save(
+    source.save(
         path,
         format="ICO",
         sizes=[(s, s) for s in sizes],
-        append_images=images[1:],
     )
 
 

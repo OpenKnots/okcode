@@ -27,9 +27,7 @@ export function SpotifyToggleButton() {
       )}
     >
       <Music2Icon className="size-3.5" />
-      <span className="truncate">
-        {isOpen && activePlaylist ? activePlaylist.name : "Spotify"}
-      </span>
+      <span className="truncate">{isOpen && activePlaylist ? activePlaylist.name : "Spotify"}</span>
       {isOpen && (
         <span className="ml-auto flex size-1.5 rounded-full bg-emerald-400 animate-pulse" />
       )}

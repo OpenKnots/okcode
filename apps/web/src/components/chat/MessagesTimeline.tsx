@@ -373,7 +373,14 @@ export const MessagesTimeline = memo(function MessagesTimeline({
           const isQueued = row.message.queued === true;
           return (
             <div className="flex justify-end">
-              <div className={cn("group relative max-w-[80%] rounded-2xl rounded-br-sm border px-4 py-3", isQueued ? "border-dashed border-border/60 bg-secondary/60" : "border-border bg-secondary")}>
+              <div
+                className={cn(
+                  "group relative max-w-[80%] rounded-2xl rounded-br-sm border px-4 py-3",
+                  isQueued
+                    ? "border-dashed border-border/60 bg-secondary/60"
+                    : "border-border bg-secondary",
+                )}
+              >
                 {userImages.length > 0 && (
                   <div className="mb-2 grid max-w-[420px] grid-cols-2 gap-2">
                     {userImages.map(

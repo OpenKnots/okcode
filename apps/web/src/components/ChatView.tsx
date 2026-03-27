@@ -2236,9 +2236,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
       });
     })()
       .catch((err: unknown) => {
-        setOptimisticUserMessages((existing) =>
-          existing.filter((msg) => msg.id !== nextQueued.id),
-        );
+        setOptimisticUserMessages((existing) => existing.filter((msg) => msg.id !== nextQueued.id));
         setThreadError(
           threadIdForSend,
           err instanceof Error ? err.message : "Failed to send queued message.",

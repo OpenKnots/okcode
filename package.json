@@ -49,10 +49,13 @@
     "release:smoke": "node scripts/release-smoke.ts",
     "clean": "rm -rf node_modules apps/*/node_modules packages/*/node_modules apps/*/dist apps/*/dist-electron packages/*/dist .turbo apps/*/.turbo packages/*/.turbo",
     "sync:vscode-icons": "node scripts/sync-vscode-icons.mjs",
-    "regenerate:brand-assets": "python3 scripts/generate-brand-assets.py"
+    "regenerate:brand-assets": "python3 scripts/generate-brand-assets.py",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
     "oxfmt": "^0.40.0",
     "oxlint": "^1.55.0",
     "turbo": "^2.3.3",
@@ -60,6 +63,14 @@
   },
   "overrides": {
     "vite": "^8.0.0"
+  },
+  "lint-staged": {
+    "*": [
+      "oxfmt"
+    ],
+    "*.{ts,tsx,js,jsx}": [
+      "oxlint --report-unused-disable-directives"
+    ]
   },
   "engines": {
     "bun": "^1.3.9",

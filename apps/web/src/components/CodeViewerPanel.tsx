@@ -6,16 +6,18 @@ import { useCodeViewerStore, type CodeViewerTab } from "~/codeViewerStore";
 import { useTheme } from "~/hooks/useTheme";
 import { projectReadFileQueryOptions } from "~/lib/projectReactQuery";
 import { cn } from "~/lib/utils";
-import { CodeMirrorViewer } from "./CodeMirrorViewer";
-import { type DiffPanelMode, DiffPanelShell, DiffPanelLoadingState } from "./DiffPanelShell";
-
-export type CodeViewerPanelMode = DiffPanelMode;
+import { CodeMirrorViewer, type CodeContextSelection } from "./CodeMirrorViewer";
+import { DiffPanelLoadingState } from "./DiffPanelShell";
+import { isElectron } from "~/env";
+import { Button } from "./ui/button";
+import { isMacPlatform } from "~/lib/utils";
 
 function CodeViewerTabStrip(props: {
   tabs: CodeViewerTab[];
   activeTabPath: string | null;
   onSelectTab: (relativePath: string) => void;
   onCloseTab: (relativePath: string) => void;
+  onCloseAll: () => void;
 }) {
   return (
     <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto [-webkit-app-region:no-drag]">
@@ -61,6 +63,7 @@ const CodeViewerFileContent = memo(function CodeViewerFileContent(props: {
   cwd: string;
   relativePath: string;
   resolvedTheme: "light" | "dark";
+  onAddContext: (ctx: CodeContextSelection) => void;
 }) {
   const query = useQuery(
     projectReadFileQueryOptions({
@@ -101,21 +104,20 @@ const CodeViewerFileContent = memo(function CodeViewerFileContent(props: {
         contents={query.data.contents}
         filePath={props.relativePath}
         resolvedTheme={props.resolvedTheme}
+        onAddContext={props.onAddContext}
       />
     </div>
   );
 });
 
-interface CodeViewerPanelProps {
-  mode?: CodeViewerPanelMode;
-}
-
-export default function CodeViewerPanel({ mode = "inline" }: CodeViewerPanelProps) {
+export default function CodeViewerPanel() {
   const { resolvedTheme } = useTheme();
   const tabs = useCodeViewerStore((state) => state.tabs);
   const activeTabPath = useCodeViewerStore((state) => state.activeTabPath);
   const setActiveTab = useCodeViewerStore((state) => state.setActiveTab);
   const closeTab = useCodeViewerStore((state) => state.closeTab);
+  const closeViewer = useCodeViewerStore((state) => state.close);
+  const setPendingContext = useCodeViewerStore((state) => state.setPendingContext);
 
   const activeTab = tabs.find((tab) => tab.relativePath === activeTabPath);
 
@@ -126,30 +128,68 @@ export default function CodeViewerPanel({ mode = "inline" }: CodeViewerPanelProp
 
   const onCloseTab = useCallback((relativePath: string) => closeTab(relativePath), [closeTab]);
 
-  const headerRow = (
-    <CodeViewerTabStrip
-      tabs={tabs}
-      activeTabPath={activeTabPath}
-      onSelectTab={onSelectTab}
-      onCloseTab={onCloseTab}
-    />
+  const onAddContext = useCallback(
+    (ctx: CodeContextSelection) => {
+      setPendingContext({
+        filePath: ctx.filePath,
+        fromLine: ctx.fromLine,
+        toLine: ctx.toLine,
+      });
+    },
+    [setPendingContext],
   );
 
+  const modKey = isMacPlatform(navigator.platform) ? "\u2318" : "Ctrl+";
+
   return (
-    <DiffPanelShell mode={mode} header={headerRow}>
-      {!activeTab ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-2 px-5 text-center text-muted-foreground/60">
-          <FileCodeIcon className="size-8 opacity-40" />
-          <p className="text-xs">Click a file in the sidebar to view it here.</p>
-        </div>
-      ) : (
-        <CodeViewerFileContent
-          key={activeTab.relativePath}
-          cwd={activeTab.cwd}
-          relativePath={activeTab.relativePath}
-          resolvedTheme={resolvedTheme}
+    <div className="flex h-full w-full flex-col bg-background">
+      {/* Header */}
+      <div
+        className={cn(
+          "flex items-center justify-between gap-2 border-b border-border px-4",
+          isElectron ? "drag-region h-[52px]" : "h-12",
+        )}
+      >
+        <CodeViewerTabStrip
+          tabs={tabs}
+          activeTabPath={activeTabPath}
+          onSelectTab={onSelectTab}
+          onCloseTab={onCloseTab}
+          onCloseAll={closeViewer}
         />
-      )}
-    </DiffPanelShell>
+        <div className="flex shrink-0 items-center gap-2 [-webkit-app-region:no-drag]">
+          <span className="hidden text-[10px] text-muted-foreground/50 sm:inline">
+            Select code + {modKey}L to add context
+          </span>
+          <Button
+            size="icon-xs"
+            variant="ghost"
+            onClick={closeViewer}
+            aria-label="Close code viewer"
+          >
+            <XIcon className="size-4" />
+          </Button>
+        </div>
+      </div>
+      {/* Content */}
+      <div className="flex min-h-0 flex-1 justify-center overflow-hidden">
+        <div className="h-full w-full max-w-5xl">
+          {!activeTab ? (
+            <div className="flex h-full flex-col items-center justify-center gap-2 px-5 text-center text-muted-foreground/60">
+              <FileCodeIcon className="size-8 opacity-40" />
+              <p className="text-xs">Click a file in the sidebar to view it here.</p>
+            </div>
+          ) : (
+            <CodeViewerFileContent
+              key={activeTab.relativePath}
+              cwd={activeTab.cwd}
+              relativePath={activeTab.relativePath}
+              resolvedTheme={resolvedTheme}
+              onAddContext={onAddContext}
+            />
+          )}
+        </div>
+      </div>
+    </div>
   );
 }

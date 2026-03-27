@@ -4,6 +4,7 @@ import {
   lineNumbers,
   highlightActiveLine,
   highlightSpecialChars,
+  keymap,
 } from "@codemirror/view";
 import {
   syntaxHighlighting,
@@ -12,9 +13,17 @@ import {
 } from "@codemirror/language";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { memo, useEffect, useRef } from "react";
+import { isMacPlatform } from "~/lib/utils";
+
+export interface CodeContextSelection {
+  filePath: string;
+  fromLine: number;
+  toLine: number;
+}
 
 const themeCompartment = new Compartment();
 const languageCompartment = new Compartment();
+const keymapCompartment = new Compartment();
 
 const baseExtensions: Extension[] = [
   lineNumbers(),
@@ -50,6 +59,9 @@ const baseExtensions: Extension[] = [
     ".cm-activeLineGutter": {
       backgroundColor: "transparent",
     },
+    ".cm-selectionBackground": {
+      backgroundColor: "color-mix(in srgb, var(--primary) 25%, transparent) !important",
+    },
   }),
 ];
 
@@ -77,18 +89,44 @@ async function loadLanguageExtension(filePath: string): Promise<Extension> {
   return support;
 }
 
+function buildAddContextKeymap(
+  filePath: string,
+  onAddContext: (ctx: CodeContextSelection) => void,
+): Extension {
+  return keymap.of([
+    {
+      key: isMacPlatform(navigator.platform) ? "Mod-l" : "Ctrl-l",
+      run: (view) => {
+        const { from, to } = view.state.selection.main;
+        if (from === to) return false; // No selection
+        const fromLine = view.state.doc.lineAt(from).number;
+        const toLine = view.state.doc.lineAt(to).number;
+        onAddContext({ filePath, fromLine, toLine });
+        return true;
+      },
+    },
+  ]);
+}
+
 export const CodeMirrorViewer = memo(function CodeMirrorViewer(props: {
   contents: string;
   filePath: string;
   resolvedTheme: "light" | "dark";
+  onAddContext?: (ctx: CodeContextSelection) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const filePathRef = useRef<string | null>(null);
+  const onAddContextRef = useRef(props.onAddContext);
+  onAddContextRef.current = props.onAddContext;
 
   // Create editor on mount
   useEffect(() => {
     if (!containerRef.current) return;
+
+    const addContextKeymap = buildAddContextKeymap(props.filePath, (ctx) => {
+      onAddContextRef.current?.(ctx);
+    });
 
     const state = EditorState.create({
       doc: props.contents,
@@ -96,6 +134,7 @@ export const CodeMirrorViewer = memo(function CodeMirrorViewer(props: {
         ...baseExtensions,
         themeCompartment.of(getThemeExtension(props.resolvedTheme)),
         languageCompartment.of([]),
+        keymapCompartment.of(addContextKeymap),
       ],
     });
 
@@ -147,7 +186,7 @@ export const CodeMirrorViewer = memo(function CodeMirrorViewer(props: {
     });
   }, [props.resolvedTheme]);
 
-  // Update language when file path changes
+  // Update language and keymap when file path changes
   useEffect(() => {
     if (filePathRef.current === props.filePath) return;
     filePathRef.current = props.filePath;
@@ -161,6 +200,13 @@ export const CodeMirrorViewer = memo(function CodeMirrorViewer(props: {
           effects: languageCompartment.reconfigure(langExt),
         });
       }
+    });
+
+    const addContextKeymap = buildAddContextKeymap(props.filePath, (ctx) => {
+      onAddContextRef.current?.(ctx);
+    });
+    view.dispatch({
+      effects: keymapCompartment.reconfigure(addContextKeymap),
     });
   }, [props.filePath]);
 

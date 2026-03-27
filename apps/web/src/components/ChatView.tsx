@@ -15,7 +15,6 @@ import {
   type ServerProviderStatus,
   type ThreadId,
   type TurnId,
-  type EditorId,
   type KeybindingCommand,
   OrchestrationThreadActivity,
   ProviderInteractionMode,
@@ -153,6 +152,7 @@ import { ComposerPromptEditor, type ComposerPromptEditorHandle } from "./Compose
 import { PullRequestThreadDialog } from "./PullRequestThreadDialog";
 import { MessagesTimeline } from "./chat/MessagesTimeline";
 import { ChatHeader } from "./chat/ChatHeader";
+import { useCodeViewerStore } from "~/codeViewerStore";
 import { PreviewPanel } from "./PreviewPanel";
 import { ContextWindowMeter } from "./chat/ContextWindowMeter";
 import { buildExpandedImagePreview, ExpandedImagePreview } from "./chat/ExpandedImagePreview";
@@ -196,7 +196,6 @@ const IMAGE_ONLY_BOOTSTRAP_PROMPT =
 const EMPTY_ACTIVITIES: OrchestrationThreadActivity[] = [];
 const EMPTY_KEYBINDINGS: ResolvedKeybindingsConfig = [];
 const EMPTY_PROJECT_ENTRIES: ProjectEntry[] = [];
-const EMPTY_AVAILABLE_EDITORS: EditorId[] = [];
 const EMPTY_PROVIDER_STATUSES: ServerProviderStatus[] = [];
 const EMPTY_PENDING_USER_INPUT_ANSWERS: Record<string, PendingUserInputDraftAnswer> = {};
 
@@ -1149,7 +1148,6 @@ export default function ChatView({ threadId }: ChatViewProps) {
     [nonPersistedComposerImageIds],
   );
   const keybindings = serverConfigQuery.data?.keybindings ?? EMPTY_KEYBINDINGS;
-  const availableEditors = serverConfigQuery.data?.availableEditors ?? EMPTY_AVAILABLE_EDITORS;
   const providerStatuses = serverConfigQuery.data?.providers ?? EMPTY_PROVIDER_STATUSES;
   const activeProviderStatus = useMemo(
     () => providerStatuses.find((status) => status.provider === selectedProvider) ?? null,
@@ -1199,6 +1197,22 @@ export default function ChatView({ threadId }: ChatViewProps) {
       },
     });
   }, [diffOpen, navigate, threadId]);
+
+  const toggleCodeViewer = useCodeViewerStore((state) => state.toggle);
+  const pendingContext = useCodeViewerStore((state) => state.pendingContext);
+  const clearPendingContext = useCodeViewerStore((state) => state.clearPendingContext);
+
+  // When Cmd+L is pressed in the code viewer, insert the @file:lines mention into the composer
+  useEffect(() => {
+    if (!pendingContext) return;
+    const { filePath, fromLine, toLine } = pendingContext;
+    const mention =
+      fromLine === toLine ? `@${filePath}:L${fromLine}` : `@${filePath}:L${fromLine}-L${toLine}`;
+    const currentPrompt = prompt;
+    const separator = currentPrompt.length > 0 && !currentPrompt.endsWith(" ") ? " " : "";
+    setPrompt(`${currentPrompt}${separator}${mention} `);
+    clearPendingContext();
+  }, [pendingContext, clearPendingContext, prompt, setPrompt]);
 
   const envLocked = Boolean(
     activeThread &&
@@ -3842,7 +3856,6 @@ export default function ChatView({ threadId }: ChatViewProps) {
             activeProject ? (lastInvokedScriptByProjectId[activeProject.id] ?? null) : null
           }
           keybindings={keybindings}
-          availableEditors={availableEditors}
           terminalAvailable={activeProject !== undefined}
           terminalOpen={terminalState.terminalOpen}
           terminalToggleShortcutLabel={terminalToggleShortcutLabel}
@@ -3862,6 +3875,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
           onToggleDiff={onToggleDiff}
           onTogglePreview={() => togglePreviewOpen(activeThread.id)}
           onTogglePreviewLayout={() => togglePreviewLayout(activeThread.id)}
+          onToggleCodeViewer={toggleCodeViewer}
         />
       </header>
 

@@ -6,13 +6,26 @@ export interface CodeViewerTab {
   label: string;
 }
 
+export interface CodeViewerPendingContext {
+  filePath: string;
+  fromLine: number;
+  toLine: number;
+}
+
 interface CodeViewerState {
+  isOpen: boolean;
   tabs: CodeViewerTab[];
   activeTabPath: string | null;
+  pendingContext: CodeViewerPendingContext | null;
+  open: () => void;
+  close: () => void;
+  toggle: () => void;
   openFile: (cwd: string, relativePath: string) => void;
   closeTab: (relativePath: string) => void;
   setActiveTab: (relativePath: string) => void;
   closeAllTabs: () => void;
+  setPendingContext: (ctx: CodeViewerPendingContext) => void;
+  clearPendingContext: () => void;
 }
 
 function basenameOf(filePath: string): string {
@@ -21,14 +34,26 @@ function basenameOf(filePath: string): string {
 }
 
 export const useCodeViewerStore = create<CodeViewerState>((set) => ({
+  isOpen: false,
   tabs: [],
   activeTabPath: null,
+  pendingContext: null,
+
+  open: () => set({ isOpen: true }),
+  close: () => set({ isOpen: false, tabs: [], activeTabPath: null }),
+  toggle: () =>
+    set((state) => {
+      if (state.isOpen) {
+        return { isOpen: false, tabs: [], activeTabPath: null };
+      }
+      return { isOpen: true };
+    }),
 
   openFile: (cwd, relativePath) =>
     set((state) => {
       const existing = state.tabs.find((tab) => tab.relativePath === relativePath);
       if (existing) {
-        return { activeTabPath: relativePath };
+        return { isOpen: true, activeTabPath: relativePath };
       }
       const newTab: CodeViewerTab = {
         cwd,
@@ -36,6 +61,7 @@ export const useCodeViewerStore = create<CodeViewerState>((set) => ({
         label: basenameOf(relativePath),
       };
       return {
+        isOpen: true,
         tabs: [...state.tabs, newTab],
         activeTabPath: relativePath,
       };
@@ -52,10 +78,17 @@ export const useCodeViewerStore = create<CodeViewerState>((set) => ({
         const nearestIndex = Math.min(index, nextTabs.length - 1);
         nextActive = nextTabs[nearestIndex]?.relativePath ?? null;
       }
+      // If no tabs left, close the viewer
+      if (nextTabs.length === 0) {
+        return { isOpen: false, tabs: [], activeTabPath: null };
+      }
       return { tabs: nextTabs, activeTabPath: nextActive };
     }),
 
   setActiveTab: (relativePath) => set({ activeTabPath: relativePath }),
 
-  closeAllTabs: () => set({ tabs: [], activeTabPath: null }),
+  closeAllTabs: () => set({ isOpen: false, tabs: [], activeTabPath: null }),
+
+  setPendingContext: (ctx) => set({ pendingContext: ctx }),
+  clearPendingContext: () => set({ pendingContext: null }),
 }));

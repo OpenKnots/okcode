@@ -1,5 +1,4 @@
 import {
-  type EditorId,
   type ProjectScript,
   type ThreadId,
   type ResolvedKeybindingsConfig,
@@ -31,7 +30,6 @@ interface ChatHeaderProps {
   activeProjectScripts: ProjectScript[] | undefined;
   preferredScriptId: string | null;
   keybindings: ResolvedKeybindingsConfig;
-  availableEditors: ReadonlyArray<EditorId>;
   terminalAvailable: boolean;
   terminalOpen: boolean;
   terminalToggleShortcutLabel: string | null;
@@ -49,6 +47,7 @@ interface ChatHeaderProps {
   onToggleDiff: () => void;
   onTogglePreview: () => void;
   onTogglePreviewLayout: () => void;
+  onToggleCodeViewer: () => void;
 }
 
 export const ChatHeader = memo(function ChatHeader({
@@ -60,7 +59,6 @@ export const ChatHeader = memo(function ChatHeader({
   activeProjectScripts,
   preferredScriptId,
   keybindings,
-  availableEditors,
   terminalAvailable,
   terminalOpen,
   terminalToggleShortcutLabel,
@@ -78,6 +76,7 @@ export const ChatHeader = memo(function ChatHeader({
   onToggleDiff,
   onTogglePreview,
   onTogglePreviewLayout,
+  onToggleCodeViewer,
 }: ChatHeaderProps) {
   return (
     <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -112,13 +111,7 @@ export const ChatHeader = memo(function ChatHeader({
             onDeleteScript={onDeleteProjectScript}
           />
         )}
-        {activeProjectName && (
-          <OpenInPicker
-            keybindings={keybindings}
-            availableEditors={availableEditors}
-            openInCwd={openInCwd}
-          />
-        )}
+        {activeProjectName && <OpenInPicker onToggleCodeViewer={onToggleCodeViewer} />}
         {activeProjectName && <GitActionsControl gitCwd={gitCwd} activeThreadId={activeThreadId} />}
         <Tooltip>
           <TooltipTrigger

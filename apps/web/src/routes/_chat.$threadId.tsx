@@ -36,11 +36,8 @@ const CodeViewerPanel = lazy(() => import("../components/CodeViewerPanel"));
 
 const DIFF_INLINE_LAYOUT_MEDIA_QUERY = "(max-width: 1180px)";
 const DIFF_INLINE_SIDEBAR_WIDTH_STORAGE_KEY = "chat_diff_sidebar_width";
-const CODE_VIEWER_INLINE_SIDEBAR_WIDTH_STORAGE_KEY = "chat_code_viewer_sidebar_width";
 const DIFF_INLINE_DEFAULT_WIDTH = "clamp(28rem,48vw,44rem)";
-const CODE_VIEWER_INLINE_DEFAULT_WIDTH = "clamp(28rem,48vw,44rem)";
 const DIFF_INLINE_SIDEBAR_MIN_WIDTH = 26 * 16;
-const CODE_VIEWER_INLINE_SIDEBAR_MIN_WIDTH = 22 * 16;
 const COMPOSER_COMPACT_MIN_LEFT_CONTROLS_WIDTH_PX = 208;
 
 const DiffPanelSheet = (props: {
@@ -69,28 +66,6 @@ const DiffPanelSheet = (props: {
   );
 };
 
-const CodeViewerSheet = (props: { children: ReactNode; open: boolean; onClose: () => void }) => {
-  return (
-    <Sheet
-      open={props.open}
-      onOpenChange={(open) => {
-        if (!open) {
-          props.onClose();
-        }
-      }}
-    >
-      <SheetPopup
-        side="right"
-        showCloseButton={false}
-        keepMounted
-        className="w-[min(88vw,820px)] max-w-[820px] p-0"
-      >
-        {props.children}
-      </SheetPopup>
-    </Sheet>
-  );
-};
-
 const DiffLoadingFallback = (props: { mode: DiffPanelMode }) => {
   return (
     <DiffPanelShell mode={props.mode} header={<DiffPanelHeaderSkeleton />}>
@@ -99,11 +74,11 @@ const DiffLoadingFallback = (props: { mode: DiffPanelMode }) => {
   );
 };
 
-const CodeViewerLoadingFallback = (props: { mode: DiffPanelMode }) => {
+const CodeViewerLoadingFallback = () => {
   return (
-    <DiffPanelShell mode={props.mode} header={null}>
+    <div className="flex h-full w-full items-center justify-center bg-background">
       <DiffPanelLoadingState label="Loading code viewer..." />
-    </DiffPanelShell>
+    </div>
   );
 };
 
@@ -117,10 +92,10 @@ const LazyDiffPanel = (props: { mode: DiffPanelMode }) => {
   );
 };
 
-const LazyCodeViewerPanel = (props: { mode: DiffPanelMode }) => {
+const LazyCodeViewerPanel = () => {
   return (
-    <Suspense fallback={<CodeViewerLoadingFallback mode={props.mode} />}>
-      <CodeViewerPanel mode={props.mode} />
+    <Suspense fallback={<CodeViewerLoadingFallback />}>
+      <CodeViewerPanel />
     </Suspense>
   );
 };
@@ -214,47 +189,17 @@ const DiffPanelInlineSidebar = (props: {
   );
 };
 
-const CodeViewerInlineSidebar = (props: {
-  codeViewerOpen: boolean;
-  onCloseCodeViewer: () => void;
-  onOpenCodeViewer: () => void;
-  renderContent: boolean;
-}) => {
-  const { codeViewerOpen, onCloseCodeViewer, onOpenCodeViewer, renderContent } = props;
-  const onOpenChange = useCallback(
-    (open: boolean) => {
-      if (open) {
-        onOpenCodeViewer();
-        return;
-      }
-      onCloseCodeViewer();
-    },
-    [onCloseCodeViewer, onOpenCodeViewer],
-  );
-  const shouldAcceptInlineSidebarWidth = useShouldAcceptInlineSidebarWidth();
+/** Full-page overlay for the code viewer — covers the chat area entirely. */
+const CodeViewerFullPage = (props: { codeViewerOpen: boolean; renderContent: boolean }) => {
+  if (!props.codeViewerOpen && !props.renderContent) return null;
 
   return (
-    <SidebarProvider
-      defaultOpen={false}
-      open={codeViewerOpen}
-      onOpenChange={onOpenChange}
-      className="w-auto min-h-0 flex-none bg-transparent"
-      style={{ "--sidebar-width": CODE_VIEWER_INLINE_DEFAULT_WIDTH } as CSSProperties}
+    <div
+      className="absolute inset-0 z-30 bg-background"
+      style={{ display: props.codeViewerOpen ? undefined : "none" }}
     >
-      <Sidebar
-        side="right"
-        collapsible="offcanvas"
-        className="border-l border-border bg-card text-foreground"
-        resizable={{
-          minWidth: CODE_VIEWER_INLINE_SIDEBAR_MIN_WIDTH,
-          shouldAcceptWidth: shouldAcceptInlineSidebarWidth,
-          storageKey: CODE_VIEWER_INLINE_SIDEBAR_WIDTH_STORAGE_KEY,
-        }}
-      >
-        {renderContent ? <LazyCodeViewerPanel mode="sidebar" /> : null}
-        <SidebarRail />
-      </Sidebar>
-    </SidebarProvider>
+      {props.renderContent ? <LazyCodeViewerPanel /> : null}
+    </div>
   );
 };
 
@@ -274,9 +219,8 @@ function ChatThreadRouteView() {
   const shouldUseDiffSheet = useMediaQuery(DIFF_INLINE_LAYOUT_MEDIA_QUERY);
 
   // Code viewer state from Zustand store
-  const codeViewerTabs = useCodeViewerStore((state) => state.tabs);
-  const codeViewerOpen = codeViewerTabs.length > 0;
-  const closeAllCodeViewerTabs = useCodeViewerStore((state) => state.closeAllTabs);
+  const codeViewerOpen = useCodeViewerStore((state) => state.isOpen);
+  const closeCodeViewerStore = useCodeViewerStore((state) => state.close);
 
   // TanStack Router keeps active route components mounted across param-only navigations
   // unless remountDeps are configured, so this stays warm across thread switches.
@@ -302,12 +246,8 @@ function ChatThreadRouteView() {
   }, [navigate, threadId]);
 
   const closeCodeViewer = useCallback(() => {
-    closeAllCodeViewerTabs();
-  }, [closeAllCodeViewerTabs]);
-
-  const openCodeViewer = useCallback(() => {
-    // No-op — code viewer opens when files are added via the store
-  }, []);
+    closeCodeViewerStore();
+  }, [closeCodeViewerStore]);
 
   // Enforce mutual exclusivity: only one right-side panel open at a time.
   useMutuallyExclusivePanels(diffOpen, codeViewerOpen, closeDiff, closeCodeViewer);
@@ -345,15 +285,13 @@ function ChatThreadRouteView() {
   if (!shouldUseDiffSheet) {
     return (
       <>
-        <SidebarInset className="h-dvh  min-h-0 overflow-hidden overscroll-y-none bg-background text-foreground">
+        <SidebarInset className="relative h-dvh min-h-0 overflow-hidden overscroll-y-none bg-background text-foreground">
           <ChatView key={threadId} threadId={threadId} />
+          <CodeViewerFullPage
+            codeViewerOpen={codeViewerOpen}
+            renderContent={shouldRenderCodeViewerContent}
+          />
         </SidebarInset>
-        <CodeViewerInlineSidebar
-          codeViewerOpen={codeViewerOpen}
-          onCloseCodeViewer={closeCodeViewer}
-          onOpenCodeViewer={openCodeViewer}
-          renderContent={shouldRenderCodeViewerContent}
-        />
         <DiffPanelInlineSidebar
           diffOpen={diffOpen}
           onCloseDiff={closeDiff}
@@ -366,12 +304,13 @@ function ChatThreadRouteView() {
 
   return (
     <>
-      <SidebarInset className="h-dvh min-h-0 overflow-hidden overscroll-y-none bg-background text-foreground">
+      <SidebarInset className="relative h-dvh min-h-0 overflow-hidden overscroll-y-none bg-background text-foreground">
         <ChatView key={threadId} threadId={threadId} />
+        <CodeViewerFullPage
+          codeViewerOpen={codeViewerOpen}
+          renderContent={shouldRenderCodeViewerContent}
+        />
       </SidebarInset>
-      <CodeViewerSheet open={codeViewerOpen} onClose={closeCodeViewer}>
-        {shouldRenderCodeViewerContent ? <LazyCodeViewerPanel mode="sheet" /> : null}
-      </CodeViewerSheet>
       <DiffPanelSheet diffOpen={diffOpen} onCloseDiff={closeDiff}>
         {shouldRenderDiffContent ? <LazyDiffPanel mode="sheet" /> : null}
       </DiffPanelSheet>

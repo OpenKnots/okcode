@@ -27,6 +27,7 @@ const baseExtensions: Extension[] = [
     "&": {
       height: "100%",
       fontSize: "12px",
+      backgroundColor: "var(--background)",
     },
     ".cm-scroller": {
       fontFamily: "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace",
@@ -43,11 +44,29 @@ const baseExtensions: Extension[] = [
       opacity: "0.5",
       fontSize: "11px",
     },
+    ".cm-activeLine": {
+      backgroundColor: "color-mix(in srgb, var(--accent) 30%, transparent)",
+    },
+    ".cm-activeLineGutter": {
+      backgroundColor: "transparent",
+    },
   }),
 ];
 
+/** Use oneDark for syntax tokens but override its background so the editor
+ *  blends with the app's own dark surface colour (`var(--background)`). */
 function getThemeExtension(resolvedTheme: "light" | "dark"): Extension {
-  return resolvedTheme === "dark" ? oneDark : [];
+  if (resolvedTheme !== "dark") return [];
+  return [
+    oneDark,
+    EditorView.theme(
+      {
+        "&.cm-editor": { backgroundColor: "var(--background)" },
+        ".cm-gutters": { backgroundColor: "transparent" },
+      },
+      { dark: true },
+    ),
+  ];
 }
 
 async function loadLanguageExtension(filePath: string): Promise<Extension> {

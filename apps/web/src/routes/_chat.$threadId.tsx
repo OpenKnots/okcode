@@ -25,6 +25,7 @@ import {
   stripDiffSearchParams,
 } from "../diffRouteSearch";
 import { useCodeViewerStore } from "../codeViewerStore";
+import { useMutuallyExclusivePanels } from "../mutuallyExclusivePanels";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import { useStore } from "../store";
 import { Sheet, SheetPopup } from "../components/ui/sheet";
@@ -307,6 +308,9 @@ function ChatThreadRouteView() {
   const openCodeViewer = useCallback(() => {
     // No-op — code viewer opens when files are added via the store
   }, []);
+
+  // Enforce mutual exclusivity: only one right-side panel open at a time.
+  useMutuallyExclusivePanels(diffOpen, codeViewerOpen, closeDiff, closeCodeViewer);
 
   useEffect(() => {
     if (diffOpen) {

@@ -447,6 +447,8 @@ const createBuildConfig = Effect.fn("createBuildConfig")(function* (
   target: string,
   productName: string,
   signed: boolean,
+  /** Absolute path to entitlements plist in the staged tree; required for signed macOS builds. */
+  macEntitlementsPlistAbsolutePath: string | undefined,
 ) {
   const buildConfig: Record<string, unknown> = {
     appId: "com.okcode.okcode",
@@ -462,11 +464,31 @@ const createBuildConfig = Effect.fn("createBuildConfig")(function* (
   }
 
   if (platform === "mac") {
-    buildConfig.mac = {
+    const mac: Record<string, unknown> = {
       target: target === "dmg" ? [target, "zip"] : [target],
       icon: "icon.icns",
       category: "public.app-category.developer-tools",
     };
+    if (signed) {
+      // Hardened Runtime + custom entitlements are required for Developer ID
+      // signing and notarization. Notarization runs when `APPLE_API_KEY` /
+      // `APPLE_API_KEY_ID` / `APPLE_API_ISSUER` are set (see release workflow).
+      //
+      // Use absolute paths: electron-builder passes `--entitlements` to codesign when signing
+      // unpacked native binaries under long paths; relative paths are resolved from that
+      // process cwd and fail with "cannot read entitlement data".
+      if (!macEntitlementsPlistAbsolutePath) {
+        return yield* new BuildScriptError({
+          message:
+            "Signed macOS build requires macEntitlementsPlistAbsolutePath (expected staged apps/desktop/resources/entitlements.mac.plist).",
+        });
+      }
+      mac.hardenedRuntime = true;
+      mac.gatekeeperAssess = false;
+      mac.entitlements = macEntitlementsPlistAbsolutePath;
+      mac.entitlementsInherit = macEntitlementsPlistAbsolutePath;
+    }
+    buildConfig.mac = mac;
   }
 
   if (platform === "linux") {
@@ -617,6 +639,15 @@ const buildDesktopArtifact = Effect.fn("buildDesktopArtifact")(function* (
   // electron-builder is filtering out stageResourcesDir directory in the AppImage for production
   yield* fs.copy(stageResourcesDir, path.join(stageAppDir, "apps/desktop/prod-resources"));
 
+  const macEntitlementsPlistAbsolutePath = path.join(stageResourcesDir, "entitlements.mac.plist");
+  if (options.signed && options.platform === "mac") {
+    if (!(yield* fs.exists(macEntitlementsPlistAbsolutePath))) {
+      return yield* new BuildScriptError({
+        message: `Missing macOS entitlements at ${macEntitlementsPlistAbsolutePath} (copy from apps/desktop/resources).`,
+      });
+    }
+  }
+
   const stagePackageJson: StagePackageJson = {
     name: "okcode-desktop",
     version: appVersion,
@@ -631,6 +662,7 @@ const buildDesktopArtifact = Effect.fn("buildDesktopArtifact")(function* (
       options.target,
       desktopPackageJson.productName ?? "OK Code",
       options.signed,
+      options.signed && options.platform === "mac" ? macEntitlementsPlistAbsolutePath : undefined,
     ),
     dependencies: {
       ...resolvedServerDependencies,

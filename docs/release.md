@@ -194,6 +194,7 @@ Notes:
 
 - `APPLE_API_KEY` is stored as raw key text in secrets.
 - The workflow writes it to a temporary `AuthKey_<id>.p8` file at runtime.
+- **Hardened Runtime entitlements** for the packaged app live in the repo at `apps/desktop/resources/entitlements.mac.plist`. The desktop artifact script passes this path to electron-builder as an **absolute** path (so `codesign` can read it when signing unpacked native modules under deep paths). The build enables `hardenedRuntime` and passes Apple notarization env vars when `--signed` is used (all five macOS secrets must be set in GitHub Actions).
 
 ## 3) Azure Trusted Signing setup (Windows)
 

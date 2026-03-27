@@ -2,7 +2,15 @@
 
 Binaries are **not** stored in this git repository; they are attached to the [GitHub Release for `v0.0.1`](https://github.com/OpenKnots/okcode/releases/tag/v0.0.1) by the [Release Desktop workflow](../../.github/workflows/release.yml).
 
-After the workflow completes, expect artifacts similar to the following (exact names may include the product name `OK Code` and version `0.0.1`).
+The GitHub Release also includes **documentation attachments** (same content as in-repo, stable filenames for download):
+
+| File                        | Source in repo                        |
+| --------------------------- | ------------------------------------- |
+| `okcode-CHANGELOG.md`       | [CHANGELOG.md](../../../CHANGELOG.md) |
+| `okcode-RELEASE-NOTES.md`   | [v0.0.1.md](../v0.0.1.md)             |
+| `okcode-ASSETS-MANIFEST.md` | This file                             |
+
+After the workflow completes, expect **installer and updater** artifacts similar to the following (exact names may include the product name `OK Code` and version `0.0.1`).
 
 ## Desktop installers and payloads
 

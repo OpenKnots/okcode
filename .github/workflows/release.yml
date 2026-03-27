@@ -285,6 +285,26 @@ jobs:
             release-assets/latest-mac-x64.yml
           rm -f release-assets/latest-mac-x64.yml
 
+      - name: Stage documentation for release assets
+        env:
+          RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
+        run: |
+          set -euo pipefail
+          v="${RELEASE_VERSION}"
+          notes="docs/releases/v${v}.md"
+          manifest="docs/releases/v${v}/assets.md"
+          if [[ ! -f "$notes" ]]; then
+            echo "Missing release notes: $notes" >&2
+            exit 1
+          fi
+          if [[ ! -f "$manifest" ]]; then
+            echo "Missing asset manifest: $manifest" >&2
+            exit 1
+          fi
+          cp CHANGELOG.md release-assets/okcode-CHANGELOG.md
+          cp "$notes" release-assets/okcode-RELEASE-NOTES.md
+          cp "$manifest" release-assets/okcode-ASSETS-MANIFEST.md
+
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
@@ -301,6 +321,9 @@ jobs:
             release-assets/*.exe
             release-assets/*.blockmap
             release-assets/latest*.yml
+            release-assets/okcode-CHANGELOG.md
+            release-assets/okcode-RELEASE-NOTES.md
+            release-assets/okcode-ASSETS-MANIFEST.md
           fail_on_unmatched_files: true
 
   finalize:

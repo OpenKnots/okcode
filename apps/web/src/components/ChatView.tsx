@@ -90,6 +90,7 @@ import BranchToolbar from "./BranchToolbar";
 import { resolveShortcutCommand, shortcutLabelForCommand } from "../keybindings";
 import PlanSidebar from "./PlanSidebar";
 import ThreadTerminalDrawer from "./ThreadTerminalDrawer";
+import { SpotifyPlayerDrawer } from "./SpotifyPlayer";
 import {
   BotIcon,
   ChevronDownIcon,
@@ -4428,6 +4429,8 @@ export default function ChatView({ threadId }: ChatViewProps) {
           />
         );
       })()}
+
+      <SpotifyPlayerDrawer />
 
       {expandedImage && expandedImageItem && (
         <div

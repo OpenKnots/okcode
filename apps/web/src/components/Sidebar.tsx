@@ -11,6 +11,7 @@ import {
   TerminalIcon,
   TriangleAlertIcon,
 } from "lucide-react";
+import { SpotifyToggleButton } from "./SpotifyPlayer";
 import { autoAnimate } from "@formkit/auto-animate";
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import {
@@ -1882,6 +1883,9 @@ export default function Sidebar() {
       <SidebarSeparator />
       <SidebarFooter className="p-2">
         <SidebarMenu>
+          <SidebarMenuItem>
+            <SpotifyToggleButton />
+          </SidebarMenuItem>
           <SidebarMenuItem>
             {isOnSettings ? (
               <SidebarMenuButton

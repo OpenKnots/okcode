@@ -828,6 +828,60 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
         return { relativePath: target.relativePath };
       }
 
+      case WS_METHODS.projectsReadFile: {
+        const body = stripRequestTag(request.body);
+        const target = yield* resolveWorkspaceWritePath({
+          workspaceRoot: body.cwd,
+          relativePath: body.relativePath,
+          path,
+        });
+        const MAX_READ_SIZE = 1_048_576; // 1MB
+        const fileStat = yield* fileSystem.stat(target.absolutePath).pipe(
+          Effect.mapError(
+            (cause) =>
+              new RouteRequestError({
+                message: `Failed to read file: ${String(cause)}`,
+              }),
+          ),
+        );
+        if (fileStat.type !== "File") {
+          return yield* new RouteRequestError({
+            message: `Path is not a file: ${target.relativePath}`,
+          });
+        }
+        const sizeBytes = Number(fileStat.size);
+        if (sizeBytes > MAX_READ_SIZE) {
+          return yield* new RouteRequestError({
+            message: `File is too large to display (${(sizeBytes / 1024 / 1024).toFixed(1)}MB). Maximum supported size is 1MB.`,
+          });
+        }
+        // Read raw bytes to detect binary files
+        const rawBytes = yield* fileSystem.readFile(target.absolutePath).pipe(
+          Effect.mapError(
+            (cause) =>
+              new RouteRequestError({
+                message: `Failed to read file: ${String(cause)}`,
+              }),
+          ),
+        );
+        // Check for null bytes in the first 8KB to detect binary files
+        const checkLength = Math.min(rawBytes.length, 8192);
+        for (let i = 0; i < checkLength; i++) {
+          if (rawBytes[i] === 0) {
+            return yield* new RouteRequestError({
+              message: `File appears to be binary and cannot be displayed: ${target.relativePath}`,
+            });
+          }
+        }
+        const contents = new TextDecoder().decode(rawBytes);
+        return {
+          relativePath: target.relativePath,
+          contents,
+          sizeBytes,
+          truncated: false,
+        };
+      }
+
       case WS_METHODS.shellOpenInEditor: {
         const body = stripRequestTag(request.body);
         return yield* openInEditor(body);

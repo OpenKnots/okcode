@@ -2,6 +2,7 @@ import { type ProjectDirectoryEntry } from "@okcode/contracts";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronRightIcon, FolderClosedIcon, FolderIcon, TriangleAlertIcon } from "lucide-react";
 import { memo, useCallback, useState } from "react";
+import { useCodeViewerStore } from "~/codeViewerStore";
 import { openInPreferredEditor } from "~/editorPreferences";
 import { projectListDirectoryQueryOptions } from "~/lib/projectReactQuery";
 import { cn } from "~/lib/utils";
@@ -27,27 +28,36 @@ export const WorkspaceFileTree = memo(function WorkspaceFileTree(props: {
     }));
   }, []);
 
+  const openFileInViewer = useCodeViewerStore((state) => state.openFile);
+
   const openFile = useCallback(
-    (filePath: string) => {
-      const api = readNativeApi();
-      if (!api) {
-        toastManager.add({
-          type: "error",
-          title: "File opening is unavailable.",
+    (filePath: string, event?: { metaKey?: boolean; ctrlKey?: boolean }) => {
+      // Cmd/Ctrl+click opens in external editor
+      if (event?.metaKey || event?.ctrlKey) {
+        const api = readNativeApi();
+        if (!api) {
+          toastManager.add({
+            type: "error",
+            title: "File opening is unavailable.",
+          });
+          return;
+        }
+
+        const targetPath = resolvePathLinkTarget(filePath, props.cwd);
+        void openInPreferredEditor(api, targetPath).catch((error) => {
+          toastManager.add({
+            type: "error",
+            title: "Unable to open file",
+            description: error instanceof Error ? error.message : "An error occurred.",
+          });
         });
         return;
       }
 
-      const targetPath = resolvePathLinkTarget(filePath, props.cwd);
-      void openInPreferredEditor(api, targetPath).catch((error) => {
-        toastManager.add({
-          type: "error",
-          title: "Unable to open file",
-          description: error instanceof Error ? error.message : "An error occurred.",
-        });
-      });
+      // Default click opens in built-in code viewer
+      openFileInViewer(props.cwd, filePath);
     },
-    [props.cwd],
+    [props.cwd, openFileInViewer],
   );
 
   return (
@@ -71,7 +81,7 @@ const WorkspaceFileTreeDirectory = memo(function WorkspaceFileTreeDirectory(prop
   expandedDirectories: Readonly<Record<string, boolean>>;
   resolvedTheme: "light" | "dark";
   onToggleDirectory: (pathValue: string) => void;
-  onOpenFile: (pathValue: string) => void;
+  onOpenFile: (pathValue: string, event?: { metaKey?: boolean; ctrlKey?: boolean }) => void;
 }) {
   const query = useQuery(
     projectListDirectoryQueryOptions({
@@ -196,7 +206,7 @@ const WorkspaceFileRow = memo(function WorkspaceFileRow(props: {
   depth: number;
   entry: ProjectDirectoryEntry;
   resolvedTheme: "light" | "dark";
-  onOpenFile: (pathValue: string) => void;
+  onOpenFile: (pathValue: string, event?: { metaKey?: boolean; ctrlKey?: boolean }) => void;
 }) {
   const leftPadding = TREE_ROW_LEFT_PADDING + props.depth * TREE_ROW_DEPTH_OFFSET;
 
@@ -205,7 +215,9 @@ const WorkspaceFileRow = memo(function WorkspaceFileRow(props: {
       type="button"
       className="group flex w-full items-center gap-1.5 rounded-md py-1 pr-2 text-left hover:bg-accent/60"
       style={{ paddingLeft: `${leftPadding}px` }}
-      onClick={() => props.onOpenFile(props.entry.path)}
+      onClick={(event) =>
+        props.onOpenFile(props.entry.path, { metaKey: event.metaKey, ctrlKey: event.ctrlKey })
+      }
       title={props.entry.path}
     >
       <span aria-hidden="true" className="size-3.5 shrink-0" />

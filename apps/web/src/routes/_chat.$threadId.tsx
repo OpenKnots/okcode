@@ -24,16 +24,22 @@ import {
   parseDiffRouteSearch,
   stripDiffSearchParams,
 } from "../diffRouteSearch";
+import { useCodeViewerStore } from "../codeViewerStore";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import { useStore } from "../store";
 import { Sheet, SheetPopup } from "../components/ui/sheet";
 import { Sidebar, SidebarInset, SidebarProvider, SidebarRail } from "~/components/ui/sidebar";
 
 const DiffPanel = lazy(() => import("../components/DiffPanel"));
+const CodeViewerPanel = lazy(() => import("../components/CodeViewerPanel"));
+
 const DIFF_INLINE_LAYOUT_MEDIA_QUERY = "(max-width: 1180px)";
 const DIFF_INLINE_SIDEBAR_WIDTH_STORAGE_KEY = "chat_diff_sidebar_width";
+const CODE_VIEWER_INLINE_SIDEBAR_WIDTH_STORAGE_KEY = "chat_code_viewer_sidebar_width";
 const DIFF_INLINE_DEFAULT_WIDTH = "clamp(28rem,48vw,44rem)";
+const CODE_VIEWER_INLINE_DEFAULT_WIDTH = "clamp(28rem,48vw,44rem)";
 const DIFF_INLINE_SIDEBAR_MIN_WIDTH = 26 * 16;
+const CODE_VIEWER_INLINE_SIDEBAR_MIN_WIDTH = 22 * 16;
 const COMPOSER_COMPACT_MIN_LEFT_CONTROLS_WIDTH_PX = 208;
 
 const DiffPanelSheet = (props: {
@@ -62,10 +68,40 @@ const DiffPanelSheet = (props: {
   );
 };
 
+const CodeViewerSheet = (props: { children: ReactNode; open: boolean; onClose: () => void }) => {
+  return (
+    <Sheet
+      open={props.open}
+      onOpenChange={(open) => {
+        if (!open) {
+          props.onClose();
+        }
+      }}
+    >
+      <SheetPopup
+        side="right"
+        showCloseButton={false}
+        keepMounted
+        className="w-[min(88vw,820px)] max-w-[820px] p-0"
+      >
+        {props.children}
+      </SheetPopup>
+    </Sheet>
+  );
+};
+
 const DiffLoadingFallback = (props: { mode: DiffPanelMode }) => {
   return (
     <DiffPanelShell mode={props.mode} header={<DiffPanelHeaderSkeleton />}>
       <DiffPanelLoadingState label="Loading diff viewer..." />
+    </DiffPanelShell>
+  );
+};
+
+const CodeViewerLoadingFallback = (props: { mode: DiffPanelMode }) => {
+  return (
+    <DiffPanelShell mode={props.mode} header={null}>
+      <DiffPanelLoadingState label="Loading code viewer..." />
     </DiffPanelShell>
   );
 };
@@ -79,6 +115,59 @@ const LazyDiffPanel = (props: { mode: DiffPanelMode }) => {
     </DiffWorkerPoolProvider>
   );
 };
+
+const LazyCodeViewerPanel = (props: { mode: DiffPanelMode }) => {
+  return (
+    <Suspense fallback={<CodeViewerLoadingFallback mode={props.mode} />}>
+      <CodeViewerPanel mode={props.mode} />
+    </Suspense>
+  );
+};
+
+function useShouldAcceptInlineSidebarWidth() {
+  return useCallback(({ nextWidth, wrapper }: { nextWidth: number; wrapper: HTMLElement }) => {
+    const composerForm = document.querySelector<HTMLElement>("[data-chat-composer-form='true']");
+    if (!composerForm) return true;
+    const composerViewport = composerForm.parentElement;
+    if (!composerViewport) return true;
+    const previousSidebarWidth = wrapper.style.getPropertyValue("--sidebar-width");
+    wrapper.style.setProperty("--sidebar-width", `${nextWidth}px`);
+
+    const viewportStyle = window.getComputedStyle(composerViewport);
+    const viewportPaddingLeft = Number.parseFloat(viewportStyle.paddingLeft) || 0;
+    const viewportPaddingRight = Number.parseFloat(viewportStyle.paddingRight) || 0;
+    const viewportContentWidth = Math.max(
+      0,
+      composerViewport.clientWidth - viewportPaddingLeft - viewportPaddingRight,
+    );
+    const formRect = composerForm.getBoundingClientRect();
+    const composerFooter = composerForm.querySelector<HTMLElement>(
+      "[data-chat-composer-footer='true']",
+    );
+    const composerRightActions = composerForm.querySelector<HTMLElement>(
+      "[data-chat-composer-actions='right']",
+    );
+    const composerRightActionsWidth = composerRightActions?.getBoundingClientRect().width ?? 0;
+    const composerFooterGap = composerFooter
+      ? Number.parseFloat(window.getComputedStyle(composerFooter).columnGap) ||
+        Number.parseFloat(window.getComputedStyle(composerFooter).gap) ||
+        0
+      : 0;
+    const minimumComposerWidth =
+      COMPOSER_COMPACT_MIN_LEFT_CONTROLS_WIDTH_PX + composerRightActionsWidth + composerFooterGap;
+    const hasComposerOverflow = composerForm.scrollWidth > composerForm.clientWidth + 0.5;
+    const overflowsViewport = formRect.width > viewportContentWidth + 0.5;
+    const violatesMinimumComposerWidth = composerForm.clientWidth + 0.5 < minimumComposerWidth;
+
+    if (previousSidebarWidth.length > 0) {
+      wrapper.style.setProperty("--sidebar-width", previousSidebarWidth);
+    } else {
+      wrapper.style.removeProperty("--sidebar-width");
+    }
+
+    return !hasComposerOverflow && !overflowsViewport && !violatesMinimumComposerWidth;
+  }, []);
+}
 
 const DiffPanelInlineSidebar = (props: {
   diffOpen: boolean;
@@ -97,51 +186,7 @@ const DiffPanelInlineSidebar = (props: {
     },
     [onCloseDiff, onOpenDiff],
   );
-  const shouldAcceptInlineSidebarWidth = useCallback(
-    ({ nextWidth, wrapper }: { nextWidth: number; wrapper: HTMLElement }) => {
-      const composerForm = document.querySelector<HTMLElement>("[data-chat-composer-form='true']");
-      if (!composerForm) return true;
-      const composerViewport = composerForm.parentElement;
-      if (!composerViewport) return true;
-      const previousSidebarWidth = wrapper.style.getPropertyValue("--sidebar-width");
-      wrapper.style.setProperty("--sidebar-width", `${nextWidth}px`);
-
-      const viewportStyle = window.getComputedStyle(composerViewport);
-      const viewportPaddingLeft = Number.parseFloat(viewportStyle.paddingLeft) || 0;
-      const viewportPaddingRight = Number.parseFloat(viewportStyle.paddingRight) || 0;
-      const viewportContentWidth = Math.max(
-        0,
-        composerViewport.clientWidth - viewportPaddingLeft - viewportPaddingRight,
-      );
-      const formRect = composerForm.getBoundingClientRect();
-      const composerFooter = composerForm.querySelector<HTMLElement>(
-        "[data-chat-composer-footer='true']",
-      );
-      const composerRightActions = composerForm.querySelector<HTMLElement>(
-        "[data-chat-composer-actions='right']",
-      );
-      const composerRightActionsWidth = composerRightActions?.getBoundingClientRect().width ?? 0;
-      const composerFooterGap = composerFooter
-        ? Number.parseFloat(window.getComputedStyle(composerFooter).columnGap) ||
-          Number.parseFloat(window.getComputedStyle(composerFooter).gap) ||
-          0
-        : 0;
-      const minimumComposerWidth =
-        COMPOSER_COMPACT_MIN_LEFT_CONTROLS_WIDTH_PX + composerRightActionsWidth + composerFooterGap;
-      const hasComposerOverflow = composerForm.scrollWidth > composerForm.clientWidth + 0.5;
-      const overflowsViewport = formRect.width > viewportContentWidth + 0.5;
-      const violatesMinimumComposerWidth = composerForm.clientWidth + 0.5 < minimumComposerWidth;
-
-      if (previousSidebarWidth.length > 0) {
-        wrapper.style.setProperty("--sidebar-width", previousSidebarWidth);
-      } else {
-        wrapper.style.removeProperty("--sidebar-width");
-      }
-
-      return !hasComposerOverflow && !overflowsViewport && !violatesMinimumComposerWidth;
-    },
-    [],
-  );
+  const shouldAcceptInlineSidebarWidth = useShouldAcceptInlineSidebarWidth();
 
   return (
     <SidebarProvider
@@ -168,6 +213,50 @@ const DiffPanelInlineSidebar = (props: {
   );
 };
 
+const CodeViewerInlineSidebar = (props: {
+  codeViewerOpen: boolean;
+  onCloseCodeViewer: () => void;
+  onOpenCodeViewer: () => void;
+  renderContent: boolean;
+}) => {
+  const { codeViewerOpen, onCloseCodeViewer, onOpenCodeViewer, renderContent } = props;
+  const onOpenChange = useCallback(
+    (open: boolean) => {
+      if (open) {
+        onOpenCodeViewer();
+        return;
+      }
+      onCloseCodeViewer();
+    },
+    [onCloseCodeViewer, onOpenCodeViewer],
+  );
+  const shouldAcceptInlineSidebarWidth = useShouldAcceptInlineSidebarWidth();
+
+  return (
+    <SidebarProvider
+      defaultOpen={false}
+      open={codeViewerOpen}
+      onOpenChange={onOpenChange}
+      className="w-auto min-h-0 flex-none bg-transparent"
+      style={{ "--sidebar-width": CODE_VIEWER_INLINE_DEFAULT_WIDTH } as CSSProperties}
+    >
+      <Sidebar
+        side="right"
+        collapsible="offcanvas"
+        className="border-l border-border bg-card text-foreground"
+        resizable={{
+          minWidth: CODE_VIEWER_INLINE_SIDEBAR_MIN_WIDTH,
+          shouldAcceptWidth: shouldAcceptInlineSidebarWidth,
+          storageKey: CODE_VIEWER_INLINE_SIDEBAR_WIDTH_STORAGE_KEY,
+        }}
+      >
+        {renderContent ? <LazyCodeViewerPanel mode="sidebar" /> : null}
+        <SidebarRail />
+      </Sidebar>
+    </SidebarProvider>
+  );
+};
+
 function ChatThreadRouteView() {
   const threadsHydrated = useStore((store) => store.threadsHydrated);
   const navigate = useNavigate();
@@ -182,9 +271,17 @@ function ChatThreadRouteView() {
   const routeThreadExists = threadExists || draftThreadExists;
   const diffOpen = search.diff === "1";
   const shouldUseDiffSheet = useMediaQuery(DIFF_INLINE_LAYOUT_MEDIA_QUERY);
+
+  // Code viewer state from Zustand store
+  const codeViewerTabs = useCodeViewerStore((state) => state.tabs);
+  const codeViewerOpen = codeViewerTabs.length > 0;
+  const closeAllCodeViewerTabs = useCodeViewerStore((state) => state.closeAllTabs);
+
   // TanStack Router keeps active route components mounted across param-only navigations
   // unless remountDeps are configured, so this stays warm across thread switches.
   const [hasOpenedDiff, setHasOpenedDiff] = useState(diffOpen);
+  const [hasOpenedCodeViewer, setHasOpenedCodeViewer] = useState(codeViewerOpen);
+
   const closeDiff = useCallback(() => {
     void navigate({
       to: "/$threadId",
@@ -203,11 +300,25 @@ function ChatThreadRouteView() {
     });
   }, [navigate, threadId]);
 
+  const closeCodeViewer = useCallback(() => {
+    closeAllCodeViewerTabs();
+  }, [closeAllCodeViewerTabs]);
+
+  const openCodeViewer = useCallback(() => {
+    // No-op — code viewer opens when files are added via the store
+  }, []);
+
   useEffect(() => {
     if (diffOpen) {
       setHasOpenedDiff(true);
     }
   }, [diffOpen]);
+
+  useEffect(() => {
+    if (codeViewerOpen) {
+      setHasOpenedCodeViewer(true);
+    }
+  }, [codeViewerOpen]);
 
   useEffect(() => {
     if (!threadsHydrated) {
@@ -225,6 +336,7 @@ function ChatThreadRouteView() {
   }
 
   const shouldRenderDiffContent = diffOpen || hasOpenedDiff;
+  const shouldRenderCodeViewerContent = codeViewerOpen || hasOpenedCodeViewer;
 
   if (!shouldUseDiffSheet) {
     return (
@@ -232,6 +344,12 @@ function ChatThreadRouteView() {
         <SidebarInset className="h-dvh  min-h-0 overflow-hidden overscroll-y-none bg-background text-foreground">
           <ChatView key={threadId} threadId={threadId} />
         </SidebarInset>
+        <CodeViewerInlineSidebar
+          codeViewerOpen={codeViewerOpen}
+          onCloseCodeViewer={closeCodeViewer}
+          onOpenCodeViewer={openCodeViewer}
+          renderContent={shouldRenderCodeViewerContent}
+        />
         <DiffPanelInlineSidebar
           diffOpen={diffOpen}
           onCloseDiff={closeDiff}
@@ -247,6 +365,9 @@ function ChatThreadRouteView() {
       <SidebarInset className="h-dvh min-h-0 overflow-hidden overscroll-y-none bg-background text-foreground">
         <ChatView key={threadId} threadId={threadId} />
       </SidebarInset>
+      <CodeViewerSheet open={codeViewerOpen} onClose={closeCodeViewer}>
+        {shouldRenderCodeViewerContent ? <LazyCodeViewerPanel mode="sheet" /> : null}
+      </CodeViewerSheet>
       <DiffPanelSheet diffOpen={diffOpen} onCloseDiff={closeDiff}>
         {shouldRenderDiffContent ? <LazyDiffPanel mode="sheet" /> : null}
       </DiffPanelSheet>

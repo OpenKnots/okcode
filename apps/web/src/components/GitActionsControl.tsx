@@ -690,9 +690,7 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
       success: (count) => ({
         title: count === 1 ? "Opened conflicted file" : "Opened conflicted files",
         description:
-          count === 1
-            ? (conflictedFiles[0] ?? undefined)
-            : `${count} files opened in your editor.`,
+          count === 1 ? (conflictedFiles[0] ?? undefined) : `${count} files opened in your editor.`,
         data: threadToastData,
       }),
       error: (error) => ({

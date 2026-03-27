@@ -59,6 +59,15 @@ describe("normalizeModelSlug", () => {
     expect(normalizeModelSlug("opus-4.6", "claudeAgent")).toBe("claude-opus-4-6");
     expect(normalizeModelSlug("claude-haiku-4-5-20251001", "claudeAgent")).toBe("claude-haiku-4-5");
   });
+
+  it("accepts Anthropic-prefixed Claude model slugs", () => {
+    expect(normalizeModelSlug("anthropic/claude-sonnet-4-6", "claudeAgent")).toBe(
+      "claude-sonnet-4-6",
+    );
+    expect(normalizeModelSlug("Anthropic/claude-opus-4-6", "claudeAgent")).toBe(
+      "claude-opus-4-6",
+    );
+  });
 });
 
 describe("resolveModelSlug", () => {
@@ -192,6 +201,7 @@ describe("inferProviderForModel", () => {
   it("detects known provider model slugs", () => {
     expect(inferProviderForModel("gpt-5.3-codex")).toBe("codex");
     expect(inferProviderForModel("claude-sonnet-4-6")).toBe("claudeAgent");
+    expect(inferProviderForModel("anthropic/claude-sonnet-4-6")).toBe("claudeAgent");
     expect(inferProviderForModel("sonnet")).toBe("claudeAgent");
   });
 

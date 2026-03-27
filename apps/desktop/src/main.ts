@@ -18,6 +18,8 @@ import {
 import type { MenuItemConstructorOptions } from "electron";
 import * as Effect from "effect/Effect";
 import type {
+  DesktopPreviewBounds,
+  DesktopPreviewState,
   DesktopTheme,
   DesktopUpdateActionResult,
   DesktopUpdateState,
@@ -28,6 +30,7 @@ import type { ContextMenuItem } from "@okcode/contracts";
 import { NetService } from "@okcode/shared/Net";
 import { RotatingFileSink } from "@okcode/shared/logging";
 import { showDesktopConfirmDialog } from "./confirmDialog";
+import { DesktopPreviewController } from "./previewController";
 import { syncShellEnvironment } from "./syncShellEnvironment";
 import { getAutoUpdateDisabledReason, shouldBroadcastDownloadProgress } from "./updateState";
 import {
@@ -56,6 +59,13 @@ const UPDATE_STATE_CHANNEL = "desktop:update-state";
 const UPDATE_GET_STATE_CHANNEL = "desktop:update-get-state";
 const UPDATE_DOWNLOAD_CHANNEL = "desktop:update-download";
 const UPDATE_INSTALL_CHANNEL = "desktop:update-install";
+const PREVIEW_OPEN_CHANNEL = "desktop:preview-open";
+const PREVIEW_CLOSE_CHANNEL = "desktop:preview-close";
+const PREVIEW_RELOAD_CHANNEL = "desktop:preview-reload";
+const PREVIEW_NAVIGATE_CHANNEL = "desktop:preview-navigate";
+const PREVIEW_GET_STATE_CHANNEL = "desktop:preview-get-state";
+const PREVIEW_SET_BOUNDS_CHANNEL = "desktop:preview-set-bounds";
+const PREVIEW_STATE_CHANNEL = "desktop:preview-state";
 const BASE_DIR = process.env.OKCODE_HOME?.trim() || Path.join(OS.homedir(), ".okcode");
 const STATE_DIR = Path.join(BASE_DIR, "userdata");
 const DESKTOP_SCHEME = "okcode";
@@ -91,6 +101,7 @@ let aboutCommitHashCache: string | null | undefined;
 let desktopLogSink: RotatingFileSink | null = null;
 let backendLogSink: RotatingFileSink | null = null;
 let restoreStdIoCapture: (() => void) | null = null;
+const previewControllers = new WeakMap<BrowserWindow, DesktopPreviewController>();
 
 let destructiveMenuIconCache: Electron.NativeImage | null | undefined;
 const desktopRuntimeInfo = resolveDesktopRuntimeInfo({
@@ -730,6 +741,30 @@ function emitUpdateState(): void {
   }
 }
 
+function emitPreviewState(window: BrowserWindow, state: DesktopPreviewState): void {
+  if (window.isDestroyed()) {
+    return;
+  }
+  window.webContents.send(PREVIEW_STATE_CHANNEL, state);
+}
+
+function getPreviewController(window: BrowserWindow): DesktopPreviewController {
+  const existing = previewControllers.get(window);
+  if (existing) {
+    return existing;
+  }
+
+  const controller = new DesktopPreviewController(window, (state) => {
+    emitPreviewState(window, state);
+  });
+  previewControllers.set(window, controller);
+  return controller;
+}
+
+function resolvePreviewWindow(sender: Electron.WebContents): BrowserWindow | null {
+  return BrowserWindow.fromWebContents(sender) ?? mainWindow ?? BrowserWindow.getFocusedWindow() ?? null;
+}
+
 function setUpdateState(patch: Partial<DesktopUpdateState>): void {
   updateState = { ...updateState, ...patch };
   emitUpdateState();
@@ -1216,6 +1251,72 @@ function registerIpcHandlers(): void {
       state: updateState,
     } satisfies DesktopUpdateActionResult;
   });
+
+  ipcMain.removeHandler(PREVIEW_OPEN_CHANNEL);
+  ipcMain.handle(PREVIEW_OPEN_CHANNEL, async (event, input: { url?: unknown; title?: unknown }) => {
+    const window = resolvePreviewWindow(event.sender);
+    if (!window) {
+      return {
+        accepted: false,
+        state: getPreviewController(mainWindow ?? createWindow()).getState(),
+      };
+    }
+    const controller = getPreviewController(window);
+    return controller.open({
+      url: input?.url,
+      title: input?.title,
+    });
+  });
+
+  ipcMain.removeHandler(PREVIEW_CLOSE_CHANNEL);
+  ipcMain.handle(PREVIEW_CLOSE_CHANNEL, async (event) => {
+    const window = resolvePreviewWindow(event.sender);
+    if (!window) return;
+    getPreviewController(window).close();
+  });
+
+  ipcMain.removeHandler(PREVIEW_RELOAD_CHANNEL);
+  ipcMain.handle(PREVIEW_RELOAD_CHANNEL, async (event) => {
+    const window = resolvePreviewWindow(event.sender);
+    if (!window) return;
+    getPreviewController(window).reload();
+  });
+
+  ipcMain.removeHandler(PREVIEW_NAVIGATE_CHANNEL);
+  ipcMain.handle(PREVIEW_NAVIGATE_CHANNEL, async (event, input: { url?: unknown }) => {
+    const window = resolvePreviewWindow(event.sender);
+    if (!window) {
+      return {
+        accepted: false,
+        state: getPreviewController(mainWindow ?? createWindow()).getState(),
+      };
+    }
+    return getPreviewController(window).navigate({
+      url: input?.url,
+    });
+  });
+
+  ipcMain.removeHandler(PREVIEW_GET_STATE_CHANNEL);
+  ipcMain.handle(PREVIEW_GET_STATE_CHANNEL, async (event) => {
+    const window = resolvePreviewWindow(event.sender);
+    if (!window) {
+      return {
+        status: "closed",
+        url: null,
+        title: null,
+        visible: false,
+        error: null,
+      } satisfies DesktopPreviewState;
+    }
+    return getPreviewController(window).getState();
+  });
+
+  ipcMain.removeHandler(PREVIEW_SET_BOUNDS_CHANNEL);
+  ipcMain.handle(PREVIEW_SET_BOUNDS_CHANNEL, async (event, bounds: DesktopPreviewBounds) => {
+    const window = resolvePreviewWindow(event.sender);
+    if (!window) return;
+    getPreviewController(window).setBounds(bounds);
+  });
 }
 
 function getIconOption(): { icon: string } | Record<string, never> {
@@ -1288,6 +1389,7 @@ function createWindow(): BrowserWindow {
   window.webContents.on("did-finish-load", () => {
     window.setTitle(APP_DISPLAY_NAME);
     emitUpdateState();
+    emitPreviewState(window, getPreviewController(window).getState());
   });
   window.once("ready-to-show", () => {
     window.show();
@@ -1301,6 +1403,9 @@ function createWindow(): BrowserWindow {
   }
 
   window.on("closed", () => {
+    const previewController = previewControllers.get(window);
+    previewController?.destroy();
+    previewControllers.delete(window);
     if (mainWindow === window) {
       mainWindow = null;
     }

@@ -63,7 +63,7 @@ describe("ProviderModelPicker", () => {
       await vi.waitFor(() => {
         const text = document.body.textContent ?? "";
         expect(text).toContain("Codex");
-        expect(text).toContain("Claude");
+        expect(text).toContain("Anthropic");
         expect(text).not.toContain("Claude Sonnet 4.6");
       });
     } finally {

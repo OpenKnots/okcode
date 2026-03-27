@@ -34,6 +34,7 @@ describe("normalizeCustomModelSlugs", () => {
 
   it("normalizes provider-specific aliases for claude", () => {
     expect(normalizeCustomModelSlugs(["sonnet"], "claudeAgent")).toEqual([]);
+    expect(normalizeCustomModelSlugs(["anthropic/claude-sonnet-4-6"], "claudeAgent")).toEqual([]);
     expect(normalizeCustomModelSlugs(["claude/custom-sonnet"], "claudeAgent")).toEqual([
       "claude/custom-sonnet",
     ]);

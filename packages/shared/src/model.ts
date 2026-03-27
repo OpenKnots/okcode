@@ -75,11 +75,16 @@ export function normalizeModelSlug(
     return null;
   }
 
+  const providerNormalized =
+    provider === "claudeAgent" && trimmed.toLowerCase().startsWith("anthropic/")
+      ? trimmed.slice("anthropic/".length)
+      : trimmed;
+
   const aliases = MODEL_SLUG_ALIASES_BY_PROVIDER[provider] as Record<string, ModelSlug>;
-  const aliased = Object.prototype.hasOwnProperty.call(aliases, trimmed)
-    ? aliases[trimmed]
+  const aliased = Object.prototype.hasOwnProperty.call(aliases, providerNormalized)
+    ? aliases[providerNormalized]
     : undefined;
-  return typeof aliased === "string" ? aliased : (trimmed as ModelSlug);
+  return typeof aliased === "string" ? aliased : (providerNormalized as ModelSlug);
 }
 
 export function resolveSelectableModel(

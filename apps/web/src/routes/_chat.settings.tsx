@@ -87,7 +87,7 @@ const INSTALL_PROVIDER_SETTINGS: readonly InstallProviderSettings[] = [
   },
   {
     provider: "claudeAgent",
-    title: "Claude",
+    title: "Anthropic",
     binaryPathKey: "claudeBinaryPath",
     binaryPlaceholder: "Claude binary path",
     binaryDescription: (

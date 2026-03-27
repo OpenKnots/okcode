@@ -9,7 +9,8 @@ import {
   XIcon,
 } from "lucide-react";
 
-import { readDesktopPreviewBridge, validateLocalPreviewUrl } from "~/desktopPreview";
+import { readDesktopPreviewBridge } from "~/desktopPreview";
+import { validateHttpPreviewUrl } from "@okcode/shared/preview";
 import { readNativeApi } from "~/nativeApi";
 import { usePreviewStateStore } from "~/previewStateStore";
 
@@ -35,7 +36,7 @@ export function resolvePreviewStatusCopy(state: DesktopPreviewState): string {
     case "ready":
       return state.url ? `Rendering ${state.url}` : "Preview ready.";
     case "closed":
-      return "Enter a localhost URL to preview your app inside OK Code.";
+      return "Enter a URL to preview inside OK Code.";
     case "error":
       return "Preview failed.";
   }
@@ -186,7 +187,7 @@ export function PreviewPanel({ threadId, projectId, projectName, onClose }: Prev
 
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const validatedUrl = validateLocalPreviewUrl(inputUrl);
+    const validatedUrl = validateHttpPreviewUrl(inputUrl);
     if (!validatedUrl.ok) {
       setInputError(validatedUrl.error.message);
       return;

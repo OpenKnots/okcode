@@ -52,6 +52,41 @@ export function validateLocalPreviewUrl(
   return { ok: true, url: parsedUrl.toString() };
 }
 
+/**
+ * Validates any http or https URL for use in the embedded preview panel.
+ * This is less restrictive than `validateLocalPreviewUrl` – it accepts any
+ * valid http/https URL, not only localhost addresses.
+ */
+export function validateHttpPreviewUrl(
+  rawUrl: unknown,
+): { ok: true; url: string } | { ok: false; error: DesktopPreviewError } {
+  if (typeof rawUrl !== "string" || rawUrl.trim().length === 0) {
+    return {
+      ok: false,
+      error: makePreviewError("invalid-url", "Preview URL must be a non-empty string."),
+    };
+  }
+
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(rawUrl);
+  } catch {
+    return {
+      ok: false,
+      error: makePreviewError("invalid-url", "Preview URL is not a valid URL."),
+    };
+  }
+
+  if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
+    return {
+      ok: false,
+      error: makePreviewError("invalid-url", "Preview only supports http and https URLs."),
+    };
+  }
+
+  return { ok: true, url: parsedUrl.toString() };
+}
+
 export function sanitizeLocalPreviewBounds(bounds: DesktopPreviewBounds): DesktopPreviewBounds {
   const width = Number.isFinite(bounds.width) ? Math.max(0, Math.round(bounds.width)) : 0;
   const height = Number.isFinite(bounds.height) ? Math.max(0, Math.round(bounds.height)) : 0;

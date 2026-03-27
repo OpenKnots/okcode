@@ -1,5 +1,5 @@
 import type { DesktopBridge } from "@okcode/contracts";
-import { validateLocalPreviewUrl } from "@okcode/shared/preview";
+import { validateHttpPreviewUrl, validateLocalPreviewUrl } from "@okcode/shared/preview";
 
 export function readDesktopPreviewBridge(): DesktopBridge["preview"] | null {
   if (typeof window === "undefined") {
@@ -12,4 +12,4 @@ export function canUseDesktopPreview(): boolean {
   return readDesktopPreviewBridge() !== null;
 }
 
-export { validateLocalPreviewUrl };
+export { validateHttpPreviewUrl, validateLocalPreviewUrl };

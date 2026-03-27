@@ -273,6 +273,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
   const setPreviewDock = usePreviewStateStore((state) => state.setThreadDock);
   const togglePreviewLayout = usePreviewStateStore((state) => state.toggleThreadLayout);
   const setPreviewSize = usePreviewStateStore((state) => state.setThreadSize);
+  const setPreviewProjectUrl = usePreviewStateStore((state) => state.setProjectUrl);
   const previewSplitRef = useRef<HTMLDivElement | null>(null);
   const previewResizeStateRef = useRef<{
     pointerId: number;
@@ -1285,6 +1286,17 @@ export default function ChatView({ threadId }: ChatViewProps) {
     },
     [activeThread, composerCursor, composerTerminalContexts, insertComposerDraftTerminalContext],
   );
+  const handlePreviewUrl = useCallback(
+    (url: string) => {
+      if (!activeProject || !activeThread) return;
+      setPreviewProjectUrl(activeProject.id, url);
+      setPreviewOpen(activeThread.id, true);
+    },
+    [activeProject, activeThread, setPreviewProjectUrl, setPreviewOpen],
+  );
+  const openLinksExternally = settings.openLinksExternally;
+  const onPreviewUrl =
+    isElectron && activeProject && !openLinksExternally ? handlePreviewUrl : undefined;
   const setTerminalOpen = useCallback(
     (open: boolean) => {
       if (!activeThreadId) return;
@@ -4643,6 +4655,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
             onCloseTerminal={closeTerminal}
             onHeightChange={setTerminalHeight}
             onAddTerminalContext={addTerminalContextToDraft}
+            onPreviewUrl={onPreviewUrl}
           />
         );
       })()}

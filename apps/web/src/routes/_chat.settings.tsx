@@ -258,6 +258,9 @@ function SettingsRouteView() {
     ...(settings.enableAssistantStreaming !== defaults.enableAssistantStreaming
       ? ["Assistant output"]
       : []),
+    ...(settings.openLinksExternally !== defaults.openLinksExternally
+      ? ["Open links externally"]
+      : []),
     ...(settings.defaultThreadEnvMode !== defaults.defaultThreadEnvMode ? ["New thread mode"] : []),
     ...(settings.confirmThreadDelete !== defaults.confirmThreadDelete
       ? ["Delete confirmation"]
@@ -555,6 +558,34 @@ function SettingsRouteView() {
                       })
                     }
                     aria-label="Stream assistant messages"
+                  />
+                }
+              />
+
+              <SettingsRow
+                title="Open links externally"
+                description="Open terminal URLs in your default browser instead of the embedded preview panel."
+                resetAction={
+                  settings.openLinksExternally !== defaults.openLinksExternally ? (
+                    <SettingResetButton
+                      label="open links externally"
+                      onClick={() =>
+                        updateSettings({
+                          openLinksExternally: defaults.openLinksExternally,
+                        })
+                      }
+                    />
+                  ) : null
+                }
+                control={
+                  <Switch
+                    checked={settings.openLinksExternally}
+                    onCheckedChange={(checked) =>
+                      updateSettings({
+                        openLinksExternally: Boolean(checked),
+                      })
+                    }
+                    aria-label="Open links externally"
                   />
                 }
               />

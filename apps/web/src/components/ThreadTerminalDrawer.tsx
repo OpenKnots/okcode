@@ -188,6 +188,7 @@ interface TerminalViewportProps {
   runtimeEnv?: Record<string, string>;
   onSessionExited: () => void;
   onAddTerminalContext: (selection: TerminalContextSelection) => void;
+  onPreviewUrl?: ((url: string) => void) | undefined;
   focusRequestId: number;
   autoFocus: boolean;
   resizeEpoch: number;
@@ -202,6 +203,7 @@ function TerminalViewport({
   runtimeEnv,
   onSessionExited,
   onAddTerminalContext,
+  onPreviewUrl,
   focusRequestId,
   autoFocus,
   resizeEpoch,
@@ -212,6 +214,7 @@ function TerminalViewport({
   const fitAddonRef = useRef<FitAddon | null>(null);
   const onSessionExitedRef = useRef(onSessionExited);
   const onAddTerminalContextRef = useRef(onAddTerminalContext);
+  const onPreviewUrlRef = useRef(onPreviewUrl);
   const terminalLabelRef = useRef(terminalLabel);
   const hasHandledExitRef = useRef(false);
   const selectionPointerRef = useRef<{ x: number; y: number } | null>(null);
@@ -227,6 +230,10 @@ function TerminalViewport({
   useEffect(() => {
     onAddTerminalContextRef.current = onAddTerminalContext;
   }, [onAddTerminalContext]);
+
+  useEffect(() => {
+    onPreviewUrlRef.current = onPreviewUrl;
+  }, [onPreviewUrl]);
 
   useEffect(() => {
     terminalLabelRef.current = terminalLabel;
@@ -393,12 +400,17 @@ function TerminalViewport({
               if (!latestTerminal) return;
 
               if (match.kind === "url") {
-                void api.shell.openExternal(match.text).catch((error) => {
-                  writeSystemMessage(
-                    latestTerminal,
-                    error instanceof Error ? error.message : "Unable to open link",
-                  );
-                });
+                const previewHandler = onPreviewUrlRef.current;
+                if (previewHandler) {
+                  previewHandler(match.text);
+                } else {
+                  void api.shell.openExternal(match.text).catch((error) => {
+                    writeSystemMessage(
+                      latestTerminal,
+                      error instanceof Error ? error.message : "Unable to open link",
+                    );
+                  });
+                }
                 return;
               }
 
@@ -662,6 +674,7 @@ interface ThreadTerminalDrawerProps {
   onCloseTerminal: (terminalId: string) => void;
   onHeightChange: (height: number) => void;
   onAddTerminalContext: (selection: TerminalContextSelection) => void;
+  onPreviewUrl?: ((url: string) => void) | undefined;
 }
 
 interface TerminalActionButtonProps {
@@ -712,6 +725,7 @@ export default function ThreadTerminalDrawer({
   onCloseTerminal,
   onHeightChange,
   onAddTerminalContext,
+  onPreviewUrl,
 }: ThreadTerminalDrawerProps) {
   const [drawerHeight, setDrawerHeight] = useState(() => clampDrawerHeight(height));
   const [resizeEpoch, setResizeEpoch] = useState(0);
@@ -1013,6 +1027,7 @@ export default function ThreadTerminalDrawer({
                         {...(runtimeEnv ? { runtimeEnv } : {})}
                         onSessionExited={() => onCloseTerminal(terminalId)}
                         onAddTerminalContext={onAddTerminalContext}
+                        onPreviewUrl={onPreviewUrl}
                         focusRequestId={focusRequestId}
                         autoFocus={terminalId === resolvedActiveTerminalId}
                         resizeEpoch={resizeEpoch}
@@ -1033,6 +1048,7 @@ export default function ThreadTerminalDrawer({
                   {...(runtimeEnv ? { runtimeEnv } : {})}
                   onSessionExited={() => onCloseTerminal(resolvedActiveTerminalId)}
                   onAddTerminalContext={onAddTerminalContext}
+                  onPreviewUrl={onPreviewUrl}
                   focusRequestId={focusRequestId}
                   autoFocus
                   resizeEpoch={resizeEpoch}

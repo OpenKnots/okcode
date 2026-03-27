@@ -4,7 +4,11 @@ import type {
   DesktopPreviewErrorCode,
   DesktopPreviewState,
 } from "@okcode/contracts";
-import { sanitizeLocalPreviewBounds, validateLocalPreviewUrl } from "@okcode/shared/preview";
+import {
+  sanitizeLocalPreviewBounds,
+  validateHttpPreviewUrl,
+  validateLocalPreviewUrl,
+} from "@okcode/shared/preview";
 
 const CLOSED_PREVIEW_STATE: DesktopPreviewState = {
   status: "closed",
@@ -37,6 +41,16 @@ export function createPreviewErrorState(
 }
 
 export function validateDesktopPreviewUrl(
+  rawUrl: unknown,
+): { ok: true; url: string } | { ok: false; error: DesktopPreviewError } {
+  return validateHttpPreviewUrl(rawUrl);
+}
+
+/**
+ * Stricter validation that only allows localhost URLs.
+ * Kept for contexts where only local dev servers should be previewed.
+ */
+export function validateDesktopLocalPreviewUrl(
   rawUrl: unknown,
 ): { ok: true; url: string } | { ok: false; error: DesktopPreviewError } {
   return validateLocalPreviewUrl(rawUrl);

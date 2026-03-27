@@ -4,6 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { ThreadId, type TurnId } from "@okcode/contracts";
 import {
+  CheckIcon,
+  ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   Columns2Icon,
@@ -27,12 +29,21 @@ import { resolvePathLinkTarget } from "../terminal-links";
 import { parseDiffRouteSearch, stripDiffSearchParams } from "../diffRouteSearch";
 import { useTheme } from "../hooks/useTheme";
 import { buildPatchCacheKey } from "../lib/diffRendering";
+import {
+  expandDiffFile,
+  reconcileDiffFileReviewState,
+  toggleDiffFileAccepted,
+  toggleDiffFileCollapsed,
+  type DiffFileReviewStateByPath,
+} from "../lib/diffFileReviewState";
 import { resolveDiffThemeName } from "../lib/diffRendering";
 import { useTurnDiffSummaries } from "../hooks/useTurnDiffSummaries";
 import { useStore } from "../store";
 import { useAppSettings } from "../appSettings";
 import { formatShortTimestamp } from "../timestampFormat";
 import { DiffPanelLoadingState, DiffPanelShell, type DiffPanelMode } from "./DiffPanelShell";
+import { DiffStatLabel, hasNonZeroStat } from "./chat/DiffStatLabel";
+import { Button } from "./ui/button";
 import { ToggleGroup, Toggle } from "./ui/toggle-group";
 
 type DiffRenderMode = "stacked" | "split";
@@ -157,6 +168,113 @@ function buildFileDiffRenderKey(fileDiff: FileDiffMetadata): string {
   return fileDiff.cacheKey ?? `${fileDiff.prevName ?? "none"}:${fileDiff.name}`;
 }
 
+function summarizeFileDiffStats(fileDiff: FileDiffMetadata): {
+  additions: number;
+  deletions: number;
+} {
+  return fileDiff.hunks.reduce(
+    (summary, hunk) => ({
+      additions: summary.additions + hunk.additionLines,
+      deletions: summary.deletions + hunk.deletionLines,
+    }),
+    { additions: 0, deletions: 0 },
+  );
+}
+
+function DiffFileSection(props: {
+  fileDiff: FileDiffMetadata;
+  filePath: string;
+  fileKey: string;
+  diffRenderMode: DiffRenderMode;
+  diffWordWrap: boolean;
+  resolvedTheme: "light" | "dark";
+  collapsed: boolean;
+  accepted: boolean;
+  onOpenInEditor: (filePath: string) => void;
+  onToggleCollapsed: (filePath: string) => void;
+  onToggleAccepted: (filePath: string) => void;
+}) {
+  const {
+    accepted,
+    collapsed,
+    diffRenderMode,
+    diffWordWrap,
+    fileDiff,
+    fileKey,
+    filePath,
+    onOpenInEditor,
+    onToggleAccepted,
+    onToggleCollapsed,
+    resolvedTheme,
+  } = props;
+  const stats = summarizeFileDiffStats(fileDiff);
+
+  return (
+    <section
+      data-diff-file-path={filePath}
+      className={cn(
+        "diff-render-file mb-2 overflow-hidden rounded-md border border-border/70 bg-card/30 first:mt-2 last:mb-0",
+        accepted && "border-success/40",
+      )}
+    >
+      <div className="flex items-center gap-2 border-b border-border/60 bg-card/70 px-2 py-1.5">
+        <Button
+          size="icon-xs"
+          variant="ghost"
+          aria-label={collapsed ? `Expand ${filePath}` : `Collapse ${filePath}`}
+          aria-expanded={!collapsed}
+          onClick={() => onToggleCollapsed(filePath)}
+          className="text-muted-foreground/80"
+        >
+          <ChevronDownIcon
+            className={cn("size-3.5 transition-transform", collapsed && "-rotate-90")}
+          />
+        </Button>
+        <button
+          type="button"
+          className="min-w-0 flex-1 truncate text-left font-mono text-[11px] text-foreground/90 underline-offset-2 hover:underline"
+          onClick={() => onOpenInEditor(filePath)}
+          title={`Open ${filePath} in editor`}
+        >
+          {filePath}
+        </button>
+        {hasNonZeroStat(stats) && (
+          <span className="hidden shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground/80 sm:inline">
+            <DiffStatLabel additions={stats.additions} deletions={stats.deletions} />
+          </span>
+        )}
+        <Button
+          size="xs"
+          variant={accepted ? "secondary" : "outline"}
+          onClick={() => onToggleAccepted(filePath)}
+          className={cn(
+            "gap-1.5",
+            accepted && "border-success/30 bg-success/12 text-success hover:bg-success/18",
+          )}
+        >
+          <CheckIcon className={cn("size-3.5", accepted ? "opacity-100" : "opacity-35")} />
+          {accepted ? "Accepted" : "Accept"}
+        </Button>
+      </div>
+      {!collapsed && (
+        <div key={fileKey}>
+          <FileDiff
+            fileDiff={fileDiff}
+            options={{
+              diffStyle: diffRenderMode === "split" ? "split" : "unified",
+              lineDiffType: "none",
+              overflow: diffWordWrap ? "wrap" : "scroll",
+              theme: resolveDiffThemeName(resolvedTheme),
+              themeType: resolvedTheme as DiffThemeType,
+              unsafeCSS: DIFF_PANEL_UNSAFE_CSS,
+            }}
+          />
+        </div>
+      )}
+    </section>
+  );
+}
+
 interface DiffPanelProps {
   mode?: DiffPanelMode;
 }
@@ -174,6 +292,9 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
   const previousDiffOpenRef = useRef(false);
   const [canScrollTurnStripLeft, setCanScrollTurnStripLeft] = useState(false);
   const [canScrollTurnStripRight, setCanScrollTurnStripRight] = useState(false);
+  const [reviewStateBySelectionKey, setReviewStateBySelectionKey] = useState<
+    Record<string, DiffFileReviewStateByPath>
+  >({});
   const routeThreadId = useParams({
     strict: false,
     select: (params) => (params.threadId ? ThreadId.makeUnsafe(params.threadId) : null),
@@ -301,6 +422,20 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
       }),
     );
   }, [renderablePatch]);
+  const patchReviewSelectionKey = useMemo(() => {
+    if (!activeThreadId || !selectedPatch) {
+      return null;
+    }
+    const scope = selectedTurn ? `turn:${selectedTurn.turnId}` : "conversation";
+    return `${activeThreadId}:${scope}:${buildPatchCacheKey(selectedPatch, "diff-review")}`;
+  }, [activeThreadId, selectedPatch, selectedTurn]);
+  const renderableFilePaths = useMemo(
+    () => renderableFiles.map((fileDiff) => resolveFileDiffPath(fileDiff)),
+    [renderableFiles],
+  );
+  const activeReviewState = patchReviewSelectionKey
+    ? (reviewStateBySelectionKey[patchReviewSelectionKey] ?? {})
+    : {};
 
   useEffect(() => {
     if (diffOpen && !previousDiffOpenRef.current) {
@@ -308,6 +443,45 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
     }
     previousDiffOpenRef.current = diffOpen;
   }, [diffOpen, settings.diffWordWrap]);
+
+  useEffect(() => {
+    if (!patchReviewSelectionKey) {
+      return;
+    }
+    setReviewStateBySelectionKey((current) => {
+      const nextSelectionState = reconcileDiffFileReviewState(
+        renderableFilePaths,
+        current[patchReviewSelectionKey],
+      );
+      if (current[patchReviewSelectionKey] === nextSelectionState) {
+        return current;
+      }
+      return {
+        ...current,
+        [patchReviewSelectionKey]: nextSelectionState,
+      };
+    });
+  }, [patchReviewSelectionKey, renderableFilePaths]);
+
+  useEffect(() => {
+    if (!patchReviewSelectionKey || !selectedFilePath) {
+      return;
+    }
+    setReviewStateBySelectionKey((current) => {
+      const selectionState = current[patchReviewSelectionKey];
+      if (!selectionState) {
+        return current;
+      }
+      const nextSelectionState = expandDiffFile(selectionState, selectedFilePath);
+      if (nextSelectionState === selectionState) {
+        return current;
+      }
+      return {
+        ...current,
+        [patchReviewSelectionKey]: nextSelectionState,
+      };
+    });
+  }, [patchReviewSelectionKey, selectedFilePath]);
 
   useEffect(() => {
     if (!selectedFilePath || !patchViewportRef.current) {
@@ -329,6 +503,30 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
       });
     },
     [activeCwd],
+  );
+  const updateActiveReviewState = useCallback(
+    (updater: (current: DiffFileReviewStateByPath) => DiffFileReviewStateByPath) => {
+      if (!patchReviewSelectionKey) {
+        return;
+      }
+      setReviewStateBySelectionKey((current) => ({
+        ...current,
+        [patchReviewSelectionKey]: updater(current[patchReviewSelectionKey] ?? {}),
+      }));
+    },
+    [patchReviewSelectionKey],
+  );
+  const onToggleFileAccepted = useCallback(
+    (filePath: string) => {
+      updateActiveReviewState((current) => toggleDiffFileAccepted(current, filePath));
+    },
+    [updateActiveReviewState],
+  );
+  const onToggleFileCollapsed = useCallback(
+    (filePath: string) => {
+      updateActiveReviewState((current) => toggleDiffFileCollapsed(current, filePath));
+    },
+    [updateActiveReviewState],
   );
 
   const selectTurn = (turnId: TurnId) => {
@@ -591,34 +789,25 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
                   const filePath = resolveFileDiffPath(fileDiff);
                   const fileKey = buildFileDiffRenderKey(fileDiff);
                   const themedFileKey = `${fileKey}:${resolvedTheme}`;
+                  const fileReviewState = activeReviewState[filePath] ?? {
+                    accepted: false,
+                    collapsed: false,
+                  };
                   return (
-                    <div
+                    <DiffFileSection
                       key={themedFileKey}
-                      data-diff-file-path={filePath}
-                      className="diff-render-file mb-2 rounded-md first:mt-2 last:mb-0"
-                      onClickCapture={(event) => {
-                        const nativeEvent = event.nativeEvent as MouseEvent;
-                        const composedPath = nativeEvent.composedPath?.() ?? [];
-                        const clickedHeader = composedPath.some((node) => {
-                          if (!(node instanceof Element)) return false;
-                          return node.hasAttribute("data-title");
-                        });
-                        if (!clickedHeader) return;
-                        openDiffFileInEditor(filePath);
-                      }}
-                    >
-                      <FileDiff
-                        fileDiff={fileDiff}
-                        options={{
-                          diffStyle: diffRenderMode === "split" ? "split" : "unified",
-                          lineDiffType: "none",
-                          overflow: diffWordWrap ? "wrap" : "scroll",
-                          theme: resolveDiffThemeName(resolvedTheme),
-                          themeType: resolvedTheme as DiffThemeType,
-                          unsafeCSS: DIFF_PANEL_UNSAFE_CSS,
-                        }}
-                      />
-                    </div>
+                      accepted={fileReviewState.accepted}
+                      collapsed={fileReviewState.collapsed}
+                      diffRenderMode={diffRenderMode}
+                      diffWordWrap={diffWordWrap}
+                      fileDiff={fileDiff}
+                      fileKey={themedFileKey}
+                      filePath={filePath}
+                      onOpenInEditor={openDiffFileInEditor}
+                      onToggleAccepted={onToggleFileAccepted}
+                      onToggleCollapsed={onToggleFileCollapsed}
+                      resolvedTheme={resolvedTheme}
+                    />
                   );
                 })}
               </Virtualizer>

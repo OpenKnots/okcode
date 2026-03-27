@@ -12,6 +12,7 @@ import {
   TriangleAlertIcon,
 } from "lucide-react";
 import { SpotifyToggleButton } from "./SpotifyPlayer";
+import { ThemeModeSwitcher } from "./ThemeModeSwitcher";
 import { autoAnimate } from "@formkit/auto-animate";
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import {
@@ -1919,6 +1920,9 @@ export default function Sidebar() {
                   <SettingsIcon className="size-3.5" />
                   <span className="text-xs">Settings</span>
                 </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <ThemeModeSwitcher />
               </SidebarMenuItem>
             </>
           )}

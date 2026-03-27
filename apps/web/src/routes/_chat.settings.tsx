@@ -29,7 +29,7 @@ import { SidebarInset } from "../components/ui/sidebar";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../components/ui/tooltip";
 import { resolveAndPersistPreferredEditor } from "../editorPreferences";
 import { isElectron } from "../env";
-import { useTheme } from "../hooks/useTheme";
+import { useTheme, COLOR_THEMES } from "../hooks/useTheme";
 import { serverConfigQueryOptions } from "../lib/serverReactQuery";
 import { cn } from "../lib/utils";
 import { ensureNativeApi, readNativeApi } from "../nativeApi";
@@ -188,7 +188,7 @@ function SettingResetButton({ label, onClick }: { label: string; onClick: () => 
 }
 
 function SettingsRouteView() {
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, colorTheme, setColorTheme } = useTheme();
   const { settings, defaults, updateSettings, resetSettings } = useAppSettings();
   const serverConfigQuery = useQuery(serverConfigQueryOptions());
   const [isOpeningKeybindings, setIsOpeningKeybindings] = useState(false);
@@ -253,6 +253,7 @@ function SettingsRouteView() {
     settings.codexHomePath !== defaults.codexHomePath;
   const changedSettingLabels = [
     ...(theme !== "system" ? ["Theme"] : []),
+    ...(colorTheme !== "default" ? ["Color theme"] : []),
     ...(settings.timestampFormat !== defaults.timestampFormat ? ["Time format"] : []),
     ...(settings.diffWordWrap !== defaults.diffWordWrap ? ["Diff line wrapping"] : []),
     ...(settings.enableAssistantStreaming !== defaults.enableAssistantStreaming
@@ -371,6 +372,7 @@ function SettingsRouteView() {
     if (!confirmed) return;
 
     setTheme("system");
+    setColorTheme("default");
     resetSettings();
     setOpenInstallProviders({
       codex: false,
@@ -454,6 +456,42 @@ function SettingsRouteView() {
                       {THEME_OPTIONS.map((option) => (
                         <SelectItem hideIndicator key={option.value} value={option.value}>
                           {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectPopup>
+                  </Select>
+                }
+              />
+
+              <SettingsRow
+                title="Color theme"
+                description="Pick a color palette for light and dark modes."
+                resetAction={
+                  colorTheme !== "default" ? (
+                    <SettingResetButton
+                      label="color theme"
+                      onClick={() => setColorTheme("default")}
+                    />
+                  ) : null
+                }
+                control={
+                  <Select
+                    value={colorTheme}
+                    onValueChange={(value) => {
+                      const match = COLOR_THEMES.find((t) => t.id === value);
+                      if (!match) return;
+                      setColorTheme(match.id);
+                    }}
+                  >
+                    <SelectTrigger className="w-full sm:w-40" aria-label="Color theme">
+                      <SelectValue>
+                        {COLOR_THEMES.find((t) => t.id === colorTheme)?.label ?? "Default"}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectPopup align="end" alignItemWithTrigger={false}>
+                      {COLOR_THEMES.map((t) => (
+                        <SelectItem hideIndicator key={t.id} value={t.id}>
+                          {t.label}
                         </SelectItem>
                       ))}
                     </SelectPopup>

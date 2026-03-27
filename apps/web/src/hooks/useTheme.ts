@@ -1,12 +1,31 @@
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 
 type Theme = "light" | "dark" | "system";
+type ColorTheme =
+  | "default"
+  | "iridescent-void"
+  | "solar-witch"
+  | "deep-sea-terminal"
+  | "cathedral-circuit"
+  | "neon-bento";
+
 type ThemeSnapshot = {
   theme: Theme;
   systemDark: boolean;
+  colorTheme: ColorTheme;
 };
 
+export const COLOR_THEMES: { id: ColorTheme; label: string }[] = [
+  { id: "default", label: "Default" },
+  { id: "iridescent-void", label: "Iridescent Void" },
+  { id: "solar-witch", label: "Solar Witch" },
+  { id: "deep-sea-terminal", label: "Deep Sea Terminal" },
+  { id: "cathedral-circuit", label: "Cathedral Circuit" },
+  { id: "neon-bento", label: "Neon Bento" },
+];
+
 const STORAGE_KEY = "okcode:theme";
+const COLOR_THEME_STORAGE_KEY = "okcode:color-theme";
 const MEDIA_QUERY = "(prefers-color-scheme: dark)";
 
 let listeners: Array<() => void> = [];
@@ -26,12 +45,42 @@ function getStored(): Theme {
   return "system";
 }
 
+function getStoredColorTheme(): ColorTheme {
+  const raw = localStorage.getItem(COLOR_THEME_STORAGE_KEY);
+  if (
+    raw === "default" ||
+    raw === "iridescent-void" ||
+    raw === "solar-witch" ||
+    raw === "deep-sea-terminal" ||
+    raw === "cathedral-circuit" ||
+    raw === "neon-bento"
+  ) {
+    return raw;
+  }
+  return "default";
+}
+
 function applyTheme(theme: Theme, suppressTransitions = false) {
   if (suppressTransitions) {
     document.documentElement.classList.add("no-transitions");
   }
   const isDark = theme === "dark" || (theme === "system" && getSystemDark());
   document.documentElement.classList.toggle("dark", isDark);
+
+  // Apply color theme class
+  const colorTheme = getStoredColorTheme();
+  // Remove any existing theme-* classes
+  const existingThemeClasses = Array.from(document.documentElement.classList).filter((cls) =>
+    cls.startsWith("theme-"),
+  );
+  for (const cls of existingThemeClasses) {
+    document.documentElement.classList.remove(cls);
+  }
+  // Add the new theme class if not default
+  if (colorTheme !== "default") {
+    document.documentElement.classList.add(`theme-${colorTheme}`);
+  }
+
   syncDesktopTheme(theme);
   if (suppressTransitions) {
     // Force a reflow so the no-transitions class takes effect before removal
@@ -63,12 +112,18 @@ applyTheme(getStored());
 function getSnapshot(): ThemeSnapshot {
   const theme = getStored();
   const systemDark = theme === "system" ? getSystemDark() : false;
+  const colorTheme = getStoredColorTheme();
 
-  if (lastSnapshot && lastSnapshot.theme === theme && lastSnapshot.systemDark === systemDark) {
+  if (
+    lastSnapshot &&
+    lastSnapshot.theme === theme &&
+    lastSnapshot.systemDark === systemDark &&
+    lastSnapshot.colorTheme === colorTheme
+  ) {
     return lastSnapshot;
   }
 
-  lastSnapshot = { theme, systemDark };
+  lastSnapshot = { theme, systemDark, colorTheme };
   return lastSnapshot;
 }
 
@@ -85,7 +140,7 @@ function subscribe(listener: () => void): () => void {
 
   // Listen for storage changes from other tabs
   const handleStorage = (e: StorageEvent) => {
-    if (e.key === STORAGE_KEY) {
+    if (e.key === STORAGE_KEY || e.key === COLOR_THEME_STORAGE_KEY) {
       applyTheme(getStored(), true);
       emitChange();
     }
@@ -102,6 +157,7 @@ function subscribe(listener: () => void): () => void {
 export function useTheme() {
   const snapshot = useSyncExternalStore(subscribe, getSnapshot);
   const theme = snapshot.theme;
+  const colorTheme = snapshot.colorTheme;
 
   const resolvedTheme: "light" | "dark" =
     theme === "system" ? (snapshot.systemDark ? "dark" : "light") : theme;
@@ -112,10 +168,16 @@ export function useTheme() {
     emitChange();
   }, []);
 
+  const setColorTheme = useCallback((next: ColorTheme) => {
+    localStorage.setItem(COLOR_THEME_STORAGE_KEY, next);
+    applyTheme(getStored(), true);
+    emitChange();
+  }, []);
+
   // Keep DOM in sync on mount/change
   useEffect(() => {
     applyTheme(theme);
   }, [theme]);
 
-  return { theme, setTheme, resolvedTheme } as const;
+  return { theme, setTheme, resolvedTheme, colorTheme, setColorTheme } as const;
 }

@@ -6,6 +6,7 @@ import {
   GitPreparePullRequestThreadInput,
   GitRunStackedActionInput,
   GitResolvePullRequestResult,
+  GitStatusResult,
 } from "./git";
 
 const decodeCreateWorktreeInput = Schema.decodeUnknownSync(GitCreateWorktreeInput);
@@ -14,6 +15,7 @@ const decodePreparePullRequestThreadInput = Schema.decodeUnknownSync(
 );
 const decodeRunStackedActionInput = Schema.decodeUnknownSync(GitRunStackedActionInput);
 const decodeResolvePullRequestResult = Schema.decodeUnknownSync(GitResolvePullRequestResult);
+const decodeGitStatusResult = Schema.decodeUnknownSync(GitStatusResult);
 
 describe("GitCreateWorktreeInput", () => {
   it("accepts omitted newBranch for existing-branch worktrees", () => {
@@ -69,5 +71,28 @@ describe("GitRunStackedActionInput", () => {
 
     expect(parsed.actionId).toBe("action-1");
     expect(parsed.action).toBe("commit");
+  });
+});
+
+describe("GitStatusResult", () => {
+  it("decodes conflict metadata", () => {
+    const parsed = decodeGitStatusResult({
+      branch: "feature/conflicts",
+      hasWorkingTreeChanges: true,
+      hasConflicts: true,
+      conflictedFiles: ["src/app.tsx"],
+      workingTree: {
+        files: [{ path: "src/app.tsx", insertions: 0, deletions: 0 }],
+        insertions: 0,
+        deletions: 0,
+      },
+      hasUpstream: true,
+      aheadCount: 0,
+      behindCount: 1,
+      pr: null,
+    });
+
+    expect(parsed.hasConflicts).toBe(true);
+    expect(parsed.conflictedFiles).toEqual(["src/app.tsx"]);
   });
 });

@@ -14,6 +14,8 @@ function status(overrides: Partial<GitStatusResult> = {}): GitStatusResult {
   return {
     branch: "feature/test",
     hasWorkingTreeChanges: false,
+    hasConflicts: false,
+    conflictedFiles: [],
     workingTree: {
       files: [],
       insertions: 0,
@@ -84,6 +86,44 @@ describe("when: branch is clean and has an open PR", () => {
         kind: "open_pr",
       },
     ]);
+  });
+});
+
+describe("when: repository has merge conflicts", () => {
+  it("resolveQuickAction surfaces a resolve conflicts action", () => {
+    const quick = resolveQuickAction(
+      status({
+        hasConflicts: true,
+        conflictedFiles: ["src/app.tsx", "README.md"],
+        hasWorkingTreeChanges: true,
+      }),
+      false,
+    );
+    assert.deepInclude(quick, {
+      kind: "resolve_conflicts",
+      label: "Resolve conflicts",
+      disabled: false,
+    });
+  });
+
+  it("buildMenuItems disables commit, push, and pr actions", () => {
+    const items = buildMenuItems(
+      status({
+        hasConflicts: true,
+        conflictedFiles: ["src/app.tsx"],
+        hasWorkingTreeChanges: true,
+        aheadCount: 1,
+      }),
+      false,
+    );
+    assert.deepEqual(
+      items.map((item) => ({ id: item.id, disabled: item.disabled })),
+      [
+        { id: "commit", disabled: true },
+        { id: "push", disabled: true },
+        { id: "pr", disabled: true },
+      ],
+    );
   });
 });
 

@@ -6,7 +6,13 @@ import type {
 } from "@okcode/contracts";
 import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
-import { ChevronDownIcon, CloudUploadIcon, GitCommitIcon, InfoIcon } from "lucide-react";
+import {
+  ChevronDownIcon,
+  CircleAlertIcon,
+  CloudUploadIcon,
+  GitCommitIcon,
+  InfoIcon,
+} from "lucide-react";
 import { GitHubIcon } from "./Icons";
 import {
   buildGitActionProgressStages,
@@ -130,11 +136,15 @@ function getMenuActionDisabledReason({
 
   const hasBranch = gitStatus.branch !== null;
   const hasChanges = gitStatus.hasWorkingTreeChanges;
+  const hasConflicts = gitStatus.hasConflicts;
   const hasOpenPr = gitStatus.pr?.state === "open";
   const isAhead = gitStatus.aheadCount > 0;
   const isBehind = gitStatus.behindCount > 0;
 
   if (item.id === "commit") {
+    if (hasConflicts) {
+      return "Resolve merge conflicts before committing.";
+    }
     if (!hasChanges) {
       return "Worktree is clean. Make changes before committing.";
     }
@@ -144,6 +154,9 @@ function getMenuActionDisabledReason({
   if (item.id === "push") {
     if (!hasBranch) {
       return "Detached HEAD: checkout a branch before pushing.";
+    }
+    if (hasConflicts) {
+      return "Resolve merge conflicts before pushing.";
     }
     if (hasChanges) {
       return "Commit or stash local changes before pushing.";
@@ -165,6 +178,9 @@ function getMenuActionDisabledReason({
   }
   if (!hasBranch) {
     return "Detached HEAD: checkout a branch before creating a PR.";
+  }
+  if (hasConflicts) {
+    return "Resolve merge conflicts before creating a PR.";
   }
   if (hasChanges) {
     return "Commit local changes before creating a PR.";
@@ -195,6 +211,9 @@ function GitQuickActionIcon({ quickAction }: { quickAction: GitQuickAction }) {
   const iconClassName = "size-3.5";
   if (quickAction.kind === "open_pr") return <GitHubIcon className={iconClassName} />;
   if (quickAction.kind === "run_pull") return <InfoIcon className={iconClassName} />;
+  if (quickAction.kind === "resolve_conflicts") {
+    return <CircleAlertIcon className={iconClassName} />;
+  }
   if (quickAction.kind === "run_action") {
     if (quickAction.action === "commit") return <GitCommitIcon className={iconClassName} />;
     if (quickAction.action === "commit_push") return <CloudUploadIcon className={iconClassName} />;

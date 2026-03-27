@@ -130,7 +130,7 @@ Checklist:
 ## 4) Ongoing release checklist
 
 1. Ensure `main` is green in CI.
-2. Bump app version as needed.
+2. Bump app version as needed (see `scripts/update-release-package-versions.ts` and [CHANGELOG.md](../CHANGELOG.md) / [docs/releases/](releases/README.md) for notes).
 3. Create release tag: `vX.Y.Z`.
 4. Push tag.
 5. Verify workflow steps:

@@ -1,6 +1,6 @@
 {
   "name": "@okcode/contracts",
-  "version": "0.0.14",
+  "version": "0.0.1",
   "private": true,
   "files": [
     "dist"

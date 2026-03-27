@@ -1,4 +1,4 @@
-import { Option, Schema, SchemaIssue, Struct } from "effect";
+import { Option, Schema, SchemaIssue, SchemaTransformation, Struct } from "effect";
 import { ProviderModelOptions } from "./model";
 import {
   ApprovalRequestId,
@@ -64,9 +64,19 @@ export type ProviderStartOptions = typeof ProviderStartOptions.Type;
 export const RuntimeMode = Schema.Literals(["approval-required", "full-access"]);
 export type RuntimeMode = typeof RuntimeMode.Type;
 export const DEFAULT_RUNTIME_MODE: RuntimeMode = "full-access";
-export const ProviderInteractionMode = Schema.Literals(["default", "plan"]);
+const ProviderInteractionModeWire = Schema.Literals(["chat", "code", "plan", "default"]);
+const ProviderInteractionModeNarrow = Schema.Literals(["chat", "code", "plan"]);
+export const ProviderInteractionMode = ProviderInteractionModeWire.pipe(
+  Schema.decodeTo(
+    ProviderInteractionModeNarrow,
+    SchemaTransformation.transform({
+      decode: (wire) => (wire === "default" ? "chat" : wire),
+      encode: (narrow) => narrow,
+    }),
+  ),
+);
 export type ProviderInteractionMode = typeof ProviderInteractionMode.Type;
-export const DEFAULT_PROVIDER_INTERACTION_MODE: ProviderInteractionMode = "default";
+export const DEFAULT_PROVIDER_INTERACTION_MODE: ProviderInteractionMode = "chat";
 export const ProviderRequestKind = Schema.Literals(["command", "file-read", "file-change"]);
 export type ProviderRequestKind = typeof ProviderRequestKind.Type;
 export const AssistantDeliveryMode = Schema.Literals(["buffered", "streaming"]);

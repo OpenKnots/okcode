@@ -18,7 +18,7 @@ export const CompactComposerControlsMenu = memo(function CompactComposerControls
   planSidebarOpen: boolean;
   runtimeMode: RuntimeMode;
   traitsMenuContent?: ReactNode;
-  onToggleInteractionMode: () => void;
+  onInteractionModeChange: (mode: ProviderInteractionMode) => void;
   onTogglePlanSidebar: () => void;
   onToggleRuntimeMode: () => void;
 }) {
@@ -48,10 +48,13 @@ export const CompactComposerControlsMenu = memo(function CompactComposerControls
           value={props.interactionMode}
           onValueChange={(value) => {
             if (!value || value === props.interactionMode) return;
-            props.onToggleInteractionMode();
+            if (value === "chat" || value === "code" || value === "plan") {
+              props.onInteractionModeChange(value);
+            }
           }}
         >
-          <MenuRadioItem value="default">Chat</MenuRadioItem>
+          <MenuRadioItem value="chat">Chat</MenuRadioItem>
+          <MenuRadioItem value="code">Code</MenuRadioItem>
           <MenuRadioItem value="plan">Plan</MenuRadioItem>
         </MenuRadioGroup>
         <MenuDivider />

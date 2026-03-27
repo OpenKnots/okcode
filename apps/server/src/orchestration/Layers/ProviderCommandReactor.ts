@@ -374,7 +374,7 @@ const make = Effect.gen(function* () {
     readonly model?: string;
     readonly modelOptions?: ProviderModelOptions;
     readonly providerOptions?: ProviderStartOptions;
-    readonly interactionMode?: "default" | "plan";
+    readonly interactionMode?: "chat" | "code" | "plan";
     readonly createdAt: string;
   }) {
     const thread = yield* resolveThread(input.threadId);

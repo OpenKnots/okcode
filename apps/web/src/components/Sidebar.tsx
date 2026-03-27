@@ -90,6 +90,7 @@ import {
 import { useThreadSelectionStore } from "../threadSelectionStore";
 import { formatWorktreePathForDisplay, getOrphanedWorktreePathForThread } from "../worktreeCleanup";
 import { isNonEmpty as isNonEmptyString } from "effect/String";
+import { useTheme } from "~/hooks/useTheme";
 import {
   getVisibleThreadsForProject,
   resolveProjectStatusIndicator,
@@ -101,6 +102,7 @@ import {
   sortThreadsForSidebar,
 } from "./Sidebar.logic";
 import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
+import { WorkspaceFileTree } from "~/components/WorkspaceFileTree";
 
 const EMPTY_KEYBINDINGS: ResolvedKeybindingsConfig = [];
 const THREAD_PREVIEW_LIMIT = 6;
@@ -373,6 +375,7 @@ export default function Sidebar() {
   const navigate = useNavigate();
   const isOnSettings = useLocation({ select: (loc) => loc.pathname === "/settings" });
   const { settings: appSettings, updateSettings } = useAppSettings();
+  const { resolvedTheme } = useTheme();
   const { handleNewThread } = useHandleNewThread();
   const routeThreadId = useParams({
     strict: false,
@@ -1110,6 +1113,10 @@ export default function Sidebar() {
       ),
     );
     const activeThreadId = routeThreadId ?? undefined;
+    const activeProjectThread = activeThreadId
+      ? (projectThreads.find((thread) => thread.id === activeThreadId) ?? null)
+      : null;
+    const activeWorkspaceCwd = activeProjectThread?.worktreePath ?? project.cwd;
     const isThreadListExpanded = expandedThreadListsByProject.has(project.id);
     const pinnedCollapsedThread =
       !project.expanded && activeThreadId
@@ -1396,6 +1403,16 @@ export default function Sidebar() {
               </SidebarMenuSubItem>
             )}
           </SidebarMenuSub>
+
+          {project.expanded && activeProjectThread ? (
+            <div className="mx-2 mt-2 border-sidebar-border/50 border-t pt-2">
+              <div className="mb-1.5 flex items-center gap-1.5 px-2 text-[10px] uppercase tracking-[0.14em] text-muted-foreground/58">
+                <FolderIcon className="size-3 shrink-0" />
+                <span>Files</span>
+              </div>
+              <WorkspaceFileTree cwd={activeWorkspaceCwd} resolvedTheme={resolvedTheme} />
+            </div>
+          ) : null}
         </CollapsibleContent>
       </Collapsible>
     );

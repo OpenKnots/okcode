@@ -76,7 +76,7 @@ export function buildPlanImplementationPrompt(planMarkdown: string): string {
 
 export function resolvePlanFollowUpSubmission(input: { draftText: string; planMarkdown: string }): {
   text: string;
-  interactionMode: "default" | "plan";
+  interactionMode: "plan" | "code";
 } {
   const trimmedDraftText = input.draftText.trim();
   if (trimmedDraftText.length > 0) {
@@ -88,7 +88,7 @@ export function resolvePlanFollowUpSubmission(input: { draftText: string; planMa
 
   return {
     text: buildPlanImplementationPrompt(input.planMarkdown),
-    interactionMode: "default",
+    interactionMode: "code",
   };
 }
 

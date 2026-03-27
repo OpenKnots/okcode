@@ -6,7 +6,7 @@ import { spawnSync } from "node:child_process";
 
 import { afterEach, assert, describe, it, vi } from "vitest";
 
-import { searchWorkspaceEntries } from "./workspaceEntries";
+import { listWorkspaceDirectory, searchWorkspaceEntries } from "./workspaceEntries";
 
 const tempDirs: string[] = [];
 

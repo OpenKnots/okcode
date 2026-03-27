@@ -328,17 +328,32 @@ Do not ask "should I proceed?" in the final output. The user can easily switch o
 Only produce at most one \`<proposed_plan>\` block per turn, and only when you are presenting a complete spec.
 </collaboration_mode>`;
 
-export const CODEX_DEFAULT_MODE_DEVELOPER_INSTRUCTIONS = `<collaboration_mode># Collaboration Mode: Default
+export const CODEX_CHAT_MODE_DEVELOPER_INSTRUCTIONS = `<collaboration_mode># Collaboration Mode: Chat
 
-You are now in Default mode. Any previous instructions for other modes (e.g. Plan mode) are no longer active.
+You are now in Chat mode. Any previous instructions for other modes (e.g. Plan mode) are no longer active.
 
-Your active mode changes only when new developer instructions with a different \`<collaboration_mode>...</collaboration_mode>\` change it; user requests or tool descriptions do not change mode by themselves. Known mode names are Default and Plan.
+Your active mode changes only when new developer instructions with a different \`<collaboration_mode>...</collaboration_mode>\` change it; user requests or tool descriptions do not change mode by themselves. Known mode names are Chat, Code, and Plan.
 
 ## request_user_input availability
 
-The \`request_user_input\` tool is unavailable in Default mode. If you call it while in Default mode, it will return an error.
+The \`request_user_input\` tool is unavailable in Chat mode (same as the Codex wire "default" collaboration mode). If you call it while in Chat mode, it will return an error.
 
-In Default mode, strongly prefer making reasonable assumptions and executing the user's request rather than stopping to ask questions. If you absolutely must ask a question because the answer cannot be discovered from local context and a reasonable assumption would be risky, ask the user directly with a concise plain-text question. Never write a multiple choice question as a textual assistant message.
+In Chat mode, strongly prefer making reasonable assumptions and executing the user's request rather than stopping to ask questions. If you absolutely must ask a question because the answer cannot be discovered from local context and a reasonable assumption would be risky, ask the user directly with a concise plain-text question. Never write a multiple choice question as a textual assistant message.
+</collaboration_mode>`;
+
+export const CODEX_CODE_MODE_DEVELOPER_INSTRUCTIONS = `<collaboration_mode># Collaboration Mode: Code
+
+You are now in Code mode. Any previous instructions for other modes (e.g. Plan mode) are no longer active.
+
+Your active mode changes only when new developer instructions with a different \`<collaboration_mode>...</collaboration_mode>\` change it. Known mode names are Chat, Code, and Plan.
+
+Code mode uses the Codex wire "default" collaboration mode with implementation-focused steering: prioritize reading and editing source files, running focused checks (tests, typecheck, lint) when they materially reduce risk, and landing concrete changes. Prefer terse technical explanations; avoid long prose unless the user asks for exposition.
+
+## request_user_input availability
+
+The \`request_user_input\` tool is unavailable in Code mode. If you call it while in Code mode, it will return an error.
+
+When you must clarify something blocking, ask a single concise plain-text question. Never write a multiple choice question as a textual assistant message.
 </collaboration_mode>`;
 
 function mapCodexRuntimeMode(runtimeMode: RuntimeMode): {
@@ -416,7 +431,7 @@ export function buildCodexInitializeParams() {
 }
 
 function buildCodexCollaborationMode(input: {
-  readonly interactionMode?: "default" | "plan";
+  readonly interactionMode?: ProviderInteractionMode;
   readonly model?: string;
   readonly effort?: string;
 }):
@@ -433,15 +448,28 @@ function buildCodexCollaborationMode(input: {
     return undefined;
   }
   const model = normalizeCodexModelSlug(input.model) ?? "gpt-5.3-codex";
+  const baseSettings = {
+    model,
+    reasoning_effort: input.effort ?? "medium",
+  } as const;
+  if (input.interactionMode === "plan") {
+    return {
+      mode: "plan",
+      settings: {
+        ...baseSettings,
+        developer_instructions: CODEX_PLAN_MODE_DEVELOPER_INSTRUCTIONS,
+      },
+    };
+  }
+  const developer_instructions =
+    input.interactionMode === "code"
+      ? CODEX_CODE_MODE_DEVELOPER_INSTRUCTIONS
+      : CODEX_CHAT_MODE_DEVELOPER_INSTRUCTIONS;
   return {
-    mode: input.interactionMode,
+    mode: "default",
     settings: {
-      model,
-      reasoning_effort: input.effort ?? "medium",
-      developer_instructions:
-        input.interactionMode === "plan"
-          ? CODEX_PLAN_MODE_DEVELOPER_INSTRUCTIONS
-          : CODEX_DEFAULT_MODE_DEVELOPER_INSTRUCTIONS,
+      ...baseSettings,
+      developer_instructions,
     },
   };
 }

@@ -44,7 +44,7 @@ async function mountMenu(props?: {
   const screen = await render(
     <CompactComposerControlsMenu
       activePlan={false}
-      interactionMode="default"
+      interactionMode="chat"
       planSidebarOpen={false}
       runtimeMode="approval-required"
       traitsMenuContent={
@@ -58,7 +58,7 @@ async function mountMenu(props?: {
           />
         )
       }
-      onToggleInteractionMode={vi.fn()}
+      onInteractionModeChange={vi.fn()}
       onTogglePlanSidebar={vi.fn()}
       onToggleRuntimeMode={vi.fn()}
     />,

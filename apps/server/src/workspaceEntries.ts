@@ -4,7 +4,10 @@ import path from "node:path";
 import { runProcess } from "./processRunner";
 
 import {
+  ProjectDirectoryEntry,
   ProjectEntry,
+  ProjectListDirectoryInput,
+  ProjectListDirectoryResult,
   ProjectSearchEntriesInput,
   ProjectSearchEntriesResult,
 } from "@okcode/contracts";
@@ -29,6 +32,8 @@ const IGNORED_DIRECTORY_NAMES = new Set([
 interface WorkspaceIndex {
   scannedAt: number;
   entries: SearchableWorkspaceEntry[];
+  entriesByParent: Map<string, SearchableWorkspaceEntry[]>;
+  childEntryCountByDirectory: Map<string, number>;
   truncated: boolean;
 }
 
@@ -44,6 +49,7 @@ interface RankedWorkspaceEntry {
 
 const workspaceIndexCache = new Map<string, WorkspaceIndex>();
 const inFlightWorkspaceIndexBuilds = new Map<string, Promise<WorkspaceIndex>>();
+const ROOT_PARENT_KEY = "\u0000";
 
 function toPosixPath(input: string): string {
   return input.split(path.sep).join("/");
@@ -148,6 +154,50 @@ function compareRankedWorkspaceEntries(
   const scoreDelta = left.score - right.score;
   if (scoreDelta !== 0) return scoreDelta;
   return left.entry.path.localeCompare(right.entry.path);
+}
+
+function compareTreeEntries(left: ProjectEntry, right: ProjectEntry): number {
+  if (left.kind !== right.kind) {
+    return left.kind === "directory" ? -1 : 1;
+  }
+  return left.path.localeCompare(right.path);
+}
+
+function createWorkspaceIndex(
+  entries: SearchableWorkspaceEntry[],
+  truncated: boolean,
+): WorkspaceIndex {
+  const entriesByParent = new Map<string, SearchableWorkspaceEntry[]>();
+  const childEntryCountByDirectory = new Map<string, number>();
+
+  for (const entry of entries) {
+    const parentKey = entry.parentPath ?? ROOT_PARENT_KEY;
+    const existingEntries = entriesByParent.get(parentKey);
+    if (existingEntries) {
+      existingEntries.push(entry);
+    } else {
+      entriesByParent.set(parentKey, [entry]);
+    }
+
+    if (entry.parentPath) {
+      childEntryCountByDirectory.set(
+        entry.parentPath,
+        (childEntryCountByDirectory.get(entry.parentPath) ?? 0) + 1,
+      );
+    }
+  }
+
+  for (const bucket of entriesByParent.values()) {
+    bucket.sort(compareTreeEntries);
+  }
+
+  return {
+    scannedAt: Date.now(),
+    entries,
+    entriesByParent,
+    childEntryCountByDirectory,
+    truncated,
+  };
 }
 
 function findInsertionIndex(
@@ -393,12 +443,12 @@ async function buildWorkspaceIndexFromGit(cwd: string): Promise<WorkspaceIndex |
     )
     .map(toSearchableWorkspaceEntry);
 
-  const entries = [...directoryEntries, ...fileEntries];
-  return {
-    scannedAt: Date.now(),
-    entries: entries.slice(0, WORKSPACE_INDEX_MAX_ENTRIES),
-    truncated: Boolean(listedFiles.stdoutTruncated) || entries.length > WORKSPACE_INDEX_MAX_ENTRIES,
-  };
+  const entries = [...directoryEntries, ...fileEntries].slice(0, WORKSPACE_INDEX_MAX_ENTRIES);
+  return createWorkspaceIndex(
+    entries,
+    Boolean(listedFiles.stdoutTruncated) ||
+      directoryEntries.length + fileEntries.length > WORKSPACE_INDEX_MAX_ENTRIES,
+  );
 }
 
 async function buildWorkspaceIndex(cwd: string): Promise<WorkspaceIndex> {
@@ -499,11 +549,7 @@ async function buildWorkspaceIndex(cwd: string): Promise<WorkspaceIndex> {
     }
   }
 
-  return {
-    scannedAt: Date.now(),
-    entries,
-    truncated,
-  };
+  return createWorkspaceIndex(entries, truncated);
 }
 
 async function getWorkspaceIndex(cwd: string): Promise<WorkspaceIndex> {
@@ -537,6 +583,27 @@ async function getWorkspaceIndex(cwd: string): Promise<WorkspaceIndex> {
 export function clearWorkspaceIndexCache(cwd: string): void {
   workspaceIndexCache.delete(cwd);
   inFlightWorkspaceIndexBuilds.delete(cwd);
+}
+
+export async function listWorkspaceDirectory(
+  input: ProjectListDirectoryInput,
+): Promise<ProjectListDirectoryResult> {
+  const index = await getWorkspaceIndex(input.cwd);
+  const parentKey = input.directoryPath ?? ROOT_PARENT_KEY;
+  const entries = index.entriesByParent.get(parentKey) ?? [];
+
+  return {
+    entries: entries.map(
+      (entry): ProjectDirectoryEntry => ({
+        path: entry.path,
+        kind: entry.kind,
+        ...(entry.parentPath ? { parentPath: entry.parentPath } : {}),
+        hasChildren:
+          entry.kind === "directory" && (index.childEntryCountByDirectory.get(entry.path) ?? 0) > 0,
+      }),
+    ),
+    truncated: index.truncated,
+  };
 }
 
 export async function searchWorkspaceEntries(

@@ -236,6 +236,8 @@ const terminalContextIdListsEqual = (
 ): boolean =>
   contexts.length === ids.length && contexts.every((context, index) => context.id === ids[index]);
 
+const INTERACTION_MODE_CYCLE: readonly ProviderInteractionMode[] = ["chat", "code", "plan"];
+
 interface ChatViewProps {
   threadId: ThreadId;
 }
@@ -1057,11 +1059,18 @@ export default function ChatView({ threadId }: ChatViewProps) {
           description: "Switch this thread into plan mode",
         },
         {
-          id: "slash:default",
+          id: "slash:chat",
           type: "slash-command",
-          command: "default",
-          label: "/default",
-          description: "Switch this thread back to normal chat mode",
+          command: "chat",
+          label: "/chat",
+          description: "Switch this thread into chat mode",
+        },
+        {
+          id: "slash:code",
+          type: "slash-command",
+          command: "code",
+          label: "/code",
+          description: "Switch this thread into code mode",
         },
       ] satisfies ReadonlyArray<Extract<ComposerCommandItem, { type: "slash-command" }>>;
       const query = composerTrigger.query.trim().toLowerCase();
@@ -1569,7 +1578,9 @@ export default function ChatView({ threadId }: ChatViewProps) {
     ],
   );
   const toggleInteractionMode = useCallback(() => {
-    handleInteractionModeChange(interactionMode === "plan" ? "default" : "plan");
+    const idx = Math.max(0, INTERACTION_MODE_CYCLE.indexOf(interactionMode));
+    const next = INTERACTION_MODE_CYCLE[(idx + 1) % INTERACTION_MODE_CYCLE.length]!;
+    handleInteractionModeChange(next);
   }, [handleInteractionModeChange, interactionMode]);
   const toggleRuntimeMode = useCallback(() => {
     void handleRuntimeModeChange(
@@ -2837,7 +2848,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
       interactionMode: nextInteractionMode,
     }: {
       text: string;
-      interactionMode: "default" | "plan";
+      interactionMode: ProviderInteractionMode;
     }) => {
       const api = readNativeApi();
       if (
@@ -2913,7 +2924,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
           assistantDeliveryMode: settings.enableAssistantStreaming ? "streaming" : "buffered",
           runtimeMode,
           interactionMode: nextInteractionMode,
-          ...(nextInteractionMode === "default" && activeProposedPlan
+          ...(nextInteractionMode === "code" && activeProposedPlan
             ? {
                 sourceProposedPlan: {
                   threadId: activeThread.id,
@@ -2924,9 +2935,9 @@ export default function ChatView({ threadId }: ChatViewProps) {
           createdAt: messageCreatedAt,
         });
         // Optimistically open the plan sidebar when implementing (not refining).
-        // "default" mode here means the agent is executing the plan, which produces
+        // Chat/code mode here means the agent is executing the plan, which produces
         // step-tracking activities that the sidebar will display.
-        if (nextInteractionMode === "default") {
+        if (nextInteractionMode === "chat" || nextInteractionMode === "code") {
           planSidebarDismissedForTurnRef.current = null;
           setPlanSidebarOpen(true);
         }
@@ -3012,7 +3023,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
         title: nextThreadTitle,
         model: nextThreadModel,
         runtimeMode,
-        interactionMode: "default",
+        interactionMode: "code",
         branch: activeThread.branch,
         worktreePath: activeThread.worktreePath,
         createdAt,
@@ -3036,7 +3047,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
           ...(providerOptionsForDispatch ? { providerOptions: providerOptionsForDispatch } : {}),
           assistantDeliveryMode: settings.enableAssistantStreaming ? "streaming" : "buffered",
           runtimeMode,
-          interactionMode: "default",
+          interactionMode: "code",
           createdAt,
         });
       })
@@ -3274,7 +3285,9 @@ export default function ChatView({ threadId }: ChatViewProps) {
           }
           return;
         }
-        void handleInteractionModeChange(item.command === "plan" ? "plan" : "default");
+        void handleInteractionModeChange(
+          item.command === "plan" ? "plan" : item.command === "code" ? "code" : "chat",
+        );
         const applied = applyPromptReplacement(trigger.rangeStart, trigger.rangeEnd, "", {
           expectedText: snapshot.value.slice(trigger.rangeStart, trigger.rangeEnd),
         });
@@ -3798,7 +3811,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
                             planSidebarOpen={planSidebarOpen}
                             runtimeMode={runtimeMode}
                             traitsMenuContent={providerTraitsMenuContent}
-                            onToggleInteractionMode={toggleInteractionMode}
+                            onInteractionModeChange={handleInteractionModeChange}
                             onTogglePlanSidebar={togglePlanSidebar}
                             onToggleRuntimeMode={toggleRuntimeMode}
                           />
@@ -3825,15 +3838,15 @@ export default function ChatView({ threadId }: ChatViewProps) {
                               size="sm"
                               type="button"
                               onClick={toggleInteractionMode}
-                              title={
-                                interactionMode === "plan"
-                                  ? "Plan mode — click to return to normal chat mode"
-                                  : "Default mode — click to enter plan mode"
-                              }
+                              title="Cycle interaction mode: Chat → Code → Plan"
                             >
                               <BotIcon />
                               <span className="sr-only sm:not-sr-only">
-                                {interactionMode === "plan" ? "Plan" : "Chat"}
+                                {interactionMode === "plan"
+                                  ? "Plan"
+                                  : interactionMode === "code"
+                                    ? "Code"
+                                    : "Chat"}
                               </span>
                             </Button>
 

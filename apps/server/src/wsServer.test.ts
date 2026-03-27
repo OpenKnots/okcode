@@ -1204,7 +1204,7 @@ describe("WebSocket Server", () => {
       title: "Diff Thread",
       model: "gpt-5-codex",
       runtimeMode: "full-access",
-      interactionMode: "default",
+      interactionMode: "chat",
       branch: null,
       worktreePath: null,
       createdAt,
@@ -1282,7 +1282,7 @@ describe("WebSocket Server", () => {
       title: "Thread 1",
       model: "gpt-5-codex",
       runtimeMode: "full-access",
-      interactionMode: "default",
+      interactionMode: "chat",
       branch: null,
       worktreePath: null,
       createdAt,
@@ -1301,7 +1301,7 @@ describe("WebSocket Server", () => {
       },
       assistantDeliveryMode: "streaming",
       runtimeMode: "approval-required",
-      interactionMode: "default",
+      interactionMode: "chat",
       createdAt,
     });
     expect(startTurnResponse.error).toBeUndefined();

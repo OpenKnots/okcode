@@ -64,7 +64,7 @@ describe("stripDisplayedPlanMarkdown", () => {
 });
 
 describe("resolvePlanFollowUpSubmission", () => {
-  it("switches to default mode when implementing the ready plan without extra text", () => {
+  it("switches to code mode when implementing the ready plan without extra text", () => {
     expect(
       resolvePlanFollowUpSubmission({
         draftText: "   ",
@@ -72,7 +72,7 @@ describe("resolvePlanFollowUpSubmission", () => {
       }),
     ).toEqual({
       text: "PLEASE IMPLEMENT THIS PLAN:\n## Ship it\n\n- step 1",
-      interactionMode: "default",
+      interactionMode: "code",
     });
   });
 

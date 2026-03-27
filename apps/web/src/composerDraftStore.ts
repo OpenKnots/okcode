@@ -25,6 +25,16 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { createDebouncedStorage, createMemoryStorage } from "./lib/storage";
 
+function normalizePersistedInteractionModeValue(raw: unknown): ProviderInteractionMode | null {
+  if (raw === "plan" || raw === "chat" || raw === "code") {
+    return raw;
+  }
+  if (raw === "default") {
+    return "chat";
+  }
+  return null;
+}
+
 export const COMPOSER_DRAFT_STORAGE_KEY = "okcode:composer-drafts:v1";
 const COMPOSER_DRAFT_STORAGE_VERSION = 2;
 const DraftThreadEnvModeSchema = Schema.Literals(["local", "worktree"]);
@@ -568,10 +578,8 @@ function normalizePersistedDraftThreads(
             ? candidateDraftThread.runtimeMode
             : DEFAULT_RUNTIME_MODE,
         interactionMode:
-          candidateDraftThread.interactionMode === "plan" ||
-          candidateDraftThread.interactionMode === "default"
-            ? candidateDraftThread.interactionMode
-            : DEFAULT_INTERACTION_MODE,
+          normalizePersistedInteractionModeValue(candidateDraftThread.interactionMode) ??
+          DEFAULT_INTERACTION_MODE,
         branch: typeof branch === "string" ? branch : null,
         worktreePath: normalizedWorktreePath,
         envMode: normalizeDraftThreadEnvMode(candidateDraftThread.envMode, normalizedWorktreePath),
@@ -663,10 +671,7 @@ function normalizePersistedDraftsByThreadId(
       draftCandidate.runtimeMode === "full-access"
         ? draftCandidate.runtimeMode
         : null;
-    const interactionMode =
-      draftCandidate.interactionMode === "plan" || draftCandidate.interactionMode === "default"
-        ? draftCandidate.interactionMode
-        : null;
+    const interactionMode = normalizePersistedInteractionModeValue(draftCandidate.interactionMode);
     const modelOptions = resolveModelOptions(draftCandidate, provider);
     const prompt = ensureInlineTerminalContextPlaceholders(
       promptCandidate,
@@ -1447,7 +1452,9 @@ export const useComposerDraftStore = create<ComposerDraftStoreState>()(
           return;
         }
         const nextInteractionMode =
-          interactionMode === "plan" || interactionMode === "default" ? interactionMode : null;
+          interactionMode === "plan" || interactionMode === "chat" || interactionMode === "code"
+            ? interactionMode
+            : null;
         set((state) => {
           const existing = state.draftsByThreadId[threadId];
           if (!existing && nextInteractionMode === null) {

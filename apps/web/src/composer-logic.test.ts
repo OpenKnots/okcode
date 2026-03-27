@@ -240,8 +240,16 @@ describe("parseStandaloneComposerSlashCommand", () => {
     expect(parseStandaloneComposerSlashCommand(" /plan ")).toBe("plan");
   });
 
-  it("parses standalone /default command", () => {
-    expect(parseStandaloneComposerSlashCommand("/default")).toBe("default");
+  it("parses standalone /chat command", () => {
+    expect(parseStandaloneComposerSlashCommand("/chat")).toBe("chat");
+  });
+
+  it("parses standalone /code command", () => {
+    expect(parseStandaloneComposerSlashCommand("/code")).toBe("code");
+  });
+
+  it("maps legacy /default to chat mode", () => {
+    expect(parseStandaloneComposerSlashCommand("/default")).toBe("chat");
   });
 
   it("ignores slash commands with extra message text", () => {

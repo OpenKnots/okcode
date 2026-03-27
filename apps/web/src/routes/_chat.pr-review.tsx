@@ -78,20 +78,9 @@ function prStateTone(state: string) {
 
 // ── Section wrapper (conversation-style) ────────────────────────────
 
-function ReviewSection({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
+function ReviewSection({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div
-      className={cn(
-        "animate-in fade-in slide-in-from-bottom-1 duration-300",
-        className,
-      )}
-    >
+    <div className={cn("animate-in fade-in slide-in-from-bottom-1 duration-300", className)}>
       {children}
     </div>
   );
@@ -313,9 +302,7 @@ function ReviewChecklist() {
           <div
             className={cn(
               "h-full rounded-full transition-all duration-500 ease-out",
-              allComplete
-                ? "bg-emerald-500 dark:bg-emerald-400"
-                : "bg-primary",
+              allComplete ? "bg-emerald-500 dark:bg-emerald-400" : "bg-primary",
             )}
             style={{ width: `${(completedCount / totalCount) * 100}%` }}
           />
@@ -416,9 +403,7 @@ function QuickActions({ pr }: { pr: GitResolvedPullRequest }) {
           <Button
             size="sm"
             variant="outline"
-            render={
-              <a href={pr.url} target="_blank" rel="noopener noreferrer" />
-            }
+            render={<a href={pr.url} target="_blank" rel="noopener noreferrer" />}
           >
             <ExternalLinkIcon className="size-3.5" />
             Open on GitHub
@@ -457,14 +442,9 @@ function ReviewNotes() {
         {savedNotes.length > 0 ? (
           <div className="border-b border-border">
             {savedNotes.map((note, index) => (
-              <div
-                key={index}
-                className="border-t border-border px-4 py-3 first:border-t-0"
-              >
+              <div key={index} className="border-t border-border px-4 py-3 first:border-t-0">
                 <p className="text-sm text-foreground whitespace-pre-wrap">{note}</p>
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  Note {index + 1}
-                </p>
+                <p className="mt-1 text-[11px] text-muted-foreground">Note {index + 1}</p>
               </div>
             ))}
           </div>
@@ -486,8 +466,7 @@ function ReviewNotes() {
           />
           <div className="mt-2 flex items-center justify-between">
             <span className="text-[11px] text-muted-foreground">
-              {navigator.platform.includes("Mac") ? "\u2318" : "Ctrl"}+Enter to
-              save
+              {navigator.platform.includes("Mac") ? "\u2318" : "Ctrl"}+Enter to save
             </span>
             <Button
               size="xs"
@@ -622,17 +601,13 @@ function PRReviewEmptyState({ cwd }: { cwd: string | null }) {
           Review a pull request
         </h1>
         <p className="text-sm text-muted-foreground leading-relaxed max-w-lg">
-          Paste a GitHub PR URL or enter a number to get a structured breakdown.
-          Walk through the change, check off review items, and leave notes.
+          Paste a GitHub PR URL or enter a number to get a structured breakdown. Walk through the
+          change, check off review items, and leave notes.
         </p>
       </div>
 
       {/* Input */}
-      <PRInput
-        onResolve={(ref) => setReference(ref)}
-        isResolving={isResolving}
-        error={error}
-      />
+      <PRInput onResolve={(ref) => setReference(ref)} isResolving={isResolving} error={error} />
 
       {/* Hint cards */}
       <div className="space-y-2">

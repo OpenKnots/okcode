@@ -552,6 +552,14 @@ const createBuildConfig = Effect.fn("createBuildConfig")(function* (
     };
     if (signed) {
       winConfig.azureSignOptions = yield* AzureTrustedSigningOptionsConfig;
+    } else {
+      // Production dependencies are installed into the staged app ahead of packaging.
+      // Skip electron-builder's extra native rebuild step so Windows builds can use
+      // shipped prebuilds like node-pty instead of requiring local Spectre libs.
+      buildConfig.npmRebuild = false;
+      // Unsigned local builds shouldn't need the Windows code-signing toolchain or
+      // rcedit metadata pass; skipping it avoids symlink-privileged cache extraction.
+      winConfig.signAndEditExecutable = false;
     }
     buildConfig.win = winConfig;
   }

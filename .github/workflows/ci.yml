@@ -73,6 +73,50 @@ jobs:
           test -f apps/desktop/dist-electron/preload.js
           grep -nE "desktopBridge|getWsUrl|PICK_FOLDER_CHANNEL|wsUrl" apps/desktop/dist-electron/preload.js
 
+  desktop_windows:
+    name: Windows Desktop Build
+    runs-on: windows-2022
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: package.json
+
+      - name: Cache Bun, Turbo, and electron-builder
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.bun/install/cache
+            ~\AppData\Local\electron-builder\Cache
+            .turbo
+          key: ${{ runner.os }}-desktop-${{ hashFiles('bun.lock') }}-${{ hashFiles('turbo.json') }}
+          restore-keys: |
+            ${{ runner.os }}-desktop-${{ hashFiles('bun.lock') }}-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build Windows desktop artifact
+        run: bun run dist:desktop:artifact -- --platform win --target nsis --arch x64 --verbose
+
+      - name: Upload Windows desktop artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: desktop-windows-x64
+          path: |
+            release/*.exe
+            release/*.exe.blockmap
+            release/builder-debug.yml
+          if-no-files-found: error
+
   release_smoke:
     name: Release Smoke
     runs-on: ubuntu-24.04

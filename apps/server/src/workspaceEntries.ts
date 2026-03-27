@@ -593,15 +593,23 @@ export async function listWorkspaceDirectory(
   const entries = index.entriesByParent.get(parentKey) ?? [];
 
   return {
-    entries: entries.map(
-      (entry): ProjectDirectoryEntry => ({
+    entries: entries.map((entry): ProjectDirectoryEntry => {
+      const hasChildren =
+        entry.kind === "directory" && (index.childEntryCountByDirectory.get(entry.path) ?? 0) > 0;
+      if (entry.parentPath) {
+        return {
+          path: entry.path,
+          kind: entry.kind,
+          parentPath: entry.parentPath,
+          hasChildren,
+        };
+      }
+      return {
         path: entry.path,
         kind: entry.kind,
-        ...(entry.parentPath ? { parentPath: entry.parentPath } : {}),
-        hasChildren:
-          entry.kind === "directory" && (index.childEntryCountByDirectory.get(entry.path) ?? 0) > 0,
-      }),
-    ),
+        hasChildren,
+      };
+    }),
     truncated: index.truncated,
   };
 }

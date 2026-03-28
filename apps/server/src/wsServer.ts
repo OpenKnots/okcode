@@ -918,6 +918,11 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
         return yield* gitManager.preparePullRequestThread(body);
       }
 
+      case WS_METHODS.gitListPullRequests: {
+        const body = stripRequestTag(request.body);
+        return yield* gitManager.listPullRequests(body);
+      }
+
       case WS_METHODS.gitListBranches: {
         const body = stripRequestTag(request.body);
         return yield* git.listBranches(body);

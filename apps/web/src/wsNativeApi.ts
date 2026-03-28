@@ -165,6 +165,7 @@ export function createWsNativeApi(): NativeApi {
       checkout: (input) => transport.request(WS_METHODS.gitCheckout, input),
       init: (input) => transport.request(WS_METHODS.gitInit, input),
       resolvePullRequest: (input) => transport.request(WS_METHODS.gitResolvePullRequest, input),
+      listPullRequests: (input) => transport.request(WS_METHODS.gitListPullRequests, input),
       preparePullRequestThread: (input) =>
         transport.request(WS_METHODS.gitPreparePullRequestThread, input),
       onActionProgress: (callback) => {

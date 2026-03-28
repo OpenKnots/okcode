@@ -1,4 +1,4 @@
-import type { GitResolvedPullRequest } from "@okcode/contracts";
+import type { GitResolvedPullRequest, GitResolvedPullRequestWithLabels } from "@okcode/contracts";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDebouncedValue } from "@tanstack/react-pacer";
@@ -8,25 +8,43 @@ import {
   CircleDotIcon,
   ExternalLinkIcon,
   FileCodeIcon,
+  FilterIcon,
   GitBranchIcon,
   GitMergeIcon,
   GitPullRequestIcon,
+  GridIcon,
+  KanbanIcon,
+  LayoutListIcon,
   MessageSquareIcon,
+  RowsIcon,
   SearchIcon,
+  TableIcon,
+  UserIcon,
   XCircleIcon,
+  XIcon,
 } from "lucide-react";
 import { type ReactNode, useCallback, useMemo, useRef, useState, useEffect } from "react";
 
+import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Separator } from "~/components/ui/separator";
 import { SidebarInset, SidebarTrigger } from "~/components/ui/sidebar";
 import { Spinner } from "~/components/ui/spinner";
+import { ToggleGroup, Toggle as ToggleGroupItem } from "~/components/ui/toggle-group";
 import { isElectron } from "~/env";
-import { gitResolvePullRequestQueryOptions } from "~/lib/gitReactQuery";
+import {
+  gitListPullRequestsQueryOptions,
+  gitResolvePullRequestQueryOptions,
+} from "~/lib/gitReactQuery";
 import { cn } from "~/lib/utils";
 import { parsePullRequestReference } from "~/pullRequestReference";
 import { useStore } from "~/store";
+
+// ── Types ────────────────────────────────────────────────────────────
+
+type ViewMode = "table" | "list" | "kanban";
+type ListSubMode = "grid" | "rows";
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -34,16 +52,17 @@ function useFirstProjectCwd(): string | null {
   return useStore((store) => store.projects[0]?.cwd ?? null);
 }
 
-function prStateIcon(state: string) {
+function prStateIcon(state: string, className?: string) {
+  const cls = className ?? "size-4";
   switch (state) {
     case "open":
-      return <GitPullRequestIcon className="size-4" />;
+      return <GitPullRequestIcon className={cls} />;
     case "merged":
-      return <GitMergeIcon className="size-4" />;
+      return <GitMergeIcon className={cls} />;
     case "closed":
-      return <XCircleIcon className="size-4" />;
+      return <XCircleIcon className={cls} />;
     default:
-      return <CircleDotIcon className="size-4" />;
+      return <CircleDotIcon className={cls} />;
   }
 }
 
@@ -76,6 +95,35 @@ function prStateTone(state: string) {
   }
 }
 
+function formatRelativeTime(dateString: string): string {
+  if (!dateString) return "";
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60_000);
+  if (diffMins < 1) return "just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 30) return `${diffDays}d ago`;
+  const diffMonths = Math.floor(diffDays / 30);
+  return `${diffMonths}mo ago`;
+}
+
+function labelColor(hex: string): { bg: string; text: string } {
+  if (!hex || hex.length < 6) return { bg: "bg-muted/60", text: "text-muted-foreground" };
+  // Parse hex color and determine light vs dark
+  const r = parseInt(hex.slice(0, 2), 16);
+  const g = parseInt(hex.slice(2, 4), 16);
+  const b = parseInt(hex.slice(4, 6), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return {
+    bg: `bg-[#${hex}]/15 dark:bg-[#${hex}]/20`,
+    text: luminance > 0.5 ? `text-[#${hex}]` : `text-[#${hex}]`,
+  };
+}
+
 // ── Section wrapper (conversation-style) ────────────────────────────
 
 function ReviewSection({ children, className }: { children: ReactNode; className?: string }) {
@@ -94,131 +142,585 @@ function SectionLabel({ children }: { children: ReactNode }) {
   );
 }
 
-// ── PR Input ────────────────────────────────────────────────────────
+// ── Label Badge ──────────────────────────────────────────────────────
 
-function PRInput({
-  onResolve,
-  isResolving,
-  error,
+function LabelBadge({
+  label,
+  onClick,
+  active,
 }: {
-  onResolve: (reference: string) => void;
-  isResolving: boolean;
-  error: string | null;
+  label: { name: string; color: string };
+  onClick?: () => void;
+  active?: boolean;
 }) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [value, setValue] = useState("");
-
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
-
-  const handleSubmit = useCallback(() => {
-    const trimmed = value.trim();
-    if (trimmed.length > 0) {
-      onResolve(trimmed);
-    }
-  }, [onResolve, value]);
-
+  const colors = labelColor(label.color);
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1">
-          <SearchIcon className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            ref={inputRef}
-            className="pl-9"
-            placeholder="Paste a PR URL or enter #42..."
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                handleSubmit();
-              }
-            }}
-          />
-        </div>
-        <Button
-          size="sm"
-          onClick={handleSubmit}
-          disabled={value.trim().length === 0 || isResolving}
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-all",
+        active
+          ? "border-primary/30 bg-primary/10 text-primary ring-1 ring-primary/20"
+          : `border-transparent ${colors.bg} ${colors.text} hover:opacity-80`,
+        onClick && "cursor-pointer",
+      )}
+    >
+      <span
+        className="size-2 rounded-full shrink-0"
+        style={{
+          backgroundColor: label.color ? `#${label.color}` : undefined,
+        }}
+      />
+      {label.name}
+    </button>
+  );
+}
+
+// ── State Filter Badge ───────────────────────────────────────────────
+
+function StateBadge({
+  state,
+  count,
+  active,
+  onClick,
+}: {
+  state: string;
+  count: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  const tone = prStateTone(state);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium capitalize transition-all",
+        active
+          ? cn(tone.text, tone.bg, tone.border)
+          : "border-border text-muted-foreground hover:bg-muted/30",
+      )}
+    >
+      {prStateIcon(state, "size-3")}
+      {state}
+      <span className="ml-0.5 tabular-nums text-[10px] opacity-60">{count}</span>
+    </button>
+  );
+}
+
+// ── View Mode Toolbar ────────────────────────────────────────────────
+
+function ViewModeToolbar({
+  viewMode,
+  onViewModeChange,
+  listSubMode,
+  onListSubModeChange,
+}: {
+  viewMode: ViewMode;
+  onViewModeChange: (mode: ViewMode) => void;
+  listSubMode: ListSubMode;
+  onListSubModeChange: (mode: ListSubMode) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <ToggleGroup
+        variant="outline"
+        size="xs"
+        value={[viewMode]}
+        onValueChange={(values) => {
+          const v = values[values.length - 1];
+          if (v) onViewModeChange(v as ViewMode);
+        }}
+      >
+        <ToggleGroupItem value="table" aria-label="Table view">
+          <TableIcon className="size-3.5" />
+        </ToggleGroupItem>
+        <ToggleGroupItem value="list" aria-label="List view">
+          <LayoutListIcon className="size-3.5" />
+        </ToggleGroupItem>
+        <ToggleGroupItem value="kanban" aria-label="Kanban view">
+          <KanbanIcon className="size-3.5" />
+        </ToggleGroupItem>
+      </ToggleGroup>
+
+      {viewMode === "list" && (
+        <ToggleGroup
+          variant="outline"
+          size="xs"
+          value={[listSubMode]}
+          onValueChange={(values) => {
+            const v = values[values.length - 1];
+            if (v) onListSubModeChange(v as ListSubMode);
+          }}
         >
-          {isResolving ? (
-            <>
-              <Spinner className="size-3.5" />
-              Resolving...
-            </>
-          ) : (
-            "Review"
-          )}
-        </Button>
-      </div>
-      {error ? <p className="text-xs text-destructive">{error}</p> : null}
+          <ToggleGroupItem value="rows" aria-label="Rows layout">
+            <RowsIcon className="size-3.5" />
+          </ToggleGroupItem>
+          <ToggleGroupItem value="grid" aria-label="Grid layout">
+            <GridIcon className="size-3.5" />
+          </ToggleGroupItem>
+        </ToggleGroup>
+      )}
     </div>
   );
 }
 
-// ── PR Header ───────────────────────────────────────────────────────
+// ── Label Filter Bar ─────────────────────────────────────────────────
 
-function PRHeader({ pr }: { pr: GitResolvedPullRequest }) {
-  const tone = prStateTone(pr.state);
+function LabelFilterBar({
+  allLabels,
+  activeLabel,
+  onLabelChange,
+  searchQuery,
+  onSearchChange,
+}: {
+  allLabels: Array<{ name: string; color: string }>;
+  activeLabel: string | null;
+  onLabelChange: (label: string | null) => void;
+  searchQuery: string;
+  onSearchChange: (query: string) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      {/* Search */}
+      <div className="relative">
+        <SearchIcon className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          className="pl-9 h-8 text-sm"
+          placeholder="Search pull requests..."
+          value={searchQuery}
+          onChange={(e) => onSearchChange(e.target.value)}
+        />
+        {searchQuery.length > 0 && (
+          <button
+            type="button"
+            onClick={() => onSearchChange("")}
+            className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <XIcon className="size-3" />
+          </button>
+        )}
+      </div>
+
+      {/* Labels */}
+      {allLabels.length > 0 && (
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <FilterIcon className="size-3 text-muted-foreground shrink-0 mr-1" />
+          {activeLabel && (
+            <button
+              type="button"
+              onClick={() => onLabelChange(null)}
+              className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground hover:bg-muted/30 transition-colors"
+            >
+              <XIcon className="size-2.5" />
+              Clear
+            </button>
+          )}
+          {allLabels.map((label) => (
+            <LabelBadge
+              key={label.name}
+              label={label}
+              active={activeLabel === label.name}
+              onClick={() => onLabelChange(activeLabel === label.name ? null : label.name)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Table View ───────────────────────────────────────────────────────
+
+function PRTableView({
+  pullRequests,
+  onSelect,
+}: {
+  pullRequests: readonly GitResolvedPullRequestWithLabels[];
+  onSelect: (pr: GitResolvedPullRequestWithLabels) => void;
+}) {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-border bg-card not-dark:bg-clip-padding text-card-foreground shadow-xs/5">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border bg-muted/30">
+              <th className="px-4 py-2.5 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                PR
+              </th>
+              <th className="px-4 py-2.5 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                Title
+              </th>
+              <th className="px-4 py-2.5 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground hidden sm:table-cell">
+                Labels
+              </th>
+              <th className="px-4 py-2.5 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground hidden md:table-cell">
+                Branch
+              </th>
+              <th className="px-4 py-2.5 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground hidden lg:table-cell">
+                Author
+              </th>
+              <th className="px-4 py-2.5 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                Updated
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {pullRequests.map((pr) => {
+              const tone = prStateTone(pr.state);
+              return (
+                <tr
+                  key={pr.number}
+                  onClick={() => onSelect(pr)}
+                  className="border-t border-border first:border-t-0 transition-colors hover:bg-muted/20 cursor-pointer group"
+                >
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <div className="flex items-center gap-1.5">
+                      <span className={tone.text}>{prStateIcon(pr.state, "size-3.5")}</span>
+                      <span className="text-muted-foreground font-mono text-xs tabular-nums">
+                        #{pr.number}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="font-medium text-foreground group-hover:text-primary transition-colors line-clamp-1">
+                      {pr.title}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 hidden sm:table-cell">
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {pr.labels.slice(0, 3).map((label) => (
+                        <LabelBadge key={label.name} label={label} />
+                      ))}
+                      {pr.labels.length > 3 && (
+                        <span className="text-[10px] text-muted-foreground">
+                          +{pr.labels.length - 3}
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 hidden md:table-cell">
+                    <code className="rounded bg-muted/50 px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
+                      {pr.headBranch}
+                    </code>
+                  </td>
+                  <td className="px-4 py-3 hidden lg:table-cell">
+                    <div className="flex items-center gap-1.5">
+                      <UserIcon className="size-3 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">{pr.author}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-right whitespace-nowrap">
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                      {formatRelativeTime(pr.updatedAt)}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {pullRequests.length === 0 && (
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center space-y-2">
+            <GitPullRequestIcon className="mx-auto size-6 text-muted-foreground/30" />
+            <p className="text-sm text-muted-foreground">No pull requests match your filters.</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── List View: Rows ──────────────────────────────────────────────────
+
+function PRListRowsView({
+  pullRequests,
+  onSelect,
+}: {
+  pullRequests: readonly GitResolvedPullRequestWithLabels[];
+  onSelect: (pr: GitResolvedPullRequestWithLabels) => void;
+}) {
+  if (pullRequests.length === 0) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center space-y-2">
+          <GitPullRequestIcon className="mx-auto size-6 text-muted-foreground/30" />
+          <p className="text-sm text-muted-foreground">No pull requests match your filters.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <ReviewSection>
-      <div className="space-y-4">
-        {/* State badge + number */}
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
+    <div className="space-y-2">
+      {pullRequests.map((pr) => {
+        const tone = prStateTone(pr.state);
+        return (
+          <button
+            key={pr.number}
+            type="button"
+            onClick={() => onSelect(pr)}
+            className="w-full text-left rounded-xl border border-border bg-card p-4 transition-all hover:bg-muted/20 hover:shadow-sm group"
+          >
+            <div className="flex items-start gap-3">
+              <span className={cn("mt-0.5 shrink-0", tone.text)}>
+                {prStateIcon(pr.state, "size-4")}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-foreground group-hover:text-primary transition-colors line-clamp-1">
+                    {pr.title}
+                  </span>
+                  <span className="text-xs text-muted-foreground font-mono tabular-nums shrink-0">
+                    #{pr.number}
+                  </span>
+                </div>
+                <div className="mt-1.5 flex items-center gap-3 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-1">
+                    <GitBranchIcon className="size-3" />
+                    <code className="font-mono">{pr.headBranch}</code>
+                  </div>
+                  <ArrowRightIcon className="size-2.5 opacity-40" />
+                  <code className="font-mono">{pr.baseBranch}</code>
+                  <span className="mx-1 opacity-30">|</span>
+                  <div className="flex items-center gap-1">
+                    <UserIcon className="size-3" />
+                    {pr.author}
+                  </div>
+                  <span className="tabular-nums">{formatRelativeTime(pr.updatedAt)}</span>
+                </div>
+                {pr.labels.length > 0 && (
+                  <div className="mt-2 flex items-center gap-1 flex-wrap">
+                    {pr.labels.map((label) => (
+                      <LabelBadge key={label.name} label={label} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── List View: Grid ──────────────────────────────────────────────────
+
+function PRListGridView({
+  pullRequests,
+  onSelect,
+}: {
+  pullRequests: readonly GitResolvedPullRequestWithLabels[];
+  onSelect: (pr: GitResolvedPullRequestWithLabels) => void;
+}) {
+  if (pullRequests.length === 0) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center space-y-2">
+          <GitPullRequestIcon className="mx-auto size-6 text-muted-foreground/30" />
+          <p className="text-sm text-muted-foreground">No pull requests match your filters.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {pullRequests.map((pr) => {
+        const tone = prStateTone(pr.state);
+        return (
+          <button
+            key={pr.number}
+            type="button"
+            onClick={() => onSelect(pr)}
+            className="text-left rounded-2xl border border-border bg-card not-dark:bg-clip-padding p-4 shadow-xs/5 transition-all hover:shadow-md hover:border-border/80 group flex flex-col"
+          >
+            <div className="flex items-center justify-between mb-2">
               <span
                 className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium capitalize",
+                  "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium capitalize",
                   tone.text,
                   tone.bg,
                   tone.border,
                 )}
               >
-                {prStateIcon(pr.state)}
+                {prStateIcon(pr.state, "size-3")}
                 {pr.state}
               </span>
-              <span className="text-sm text-muted-foreground">#{pr.number}</span>
+              <span className="text-xs text-muted-foreground font-mono tabular-nums">
+                #{pr.number}
+              </span>
             </div>
-            <h2 className="mt-3 text-xl font-semibold tracking-tight text-foreground leading-snug">
+
+            <h3 className="font-medium text-sm text-foreground group-hover:text-primary transition-colors line-clamp-2 flex-1">
               {pr.title}
-            </h2>
-          </div>
-        </div>
+            </h3>
 
-        {/* Branch flow */}
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <GitBranchIcon className="size-3.5 shrink-0" />
-          <code className="rounded bg-muted/50 px-1.5 py-0.5 font-mono text-foreground">
-            {pr.headBranch}
-          </code>
-          <ArrowRightIcon className="size-3 shrink-0 text-muted-foreground/60" />
-          <code className="rounded bg-muted/50 px-1.5 py-0.5 font-mono text-foreground">
-            {pr.baseBranch}
-          </code>
-        </div>
+            <div className="mt-3 space-y-2">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <GitBranchIcon className="size-3 shrink-0" />
+                <code className="font-mono truncate">{pr.headBranch}</code>
+              </div>
 
-        {/* Link */}
-        {pr.url ? (
-          <a
-            href={pr.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <ExternalLinkIcon className="size-3" />
-            View on GitHub
-          </a>
-        ) : null}
-      </div>
-    </ReviewSection>
+              {pr.labels.length > 0 && (
+                <div className="flex items-center gap-1 flex-wrap">
+                  {pr.labels.slice(0, 2).map((label) => (
+                    <LabelBadge key={label.name} label={label} />
+                  ))}
+                  {pr.labels.length > 2 && (
+                    <span className="text-[10px] text-muted-foreground">
+                      +{pr.labels.length - 2}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
+                <div className="flex items-center gap-1">
+                  <UserIcon className="size-3" />
+                  {pr.author}
+                </div>
+                <span className="tabular-nums">{formatRelativeTime(pr.updatedAt)}</span>
+              </div>
+            </div>
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
-// ── Review checklist ─────────────────────────────────────────────────
+// ── Kanban View ──────────────────────────────────────────────────────
+
+function KanbanColumn({
+  title,
+  state,
+  pullRequests,
+  onSelect,
+}: {
+  title: string;
+  state: string;
+  pullRequests: readonly GitResolvedPullRequestWithLabels[];
+  onSelect: (pr: GitResolvedPullRequestWithLabels) => void;
+}) {
+  const tone = prStateTone(state);
+
+  return (
+    <div className="flex flex-col min-w-[280px] max-w-[360px] flex-1">
+      {/* Column header */}
+      <div className="flex items-center gap-2 mb-3 px-1">
+        <span className={tone.text}>{prStateIcon(state, "size-3.5")}</span>
+        <span className="text-sm font-medium text-foreground capitalize">{title}</span>
+        <Badge variant="outline" size="sm" className="ml-auto tabular-nums">
+          {pullRequests.length}
+        </Badge>
+      </div>
+
+      {/* Column content */}
+      <div className="flex-1 space-y-2 rounded-xl bg-muted/20 border border-border/50 p-2 min-h-[200px]">
+        {pullRequests.length === 0 ? (
+          <div className="flex items-center justify-center h-full min-h-[100px]">
+            <p className="text-xs text-muted-foreground/50">No PRs</p>
+          </div>
+        ) : (
+          pullRequests.map((pr) => (
+            <button
+              key={pr.number}
+              type="button"
+              onClick={() => onSelect(pr)}
+              className="w-full text-left rounded-lg border border-border bg-card p-3 shadow-xs/5 transition-all hover:shadow-sm hover:border-border/80 group"
+            >
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs text-muted-foreground font-mono tabular-nums">
+                  #{pr.number}
+                </span>
+                <span className="text-[10px] text-muted-foreground tabular-nums">
+                  {formatRelativeTime(pr.updatedAt)}
+                </span>
+              </div>
+              <h4 className="text-sm font-medium text-foreground group-hover:text-primary transition-colors line-clamp-2">
+                {pr.title}
+              </h4>
+
+              {pr.labels.length > 0 && (
+                <div className="mt-2 flex items-center gap-1 flex-wrap">
+                  {pr.labels.slice(0, 3).map((label) => (
+                    <LabelBadge key={label.name} label={label} />
+                  ))}
+                </div>
+              )}
+
+              <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="flex items-center gap-1">
+                  <UserIcon className="size-2.5" />
+                  {pr.author}
+                </div>
+                <div className="flex items-center gap-1 truncate">
+                  <GitBranchIcon className="size-2.5 shrink-0" />
+                  <code className="font-mono truncate">{pr.headBranch}</code>
+                </div>
+              </div>
+            </button>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PRKanbanView({
+  pullRequests,
+  onSelect,
+}: {
+  pullRequests: readonly GitResolvedPullRequestWithLabels[];
+  onSelect: (pr: GitResolvedPullRequestWithLabels) => void;
+}) {
+  const grouped = useMemo(() => {
+    const open: GitResolvedPullRequestWithLabels[] = [];
+    const merged: GitResolvedPullRequestWithLabels[] = [];
+    const closed: GitResolvedPullRequestWithLabels[] = [];
+
+    for (const pr of pullRequests) {
+      switch (pr.state) {
+        case "open":
+          open.push(pr);
+          break;
+        case "merged":
+          merged.push(pr);
+          break;
+        case "closed":
+          closed.push(pr);
+          break;
+      }
+    }
+
+    return { open, merged, closed };
+  }, [pullRequests]);
+
+  return (
+    <div className="flex gap-4 overflow-x-auto pb-2">
+      <KanbanColumn title="Open" state="open" pullRequests={grouped.open} onSelect={onSelect} />
+      <KanbanColumn
+        title="Merged"
+        state="merged"
+        pullRequests={grouped.merged}
+        onSelect={onSelect}
+      />
+      <KanbanColumn
+        title="Closed"
+        state="closed"
+        pullRequests={grouped.closed}
+        onSelect={onSelect}
+      />
+    </div>
+  );
+}
+
+// ── PR Detail (single PR review) ─────────────────────────────────────
 
 interface ChecklistItem {
   id: string;
@@ -355,75 +857,6 @@ function ReviewChecklist() {
   );
 }
 
-// ── Branch context ───────────────────────────────────────────────────
-
-function BranchContext({ pr }: { pr: GitResolvedPullRequest }) {
-  return (
-    <ReviewSection>
-      <SectionLabel>Branch context</SectionLabel>
-      <div className="overflow-hidden rounded-2xl border border-border bg-card not-dark:bg-clip-padding text-card-foreground shadow-xs/5">
-        <div className="space-y-3 px-4 py-4">
-          <div className="flex items-center gap-3">
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted/50">
-              <GitBranchIcon className="size-4 text-muted-foreground" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-foreground">Source branch</p>
-              <code className="text-xs font-mono text-muted-foreground">{pr.headBranch}</code>
-            </div>
-          </div>
-
-          <div className="ml-4 border-l-2 border-dashed border-border pl-7 py-1">
-            <ArrowRightIcon className="size-3 -ml-[1.9rem] text-muted-foreground/50 rotate-90" />
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted/50">
-              <GitBranchIcon className="size-4 text-muted-foreground" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-foreground">Target branch</p>
-              <code className="text-xs font-mono text-muted-foreground">{pr.baseBranch}</code>
-            </div>
-          </div>
-        </div>
-      </div>
-    </ReviewSection>
-  );
-}
-
-// ── Quick actions ────────────────────────────────────────────────────
-
-function QuickActions({ pr }: { pr: GitResolvedPullRequest }) {
-  return (
-    <ReviewSection>
-      <SectionLabel>Actions</SectionLabel>
-      <div className="flex flex-wrap gap-2">
-        {pr.url ? (
-          <Button
-            size="sm"
-            variant="outline"
-            render={<a href={pr.url} target="_blank" rel="noopener noreferrer" />}
-          >
-            <ExternalLinkIcon className="size-3.5" />
-            Open on GitHub
-          </Button>
-        ) : null}
-        <Button size="sm" variant="outline" disabled>
-          <FileCodeIcon className="size-3.5" />
-          View diff
-        </Button>
-        <Button size="sm" variant="outline" disabled>
-          <MessageSquareIcon className="size-3.5" />
-          Start review thread
-        </Button>
-      </div>
-    </ReviewSection>
-  );
-}
-
-// ── Review notes ─────────────────────────────────────────────────────
-
 function ReviewNotes() {
   const [notes, setNotes] = useState("");
   const [savedNotes, setSavedNotes] = useState<string[]>([]);
@@ -483,7 +916,88 @@ function ReviewNotes() {
   );
 }
 
-// ── Summary card ─────────────────────────────────────────────────────
+function QuickActions({ pr }: { pr: GitResolvedPullRequest }) {
+  return (
+    <ReviewSection>
+      <SectionLabel>Actions</SectionLabel>
+      <div className="flex flex-wrap gap-2">
+        {pr.url ? (
+          <Button
+            size="sm"
+            variant="outline"
+            render={<a href={pr.url} target="_blank" rel="noopener noreferrer" />}
+          >
+            <ExternalLinkIcon className="size-3.5" />
+            Open on GitHub
+          </Button>
+        ) : null}
+        <Button size="sm" variant="outline" disabled>
+          <FileCodeIcon className="size-3.5" />
+          View diff
+        </Button>
+        <Button size="sm" variant="outline" disabled>
+          <MessageSquareIcon className="size-3.5" />
+          Start review thread
+        </Button>
+      </div>
+    </ReviewSection>
+  );
+}
+
+function PRHeader({ pr }: { pr: GitResolvedPullRequest }) {
+  const tone = prStateTone(pr.state);
+
+  return (
+    <ReviewSection>
+      <div className="space-y-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium capitalize",
+                  tone.text,
+                  tone.bg,
+                  tone.border,
+                )}
+              >
+                {prStateIcon(pr.state)}
+                {pr.state}
+              </span>
+              <span className="text-sm text-muted-foreground">#{pr.number}</span>
+            </div>
+            <h2 className="mt-3 text-xl font-semibold tracking-tight text-foreground leading-snug">
+              {pr.title}
+            </h2>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <GitBranchIcon className="size-3.5 shrink-0" />
+          <code className="rounded bg-muted/50 px-1.5 py-0.5 font-mono text-foreground">
+            {pr.headBranch}
+          </code>
+          <ArrowRightIcon className="size-3 shrink-0 text-muted-foreground/60" />
+          <code className="rounded bg-muted/50 px-1.5 py-0.5 font-mono text-foreground">
+            {pr.baseBranch}
+          </code>
+        </div>
+
+        {pr.url ? (
+          <a
+            href={pr.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <ExternalLinkIcon className="size-3" />
+            View on GitHub
+          </a>
+        ) : null}
+      </div>
+    </ReviewSection>
+  );
+}
 
 function PRSummaryCard({ pr }: { pr: GitResolvedPullRequest }) {
   const tone = prStateTone(pr.state);
@@ -524,11 +1038,52 @@ function PRSummaryCard({ pr }: { pr: GitResolvedPullRequest }) {
   );
 }
 
-// ── Main view ────────────────────────────────────────────────────────
+function BranchContext({ pr }: { pr: GitResolvedPullRequest }) {
+  return (
+    <ReviewSection>
+      <SectionLabel>Branch context</SectionLabel>
+      <div className="overflow-hidden rounded-2xl border border-border bg-card not-dark:bg-clip-padding text-card-foreground shadow-xs/5">
+        <div className="space-y-3 px-4 py-4">
+          <div className="flex items-center gap-3">
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted/50">
+              <GitBranchIcon className="size-4 text-muted-foreground" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-foreground">Source branch</p>
+              <code className="text-xs font-mono text-muted-foreground">{pr.headBranch}</code>
+            </div>
+          </div>
 
-function PRReviewContent({ pr }: { pr: GitResolvedPullRequest }) {
+          <div className="ml-4 border-l-2 border-dashed border-border pl-7 py-1">
+            <ArrowRightIcon className="size-3 -ml-[1.9rem] text-muted-foreground/50 rotate-90" />
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted/50">
+              <GitBranchIcon className="size-4 text-muted-foreground" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-foreground">Target branch</p>
+              <code className="text-xs font-mono text-muted-foreground">{pr.baseBranch}</code>
+            </div>
+          </div>
+        </div>
+      </div>
+    </ReviewSection>
+  );
+}
+
+function PRReviewContent({ pr, onBack }: { pr: GitResolvedPullRequest; onBack: () => void }) {
   return (
     <div className="space-y-6">
+      <button
+        type="button"
+        onClick={onBack}
+        className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <ArrowRightIcon className="size-3 rotate-180" />
+        Back to all PRs
+      </button>
       <PRHeader pr={pr} />
       <Separator />
       <PRSummaryCard pr={pr} />
@@ -542,104 +1097,145 @@ function PRReviewContent({ pr }: { pr: GitResolvedPullRequest }) {
   );
 }
 
-function PRReviewEmptyState({ cwd }: { cwd: string | null }) {
-  const [reference, setReference] = useState("");
-  const queryClient = useQueryClient();
-  const [debouncedReference] = useDebouncedValue(reference, { wait: 400 });
+// ── PR List (main dashboard) ─────────────────────────────────────────
 
-  const parsedReference = parsePullRequestReference(reference);
-  const parsedDebouncedReference = parsePullRequestReference(debouncedReference);
+function PRListDashboard({ cwd }: { cwd: string }) {
+  const [viewMode, setViewMode] = useState<ViewMode>("table");
+  const [listSubMode, setListSubMode] = useState<ListSubMode>("rows");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeLabel, setActiveLabel] = useState<string | null>(null);
+  const [selectedPr, setSelectedPr] = useState<GitResolvedPullRequestWithLabels | null>(null);
 
-  const resolveQuery = useQuery(
-    gitResolvePullRequestQueryOptions({
+  const listQuery = useQuery(
+    gitListPullRequestsQueryOptions({
       cwd,
-      reference: parsedDebouncedReference,
+      state: "open",
     }),
   );
 
-  const cachedPr = useMemo(() => {
-    if (!cwd || !parsedReference) return null;
-    const cached = queryClient.getQueryData<{ pullRequest: GitResolvedPullRequest }>([
-      "git",
-      "pull-request",
-      cwd,
-      parsedReference,
-    ]);
-    return cached?.pullRequest ?? null;
-  }, [cwd, parsedReference, queryClient]);
+  const pullRequests = listQuery.data?.pullRequests ?? [];
 
-  const livePr =
-    parsedReference !== null && parsedReference === parsedDebouncedReference
-      ? (resolveQuery.data?.pullRequest ?? null)
-      : null;
+  // Extract unique labels
+  const allLabels = useMemo(() => {
+    const labelMap = new Map<string, { name: string; color: string }>();
+    for (const pr of pullRequests) {
+      for (const label of pr.labels) {
+        if (!labelMap.has(label.name)) {
+          labelMap.set(label.name, label);
+        }
+      }
+    }
+    return Array.from(labelMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [pullRequests]);
 
-  const resolvedPr = livePr ?? cachedPr;
+  // Filter PRs
+  const filteredPRs = useMemo(() => {
+    let filtered = pullRequests;
 
-  const isResolving =
-    parsedReference !== null &&
-    resolvedPr === null &&
-    (parsedReference !== parsedDebouncedReference ||
-      resolveQuery.isPending ||
-      resolveQuery.isFetching);
+    if (activeLabel) {
+      filtered = filtered.filter((pr) => pr.labels.some((l) => l.name === activeLabel));
+    }
 
-  const error =
-    resolvedPr === null && resolveQuery.isError
-      ? resolveQuery.error instanceof Error
-        ? resolveQuery.error.message
-        : "Failed to resolve pull request."
-      : null;
+    if (searchQuery.trim().length > 0) {
+      const q = searchQuery.trim().toLowerCase();
+      filtered = filtered.filter(
+        (pr) =>
+          pr.title.toLowerCase().includes(q) ||
+          pr.headBranch.toLowerCase().includes(q) ||
+          pr.author.toLowerCase().includes(q) ||
+          `#${pr.number}`.includes(q) ||
+          pr.labels.some((l) => l.name.toLowerCase().includes(q)),
+      );
+    }
 
-  if (resolvedPr) {
-    return <PRReviewContent pr={resolvedPr} />;
+    return filtered;
+  }, [pullRequests, activeLabel, searchQuery]);
+
+  // If a PR is selected, show the detail view
+  if (selectedPr) {
+    return <PRReviewContent pr={selectedPr} onBack={() => setSelectedPr(null)} />;
   }
 
   return (
-    <div className="space-y-8">
-      {/* Hero */}
-      <div className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          Review a pull request
-        </h1>
-        <p className="text-sm text-muted-foreground leading-relaxed max-w-lg">
-          Paste a GitHub PR URL or enter a number to get a structured breakdown. Walk through the
-          change, check off review items, and leave notes.
-        </p>
-      </div>
-
-      {/* Input */}
-      <PRInput onResolve={(ref) => setReference(ref)} isResolving={isResolving} error={error} />
-
-      {/* Hint cards */}
-      <div className="space-y-2">
-        <SectionLabel>Try with</SectionLabel>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {[
-            {
-              label: "PR URL",
-              example: "https://github.com/owner/repo/pull/42",
-            },
-            {
-              label: "PR number",
-              example: "#42 or 42",
-            },
-          ].map((hint) => (
-            <button
-              key={hint.label}
-              type="button"
-              className="group rounded-xl border border-border bg-card p-3 text-left transition-colors hover:bg-muted/30"
-              onClick={() => setReference(hint.example)}
-            >
-              <p className="text-xs font-medium text-foreground">{hint.label}</p>
-              <code className="mt-1 block text-xs text-muted-foreground font-mono group-hover:text-foreground transition-colors">
-                {hint.example}
-              </code>
-            </button>
-          ))}
+    <div className="space-y-6">
+      {/* Title + view controls */}
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Pull Requests</h1>
+          <p className="text-sm text-muted-foreground">
+            {listQuery.isLoading
+              ? "Loading pull requests..."
+              : `${filteredPRs.length} of ${pullRequests.length} open pull request${pullRequests.length === 1 ? "" : "s"}`}
+          </p>
         </div>
+
+        <ViewModeToolbar
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          listSubMode={listSubMode}
+          onListSubModeChange={setListSubMode}
+        />
       </div>
+
+      {/* Loading state */}
+      {listQuery.isLoading && (
+        <div className="flex items-center justify-center py-16">
+          <div className="flex items-center gap-3 text-muted-foreground">
+            <Spinner className="size-5" />
+            <span className="text-sm">Loading pull requests...</span>
+          </div>
+        </div>
+      )}
+
+      {/* Error state */}
+      {listQuery.isError && !listQuery.isLoading && (
+        <div className="rounded-2xl border border-destructive/20 bg-destructive/5 p-6 text-center">
+          <p className="text-sm text-destructive">
+            {listQuery.error instanceof Error
+              ? listQuery.error.message
+              : "Failed to load pull requests."}
+          </p>
+          <Button size="sm" variant="outline" className="mt-3" onClick={() => listQuery.refetch()}>
+            Retry
+          </Button>
+        </div>
+      )}
+
+      {/* Loaded state */}
+      {!listQuery.isLoading && !listQuery.isError && (
+        <>
+          {/* Filter bar */}
+          <LabelFilterBar
+            allLabels={allLabels}
+            activeLabel={activeLabel}
+            onLabelChange={setActiveLabel}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+          />
+
+          {/* View content */}
+          {viewMode === "table" && (
+            <PRTableView pullRequests={filteredPRs} onSelect={setSelectedPr} />
+          )}
+
+          {viewMode === "list" && listSubMode === "rows" && (
+            <PRListRowsView pullRequests={filteredPRs} onSelect={setSelectedPr} />
+          )}
+
+          {viewMode === "list" && listSubMode === "grid" && (
+            <PRListGridView pullRequests={filteredPRs} onSelect={setSelectedPr} />
+          )}
+
+          {viewMode === "kanban" && (
+            <PRKanbanView pullRequests={filteredPRs} onSelect={setSelectedPr} />
+          )}
+        </>
+      )}
     </div>
   );
 }
+
+// ── Route view ───────────────────────────────────────────────────────
 
 function PRReviewRouteView() {
   const cwd = useFirstProjectCwd();
@@ -671,9 +1267,9 @@ function PRReviewRouteView() {
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-2xl px-6 py-8">
+          <div className={cn("mx-auto w-full px-6 py-8", "max-w-5xl")}>
             {cwd ? (
-              <PRReviewEmptyState cwd={cwd} />
+              <PRListDashboard cwd={cwd} />
             ) : (
               <div className="flex flex-1 items-center justify-center py-20">
                 <div className="text-center space-y-2">

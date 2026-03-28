@@ -76,6 +76,38 @@ type SidebarInstanceContextProps = {
 const SidebarContext = React.createContext<SidebarContextProps | null>(null);
 const SidebarInstanceContext = React.createContext<SidebarInstanceContextProps | null>(null);
 
+type SidebarChromeStyle = React.CSSProperties & {
+  "--sidebar-background-opacity"?: number | string;
+  "--sidebar-border-opacity"?: number | string;
+  "--sidebar-shadow-opacity"?: number | string;
+  "--sidebar-surface-color"?: string;
+  "--sidebar-surface-border-color"?: string;
+};
+
+function resolveSidebarChromeVars(style?: React.CSSProperties): SidebarChromeStyle {
+  return {
+    "--sidebar-background-opacity": 1,
+    "--sidebar-border-opacity": "var(--sidebar-background-opacity, 1)",
+    "--sidebar-shadow-opacity": "var(--sidebar-background-opacity, 1)",
+    ...style,
+  };
+}
+
+function getSidebarSurfaceStyle(options?: { shadow?: boolean }): React.CSSProperties {
+  return {
+    backgroundColor:
+      "color-mix(in srgb, var(--sidebar-surface-color, var(--card)) calc(var(--sidebar-background-opacity, 1) * 100%), transparent)",
+    borderColor:
+      "color-mix(in srgb, var(--sidebar-surface-border-color, var(--border)) calc(var(--sidebar-border-opacity, var(--sidebar-background-opacity, 1)) * 100%), transparent)",
+    ...(options?.shadow
+      ? {
+          boxShadow:
+            "0 1px 2px 0 color-mix(in srgb, var(--color-black) calc(var(--sidebar-shadow-opacity, var(--sidebar-background-opacity, 1)) * 10%), transparent)",
+        }
+      : {}),
+  };
+}
+
 function useSidebar() {
   const context = React.useContext(SidebarContext);
   if (!context) {
@@ -176,6 +208,7 @@ function Sidebar({
   collapsible = "offcanvas",
   resizable = false,
   className,
+  style,
   children,
   ...props
 }: React.ComponentProps<"div"> & {
@@ -203,16 +236,23 @@ function Sidebar({
     () => ({ side, resizable: resolvedResizable }),
     [resolvedResizable, side],
   );
+  const chromeVars = React.useMemo(() => resolveSidebarChromeVars(style), [style]);
+  const isInsetVariant = variant === "floating" || variant === "inset";
+  const floatingSurfaceStyle = React.useMemo(
+    () => (variant === "floating" ? getSidebarSurfaceStyle({ shadow: true }) : getSidebarSurfaceStyle()),
+    [variant],
+  );
 
   if (collapsible === "none") {
     return (
       <SidebarInstanceContext.Provider value={instanceContextValue}>
         <div
           className={cn(
-            "flex h-full w-(--sidebar-width) flex-col bg-sidebar text-sidebar-foreground",
+            "relative flex h-full w-(--sidebar-width) flex-col text-sidebar-foreground",
             className,
           )}
           data-slot="sidebar"
+          style={{ ...getSidebarSurfaceStyle(), ...chromeVars }}
           {...props}
         >
           {children}
@@ -227,7 +267,7 @@ function Sidebar({
         <Sheet onOpenChange={setOpenMobile} open={openMobile} {...props}>
           <SheetPopup
             className={cn(
-              "w-(--sidebar-width) max-w-none bg-sidebar p-0 text-sidebar-foreground",
+              "relative w-(--sidebar-width) max-w-none p-0 text-sidebar-foreground",
               className,
             )}
             data-mobile="true"
@@ -237,6 +277,8 @@ function Sidebar({
             side={side}
             style={
               {
+                ...getSidebarSurfaceStyle({ shadow: variant === "floating" }),
+                ...chromeVars,
                 "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
               } as React.CSSProperties
             }
@@ -245,7 +287,7 @@ function Sidebar({
               <SheetTitle>Sidebar</SheetTitle>
               <SheetDescription>Displays the mobile sidebar.</SheetDescription>
             </SheetHeader>
-            <div className="flex h-full w-full flex-col">{children}</div>
+            <div className="relative flex h-full w-full flex-col">{children}</div>
           </SheetPopup>
         </Sheet>
       </SidebarInstanceContext.Provider>
@@ -287,12 +329,18 @@ function Sidebar({
             className,
           )}
           data-slot="sidebar-container"
+          style={
+            isInsetVariant
+              ? { backgroundColor: "transparent", ...chromeVars }
+              : { ...getSidebarSurfaceStyle(), ...chromeVars }
+          }
           {...props}
         >
           <div
-            className="flex h-full w-full flex-col bg-sidebar group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:border-sidebar-border group-data-[variant=floating]:shadow-sm/5"
+            className="relative flex h-full w-full flex-col group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:border-sidebar-border group-data-[variant=floating]:shadow-sm/5"
             data-sidebar="sidebar"
             data-slot="sidebar-inner"
+            style={isInsetVariant ? floatingSurfaceStyle : undefined}
           >
             {children}
           </div>

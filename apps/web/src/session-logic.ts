@@ -501,8 +501,14 @@ function toDerivedWorkLogEntry(activity: OrchestrationThreadActivity): DerivedWo
   };
   const itemType = extractWorkLogItemType(payload);
   const requestKind = extractWorkLogRequestKind(payload);
-  if (payload && typeof payload.detail === "string" && payload.detail.length > 0) {
-    const detail = stripTrailingExitCode(payload.detail).output;
+  const rawDetail =
+    typeof payload?.detail === "string" && payload.detail.length > 0
+      ? payload.detail
+      : typeof payload?.message === "string" && payload.message.length > 0
+        ? payload.message
+        : null;
+  if (rawDetail) {
+    const detail = stripTrailingExitCode(rawDetail).output;
     if (detail) {
       entry.detail = detail;
     }

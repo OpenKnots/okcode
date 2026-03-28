@@ -24,6 +24,7 @@ import { makeProviderServiceLive } from "./provider/Layers/ProviderService";
 import { ProviderSessionDirectoryLive } from "./provider/Layers/ProviderSessionDirectory";
 import { ProviderService } from "./provider/Services/ProviderService";
 import { makeEventNdjsonLogger } from "./provider/Layers/EventNdjsonLogger";
+import { EnvironmentVariablesLive } from "./persistence/Services/EnvironmentVariables";
 
 import { TerminalManagerLive } from "./terminal/Layers/Manager";
 import { KeybindingsLive } from "./keybindings";
@@ -110,6 +111,7 @@ export function makeServerRuntimeServicesLayer() {
     checkpointStoreLayer,
     checkpointDiffQueryLayer,
     RuntimeReceiptBusLive,
+    EnvironmentVariablesLive,
   );
   const runtimeIngestionLayer = ProviderRuntimeIngestionLive.pipe(
     Layer.provideMerge(runtimeServicesLayer),

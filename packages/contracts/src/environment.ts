@@ -31,7 +31,7 @@ export type EnvironmentVariableEntries = typeof EnvironmentVariableEntries.Type;
 export const RuntimeEnvironmentVariables = Schema.Record(
   EnvironmentVariableKey,
   EnvironmentVariableValue,
-);
+).check(Schema.isMaxProperties(RUNTIME_ENV_MAX_PROPERTIES));
 export type RuntimeEnvironmentVariables = typeof RuntimeEnvironmentVariables.Type;
 
 export const GlobalEnvironmentVariablesResult = Schema.Struct({

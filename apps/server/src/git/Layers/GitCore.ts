@@ -17,6 +17,7 @@ import {
   Stream,
 } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
+import { mergeNodeProcessEnv } from "@okcode/shared/environment";
 
 import { GitCommandError } from "../Errors.ts";
 import {
@@ -29,6 +30,8 @@ import {
 } from "../Services/GitCore.ts";
 import { ServerConfig } from "../../config.ts";
 import { decodeJsonResult } from "@okcode/shared/schemaJson";
+import { ProjectionSnapshotQuery } from "../../orchestration/Services/ProjectionSnapshotQuery.ts";
+import { resolveRuntimeEnvironment } from "../../runtimeEnvironment.ts";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_MAX_OUTPUT_BYTES = 1_000_000;
@@ -504,6 +507,7 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
     const fileSystem = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const { worktreesDir } = yield* ServerConfig;
+    const projectionSnapshotQuery = yield* ProjectionSnapshotQuery;
 
     let execute: GitCoreShape["execute"];
 
@@ -525,15 +529,21 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
             Effect.provideService(FileSystem.FileSystem, fileSystem),
             Effect.mapError(toGitCommandError(commandInput, "failed to create trace2 monitor.")),
           );
+          const runtimeEnv =
+            input.env !== undefined
+              ? input.env
+              : yield* resolveRuntimeEnvironment({
+                  cwd: commandInput.cwd,
+                  readModel: yield* projectionSnapshotQuery.getSnapshot(),
+                });
           const child = yield* commandSpawner
             .spawn(
               ChildProcess.make("git", commandInput.args, {
                 cwd: commandInput.cwd,
-                env: {
-                  ...process.env,
-                  ...input.env,
-                  ...trace2Monitor.env,
-                },
+                env: mergeNodeProcessEnv(
+                  mergeNodeProcessEnv(process.env, runtimeEnv),
+                  trace2Monitor.env,
+                ),
               }),
             )
             .pipe(Effect.mapError(toGitCommandError(commandInput, "failed to spawn.")));

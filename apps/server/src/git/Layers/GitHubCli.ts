@@ -1,5 +1,6 @@
 import { Effect, Layer, Schema } from "effect";
 import { PositiveInt, TrimmedNonEmptyString } from "@okcode/contracts";
+import { mergeNodeProcessEnv } from "@okcode/shared/environment";
 
 import { runProcess } from "../../processRunner";
 import { GitHubCliError } from "../Errors.ts";
@@ -9,6 +10,8 @@ import {
   type GitHubCliShape,
   type GitHubPullRequestSummary,
 } from "../Services/GitHubCli.ts";
+import { ProjectionSnapshotQuery } from "../../orchestration/Services/ProjectionSnapshotQuery.ts";
+import { resolveRuntimeEnvironment } from "../../runtimeEnvironment.ts";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 
@@ -167,13 +170,21 @@ function decodeGitHubJson<S extends Schema.Top>(
 
 const makeGitHubCli = Effect.sync(() => {
   const execute: GitHubCliShape["execute"] = (input) =>
-    Effect.tryPromise({
-      try: () =>
-        runProcess("gh", input.args, {
-          cwd: input.cwd,
-          timeoutMs: input.timeoutMs ?? DEFAULT_TIMEOUT_MS,
-        }),
-      catch: (error) => normalizeGitHubCliError("execute", error),
+    Effect.gen(function* () {
+      const projectionSnapshotQuery = yield* ProjectionSnapshotQuery;
+      const runtimeEnv = yield* resolveRuntimeEnvironment({
+        cwd: input.cwd,
+        readModel: yield* projectionSnapshotQuery.getSnapshot(),
+      });
+      return yield* Effect.tryPromise({
+        try: () =>
+          runProcess("gh", input.args, {
+            cwd: input.cwd,
+            timeoutMs: input.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+            env: mergeNodeProcessEnv(process.env, runtimeEnv),
+          }),
+        catch: (error) => normalizeGitHubCliError("execute", error),
+      });
     });
 
   const service = {

@@ -315,9 +315,9 @@ export function getProjectSortTimestamp(
   }
 
   if (sortOrder === "created_at") {
-    return toSortableTimestamp(project.createdAt) ?? Number.NEGATIVE_INFINITY;
+    return toSortableTimestamp(project.createdAt) ?? Date.now();
   }
-  return toSortableTimestamp(project.updatedAt ?? project.createdAt) ?? Number.NEGATIVE_INFINITY;
+  return toSortableTimestamp(project.updatedAt ?? project.createdAt) ?? Date.now();
 }
 
 export function sortProjectsForSidebar<TProject extends SidebarProject, TThread extends Thread>(

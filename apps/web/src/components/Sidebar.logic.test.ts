@@ -679,4 +679,26 @@ describe("sortProjectsForSidebar", () => {
 
     expect(timestamp).toBe(Date.parse("2026-03-09T10:10:00.000Z"));
   });
+
+  it("sorts new projects with no timestamps above older projects", () => {
+    const sorted = sortProjectsForSidebar(
+      [
+        makeProject({
+          id: ProjectId.makeUnsafe("project-old"),
+          name: "Old project",
+          updatedAt: "2026-03-09T10:00:00.000Z",
+        }),
+        makeProject({
+          id: ProjectId.makeUnsafe("project-new"),
+          name: "New project",
+          createdAt: undefined,
+          updatedAt: undefined,
+        }),
+      ],
+      [],
+      "updated_at",
+    );
+
+    expect(sorted[0]!.id).toBe(ProjectId.makeUnsafe("project-new"));
+  });
 });

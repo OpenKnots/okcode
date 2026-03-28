@@ -962,7 +962,7 @@ it.layer(GitManagerTestLayer)("GitManager", (it) => {
         Effect.map((error) => error.message),
       );
 
-      expect(errorMessage).toContain("no changes to commit");
+      expect(errorMessage).toContain("no staged or working tree changes");
     }),
   );
 
@@ -1413,7 +1413,7 @@ it.layer(GitManagerTestLayer)("GitManager", (it) => {
         Effect.flip,
         Effect.map((error) => error.message),
       );
-      expect(errorMessage).toContain("GitHub CLI (`gh`) is required");
+      expect(errorMessage).toContain("requires GitHub CLI");
     }),
   );
 
@@ -1442,7 +1442,7 @@ it.layer(GitManagerTestLayer)("GitManager", (it) => {
         Effect.flip,
         Effect.map((error) => error.message),
       );
-      expect(errorMessage).toContain("gh auth login");
+      expect(errorMessage).toContain("not authenticated");
     }),
   );
 
@@ -2077,7 +2077,7 @@ it.layer(GitManagerTestLayer)("GitManager", (it) => {
         Effect.map((error) => error.message),
       );
 
-      expect(errorMessage).toContain("hook: fail");
+      expect(errorMessage).toContain("repository hook rejected");
       expect(events).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
@@ -2087,6 +2087,11 @@ it.layer(GitManagerTestLayer)("GitManager", (it) => {
           expect.objectContaining({
             kind: "action_failed",
             phase: "commit",
+            failure: expect.objectContaining({
+              code: "hook_failed",
+              title: "Commit hook blocked the action",
+              detail: expect.stringContaining("hook: fail"),
+            }),
           }),
         ]),
       );

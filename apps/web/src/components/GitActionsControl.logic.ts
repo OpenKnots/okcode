@@ -1,4 +1,5 @@
 import type {
+  GitActionFailure,
   GitRunStackedActionResult,
   GitStackedAction,
   GitStatusResult,
@@ -108,6 +109,26 @@ export function summarizeGitResult(result: GitRunStackedActionResult): {
   }
 
   return { title: "Done" };
+}
+
+export function summarizeGitFailure(failure: GitActionFailure): {
+  title: string;
+  description?: string;
+} {
+  return withDescription(failure.title, truncateText(failure.summary));
+}
+
+export function resolveGitFailureRetryLabel(failure: GitActionFailure): string {
+  if (failure.phase === "pr") {
+    return "Retry PR";
+  }
+  if (failure.phase === "push") {
+    return "Retry push";
+  }
+  if (failure.phase === "commit") {
+    return "Retry commit";
+  }
+  return "Retry";
 }
 
 export function buildMenuItems(

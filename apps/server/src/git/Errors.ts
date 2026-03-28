@@ -1,3 +1,4 @@
+import type { GitActionFailure } from "@okcode/contracts";
 import { Schema } from "effect";
 
 /**
@@ -58,9 +59,25 @@ export class GitManagerError extends Schema.TaggedErrorClass<GitManagerError>()(
 }
 
 /**
+ * GitActionExecutionError - Structured failure information for a stacked git action.
+ */
+export class GitActionExecutionError extends Error {
+  readonly failure: GitActionFailure;
+  override readonly cause?: unknown;
+
+  constructor(input: { failure: GitActionFailure; cause?: unknown }) {
+    super(input.failure.summary, input.cause !== undefined ? { cause: input.cause } : undefined);
+    this.name = "GitActionExecutionError";
+    this.failure = input.failure;
+    this.cause = input.cause;
+  }
+}
+
+/**
  * GitManagerServiceError - Errors emitted by stacked Git workflow orchestration.
  */
 export type GitManagerServiceError =
+  | GitActionExecutionError
   | GitManagerError
   | GitCommandError
   | GitHubCliError

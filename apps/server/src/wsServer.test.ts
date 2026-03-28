@@ -50,7 +50,7 @@ import { Open, type OpenShape } from "./open";
 import { GitManager, type GitManagerShape } from "./git/Services/GitManager.ts";
 import type { GitCoreShape } from "./git/Services/GitCore.ts";
 import { GitCore } from "./git/Services/GitCore.ts";
-import { GitCommandError, GitManagerError } from "./git/Errors.ts";
+import { GitActionExecutionError, GitCommandError } from "./git/Errors.ts";
 import { MigrationError } from "@effect/sql-sqlite-bun/SqliteMigrator";
 import { AnalyticsService } from "./telemetry/Services/AnalyticsService.ts";
 
@@ -1842,9 +1842,20 @@ describe("WebSocket Server", () => {
   it("returns errors from git.runStackedAction", async () => {
     const runStackedAction = vi.fn(() =>
       Effect.fail(
-        new GitManagerError({
-          operation: "GitManager.test.runStackedAction",
-          detail: "Cannot push from detached HEAD.",
+        new GitActionExecutionError({
+          failure: {
+            code: "detached_head",
+            phase: "push",
+            title: "Checkout a branch first",
+            summary: "This action cannot run from a detached HEAD.",
+            detail: "Cannot push from detached HEAD.",
+            nextSteps: [
+              "Create or checkout a branch for this work.",
+              "Run the git action again from that branch.",
+            ],
+            operation: "GitManager.test.runStackedAction",
+            rawMessage: "Cannot push from detached HEAD.",
+          },
         }),
       ),
     );
@@ -1870,6 +1881,13 @@ describe("WebSocket Server", () => {
     });
     expect(response.result).toBeUndefined();
     expect(response.error?.message).toContain("detached HEAD");
+    expect(response.error?.code).toBe("git_action_failed");
+    expect(response.error?.data).toEqual(
+      expect.objectContaining({
+        code: "detached_head",
+        phase: "push",
+      }),
+    );
     expect(runStackedAction).toHaveBeenCalledWith(
       {
         actionId: "client-action-1",

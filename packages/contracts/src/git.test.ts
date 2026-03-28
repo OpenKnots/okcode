@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { Schema } from "effect";
 
 import {
+  GitActionFailure,
   GitCreateWorktreeInput,
   GitPreparePullRequestThreadInput,
   GitRunStackedActionInput,
@@ -16,6 +17,7 @@ const decodePreparePullRequestThreadInput = Schema.decodeUnknownSync(
 const decodeRunStackedActionInput = Schema.decodeUnknownSync(GitRunStackedActionInput);
 const decodeResolvePullRequestResult = Schema.decodeUnknownSync(GitResolvePullRequestResult);
 const decodeGitStatusResult = Schema.decodeUnknownSync(GitStatusResult);
+const decodeGitActionFailure = Schema.decodeUnknownSync(GitActionFailure);
 
 describe("GitCreateWorktreeInput", () => {
   it("accepts omitted newBranch for existing-branch worktrees", () => {
@@ -94,5 +96,24 @@ describe("GitStatusResult", () => {
 
     expect(parsed.hasConflicts).toBe(true);
     expect(parsed.conflictedFiles).toEqual(["src/app.tsx"]);
+  });
+});
+
+describe("GitActionFailure", () => {
+  it("decodes structured git action failure guidance", () => {
+    const parsed = decodeGitActionFailure({
+      code: "github_auth_required",
+      phase: "pr",
+      title: "Authenticate GitHub CLI",
+      summary: "The branch was pushed, but GitHub CLI is not authenticated.",
+      detail: "Run `gh auth login` and retry.",
+      nextSteps: ["Run `gh auth login`.", "Retry the PR action."],
+      operation: "createPullRequest",
+      rawMessage: "GitHub CLI failed in createPullRequest: not logged in",
+    });
+
+    expect(parsed.code).toBe("github_auth_required");
+    expect(parsed.phase).toBe("pr");
+    expect(parsed.nextSteps).toHaveLength(2);
   });
 });

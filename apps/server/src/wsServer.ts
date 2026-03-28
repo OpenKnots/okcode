@@ -22,6 +22,7 @@ import {
   ThreadId,
   WS_CHANNELS,
   WS_METHODS,
+  type WebSocketError,
   WebSocketRequest,
   type WsResponse as WsResponseMessage,
   WsResponse,
@@ -80,6 +81,7 @@ import { makeServerPushBus } from "./wsServer/pushBus.ts";
 import { makeServerReadiness } from "./wsServer/readiness.ts";
 import { decodeJsonResult, formatSchemaError } from "@okcode/shared/schemaJson";
 import { PrReview } from "./prReview/Services/PrReview.ts";
+import { GitActionExecutionError } from "./git/Errors.ts";
 
 /**
  * Remote address from the HTTP upgrade (`request.socket`). The `ws` library often does not
@@ -1140,6 +1142,25 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
     }
   });
 
+  const serializeWebSocketError = (
+    request: WebSocketRequest,
+    cause: Cause.Cause<unknown>,
+  ): WebSocketError => {
+    const squashed = Cause.squash(cause);
+    if (
+      request.body._tag === WS_METHODS.gitRunStackedAction &&
+      squashed instanceof GitActionExecutionError
+    ) {
+      return {
+        message: squashed.failure.summary,
+        code: "git_action_failed",
+        data: squashed.failure,
+      };
+    }
+
+    return { message: Cause.pretty(cause) };
+  };
+
   const handleMessage = Effect.fnUntraced(function* (ws: WebSocket, raw: unknown) {
     const sendWsResponse = (response: WsResponseMessage) =>
       encodeWsResponse(response).pipe(
@@ -1167,7 +1188,7 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
     if (Exit.isFailure(result)) {
       return yield* sendWsResponse({
         id: request.success.id,
-        error: { message: Cause.pretty(result.cause) },
+        error: serializeWebSocketError(request.success, result.cause),
       });
     }
 

@@ -6,7 +6,9 @@ import {
   requiresDefaultBranchConfirmation,
   resolveAutoFeatureBranchName,
   resolveDefaultBranchActionDialogCopy,
+  resolveGitFailureRetryLabel,
   resolveQuickAction,
+  summarizeGitFailure,
   summarizeGitResult,
 } from "./GitActionsControl.logic";
 
@@ -286,6 +288,36 @@ describe("when: branch is clean, ahead, and has no open PR", () => {
         dialogAction: "create_pr",
       },
     ]);
+  });
+});
+
+describe("git failure helpers", () => {
+  it("summarizeGitFailure returns failure title and summary", () => {
+    const summary = summarizeGitFailure({
+      code: "branch_protected",
+      phase: "push",
+      title: "Protected branch rejected the push",
+      summary: "GitHub blocked the push because this branch is protected.",
+      nextSteps: ["Create a feature branch.", "Open a pull request."],
+    });
+
+    assert.deepEqual(summary, {
+      title: "Protected branch rejected the push",
+      description: "GitHub blocked the push because this branch is protected.",
+    });
+  });
+
+  it("resolveGitFailureRetryLabel follows the failed phase", () => {
+    assert.strictEqual(
+      resolveGitFailureRetryLabel({
+        code: "github_auth_required",
+        phase: "pr",
+        title: "Authenticate GitHub CLI",
+        summary: "GitHub CLI is not authenticated.",
+        nextSteps: ["Run `gh auth login`.", "Retry the PR action."],
+      }),
+      "Retry PR",
+    );
   });
 });
 

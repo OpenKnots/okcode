@@ -219,14 +219,17 @@ export const WebSocketRequest = Schema.Struct({
 });
 export type WebSocketRequest = typeof WebSocketRequest.Type;
 
+export const WebSocketError = Schema.Struct({
+  message: Schema.String,
+  code: Schema.optional(TrimmedNonEmptyString),
+  data: Schema.optional(Schema.Unknown),
+});
+export type WebSocketError = typeof WebSocketError.Type;
+
 export const WebSocketResponse = Schema.Struct({
   id: TrimmedNonEmptyString,
   result: Schema.optional(Schema.Unknown),
-  error: Schema.optional(
-    Schema.Struct({
-      message: Schema.String,
-    }),
-  ),
+  error: Schema.optional(WebSocketError),
 });
 export type WebSocketResponse = typeof WebSocketResponse.Type;
 

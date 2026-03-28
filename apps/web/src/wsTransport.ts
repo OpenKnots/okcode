@@ -1,4 +1,5 @@
 import {
+  type WebSocketError as WebSocketErrorPayload,
   type WsPush,
   type WsPushChannel,
   type WsPushMessage,
@@ -49,6 +50,22 @@ function asError(value: unknown, fallback: string): Error {
     return value;
   }
   return new Error(fallback);
+}
+
+export class WsRequestError<T = unknown> extends Error {
+  readonly code: string | undefined;
+  readonly data: T | undefined;
+
+  constructor(input: WebSocketErrorPayload) {
+    super(input.message);
+    this.name = "WsRequestError";
+    this.code = input.code;
+    this.data = input.data as T | undefined;
+  }
+}
+
+export function isWsRequestError(value: unknown): value is WsRequestError {
+  return value instanceof WsRequestError;
 }
 
 export class WsTransport {
@@ -254,7 +271,7 @@ export class WsTransport {
     this.pending.delete(message.id);
 
     if (message.error) {
-      pending.reject(new Error(message.error.message));
+      pending.reject(new WsRequestError(message.error));
       return;
     }
 

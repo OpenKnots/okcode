@@ -1,7 +1,7 @@
 import { WS_CHANNELS } from "@okcode/contracts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { WsTransport } from "./wsTransport";
+import { WsRequestError, WsTransport } from "./wsTransport";
 
 type WsEventType = "open" | "message" | "close" | "error";
 type WsListener = (event?: { data?: unknown }) => void;
@@ -133,6 +133,49 @@ describe("WsTransport", () => {
     );
 
     await expect(requestPromise).resolves.toEqual({ projects: [] });
+
+    transport.dispose();
+  });
+
+  it("preserves structured websocket error data on rejected requests", async () => {
+    const transport = new WsTransport("ws://localhost:3020");
+    const socket = getSocket();
+    socket.open();
+
+    const requestPromise = transport.request("git.runStackedAction", { cwd: "/repo" });
+    const sent = socket.sent.at(-1);
+    if (!sent) {
+      throw new Error("Expected request envelope to be sent");
+    }
+
+    const requestEnvelope = JSON.parse(sent) as { id: string };
+    socket.serverMessage(
+      JSON.stringify({
+        id: requestEnvelope.id,
+        error: {
+          message: "Push failed",
+          code: "git_action_failed",
+          data: {
+            code: "branch_protected",
+            phase: "push",
+            title: "Protected branch rejected the push",
+            summary: "GitHub blocked the push because this branch is protected.",
+            detail: "remote: error: GH006",
+            nextSteps: ["Create a feature branch.", "Open a pull request."],
+          },
+        },
+      }),
+    );
+
+    await expect(requestPromise).rejects.toBeInstanceOf(WsRequestError);
+    await expect(requestPromise).rejects.toMatchObject({
+      message: "Push failed",
+      code: "git_action_failed",
+      data: expect.objectContaining({
+        code: "branch_protected",
+        phase: "push",
+      }),
+    });
 
     transport.dispose();
   });

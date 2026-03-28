@@ -105,6 +105,31 @@ it.effect("accepts typed websocket push envelopes with sequence", () =>
   }),
 );
 
+it.effect("accepts websocket responses with structured error payloads", () =>
+  Effect.gen(function* () {
+    const parsed = yield* decodeWsResponse({
+      id: "req-1",
+      error: {
+        message: "Push failed",
+        code: "git_action_failed",
+        data: {
+          code: "branch_protected",
+          phase: "push",
+          title: "Protected branch rejected the push",
+          summary: "GitHub blocked the push because this branch is protected.",
+          nextSteps: ["Create a feature branch.", "Open a pull request."],
+        },
+      },
+    });
+
+    if (!("id" in parsed)) {
+      assert.fail("expected websocket response to decode as a response envelope");
+    }
+
+    assert.strictEqual(parsed.error?.code, "git_action_failed");
+  }),
+);
+
 it.effect("accepts git.actionProgress push envelopes", () =>
   Effect.gen(function* () {
     const parsed = yield* decodeWsResponse({

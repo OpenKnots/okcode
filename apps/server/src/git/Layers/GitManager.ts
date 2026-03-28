@@ -9,7 +9,7 @@ import {
   sanitizeFeatureBranchName,
 } from "@okcode/shared/git";
 
-import { GitManagerError } from "../Errors.ts";
+import { GitActionExecutionError, GitManagerError } from "../Errors.ts";
 import {
   GitManager,
   type GitActionProgressReporter,
@@ -19,6 +19,7 @@ import {
 import { GitCore } from "../Services/GitCore.ts";
 import { GitHubCli } from "../Services/GitHubCli.ts";
 import { TextGeneration } from "../Services/TextGeneration.ts";
+import { buildGitActionFailure } from "../actionFailure.ts";
 
 const COMMIT_TIMEOUT_MS = 10 * 60_000;
 const MAX_PROGRESS_TEXT_LENGTH = 500;
@@ -1261,13 +1262,27 @@ export const makeGitManager = Effect.gen(function* () {
 
       return yield* runAction.pipe(
         Effect.catch((error) =>
-          progress
-            .emit({
+          Effect.gen(function* () {
+            const failure = buildGitActionFailure({
+              action: input.action,
+              phase: currentPhase,
+              error,
+            });
+
+            yield* progress.emit({
               kind: "action_failed",
               phase: currentPhase,
-              message: error.message,
-            })
-            .pipe(Effect.flatMap(() => Effect.fail(error))),
+              message: failure.summary,
+              failure,
+            });
+
+            return yield* Effect.fail(
+              new GitActionExecutionError({
+                failure,
+                cause: error,
+              }),
+            );
+          }),
         ),
       );
     },

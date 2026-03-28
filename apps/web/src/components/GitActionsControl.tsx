@@ -1,10 +1,14 @@
-import type {
-  GitActionProgressEvent,
-  GitStackedAction,
-  GitStatusResult,
-  ThreadId,
+import {
+  GitActionFailure as GitActionFailureSchema,
+  type GitActionFailure,
+  type GitActionProgressEvent,
+  type GitActionProgressPhase,
+  type GitStackedAction,
+  type GitStatusResult,
+  type ThreadId,
 } from "@okcode/contracts";
 import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Schema } from "effect";
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import {
   ChevronDownIcon,
@@ -25,9 +29,12 @@ import {
   requiresDefaultBranchConfirmation,
   resolveDefaultBranchActionDialogCopy,
   resolveQuickAction,
+  resolveGitFailureRetryLabel,
+  summarizeGitFailure,
   summarizeGitResult,
 } from "./GitActionsControl.logic";
 import { useAppSettings } from "~/appSettings";
+import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { Button } from "~/components/ui/button";
 import { Checkbox } from "~/components/ui/checkbox";
 import {
@@ -67,6 +74,7 @@ import {
 import { randomUUID } from "~/lib/utils";
 import { resolvePathLinkTarget } from "~/terminal-links";
 import { readNativeApi } from "~/nativeApi";
+import { isWsRequestError } from "~/wsTransport";
 
 interface GitActionsControlProps {
   gitCwd: string | null;
@@ -107,6 +115,44 @@ interface RunGitActionWithToastInput {
   isDefaultBranchOverride?: boolean;
   progressToastId?: GitActionToastId;
   filePaths?: string[];
+}
+
+type RetryableGitActionInput = Pick<
+  RunGitActionWithToastInput,
+  | "action"
+  | "commitMessage"
+  | "featureBranch"
+  | "filePaths"
+  | "forcePushOnlyProgress"
+  | "skipDefaultBranchPrompt"
+>;
+
+interface GitActionFailureDialogState {
+  failure: GitActionFailure;
+  retryInput: RetryableGitActionInput;
+}
+
+const isGitActionFailure = Schema.is(GitActionFailureSchema);
+
+function toRetryableGitActionInput(input: RunGitActionWithToastInput): RetryableGitActionInput {
+  return {
+    action: input.action,
+    ...(input.commitMessage ? { commitMessage: input.commitMessage } : {}),
+    ...(input.featureBranch ? { featureBranch: input.featureBranch } : {}),
+    ...(input.filePaths ? { filePaths: input.filePaths } : {}),
+    ...(input.forcePushOnlyProgress ? { forcePushOnlyProgress: input.forcePushOnlyProgress } : {}),
+    ...(input.skipDefaultBranchPrompt
+      ? { skipDefaultBranchPrompt: input.skipDefaultBranchPrompt }
+      : {}),
+  };
+}
+
+function formatGitActionFailurePhaseLabel(phase: GitActionProgressPhase | null): string | null {
+  if (phase === "branch") return "Feature branch";
+  if (phase === "commit") return "Commit";
+  if (phase === "push") return "Push";
+  if (phase === "pr") return "Pull request";
+  return null;
 }
 
 function formatElapsedDescription(startedAtMs: number | null): string | undefined {
@@ -246,6 +292,8 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
   const [isEditingFiles, setIsEditingFiles] = useState(false);
   const [pendingDefaultBranchAction, setPendingDefaultBranchAction] =
     useState<PendingDefaultBranchAction | null>(null);
+  const [gitActionFailureDialog, setGitActionFailureDialog] =
+    useState<GitActionFailureDialogState | null>(null);
   const activeGitActionProgressRef = useRef<ActiveGitActionProgress | null>(null);
 
   const updateActiveProgressToast = useCallback(() => {
@@ -475,6 +523,7 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
         return;
       }
       onConfirmed?.();
+      setGitActionFailureDialog(null);
 
       const progressStages = buildGitActionProgressStages({
         action,
@@ -526,6 +575,7 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
       try {
         const result = await promise;
         activeGitActionProgressRef.current = null;
+        setGitActionFailureDialog(null);
         const resultToast = summarizeGitResult(result);
 
         const existingOpenPrUrl =
@@ -602,6 +652,38 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
         });
       } catch (err) {
         activeGitActionProgressRef.current = null;
+        if (
+          isWsRequestError(err) &&
+          err.code === "git_action_failed" &&
+          isGitActionFailure(err.data)
+        ) {
+          const dialogState: GitActionFailureDialogState = {
+            failure: err.data,
+            retryInput: toRetryableGitActionInput({
+              action,
+              ...(commitMessage ? { commitMessage } : {}),
+              ...(featureBranch ? { featureBranch } : {}),
+              ...(filePaths ? { filePaths } : {}),
+              ...(forcePushOnlyProgress ? { forcePushOnlyProgress } : {}),
+              ...(skipDefaultBranchPrompt ? { skipDefaultBranchPrompt } : {}),
+            }),
+          };
+          const failureToast = summarizeGitFailure(err.data);
+          setGitActionFailureDialog(dialogState);
+          toastManager.update(resolvedProgressToastId, {
+            type: "error",
+            title: failureToast.title,
+            description: failureToast.description,
+            data: threadToastData,
+            actionProps: {
+              children: "Review",
+              onClick: () => {
+                setGitActionFailureDialog(dialogState);
+              },
+            },
+          });
+          return;
+        }
         toastManager.update(resolvedProgressToastId, {
           type: "error",
           title: "Action failed",
@@ -626,6 +708,13 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
       skipDefaultBranchPrompt: true,
     });
   }, [pendingDefaultBranchAction]);
+
+  const retryGitActionFailure = useCallback(() => {
+    if (!gitActionFailureDialog) return;
+    const retryInput = gitActionFailureDialog.retryInput;
+    setGitActionFailureDialog(null);
+    void runGitActionWithToast(retryInput);
+  }, [gitActionFailureDialog]);
 
   const checkoutFeatureBranchAndContinuePendingAction = useCallback(() => {
     if (!pendingDefaultBranchAction) return;
@@ -1027,7 +1116,7 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
 
       <Dialog
         open={isCommitDialogOpen}
-        onOpenChange={(open) => {
+        onOpenChange={(open: boolean) => {
           if (!open) {
             setIsCommitDialogOpen(false);
             setDialogCommitMessage("");
@@ -1194,7 +1283,7 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
 
       <Dialog
         open={pendingDefaultBranchAction !== null}
-        onOpenChange={(open) => {
+        onOpenChange={(open: boolean) => {
           if (!open) {
             setPendingDefaultBranchAction(null);
           }
@@ -1216,6 +1305,113 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
             </Button>
             <Button size="sm" onClick={checkoutFeatureBranchAndContinuePendingAction}>
               Checkout feature branch & continue
+            </Button>
+          </DialogFooter>
+        </DialogPopup>
+      </Dialog>
+
+      <Dialog
+        open={gitActionFailureDialog !== null}
+        onOpenChange={(open: boolean) => {
+          if (!open) {
+            setGitActionFailureDialog(null);
+          }
+        }}
+      >
+        <DialogPopup className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {gitActionFailureDialog?.failure.title ?? "Git action failed"}
+            </DialogTitle>
+            <DialogDescription>
+              {gitActionFailureDialog?.failure.summary ??
+                "OK Code could not complete the git action."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogPanel className="space-y-4">
+            {gitActionFailureDialog ? (
+              <>
+                {gitActionFailureDialog.failure.detail ? (
+                  <Alert variant="error">
+                    <CircleAlertIcon className="mt-0.5 size-4" />
+                    <AlertTitle>What happened</AlertTitle>
+                    <AlertDescription className="whitespace-pre-wrap">
+                      {gitActionFailureDialog.failure.detail}
+                    </AlertDescription>
+                  </Alert>
+                ) : null}
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {formatGitActionFailurePhaseLabel(gitActionFailureDialog.failure.phase) ? (
+                    <div className="rounded-xl border border-input bg-muted/35 p-3">
+                      <p className="text-xs text-muted-foreground">Failed step</p>
+                      <p className="mt-1 font-medium">
+                        {formatGitActionFailurePhaseLabel(gitActionFailureDialog.failure.phase)}
+                      </p>
+                    </div>
+                  ) : null}
+                  {gitActionFailureDialog.failure.operation ? (
+                    <div className="rounded-xl border border-input bg-muted/35 p-3">
+                      <p className="text-xs text-muted-foreground">Operation</p>
+                      <p className="mt-1 break-words font-mono text-xs">
+                        {gitActionFailureDialog.failure.operation}
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Next steps</p>
+                  <ol className="list-decimal space-y-2 pl-5 text-sm text-muted-foreground">
+                    {gitActionFailureDialog.failure.nextSteps.map((step) => (
+                      <li key={step}>{step}</li>
+                    ))}
+                  </ol>
+                </div>
+
+                {gitActionFailureDialog.failure.command ||
+                gitActionFailureDialog.failure.rawMessage ? (
+                  <details className="rounded-xl border border-input bg-muted/20">
+                    <summary className="cursor-pointer px-3 py-2 text-sm font-medium">
+                      Technical details
+                    </summary>
+                    <div className="space-y-3 border-t px-3 py-3 text-sm">
+                      {gitActionFailureDialog.failure.command ? (
+                        <div className="space-y-1">
+                          <p className="text-xs text-muted-foreground">Command</p>
+                          <pre className="overflow-x-auto whitespace-pre-wrap rounded-md bg-background px-3 py-2 font-mono text-xs">
+                            {gitActionFailureDialog.failure.command}
+                          </pre>
+                        </div>
+                      ) : null}
+                      {gitActionFailureDialog.failure.rawMessage ? (
+                        <div className="space-y-1">
+                          <p className="text-xs text-muted-foreground">Raw error</p>
+                          <ScrollArea className="max-h-56 rounded-md border border-input bg-background">
+                            <pre className="whitespace-pre-wrap p-3 font-mono text-xs">
+                              {gitActionFailureDialog.failure.rawMessage}
+                            </pre>
+                          </ScrollArea>
+                        </div>
+                      ) : null}
+                    </div>
+                  </details>
+                ) : null}
+              </>
+            ) : null}
+          </DialogPanel>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setGitActionFailureDialog(null)}>
+              Close
+            </Button>
+            <Button
+              size="sm"
+              disabled={!gitActionFailureDialog || isGitActionRunning}
+              onClick={retryGitActionFailure}
+            >
+              {gitActionFailureDialog
+                ? resolveGitFailureRetryLabel(gitActionFailureDialog.failure)
+                : "Retry"}
             </Button>
           </DialogFooter>
         </DialogPopup>

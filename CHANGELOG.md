@@ -11,6 +11,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - CLI npm package name is `okcodes`. Install with `npm install -g okcodes`; the `okcode` binary name is unchanged.
 
+## [0.0.4] - 2026-03-27
+
+See [docs/releases/v0.0.4.md](docs/releases/v0.0.4.md) for full notes and [docs/releases/v0.0.4/assets.md](docs/releases/v0.0.4/assets.md) for release asset inventory.
+
+### Added
+
+- Add PR review views and pull request listing.
+- Add release preparation workflow script.
+- Add Ctrl+` terminal toggle shortcut.
+- Add opacity controls for window and sidebar.
+- Add draft voice mode implementation plan.
+- Add minimized Spotify player with persistent volume controls.
+- Add collapse toggle for project file tree.
+- Add skills system plan document.
+- Add signed DMG build scripts for macOS in package.json.
+- Add okcodes package and update package.json with new scripts and dependencies.
+- Add actionable home empty state.
+
+### Changed
+
+- Enhance preview bounds handling in DesktopPreviewController and PreviewPanel.
+- Default to macOS arm64 artifacts.
+- Update release notes with signed DMG build commands for macOS.
+- Update package versions and configurations across the monorepo.
+- Rename CLI package from `okcode` to `okcodes` and update related documentation.
+
+### Removed
+
+- Remove CLI publishing from release workflow and update documentation.
+
+## [0.0.4] - 2026-03-27
+
+See [docs/releases/v0.0.4.md](docs/releases/v0.0.4.md) for full notes and [docs/releases/v0.0.4/assets.md](docs/releases/v0.0.4/assets.md) for release asset inventory.
+
+### Added
+
+- Add PR review views and pull request listing.
+- Add release preparation workflow script.
+- Add Ctrl+` terminal toggle shortcut.
+- Add opacity controls for window and sidebar.
+- Add draft voice mode implementation plan.
+- Add minimized Spotify player with persistent volume controls.
+- Add collapse toggle for project file tree.
+- Add skills system plan document.
+- Add signed DMG build scripts for macOS in package.json.
+- Add okcodes package and update package.json with new scripts and dependencies.
+- Add actionable home empty state.
+
+### Changed
+
+- Enhance preview bounds handling in DesktopPreviewController and PreviewPanel.
+- Default to macOS arm64 artifacts.
+- Update release notes with signed DMG build commands for macOS.
+- Update package versions and configurations across the monorepo.
+- Rename CLI package from `okcode` to `okcodes` and update related documentation.
+
+### Removed
+
+- Remove CLI publishing from release workflow and update documentation.
+
 ## [0.0.3] - 2026-03-27
 
 See [docs/releases/v0.0.3.md](docs/releases/v0.0.3.md) for full notes and [docs/releases/v0.0.3/assets.md](docs/releases/v0.0.3/assets.md) for release asset inventory.
@@ -67,3 +127,5 @@ First public version tag. See [docs/releases/v0.0.1.md](docs/releases/v0.0.1.md)
 [0.0.3]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.3
 [0.0.2]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.2
 [0.0.1]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.1
+[0.0.4]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.4
+[0.0.4]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.4

@@ -12,8 +12,16 @@ export interface MergeConflictCandidateGroup {
   recommendedCandidate: PrConflictCandidateResolution | null;
 }
 
+export type MergeConflictRecommendedAction =
+  | "prepare-local"
+  | "prepare-worktree"
+  | "review-candidate"
+  | "capture-note"
+  | null;
+
 export interface MergeConflictRecommendation {
   candidateId: string | null;
+  recommendedAction: MergeConflictRecommendedAction;
   tone: "neutral" | "success" | "warning";
   title: string;
   detail: string;
@@ -66,6 +74,7 @@ export function buildConflictRecommendation(input: {
   if (!input.analysis || input.analysis.status === "unavailable") {
     return {
       candidateId: null,
+      recommendedAction: null,
       tone: "neutral",
       title: "Resolve a pull request link to start.",
       detail:
@@ -76,6 +85,7 @@ export function buildConflictRecommendation(input: {
   if (input.analysis.status === "clean") {
     return {
       candidateId: null,
+      recommendedAction: null,
       tone: "success",
       title: "No merge conflicts are active.",
       detail: input.analysis.summary,
@@ -86,6 +96,7 @@ export function buildConflictRecommendation(input: {
   if (recommendedCandidate?.confidence === "safe") {
     return {
       candidateId: recommendedCandidate.id,
+      recommendedAction: "review-candidate",
       tone: "success",
       title: "Recommended resolution is ready.",
       detail:
@@ -96,6 +107,7 @@ export function buildConflictRecommendation(input: {
   if (recommendedCandidate) {
     return {
       candidateId: recommendedCandidate.id,
+      recommendedAction: "review-candidate",
       tone: "warning",
       title: "Review-required options are available.",
       detail:
@@ -106,6 +118,7 @@ export function buildConflictRecommendation(input: {
   if (input.hasPreparedWorkspace) {
     return {
       candidateId: null,
+      recommendedAction: "capture-note",
       tone: "warning",
       title: "Manual merge work is still required.",
       detail:
@@ -115,6 +128,7 @@ export function buildConflictRecommendation(input: {
 
   return {
     candidateId: null,
+    recommendedAction: "prepare-worktree",
     tone: "warning",
     title: "Prepare a local workspace to continue.",
     detail:
@@ -162,4 +176,51 @@ export function buildConflictFeedbackPreview(input: {
   }
 
   return lines.join("\n");
+}
+
+const KNOWN_ERROR_PATTERNS: ReadonlyArray<{
+  pattern: string;
+  summary: string;
+  detail: string;
+}> = [
+  {
+    pattern: "already checked out",
+    summary: "Branch already checked out",
+    detail:
+      "The PR branch is already active in another worktree or the main repo. Close the other checkout or use \u201cPrepare worktree\u201d to create an isolated copy.",
+  },
+  {
+    pattern: "not a git repository",
+    summary: "Not a git repository",
+    detail:
+      "The selected project directory is not a valid git repository. Check the project path in the intake panel.",
+  },
+];
+
+const ERROR_PREFIX_RE = /^[A-Za-z ]+(?:failed|error) in [A-Za-z]+:\s*/i;
+
+export function humanizeConflictError(rawMessage: string): {
+  summary: string;
+  detail: string;
+} {
+  const lower = rawMessage.toLowerCase();
+  for (const known of KNOWN_ERROR_PATTERNS) {
+    if (lower.includes(known.pattern)) {
+      return { summary: known.summary, detail: known.detail };
+    }
+  }
+
+  const stripped = rawMessage.replace(ERROR_PREFIX_RE, "");
+  const firstSentenceEnd = stripped.search(/[.!]\s|[.!]$/);
+  const summary =
+    firstSentenceEnd > 0 ? stripped.slice(0, firstSentenceEnd + 1) : stripped.slice(0, 80);
+
+  return { summary, detail: rawMessage };
+}
+
+export function computeActiveStepIndex(
+  steps: ReadonlyArray<{ status: "done" | "active" | "todo" | "blocked" }>,
+): number {
+  const index = steps.findIndex((step) => step.status !== "done");
+  return index === -1 ? steps.length : index;
 }

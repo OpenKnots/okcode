@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   buildConflictFeedbackPreview,
   buildConflictRecommendation,
+  computeActiveStepIndex,
   groupConflictCandidatesByFile,
+  humanizeConflictError,
   pickRecommendedConflictCandidate,
 } from "./MergeConflictShell.logic";
 
@@ -86,7 +88,99 @@ describe("buildConflictRecommendation", () => {
     ).toMatchObject({
       tone: "warning",
       title: "Prepare a local workspace to continue.",
+      recommendedAction: "prepare-worktree",
     });
+  });
+
+  it("recommends reviewing the candidate when a safe resolution is ready", () => {
+    expect(
+      buildConflictRecommendation({
+        analysis: {
+          status: "conflicted",
+          mergeableState: "CONFLICTING",
+          summary: "GitHub reports merge conflicts.",
+          candidates: [
+            {
+              id: "src/auth.ts:safe",
+              path: "src/auth.ts",
+              title: "Take theirs",
+              description: "Safe candidate",
+              confidence: "safe",
+              previewPatch: "const safe = true;\n",
+            },
+          ],
+        },
+        hasPreparedWorkspace: true,
+      }),
+    ).toMatchObject({
+      tone: "success",
+      title: "Recommended resolution is ready.",
+      recommendedAction: "review-candidate",
+    });
+  });
+
+  it("recommends capturing a note when workspace is prepared but no candidates are available", () => {
+    expect(
+      buildConflictRecommendation({
+        analysis: {
+          status: "conflicted",
+          mergeableState: "CONFLICTING",
+          summary: "GitHub reports merge conflicts.",
+          candidates: [],
+        },
+        hasPreparedWorkspace: true,
+      }),
+    ).toMatchObject({
+      tone: "warning",
+      title: "Manual merge work is still required.",
+      recommendedAction: "capture-note",
+    });
+  });
+});
+
+describe("humanizeConflictError", () => {
+  it("recognises the 'already checked out' error pattern", () => {
+    const result = humanizeConflictError(
+      "Error: Git manager failed in preparePullRequestThread: This PR branch is already checked out in the main repo.",
+    );
+    expect(result.summary).toBe("Branch already checked out");
+    expect(result.detail).toContain("worktree");
+  });
+
+  it("recognises the 'not a git repository' pattern", () => {
+    const result = humanizeConflictError(
+      "fatal: not a git repository (or any parent up to mount point /)",
+    );
+    expect(result.summary).toBe("Not a git repository");
+  });
+
+  it("falls back to stripping the prefix and using the first sentence", () => {
+    const result = humanizeConflictError(
+      "Git manager failed in preparePullRequestThread: Something unexpected happened. More details here.",
+    );
+    expect(result.summary).toBe("Something unexpected happened.");
+    expect(result.detail).toContain("Git manager failed");
+  });
+});
+
+describe("computeActiveStepIndex", () => {
+  it("returns the index of the first non-done step", () => {
+    expect(
+      computeActiveStepIndex([
+        { status: "done" },
+        { status: "done" },
+        { status: "blocked" },
+        { status: "todo" },
+      ]),
+    ).toBe(2);
+  });
+
+  it("returns steps.length when all steps are done", () => {
+    expect(computeActiveStepIndex([{ status: "done" }, { status: "done" }])).toBe(2);
+  });
+
+  it("returns 0 when no steps are done", () => {
+    expect(computeActiveStepIndex([{ status: "todo" }, { status: "todo" }])).toBe(0);
   });
 });
 

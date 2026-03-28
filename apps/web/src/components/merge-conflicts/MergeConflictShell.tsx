@@ -5,19 +5,18 @@ import { Schema } from "effect";
 import {
   AlertTriangleIcon,
   CheckCircle2Icon,
+  ChevronDownIcon,
   CopyIcon,
   ExternalLinkIcon,
   FileCode2Icon,
   FolderGit2Icon,
   GitBranchIcon,
   GitMergeIcon,
-  GitPullRequestIcon,
   InfoIcon,
   LinkIcon,
   LoaderCircleIcon,
   PanelRightIcon,
   ShieldCheckIcon,
-  SparklesIcon,
   WorkflowIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -40,9 +39,18 @@ import { cn } from "~/lib/utils";
 import { ensureNativeApi } from "~/nativeApi";
 import { parsePullRequestReference } from "~/pullRequestReference";
 import type { Project } from "~/types";
+import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { toastManager } from "~/components/ui/toast";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
+import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "~/components/ui/collapsible";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "~/components/ui/empty";
 import { Input } from "~/components/ui/input";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import {
@@ -68,7 +76,9 @@ import { joinPath, projectLabel } from "~/components/review/reviewUtils";
 import {
   buildConflictFeedbackPreview,
   buildConflictRecommendation,
+  computeActiveStepIndex,
   groupConflictCandidatesByFile,
+  humanizeConflictError,
   type MergeConflictFeedbackDisposition,
   pickRecommendedConflictCandidate,
 } from "./MergeConflictShell.logic";
@@ -108,7 +118,6 @@ function pullRequestStateBadgeClassName(state: GitResolvedPullRequest["state"]) 
     case "open":
       return "border-emerald-500/30 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300";
     case "merged":
-      return "border-sky-500/30 bg-sky-500/12 text-sky-700 dark:text-sky-300";
     case "closed":
       return "border-border bg-muted/70 text-foreground";
   }
@@ -130,7 +139,7 @@ function stepStatusClassName(status: "done" | "active" | "todo" | "blocked") {
     case "done":
       return "border-emerald-500/25 bg-emerald-500/8 text-emerald-700 dark:text-emerald-300";
     case "active":
-      return "border-sky-500/25 bg-sky-500/8 text-sky-700 dark:text-sky-300";
+      return "border-foreground/20 bg-foreground/5 text-foreground";
     case "blocked":
       return "border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300";
     case "todo":
@@ -217,6 +226,7 @@ function GuidanceStep({
 }
 
 function MergeConflictGuidanceRail({
+  activeStepIndex,
   feedbackDraft,
   feedbackPreview,
   isCopied,
@@ -226,11 +236,11 @@ function MergeConflictGuidanceRail({
   onOpenSelectedFile,
   preparedWorkspace,
   project,
-  recommendation,
   resolvedPullRequest,
   selectedCandidate,
   steps,
 }: {
+  activeStepIndex: number;
   feedbackDraft: MergeConflictFeedbackDraft;
   feedbackPreview: string;
   isCopied: boolean;
@@ -240,7 +250,6 @@ function MergeConflictGuidanceRail({
   onOpenSelectedFile: () => void;
   preparedWorkspace: PreparedWorkspace | null;
   project: Project;
-  recommendation: ReturnType<typeof buildConflictRecommendation>;
   resolvedPullRequest: GitResolvedPullRequest | null;
   selectedCandidate: PrConflictCandidateResolution | null;
   steps: ReadonlyArray<{
@@ -260,22 +269,6 @@ function MergeConflictGuidanceRail({
       </div>
       <ScrollArea className="min-h-0 flex-1">
         <div className="space-y-4 px-4 py-4">
-          <div className={cn("rounded-2xl border p-4", tonePanelClassName(recommendation.tone))}>
-            <div className="flex items-start gap-2">
-              {recommendation.tone === "success" ? (
-                <CheckCircle2Icon className="mt-0.5 size-4 shrink-0" />
-              ) : recommendation.tone === "warning" ? (
-                <AlertTriangleIcon className="mt-0.5 size-4 shrink-0" />
-              ) : (
-                <InfoIcon className="mt-0.5 size-4 shrink-0" />
-              )}
-              <div className="space-y-1">
-                <p className="font-medium text-sm">{recommendation.title}</p>
-                <p className="text-sm opacity-85">{recommendation.detail}</p>
-              </div>
-            </div>
-          </div>
-
           <div className="space-y-3">
             {steps.map((step) => (
               <GuidanceStep
@@ -287,65 +280,80 @@ function MergeConflictGuidanceRail({
             ))}
           </div>
 
-          <div className="rounded-2xl border border-border/70 bg-background/92 p-4">
-            <SectionHeading
-              detail="Keep the final note readable enough to paste into GitHub, Slack, or a handoff doc without rewriting it."
-              eyebrow="Feedback"
-              title="Human-readable conflict note"
-            />
+          <Collapsible defaultOpen={activeStepIndex >= 3}>
+            <div className="rounded-2xl border border-border/70 bg-background/92 p-4">
+              <CollapsibleTrigger className="flex w-full items-center justify-between">
+                <SectionHeading
+                  detail="Keep the final note readable enough to paste into GitHub, Slack, or a handoff doc without rewriting it."
+                  eyebrow="Feedback"
+                  title="Human-readable conflict note"
+                />
+                <Badge
+                  className={
+                    activeStepIndex >= 3
+                      ? stepStatusClassName("active")
+                      : stepStatusClassName("todo")
+                  }
+                >
+                  {activeStepIndex >= 3 ? "ready" : "locked"}
+                </Badge>
+              </CollapsibleTrigger>
 
-            <ToggleGroup
-              className="mt-4 flex w-full flex-wrap gap-2"
-              size="xs"
-              value={[feedbackDraft.disposition]}
-              variant="outline"
-              onValueChange={(values) => {
-                const nextValue = values[values.length - 1];
-                if (
-                  nextValue === "accept" ||
-                  nextValue === "review" ||
-                  nextValue === "escalate" ||
-                  nextValue === "blocked"
-                ) {
-                  onFeedbackDispositionChange(nextValue);
-                }
-              }}
-            >
-              {FEEDBACK_DISPOSITION_OPTIONS.map((option) => (
-                <Toggle key={option.value} value={option.value}>
-                  {option.label}
-                </Toggle>
-              ))}
-            </ToggleGroup>
+              <CollapsiblePanel>
+                <ToggleGroup
+                  className="mt-4 flex w-full flex-wrap gap-2"
+                  size="xs"
+                  value={[feedbackDraft.disposition]}
+                  variant="outline"
+                  onValueChange={(values) => {
+                    const nextValue = values[values.length - 1];
+                    if (
+                      nextValue === "accept" ||
+                      nextValue === "review" ||
+                      nextValue === "escalate" ||
+                      nextValue === "blocked"
+                    ) {
+                      onFeedbackDispositionChange(nextValue);
+                    }
+                  }}
+                >
+                  {FEEDBACK_DISPOSITION_OPTIONS.map((option) => (
+                    <Toggle key={option.value} value={option.value}>
+                      {option.label}
+                    </Toggle>
+                  ))}
+                </ToggleGroup>
 
-            <label className="mt-4 block space-y-2">
-              <span className="text-xs font-medium text-foreground">Operator note</span>
-              <Textarea
-                placeholder="Explain why this resolution is correct, what still needs review, or who should weigh in."
-                rows={5}
-                value={feedbackDraft.note}
-                onChange={(event) => onFeedbackNoteChange(event.target.value)}
-              />
-            </label>
+                <label className="mt-4 block space-y-2">
+                  <span className="text-xs font-medium text-foreground">Operator note</span>
+                  <Textarea
+                    placeholder="Explain why this resolution is correct, what still needs review, or who should weigh in."
+                    rows={5}
+                    value={feedbackDraft.note}
+                    onChange={(event) => onFeedbackNoteChange(event.target.value)}
+                  />
+                </label>
 
-            <div className="mt-4 rounded-2xl border border-border/70 bg-muted/24 p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="font-medium text-sm text-foreground">Preview</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Generated from the selected candidate, workspace, and your note.
-                  </p>
+                <div className="mt-4 rounded-2xl border border-border/70 bg-muted/24 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-medium text-sm text-foreground">Preview</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Generated from the selected candidate, workspace, and your note.
+                      </p>
+                    </div>
+                    <Button onClick={onCopyFeedback} size="xs" variant="outline">
+                      <CopyIcon className="size-3.5" />
+                      {isCopied ? "Copied" : "Copy"}
+                    </Button>
+                  </div>
+                  <pre className="mt-4 whitespace-pre-wrap text-xs leading-6 text-foreground/88">
+                    {feedbackPreview}
+                  </pre>
                 </div>
-                <Button onClick={onCopyFeedback} size="xs" variant="outline">
-                  <CopyIcon className="size-3.5" />
-                  {isCopied ? "Copied" : "Copy"}
-                </Button>
-              </div>
-              <pre className="mt-4 whitespace-pre-wrap text-xs leading-6 text-foreground/88">
-                {feedbackPreview}
-              </pre>
+              </CollapsiblePanel>
             </div>
-          </div>
+          </Collapsible>
 
           <div className="rounded-2xl border border-border/70 bg-background/92 p-4">
             <SectionHeading
@@ -545,10 +553,6 @@ export function MergeConflictShell({
     analysis: conflictQuery.data,
     hasPreparedWorkspace: preparedWorkspace !== null,
   });
-  const mergeState =
-    dashboardQuery.data?.pullRequest.mergeable ??
-    dashboardQuery.data?.pullRequest.mergeStateStatus ??
-    "unknown";
   const feedbackPreview = buildConflictFeedbackPreview({
     disposition: feedbackDraft.disposition,
     note: feedbackDraft.note,
@@ -759,7 +763,11 @@ export function MergeConflictShell({
                           void handlePrepareWorkspace("local");
                         }}
                         size="sm"
-                        variant="outline"
+                        variant={
+                          recommendation.recommendedAction === "prepare-local"
+                            ? "default"
+                            : "outline"
+                        }
                       >
                         <FolderGit2Icon className="size-3.5" />
                         Prepare in repo
@@ -770,7 +778,11 @@ export function MergeConflictShell({
                           void handlePrepareWorkspace("worktree");
                         }}
                         size="sm"
-                        variant="outline"
+                        variant={
+                          recommendation.recommendedAction === "prepare-worktree"
+                            ? "default"
+                            : "outline"
+                        }
                       >
                         <GitBranchIcon className="size-3.5" />
                         Prepare worktree
@@ -788,6 +800,19 @@ export function MergeConflictShell({
                     </div>
                   </div>
                 ) : null}
+
+                {panelErrorMessage
+                  ? (() => {
+                      const { summary, detail } = humanizeConflictError(panelErrorMessage);
+                      return (
+                        <Alert variant="error">
+                          <AlertTriangleIcon />
+                          <AlertTitle>{summary}</AlertTitle>
+                          <AlertDescription>{detail}</AlertDescription>
+                        </Alert>
+                      );
+                    })()
+                  : null}
 
                 <div className="rounded-2xl border border-border/70 bg-background/92 p-4">
                   <SectionHeading
@@ -814,12 +839,6 @@ export function MergeConflictShell({
                     )}
                   </div>
                 </div>
-
-                {panelErrorMessage ? (
-                  <div className="rounded-2xl border border-destructive/25 bg-destructive/8 px-4 py-3 text-sm text-destructive">
-                    {panelErrorMessage}
-                  </div>
-                ) : null}
               </div>
             </ScrollArea>
           </div>
@@ -876,31 +895,26 @@ export function MergeConflictShell({
               <ScrollArea className="min-h-0 flex-1">
                 <div className="space-y-5 px-5 py-5">
                   <SectionHeading
-                    detail={`${recommendation.detail} The human note should explain the decision, not just the button you clicked.`}
-                    eyebrow="Recommendation"
-                    title={recommendation.title}
+                    detail="Review the merge state, inspect candidate patches, and confirm the safest resolution path."
+                    eyebrow="Conflict analysis"
+                    title="Conflict analysis"
                   />
 
                   <div className="flex flex-wrap gap-2">
                     <StatPill
-                      icon={<GitPullRequestIcon className="size-3.5" />}
-                      label="Merge state"
-                      value={String(mergeState).toLowerCase()}
+                      icon={<LinkIcon className="size-3.5" />}
+                      label="PR"
+                      value={resolvedPullRequest ? `#${resolvedPullRequest.number}` : "none"}
                     />
                     <StatPill
                       icon={<GitMergeIcon className="size-3.5" />}
-                      label="Conflict status"
+                      label="Status"
                       value={conflictQuery.data?.status ?? "pending"}
                     />
                     <StatPill
                       icon={<WorkflowIcon className="size-3.5" />}
-                      label="Candidates"
-                      value={conflictQuery.data?.candidates.length ?? 0}
-                    />
-                    <StatPill
-                      icon={<SparklesIcon className="size-3.5" />}
-                      label="Feedback"
-                      value={feedbackDraft.note.trim().length > 0 ? "captured" : "pending"}
+                      label="Step"
+                      value={`${steps.filter((s) => s.status === "done").length}/${steps.length}`}
                     />
                   </div>
 
@@ -949,7 +963,13 @@ export function MergeConflictShell({
                   ) : null}
 
                   {conflictQuery.data?.status === "conflicted" ? (
-                    <div className="grid gap-4 2xl:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
+                    <div
+                      className={cn(
+                        "grid gap-4",
+                        candidateGroups.length > 0 &&
+                          "2xl:grid-cols-[minmax(0,360px)_minmax(0,1fr)]",
+                      )}
+                    >
                       <div className="space-y-4">
                         {candidateGroups.length > 0 ? (
                           candidateGroups.map((group) => (
@@ -993,111 +1013,147 @@ export function MergeConflictShell({
                             </div>
                           ))
                         ) : (
-                          <div className="rounded-3xl border border-dashed border-border/70 bg-muted/18 px-4 py-6 text-sm text-muted-foreground">
-                            No candidate resolutions are available yet. Prepare a local workspace or
-                            resolve the markers manually if OK Code cannot derive a safe patch.
-                          </div>
+                          <Empty>
+                            <EmptyMedia variant="icon">
+                              <WorkflowIcon />
+                            </EmptyMedia>
+                            <EmptyHeader>
+                              <EmptyTitle>No candidates yet</EmptyTitle>
+                              <EmptyDescription>
+                                {preparedWorkspace
+                                  ? "OK Code could not derive a safe patch from the local markers. Resolve the conflict manually in your editor."
+                                  : "Prepare a local workspace from the intake panel to let OK Code inspect file-level conflict markers."}
+                              </EmptyDescription>
+                            </EmptyHeader>
+                            {!preparedWorkspace && resolvedPullRequest ? (
+                              <Button
+                                disabled={preparePullRequestThreadMutation.isPending}
+                                onClick={() => {
+                                  void handlePrepareWorkspace("worktree");
+                                }}
+                                size="sm"
+                              >
+                                <GitBranchIcon className="size-3.5" />
+                                Prepare worktree
+                              </Button>
+                            ) : null}
+                          </Empty>
                         )}
                       </div>
 
-                      <div className="min-h-[420px] rounded-[28px] border border-border/70 bg-background/94">
-                        <div className="flex items-start justify-between gap-3 border-b border-border/70 px-5 py-4">
-                          <div>
-                            <p className="font-medium text-sm text-foreground">
-                              {selectedCandidate?.title ?? "No candidate selected"}
-                            </p>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                              Review the exact patch OK Code wants to apply before you change the
-                              workspace.
-                            </p>
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                            {selectedCandidate ? (
-                              <Button
-                                onClick={openSelectedCandidateFile}
-                                size="xs"
-                                variant="outline"
-                              >
-                                <FileCode2Icon className="size-3.5" />
-                                Open file
-                              </Button>
-                            ) : null}
-                            {selectedCandidate ? (
-                              <Button
-                                disabled={applyConflictResolutionMutation.isPending}
-                                onClick={() => {
-                                  void applyConflictResolutionMutation.mutateAsync({
-                                    candidateId: selectedCandidate.id,
-                                    cwd: activeWorkspaceCwd,
-                                    prNumber: resolvedPullRequest.number,
-                                  });
-                                }}
-                                size="xs"
-                              >
-                                <ShieldCheckIcon className="size-3.5" />
-                                Apply candidate
-                              </Button>
-                            ) : null}
-                          </div>
-                        </div>
-                        <div className="grid gap-4 px-5 py-5 lg:grid-cols-[minmax(0,1fr)_280px]">
-                          <div className="min-h-[320px] rounded-3xl border border-border/70 bg-muted/22 p-4">
-                            {selectedCandidate ? (
-                              <pre className="overflow-auto whitespace-pre-wrap text-xs leading-6 text-foreground/88">
-                                {selectedCandidate.previewPatch}
-                              </pre>
-                            ) : (
-                              <div className="flex h-full min-h-[280px] items-center justify-center text-sm text-muted-foreground">
-                                Select a candidate to preview the merge patch.
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="space-y-4">
-                            <div className="rounded-3xl border border-border/70 bg-background/92 p-4">
-                              <p className="font-medium text-sm text-foreground">Workspace facts</p>
-                              <div className="mt-4 space-y-3 text-sm text-muted-foreground">
-                                <div>
-                                  <p className="text-foreground">Branch</p>
-                                  <p>
-                                    {preparedWorkspace?.branch ??
-                                      statusQuery.data?.branch ??
-                                      "unknown"}
-                                  </p>
-                                </div>
-                                <div>
-                                  <p className="text-foreground">Local conflicts</p>
-                                  <p>
-                                    {statusQuery.data
-                                      ? statusQuery.data.conflictedFiles.length
-                                      : "?"}{" "}
-                                    file(s)
-                                  </p>
-                                </div>
-                                <div>
-                                  <p className="text-foreground">Working tree changes</p>
-                                  <p>
-                                    {statusQuery.data?.hasWorkingTreeChanges
-                                      ? "Present"
-                                      : "Clean or unavailable"}
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="rounded-3xl border border-border/70 bg-background/92 p-4">
-                              <p className="font-medium text-sm text-foreground">Agent note</p>
-                              <p className="mt-3 text-sm text-muted-foreground">
-                                {selectedCandidate
-                                  ? selectedCandidate.confidence === "safe"
-                                    ? "This candidate is deterministic. Review the resulting diff after apply, but it is the lowest-risk path OK Code could infer."
-                                    : "This candidate is only a starting point. Keep the handoff note explicit and verify the merged intent before you commit."
-                                  : "No candidate is selected. OK Code will not mutate the workspace until you review a concrete patch."}
+                      {candidateGroups.length > 0 ? (
+                        <div className="min-h-[420px] rounded-[28px] border border-border/70 bg-background/94">
+                          <div className="flex items-start justify-between gap-3 border-b border-border/70 px-5 py-4">
+                            <div>
+                              <p className="font-medium text-sm text-foreground">
+                                {selectedCandidate?.title ?? "No candidate selected"}
+                              </p>
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                Review the exact patch OK Code wants to apply before you change the
+                                workspace.
                               </p>
                             </div>
+                            <div className="flex flex-wrap gap-2">
+                              {selectedCandidate ? (
+                                <Button
+                                  onClick={openSelectedCandidateFile}
+                                  size="xs"
+                                  variant="outline"
+                                >
+                                  <FileCode2Icon className="size-3.5" />
+                                  Open file
+                                </Button>
+                              ) : null}
+                              {selectedCandidate ? (
+                                <Button
+                                  disabled={applyConflictResolutionMutation.isPending}
+                                  onClick={() => {
+                                    void applyConflictResolutionMutation.mutateAsync({
+                                      candidateId: selectedCandidate.id,
+                                      cwd: activeWorkspaceCwd,
+                                      prNumber: resolvedPullRequest.number,
+                                    });
+                                  }}
+                                  size="xs"
+                                >
+                                  <ShieldCheckIcon className="size-3.5" />
+                                  Apply candidate
+                                </Button>
+                              ) : null}
+                            </div>
+                          </div>
+                          <div className="grid gap-4 px-5 py-5 lg:grid-cols-[minmax(0,1fr)_280px]">
+                            <div className="min-h-[320px] rounded-3xl border border-border/70 bg-muted/22 p-4">
+                              {selectedCandidate ? (
+                                <pre className="overflow-auto whitespace-pre-wrap text-xs leading-6 text-foreground/88">
+                                  {selectedCandidate.previewPatch}
+                                </pre>
+                              ) : (
+                                <div className="flex h-full min-h-[280px] items-center justify-center text-sm text-muted-foreground">
+                                  Select a candidate to preview the merge patch.
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="space-y-4">
+                              <Collapsible defaultOpen={false}>
+                                <CollapsibleTrigger className="flex w-full items-center justify-between rounded-3xl border border-border/70 bg-background/92 px-4 py-3">
+                                  <p className="font-medium text-sm text-foreground">
+                                    Workspace details
+                                  </p>
+                                  <ChevronDownIcon className="size-4 text-muted-foreground transition-transform [[data-open]_&]:rotate-180" />
+                                </CollapsibleTrigger>
+                                <CollapsiblePanel>
+                                  <div className="mt-2 space-y-4">
+                                    <div className="rounded-3xl border border-border/70 bg-background/92 p-4">
+                                      <div className="space-y-3 text-sm text-muted-foreground">
+                                        <div>
+                                          <p className="text-foreground">Branch</p>
+                                          <p>
+                                            {preparedWorkspace?.branch ??
+                                              statusQuery.data?.branch ??
+                                              "unknown"}
+                                          </p>
+                                        </div>
+                                        <div>
+                                          <p className="text-foreground">Local conflicts</p>
+                                          <p>
+                                            {statusQuery.data
+                                              ? statusQuery.data.conflictedFiles.length
+                                              : "?"}{" "}
+                                            file(s)
+                                          </p>
+                                        </div>
+                                        <div>
+                                          <p className="text-foreground">Working tree changes</p>
+                                          <p>
+                                            {statusQuery.data?.hasWorkingTreeChanges
+                                              ? "Present"
+                                              : "Clean or unavailable"}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    <div className="rounded-3xl border border-border/70 bg-background/92 p-4">
+                                      <p className="font-medium text-sm text-foreground">
+                                        Agent note
+                                      </p>
+                                      <p className="mt-3 text-sm text-muted-foreground">
+                                        {selectedCandidate
+                                          ? selectedCandidate.confidence === "safe"
+                                            ? "This candidate is deterministic. Review the resulting diff after apply, but it is the lowest-risk path OK Code could infer."
+                                            : "This candidate is only a starting point. Keep the handoff note explicit and verify the merged intent before you commit."
+                                          : "No candidate is selected. OK Code will not mutate the workspace until you review a concrete patch."}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </CollapsiblePanel>
+                              </Collapsible>
+                            </div>
                           </div>
                         </div>
-                      </div>
+                      ) : null}
                     </div>
                   ) : null}
                 </div>
@@ -1108,6 +1164,7 @@ export function MergeConflictShell({
           {!isInspectorSheet ? (
             <div className="min-h-0 border-s border-border/70">
               <MergeConflictGuidanceRail
+                activeStepIndex={computeActiveStepIndex(steps)}
                 feedbackDraft={feedbackDraft}
                 feedbackPreview={feedbackPreview}
                 isCopied={isCopied}
@@ -1124,7 +1181,6 @@ export function MergeConflictShell({
                 onOpenSelectedFile={openSelectedCandidateFile}
                 preparedWorkspace={preparedWorkspace}
                 project={project}
-                recommendation={recommendation}
                 resolvedPullRequest={resolvedPullRequest}
                 selectedCandidate={selectedCandidate}
                 steps={steps}
@@ -1145,6 +1201,7 @@ export function MergeConflictShell({
             </SheetHeader>
             <SheetPanel className="p-0">
               <MergeConflictGuidanceRail
+                activeStepIndex={computeActiveStepIndex(steps)}
                 feedbackDraft={feedbackDraft}
                 feedbackPreview={feedbackPreview}
                 isCopied={isCopied}
@@ -1161,7 +1218,6 @@ export function MergeConflictShell({
                 onOpenSelectedFile={openSelectedCandidateFile}
                 preparedWorkspace={preparedWorkspace}
                 project={project}
-                recommendation={recommendation}
                 resolvedPullRequest={resolvedPullRequest}
                 selectedCandidate={selectedCandidate}
                 steps={steps}

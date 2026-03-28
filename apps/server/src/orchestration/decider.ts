@@ -7,6 +7,8 @@ import { Effect } from "effect";
 
 import { OrchestrationCommandInvariantError } from "./Errors.ts";
 import {
+  getProjectsToArchive,
+  getThreadsToArchive,
   requireProject,
   requireProjectAbsent,
   requireThread,
@@ -65,7 +67,7 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
         projectId: command.projectId,
       });
 
-      return {
+      const projectCreatedEvent: Omit<OrchestrationEvent, "sequence"> = {
         ...withEventBase({
           aggregateKind: "project",
           aggregateId: command.projectId,
@@ -83,6 +85,29 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
           updatedAt: command.createdAt,
         },
       };
+
+      // Auto-archive oldest projects when limit is reached
+      const projectsToArchive = getProjectsToArchive(readModel);
+      if (projectsToArchive.length === 0) {
+        return projectCreatedEvent;
+      }
+
+      const archiveEvents: Omit<OrchestrationEvent, "sequence">[] = projectsToArchive.map(
+        (project) => ({
+          ...withEventBase({
+            aggregateKind: "project" as const,
+            aggregateId: project.id,
+            occurredAt: command.createdAt,
+            commandId: command.commandId,
+          }),
+          type: "project.deleted" as const,
+          payload: {
+            projectId: project.id,
+            deletedAt: command.createdAt,
+          },
+        }),
+      );
+      return [...archiveEvents, projectCreatedEvent];
     }
 
     case "project.meta.update": {
@@ -144,7 +169,8 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
         command,
         threadId: command.threadId,
       });
-      return {
+
+      const threadCreatedEvent: Omit<OrchestrationEvent, "sequence"> = {
         ...withEventBase({
           aggregateKind: "thread",
           aggregateId: command.threadId,
@@ -165,6 +191,29 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
           updatedAt: command.createdAt,
         },
       };
+
+      // Auto-archive oldest threads in the project when limit is reached
+      const threadsToArchive = getThreadsToArchive(readModel, command.projectId);
+      if (threadsToArchive.length === 0) {
+        return threadCreatedEvent;
+      }
+
+      const archiveEvents: Omit<OrchestrationEvent, "sequence">[] = threadsToArchive.map(
+        (thread) => ({
+          ...withEventBase({
+            aggregateKind: "thread" as const,
+            aggregateId: thread.id,
+            occurredAt: command.createdAt,
+            commandId: command.commandId,
+          }),
+          type: "thread.deleted" as const,
+          payload: {
+            threadId: thread.id,
+            deletedAt: command.createdAt,
+          },
+        }),
+      );
+      return [...archiveEvents, threadCreatedEvent];
     }
 
     case "thread.delete": {

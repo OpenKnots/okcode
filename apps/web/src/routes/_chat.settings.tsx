@@ -1,8 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDownIcon, PlusIcon, RotateCcwIcon, Undo2Icon, XIcon } from "lucide-react";
-import { type ReactNode, useCallback, useState } from "react";
-import { type ProviderKind, DEFAULT_GIT_TEXT_GENERATION_MODEL } from "@okcode/contracts";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
+import {
+  type ProjectId,
+  type ProviderKind,
+  DEFAULT_GIT_TEXT_GENERATION_MODEL,
+} from "@okcode/contracts";
 import { getModelOptions, normalizeModelSlug } from "@okcode/shared/model";
 import {
   getAppModelOptions,
@@ -15,6 +19,7 @@ import {
 import { APP_VERSION } from "../branding";
 import { Button } from "../components/ui/button";
 import { Collapsible, CollapsibleContent } from "../components/ui/collapsible";
+import { EnvironmentVariablesEditor } from "../components/EnvironmentVariablesEditor";
 import { Input } from "../components/ui/input";
 import {
   Select,
@@ -30,9 +35,15 @@ import { Tooltip, TooltipPopup, TooltipTrigger } from "../components/ui/tooltip"
 import { resolveAndPersistPreferredEditor } from "../editorPreferences";
 import { isElectron } from "../env";
 import { useTheme, COLOR_THEMES } from "../hooks/useTheme";
+import {
+  environmentVariablesQueryKeys,
+  globalEnvironmentVariablesQueryOptions,
+  projectEnvironmentVariablesQueryOptions,
+} from "../lib/environmentVariablesReactQuery";
 import { serverConfigQueryOptions } from "../lib/serverReactQuery";
 import { cn } from "../lib/utils";
 import { ensureNativeApi, readNativeApi } from "../nativeApi";
+import { useStore } from "../store";
 
 const THEME_OPTIONS = [
   {
@@ -187,10 +198,25 @@ function SettingResetButton({ label, onClick }: { label: string; onClick: () => 
   );
 }
 
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message;
+  }
+  if (typeof error === "string" && error.trim().length > 0) {
+    return error;
+  }
+  return "Unknown error";
+}
+
 function SettingsRouteView() {
   const { theme, setTheme, colorTheme, setColorTheme } = useTheme();
   const { settings, defaults, updateSettings, resetSettings } = useAppSettings();
   const serverConfigQuery = useQuery(serverConfigQueryOptions());
+  const queryClient = useQueryClient();
+  const projects = useStore((state) => state.projects);
+  const [selectedProjectId, setSelectedProjectId] = useState<ProjectId | null>(
+    () => projects[0]?.id ?? null,
+  );
   const [isOpeningKeybindings, setIsOpeningKeybindings] = useState(false);
   const [openKeybindingsError, setOpenKeybindingsError] = useState<string | null>(null);
   const [openInstallProviders, setOpenInstallProviders] = useState<Record<ProviderKind, boolean>>({
@@ -209,6 +235,25 @@ function SettingsRouteView() {
     Partial<Record<ProviderKind, string | null>>
   >({});
   const [showAllCustomModels, setShowAllCustomModels] = useState(false);
+  const globalEnvironmentVariablesQuery = useQuery(globalEnvironmentVariablesQueryOptions());
+  const activeProjectId = selectedProjectId ?? projects[0]?.id ?? null;
+  const selectedProject = projects.find((project) => project.id === activeProjectId) ?? null;
+  const selectedProjectEnvironmentVariablesQuery = useQuery(
+    projectEnvironmentVariablesQueryOptions(activeProjectId),
+  );
+
+  useEffect(() => {
+    if (projects.length === 0) {
+      if (selectedProjectId !== null) {
+        setSelectedProjectId(null);
+      }
+      return;
+    }
+
+    if (!selectedProjectId || !projects.some((project) => project.id === selectedProjectId)) {
+      setSelectedProjectId(projects[0]?.id ?? null);
+    }
+  }, [projects, selectedProjectId]);
 
   const codexBinaryPath = settings.codexBinaryPath;
   const codexHomePath = settings.codexHomePath;
@@ -236,6 +281,7 @@ function SettingsRouteView() {
   const selectedCustomModelInput = customModelInputByProvider[selectedCustomModelProvider];
   const selectedCustomModelError = customModelErrorByProvider[selectedCustomModelProvider] ?? null;
   const totalCustomModels = settings.customCodexModels.length + settings.customClaudeModels.length;
+  const activeProjectEnvironmentVariables = selectedProjectEnvironmentVariablesQuery.data?.entries;
   const savedCustomModelRows = MODEL_PROVIDER_SETTINGS.flatMap((providerSettings) =>
     getCustomModelsForProvider(settings, providerSettings.provider).map((slug) => ({
       key: `${providerSettings.provider}:${slug}`,
@@ -295,6 +341,32 @@ function SettingsRouteView() {
         setIsOpeningKeybindings(false);
       });
   }, [availableEditors, keybindingsConfigPath]);
+
+  const saveGlobalEnvironmentVariables = useCallback(
+    async (entries: ReadonlyArray<{ key: string; value: string }>) => {
+      const api = ensureNativeApi();
+      const result = await api.server.saveGlobalEnvironmentVariables({ entries });
+      queryClient.setQueryData(environmentVariablesQueryKeys.global(), result);
+      return result.entries;
+    },
+    [queryClient],
+  );
+
+  const saveProjectEnvironmentVariables = useCallback(
+    async (entries: ReadonlyArray<{ key: string; value: string }>) => {
+      if (!selectedProject) {
+        throw new Error("Select a project before saving project variables.");
+      }
+      const api = ensureNativeApi();
+      const result = await api.server.saveProjectEnvironmentVariables({
+        projectId: selectedProject.id,
+        entries,
+      });
+      queryClient.setQueryData(environmentVariablesQueryKeys.project(selectedProject.id), result);
+      return result.entries;
+    },
+    [queryClient, selectedProject],
+  );
 
   const addCustomModel = useCallback(
     (provider: ProviderKind) => {
@@ -769,6 +841,115 @@ function SettingsRouteView() {
                   />
                 }
               />
+            </SettingsSection>
+
+            <SettingsSection title="Environment">
+              <SettingsRow
+                title="Global variables"
+                description="Available to every provider session, terminal, Git command, and health check launched on this machine."
+                status={
+                  globalEnvironmentVariablesQuery.isError ? (
+                    <span className="block text-destructive">
+                      Failed to load saved variables:{" "}
+                      {getErrorMessage(globalEnvironmentVariablesQuery.error)}
+                    </span>
+                  ) : globalEnvironmentVariablesQuery.isFetching ? (
+                    <span className="block">Loading saved variables...</span>
+                  ) : globalEnvironmentVariablesQuery.data?.entries.length ? (
+                    <span className="block">
+                      {globalEnvironmentVariablesQuery.data.entries.length} saved variables
+                    </span>
+                  ) : (
+                    <span className="block">No global variables saved yet.</span>
+                  )
+                }
+              >
+                <EnvironmentVariablesEditor
+                  description="Global values are encrypted locally and merged into every runtime environment."
+                  entries={globalEnvironmentVariablesQuery.data?.entries ?? []}
+                  emptyMessage={
+                    globalEnvironmentVariablesQuery.isFetching
+                      ? "Loading global variables..."
+                      : "No global variables saved yet."
+                  }
+                  saveButtonLabel="Save global"
+                  addButtonLabel="Add variable"
+                  onSave={saveGlobalEnvironmentVariables}
+                  disabled={
+                    globalEnvironmentVariablesQuery.isFetching ||
+                    globalEnvironmentVariablesQuery.isError
+                  }
+                />
+              </SettingsRow>
+
+              <SettingsRow
+                title="Project variables"
+                description="Saved per project and merged on top of the global set when that project launches a provider, terminal, or helper command."
+                status={
+                  selectedProject ? (
+                    <span className="block break-all font-mono text-[11px] text-foreground">
+                      {selectedProject.name} · {selectedProject.cwd}
+                    </span>
+                  ) : (
+                    <span className="block">Open a project to edit project variables.</span>
+                  )
+                }
+                control={
+                  projects.length > 0 ? (
+                    <Select
+                      value={activeProjectId ?? ""}
+                      onValueChange={(value) => {
+                        setSelectedProjectId(value as ProjectId);
+                      }}
+                    >
+                      <SelectTrigger className="w-full sm:w-64" aria-label="Project selector">
+                        <SelectValue>
+                          {selectedProject ? selectedProject.name : "Select project"}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectPopup align="end" alignItemWithTrigger={false}>
+                        {projects.map((project) => (
+                          <SelectItem hideIndicator key={project.id} value={project.id}>
+                            <div className="flex min-w-0 flex-col">
+                              <span className="truncate">{project.name}</span>
+                              <span className="truncate text-[11px] text-muted-foreground">
+                                {project.cwd}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectPopup>
+                    </Select>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">No projects available.</span>
+                  )
+                }
+              >
+                <EnvironmentVariablesEditor
+                  key={selectedProject?.id ?? "no-project"}
+                  description={
+                    selectedProject
+                      ? `Project values override global values for ${selectedProject.name}.`
+                      : "Open or create a project to edit project variables."
+                  }
+                  entries={activeProjectEnvironmentVariables ?? []}
+                  emptyMessage={
+                    selectedProjectEnvironmentVariablesQuery.isFetching
+                      ? "Loading project variables..."
+                      : selectedProject
+                        ? "No project variables saved yet."
+                        : "Open or create a project to edit project variables."
+                  }
+                  saveButtonLabel="Save project"
+                  addButtonLabel="Add variable"
+                  onSave={saveProjectEnvironmentVariables}
+                  disabled={
+                    !selectedProject ||
+                    selectedProjectEnvironmentVariablesQuery.isFetching ||
+                    selectedProjectEnvironmentVariablesQuery.isError
+                  }
+                />
+              </SettingsRow>
             </SettingsSection>
 
             <SettingsSection title="Models">

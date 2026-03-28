@@ -1,0 +1,72 @@
+---
+/**
+ * Core Surfaces — tabbed spotlight section showing Threads, Diffs, Preview, PR Review, Actions.
+ * Uses CSS crossfade transitions and keyboard navigation.
+ */
+
+interface Surface {
+  id: string;
+  label: string;
+  kicker: string;
+  title: string;
+  body: string;
+  bullets: readonly string[];
+}
+
+interface Props {
+  surfaces: ReadonlyArray<Surface>;
+}
+
+const { surfaces } = Astro.props;
+const defaultId = surfaces[0]?.id ?? "";
+---
+
+<section class="spotlight" data-tab-group data-tab-default={defaultId} data-reveal>
+  <div class="spotlight-copy">
+    <p class="section-kicker">Core surfaces</p>
+    <h2 class="section-title">Built for the way real AI coding sessions actually unfold.</h2>
+    <p class="section-body">
+      Explore the surfaces that make OK Code feel coherent: thinking, reviewing, previewing,
+      and shipping without the usual tab chaos.
+    </p>
+    <div class="spotlight-nav" role="tablist" aria-label="Feature spotlight tabs">
+      {surfaces.map((item) => (
+        <button
+          type="button"
+          class="spotlight-item"
+          data-tab-button
+          data-tab-target={item.id}
+          role="tab"
+          aria-selected={item.id === defaultId ? "true" : "false"}
+          aria-controls={`panel-${item.id}`}
+          tabindex={item.id === defaultId ? 0 : -1}
+        >
+          <span class="spotlight-item-label">{item.label}</span>
+          <span class="spotlight-item-meta">{item.kicker}</span>
+        </button>
+      ))}
+    </div>
+  </div>
+
+  <div class="spotlight-panels">
+    {surfaces.map((item) => (
+      <article
+        class="spotlight-panel"
+        id={`panel-${item.id}`}
+        data-tab-panel={item.id}
+        role="tabpanel"
+        aria-hidden={item.id === defaultId ? "false" : "true"}
+        data-active={item.id === defaultId ? "true" : "false"}
+      >
+        <p class="section-kicker">{item.kicker}</p>
+        <h3>{item.title}</h3>
+        <p>{item.body}</p>
+        <ul class="detail-bullets">
+          {item.bullets.map((bullet) => (
+            <li>{bullet}</li>
+          ))}
+        </ul>
+      </article>
+    ))}
+  </div>
+</section>

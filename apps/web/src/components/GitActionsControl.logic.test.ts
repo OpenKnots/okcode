@@ -3,6 +3,7 @@ import { assert, describe, it } from "vitest";
 import {
   buildGitActionProgressStages,
   buildMenuItems,
+  buildPullRequestMenuItems,
   requiresDefaultBranchConfirmation,
   resolveAutoFeatureBranchName,
   resolveDefaultBranchActionDialogCopy,
@@ -47,7 +48,28 @@ describe("when: branch is clean and has an open PR", () => {
       }),
       false,
     );
-    assert.deepInclude(quick, { kind: "open_pr", label: "View PR", disabled: false });
+    assert.deepInclude(quick, { kind: "open_pr", label: "View PR #10", disabled: false });
+  });
+
+  it("buildPullRequestMenuItems exposes PR handling actions", () => {
+    const items = buildPullRequestMenuItems(
+      status({
+        pr: {
+          number: 10,
+          title: "Open PR",
+          url: "https://example.com/pr/10",
+          baseBranch: "main",
+          headBranch: "feature/test",
+          state: "open",
+        },
+      }),
+    );
+
+    assert.deepEqual(items, [
+      { id: "open_in_browser", label: "Open in browser" },
+      { id: "copy_pr_number", label: "Copy PR number" },
+      { id: "copy_pr_link", label: "Copy PR link" },
+    ]);
   });
 
   it("buildMenuItems disables commit/push and enables open PR", () => {
@@ -83,7 +105,7 @@ describe("when: branch is clean and has an open PR", () => {
       },
       {
         id: "pr",
-        label: "View PR",
+        label: "View PR #11",
         disabled: false,
         icon: "pr",
         kind: "open_pr",
@@ -242,7 +264,7 @@ describe("when: branch is clean, ahead, and has an open PR", () => {
       },
       {
         id: "pr",
-        label: "View PR",
+        label: "View PR #12",
         disabled: false,
         icon: "pr",
         kind: "open_pr",
@@ -684,7 +706,7 @@ describe("when: branch has no upstream configured", () => {
     );
     assert.deepInclude(quick, {
       kind: "open_pr",
-      label: "View PR",
+      label: "View PR #14",
       disabled: false,
     });
   });

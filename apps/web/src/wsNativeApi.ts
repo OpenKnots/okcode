@@ -283,6 +283,14 @@ export function createWsNativeApi(): NativeApi {
     },
     server: {
       getConfig: () => transport.request(WS_METHODS.serverGetConfig),
+      getGlobalEnvironmentVariables: () =>
+        transport.request(WS_METHODS.serverGetGlobalEnvironmentVariables),
+      saveGlobalEnvironmentVariables: (input) =>
+        transport.request(WS_METHODS.serverSaveGlobalEnvironmentVariables, input),
+      getProjectEnvironmentVariables: (input) =>
+        transport.request(WS_METHODS.serverGetProjectEnvironmentVariables, input),
+      saveProjectEnvironmentVariables: (input) =>
+        transport.request(WS_METHODS.serverSaveProjectEnvironmentVariables, input),
       upsertKeybinding: (input) => transport.request(WS_METHODS.serverUpsertKeybinding, input),
     },
     orchestration: {

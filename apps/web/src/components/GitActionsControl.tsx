@@ -16,13 +16,16 @@ import {
   CircleAlertIcon,
   CloudUploadIcon,
   ExternalLinkIcon,
+  CopyIcon,
   GitCommitIcon,
   InfoIcon,
+  LinkIcon,
 } from "lucide-react";
 import { GitHubIcon } from "./Icons";
 import {
   buildGitActionProgressStages,
   buildMenuItems,
+  buildPullRequestMenuItems,
   type GitActionIconName,
   type GitActionMenuItem,
   type GitQuickAction,
@@ -33,6 +36,7 @@ import {
   resolveQuickAction,
   resolveSyncAction,
   buildHookFailureAgentPrompt,
+  formatOpenPullRequestLabel,
   summarizeGitFailure,
   summarizeGitResult,
 } from "./GitActionsControl.logic";
@@ -52,6 +56,7 @@ import {
 import { Group, GroupSeparator } from "~/components/ui/group";
 import {
   Menu,
+  MenuGroupLabel,
   MenuItem,
   MenuPopup,
   MenuSeparator,
@@ -64,6 +69,7 @@ import { Popover, PopoverPopup, PopoverTrigger } from "~/components/ui/popover";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { Textarea } from "~/components/ui/textarea";
 import { toastManager } from "~/components/ui/toast";
+import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
 import { openInPreferredEditor } from "~/editorPreferences";
 import {
   gitBranchesQueryOptions,
@@ -233,7 +239,7 @@ function getMenuActionDisabledReason({
   }
 
   if (hasOpenPr) {
-    return "View PR is currently unavailable.";
+    return "PR is currently unavailable.";
   }
   if (!hasBranch) {
     return "Detached HEAD: checkout a branch before creating a PR.";
@@ -333,6 +339,7 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
   }, [isGitStatusOutOfSync, queryClient]);
 
   const gitStatusForActions = isGitStatusOutOfSync ? null : gitStatus;
+  const openPullRequest = gitStatusForActions?.pr?.state === "open" ? gitStatusForActions.pr : null;
 
   const allFiles = gitStatusForActions?.workingTree.files ?? [];
   const selectedFiles = allFiles.filter((f) => !excludedFiles.has(f.path));
@@ -365,6 +372,10 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
     () => buildMenuItems(gitStatusForActions, isGitActionRunning, hasOriginRemote),
     [gitStatusForActions, hasOriginRemote, isGitActionRunning],
   );
+  const pullRequestMenuItems = useMemo(
+    () => buildPullRequestMenuItems(gitStatusForActions),
+    [gitStatusForActions],
+  );
   const quickAction = useMemo(
     () =>
       resolveQuickAction(gitStatusForActions, isGitActionRunning, isDefaultBranch, hasOriginRemote),
@@ -387,6 +398,29 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
         includesCommit: pendingDefaultBranchAction.includesCommit,
       })
     : null;
+
+  const { copyToClipboard: copyPullRequestValue } = useCopyToClipboard<{
+    successTitle: string;
+    successDescription: string;
+    errorTitle: string;
+  }>({
+    onCopy: (ctx) => {
+      toastManager.add({
+        type: "success",
+        title: ctx.successTitle,
+        description: ctx.successDescription,
+        data: threadToastData,
+      });
+    },
+    onError: (error, ctx) => {
+      toastManager.add({
+        type: "error",
+        title: ctx.errorTitle,
+        description: error instanceof Error ? error.message : "An error occurred.",
+        data: threadToastData,
+      });
+    },
+  });
 
   useEffect(() => {
     const api = readNativeApi();
@@ -479,7 +513,7 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
       });
       return;
     }
-    const prUrl = gitStatusForActions?.pr?.state === "open" ? gitStatusForActions.pr.url : null;
+    const prUrl = openPullRequest?.url ?? null;
     if (!prUrl) {
       toastManager.add({
         type: "error",
@@ -496,7 +530,26 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
         data: threadToastData,
       });
     });
-  }, [gitStatusForActions, threadToastData]);
+  }, [openPullRequest, threadToastData]);
+
+  const copyOpenPullRequestNumber = useCallback(() => {
+    if (!openPullRequest) return;
+    const prNumber = `#${openPullRequest.number}`;
+    copyPullRequestValue(prNumber, {
+      successTitle: "PR number copied",
+      successDescription: prNumber,
+      errorTitle: "Failed to copy PR number",
+    });
+  }, [copyPullRequestValue, openPullRequest]);
+
+  const copyOpenPullRequestLink = useCallback(() => {
+    if (!openPullRequest) return;
+    copyPullRequestValue(openPullRequest.url, {
+      successTitle: "PR link copied",
+      successDescription: openPullRequest.url,
+      errorTitle: "Failed to copy PR link",
+    });
+  }, [copyPullRequestValue, openPullRequest]);
 
   const runGitActionWithToast = useEffectEvent(
     async ({
@@ -595,6 +648,7 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
         const existingOpenPrUrl =
           actionStatus?.pr?.state === "open" ? actionStatus.pr.url : undefined;
         const prUrl = result.pr.url ?? existingOpenPrUrl;
+        const prNumber = result.pr.number ?? actionStatus?.pr?.number;
         const shouldOfferPushCta = action === "commit" && result.commit.status === "created";
         const shouldOfferOpenPrCta =
           (action === "commit_push" || action === "commit_push_pr") &&
@@ -638,7 +692,7 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
             : shouldOfferOpenPrCta
               ? {
                   actionProps: {
-                    children: "View PR",
+                    children: formatOpenPullRequestLabel(prNumber),
                     onClick: () => {
                       const api = readNativeApi();
                       if (!api) return;
@@ -1117,6 +1171,41 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
               <ChevronDownIcon aria-hidden="true" className="size-4" />
             </MenuTrigger>
             <MenuPopup align="end" className="w-full">
+              {openPullRequest && pullRequestMenuItems.length > 0 ? (
+                <>
+                  <MenuGroupLabel inset>PR #{openPullRequest.number}</MenuGroupLabel>
+                  {pullRequestMenuItems.map((item) => {
+                    if (item.id === "open_in_browser") {
+                      return (
+                        <MenuItem
+                          key={item.id}
+                          onClick={() => {
+                            void openExistingPr();
+                          }}
+                        >
+                          <ExternalLinkIcon className="size-3.5" />
+                          {item.label}
+                        </MenuItem>
+                      );
+                    }
+                    if (item.id === "copy_pr_number") {
+                      return (
+                        <MenuItem key={item.id} onClick={copyOpenPullRequestNumber}>
+                          <CopyIcon className="size-3.5" />
+                          {item.label}
+                        </MenuItem>
+                      );
+                    }
+                    return (
+                      <MenuItem key={item.id} onClick={copyOpenPullRequestLink}>
+                        <LinkIcon className="size-3.5" />
+                        {item.label}
+                      </MenuItem>
+                    );
+                  })}
+                  {gitActionMenuItems.length > 0 ? <MenuSeparator /> : null}
+                </>
+              ) : null}
               {gitActionMenuItems.map((item) => {
                 const disabledReason = getMenuActionDisabledReason({
                   item,

@@ -38,7 +38,9 @@ import {
 } from "../../codexAppServerManager.ts";
 import { resolveAttachmentPath } from "../../attachmentStore.ts";
 import { ServerConfig } from "../../config.ts";
+import { ProjectionSnapshotQuery } from "../../orchestration/Services/ProjectionSnapshotQuery.ts";
 import { type EventNdjsonLogger, makeEventNdjsonLogger } from "./EventNdjsonLogger.ts";
+import { resolveRuntimeEnvironment } from "../../runtimeEnvironment.ts";
 
 const PROVIDER = "codex" as const;
 
@@ -1317,6 +1319,7 @@ const makeCodexAdapter = (options?: CodexAdapterLiveOptions) =>
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
     const serverConfig = yield* Effect.service(ServerConfig);
+    const projectionSnapshotQuery = yield* ProjectionSnapshotQuery;
     const nativeEventLogger =
       options?.nativeEventLogger ??
       (options?.nativeEventLogPath !== undefined
@@ -1343,16 +1346,24 @@ const makeCodexAdapter = (options?: CodexAdapterLiveOptions) =>
         }),
     );
 
-    const startSession: CodexAdapterShape["startSession"] = (input) => {
+    const startSession: CodexAdapterShape["startSession"] = Effect.fnUntraced(function* (input) {
       if (input.provider !== undefined && input.provider !== PROVIDER) {
-        return Effect.fail(
-          new ProviderAdapterValidationError({
-            provider: PROVIDER,
-            operation: "startSession",
-            issue: `Expected provider '${PROVIDER}' but received '${input.provider}'.`,
-          }),
-        );
+        return yield* new ProviderAdapterValidationError({
+          provider: PROVIDER,
+          operation: "startSession",
+          issue: `Expected provider '${PROVIDER}' but received '${input.provider}'.`,
+        });
       }
+
+      const runtimeEnv =
+        input.env !== undefined
+          ? input.env
+          : input.cwd !== undefined
+            ? yield* resolveRuntimeEnvironment({
+                cwd: input.cwd,
+                readModel: yield* projectionSnapshotQuery.getSnapshot(),
+              })
+            : undefined;
 
       const managerInput: CodexAppServerStartSessionInput = {
         threadId: input.threadId,
@@ -1360,12 +1371,13 @@ const makeCodexAdapter = (options?: CodexAdapterLiveOptions) =>
         ...(input.cwd !== undefined ? { cwd: input.cwd } : {}),
         ...(input.resumeCursor !== undefined ? { resumeCursor: input.resumeCursor } : {}),
         ...(input.providerOptions !== undefined ? { providerOptions: input.providerOptions } : {}),
+        ...(runtimeEnv !== undefined ? { env: runtimeEnv } : {}),
         runtimeMode: input.runtimeMode,
         ...(input.model !== undefined ? { model: input.model } : {}),
         ...(input.modelOptions?.codex?.fastMode ? { serviceTier: "fast" } : {}),
       };
 
-      return Effect.tryPromise({
+      return yield* Effect.tryPromise({
         try: () => manager.startSession(managerInput),
         catch: (cause) =>
           new ProviderAdapterProcessError({
@@ -1374,8 +1386,8 @@ const makeCodexAdapter = (options?: CodexAdapterLiveOptions) =>
             detail: toMessage(cause, "Failed to start Codex adapter session."),
             cause,
           }),
-      }).pipe(Effect.map((session) => session));
-    };
+      });
+    });
 
     const sendTurn: CodexAdapterShape["sendTurn"] = (input) =>
       Effect.gen(function* () {

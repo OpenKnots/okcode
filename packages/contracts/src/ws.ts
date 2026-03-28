@@ -61,6 +61,11 @@ import {
 } from "./terminal";
 import { KeybindingRule } from "./keybindings";
 import {
+  ProjectEnvironmentVariablesInput,
+  SaveGlobalEnvironmentVariablesInput,
+  SaveProjectEnvironmentVariablesInput,
+} from "./environment";
+import {
   ProjectListDirectoryInput,
   ProjectReadFileInput,
   ProjectSearchEntriesInput,
@@ -123,6 +128,10 @@ export const WS_METHODS = {
 
   // Server meta
   serverGetConfig: "server.getConfig",
+  serverGetGlobalEnvironmentVariables: "server.getGlobalEnvironmentVariables",
+  serverSaveGlobalEnvironmentVariables: "server.saveGlobalEnvironmentVariables",
+  serverGetProjectEnvironmentVariables: "server.getProjectEnvironmentVariables",
+  serverSaveProjectEnvironmentVariables: "server.saveProjectEnvironmentVariables",
   serverUpsertKeybinding: "server.upsertKeybinding",
   serverPickFolder: "server.pickFolder",
 } as const;
@@ -209,6 +218,16 @@ const WebSocketRequestBody = Schema.Union([
 
   // Server meta
   tagRequestBody(WS_METHODS.serverGetConfig, Schema.Struct({})),
+  tagRequestBody(WS_METHODS.serverGetGlobalEnvironmentVariables, Schema.Struct({})),
+  tagRequestBody(
+    WS_METHODS.serverSaveGlobalEnvironmentVariables,
+    SaveGlobalEnvironmentVariablesInput,
+  ),
+  tagRequestBody(WS_METHODS.serverGetProjectEnvironmentVariables, ProjectEnvironmentVariablesInput),
+  tagRequestBody(
+    WS_METHODS.serverSaveProjectEnvironmentVariables,
+    SaveProjectEnvironmentVariablesInput,
+  ),
   tagRequestBody(WS_METHODS.serverUpsertKeybinding, KeybindingRule),
   tagRequestBody(WS_METHODS.serverPickFolder, Schema.Struct({})),
 ]);

@@ -18,6 +18,13 @@ export interface GitActionMenuItem {
   dialogAction?: GitDialogAction;
 }
 
+export type GitPullRequestMenuItemId = "open_in_browser" | "copy_pr_number" | "copy_pr_link";
+
+export interface GitPullRequestMenuItem {
+  id: GitPullRequestMenuItemId;
+  label: string;
+}
+
 export interface GitQuickAction {
   label: string;
   disabled: boolean;
@@ -60,6 +67,10 @@ function truncateText(
   return `${value.slice(0, Math.max(0, maxLength - 3)).trimEnd()}...`;
 }
 
+export function formatOpenPullRequestLabel(prNumber: number | undefined): string {
+  return prNumber ? `View PR #${prNumber}` : "View PR";
+}
+
 export function buildGitActionProgressStages(input: {
   action: GitStackedAction;
   hasCustomCommitMessage: boolean;
@@ -88,6 +99,18 @@ export function buildGitActionProgressStages(input: {
 
 const withDescription = (title: string, description: string | undefined) =>
   description ? { title, description } : { title };
+
+export function buildPullRequestMenuItems(
+  gitStatus: GitStatusResult | null,
+): GitPullRequestMenuItem[] {
+  if (gitStatus?.pr?.state !== "open") return [];
+
+  return [
+    { id: "open_in_browser", label: "Open in browser" },
+    { id: "copy_pr_number", label: "Copy PR number" },
+    { id: "copy_pr_link", label: "Copy PR link" },
+  ];
+}
 
 export function summarizeGitResult(result: GitRunStackedActionResult): {
   title: string;
@@ -192,7 +215,7 @@ export function buildMenuItems(
     hasOpenPr
       ? {
           id: "pr",
-          label: "View PR",
+          label: formatOpenPullRequestLabel(gitStatus.pr?.number),
           disabled: !canOpenPr,
           icon: "pr",
           kind: "open_pr",
@@ -274,7 +297,11 @@ export function resolveQuickAction(
   if (!gitStatus.hasUpstream) {
     if (!hasOriginRemote) {
       if (hasOpenPr && !isAhead) {
-        return { label: "View PR", disabled: false, kind: "open_pr" };
+        return {
+          label: formatOpenPullRequestLabel(gitStatus.pr?.number),
+          disabled: false,
+          kind: "open_pr",
+        };
       }
       return {
         label: "Push",
@@ -285,7 +312,11 @@ export function resolveQuickAction(
     }
     if (!isAhead) {
       if (hasOpenPr) {
-        return { label: "View PR", disabled: false, kind: "open_pr" };
+        return {
+          label: formatOpenPullRequestLabel(gitStatus.pr?.number),
+          disabled: false,
+          kind: "open_pr",
+        };
       }
       return {
         label: "Push",
@@ -335,7 +366,11 @@ export function resolveQuickAction(
   }
 
   if (hasOpenPr && gitStatus.hasUpstream) {
-    return { label: "View PR", disabled: false, kind: "open_pr" };
+    return {
+      label: formatOpenPullRequestLabel(gitStatus.pr?.number),
+      disabled: false,
+      kind: "open_pr",
+    };
   }
 
   return {

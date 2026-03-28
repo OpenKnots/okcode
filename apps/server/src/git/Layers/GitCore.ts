@@ -17,6 +17,7 @@ import {
   Stream,
 } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
+import { mergeNodeProcessEnv } from "@okcode/shared/environment";
 
 import { GitCommandError } from "../Errors.ts";
 import {
@@ -26,9 +27,12 @@ import {
   type GitCoreShape,
   type ExecuteGitInput,
   type ExecuteGitResult,
+  type GitStatusDetails,
 } from "../Services/GitCore.ts";
 import { ServerConfig } from "../../config.ts";
 import { decodeJsonResult } from "@okcode/shared/schemaJson";
+import { ProjectionSnapshotQuery } from "../../orchestration/Services/ProjectionSnapshotQuery.ts";
+import { resolveRuntimeEnvironment } from "../../runtimeEnvironment.ts";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_MAX_OUTPUT_BYTES = 1_000_000;
@@ -117,6 +121,23 @@ function parsePorcelainConflictPath(line: string): string | null {
   }
   return parsePorcelainPath(line);
 }
+
+const EMPTY_STATUS_DETAILS = {
+  branch: null,
+  hasWorkingTreeChanges: false,
+  hasConflicts: false,
+  conflictedFiles: [],
+  workingTree: {
+    files: [],
+    insertions: 0,
+    deletions: 0,
+  },
+  hasUpstream: false,
+  aheadCount: 0,
+  behindCount: 0,
+  upstreamRef: null,
+  pr: null,
+} satisfies GitStatusDetails;
 
 function parseBranchLine(line: string): { name: string; current: boolean } | null {
   const trimmed = line.trim();
@@ -504,6 +525,7 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
     const fileSystem = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const { worktreesDir } = yield* ServerConfig;
+    const projectionSnapshotQuery = yield* ProjectionSnapshotQuery;
 
     let execute: GitCoreShape["execute"];
 
@@ -525,15 +547,21 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
             Effect.provideService(FileSystem.FileSystem, fileSystem),
             Effect.mapError(toGitCommandError(commandInput, "failed to create trace2 monitor.")),
           );
+          const runtimeEnv =
+            input.env !== undefined
+              ? input.env
+              : yield* resolveRuntimeEnvironment({
+                  cwd: commandInput.cwd,
+                  readModel: yield* projectionSnapshotQuery.getSnapshot(),
+                });
           const child = yield* commandSpawner
             .spawn(
               ChildProcess.make("git", commandInput.args, {
                 cwd: commandInput.cwd,
-                env: {
-                  ...process.env,
-                  ...input.env,
-                  ...trace2Monitor.env,
-                },
+                env: mergeNodeProcessEnv(
+                  mergeNodeProcessEnv(process.env, runtimeEnv),
+                  trace2Monitor.env,
+                ),
               }),
             )
             .pipe(Effect.mapError(toGitCommandError(commandInput, "failed to spawn.")));
@@ -1032,15 +1060,34 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
 
     const statusDetails: GitCoreShape["statusDetails"] = (cwd) =>
       Effect.gen(function* () {
+        const cwdStat = yield* fileSystem.stat(cwd).pipe(Effect.catch(() => Effect.succeed(null)));
+        if (!cwdStat || cwdStat.type !== "Directory") {
+          return EMPTY_STATUS_DETAILS;
+        }
+
         yield* refreshStatusUpstreamIfStale(cwd).pipe(Effect.ignoreCause({ log: true }));
 
-        const [statusStdout, unstagedNumstatStdout, stagedNumstatStdout] = yield* Effect.all(
+        const status = yield* executeGit(
+          "GitCore.statusDetails.status",
+          cwd,
+          ["status", "--porcelain=2", "--branch"],
+          { allowNonZeroExit: true },
+        );
+        if (status.code !== 0) {
+          const stderr = status.stderr.trim();
+          if (stderr.toLowerCase().includes("not a git repository")) {
+            return EMPTY_STATUS_DETAILS;
+          }
+          return yield* createGitCommandError(
+            "GitCore.statusDetails.status",
+            cwd,
+            ["status", "--porcelain=2", "--branch"],
+            stderr.length > 0 ? stderr : `git status failed with code ${status.code}.`,
+          );
+        }
+
+        const [unstagedNumstatStdout, stagedNumstatStdout] = yield* Effect.all(
           [
-            runGitStdout("GitCore.statusDetails.status", cwd, [
-              "status",
-              "--porcelain=2",
-              "--branch",
-            ]),
             runGitStdout("GitCore.statusDetails.unstagedNumstat", cwd, ["diff", "--numstat"]),
             runGitStdout("GitCore.statusDetails.stagedNumstat", cwd, [
               "diff",
@@ -1050,6 +1097,8 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
           ],
           { concurrency: "unbounded" },
         );
+
+        const statusStdout = status.stdout;
 
         let branch: string | null = null;
         let upstreamRef: string | null = null;

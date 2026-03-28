@@ -6,6 +6,7 @@ import type {
   ProjectId,
   ThreadId,
 } from "@okcode/contracts";
+import { MAX_PROJECTS, MAX_THREADS_PER_PROJECT } from "@okcode/contracts";
 import { Effect } from "effect";
 
 import { OrchestrationCommandInvariantError } from "./Errors.ts";
@@ -118,4 +119,55 @@ export function requireNonNegativeInteger(input: {
       `${input.field} must be an integer greater than or equal to 0.`,
     ),
   );
+}
+
+// ── Active entity helpers ────────────────────────────────────────────
+
+export function listActiveProjects(
+  readModel: OrchestrationReadModel,
+): ReadonlyArray<OrchestrationProject> {
+  return readModel.projects.filter((project) => project.deletedAt === null);
+}
+
+export function listActiveThreadsByProjectId(
+  readModel: OrchestrationReadModel,
+  projectId: ProjectId,
+): ReadonlyArray<OrchestrationThread> {
+  return readModel.threads.filter(
+    (thread) => thread.projectId === projectId && thread.deletedAt === null,
+  );
+}
+
+/**
+ * Returns the oldest active projects that must be archived to stay within
+ * MAX_PROJECTS when a new project is about to be created.
+ * Sorted by updatedAt ascending (oldest first).
+ */
+export function getProjectsToArchive(
+  readModel: OrchestrationReadModel,
+): ReadonlyArray<OrchestrationProject> {
+  const active = listActiveProjects(readModel);
+  if (active.length < MAX_PROJECTS) return [];
+  const overflow = active.length - MAX_PROJECTS + 1;
+  return [...active]
+    .toSorted((a, b) => a.updatedAt.localeCompare(b.updatedAt) || a.id.localeCompare(b.id))
+    .slice(0, overflow);
+}
+
+/**
+ * Returns the oldest active threads in the given project that must be
+ * archived to stay within MAX_THREADS_PER_PROJECT when a new thread is
+ * about to be created.
+ * Sorted by updatedAt ascending (oldest first).
+ */
+export function getThreadsToArchive(
+  readModel: OrchestrationReadModel,
+  projectId: ProjectId,
+): ReadonlyArray<OrchestrationThread> {
+  const active = listActiveThreadsByProjectId(readModel, projectId);
+  if (active.length < MAX_THREADS_PER_PROJECT) return [];
+  const overflow = active.length - MAX_THREADS_PER_PROJECT + 1;
+  return [...active]
+    .toSorted((a, b) => a.updatedAt.localeCompare(b.updatedAt) || a.id.localeCompare(b.id))
+    .slice(0, overflow);
 }

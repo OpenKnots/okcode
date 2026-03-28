@@ -1,25 +1,36 @@
-import type { ProjectId, ThreadId } from "@okcode/contracts";
+import type { ThreadId } from "@okcode/contracts";
 import { create } from "zustand";
 
 export type PreviewDock = "left" | "right" | "top" | "bottom";
 
 interface PersistedPreviewUiState {
-  openByThreadId: Record<string, boolean>;
+  globalOpen: boolean;
   dockByThreadId: Record<string, PreviewDock>;
   sizeByThreadId: Record<string, number>;
-  urlByProjectId: Record<string, string>;
+  favoriteUrls: string[];
 }
 
 interface PreviewStateStore extends PersistedPreviewUiState {
-  setThreadOpen: (threadId: ThreadId, open: boolean) => void;
-  toggleThreadOpen: (threadId: ThreadId) => void;
+  setGlobalOpen: (open: boolean) => void;
+  toggleGlobalOpen: () => void;
   setThreadDock: (threadId: ThreadId, dock: PreviewDock) => void;
   toggleThreadLayout: (threadId: ThreadId) => void;
   setThreadSize: (threadId: ThreadId, size: number) => void;
-  setProjectUrl: (projectId: ProjectId, url: string) => void;
+  addFavoriteUrl: (url: string) => void;
+  removeFavoriteUrl: (url: string) => void;
+  toggleFavoriteUrl: (url: string) => void;
 }
 
-const PREVIEW_STATE_STORAGE_KEY = "okcode:desktop-preview:v2";
+const PREVIEW_STATE_STORAGE_KEY = "okcode:desktop-preview:v3";
+
+function createEmptyPersistedPreviewUiState(): PersistedPreviewUiState {
+  return {
+    globalOpen: false,
+    dockByThreadId: {},
+    sizeByThreadId: {},
+    favoriteUrls: [],
+  };
+}
 
 function normalizePreviewSize(size: unknown): number | null {
   if (typeof size !== "number" || !Number.isFinite(size)) {
@@ -30,26 +41,18 @@ function normalizePreviewSize(size: unknown): number | null {
 
 function readPersistedPreviewUiState(): PersistedPreviewUiState {
   if (typeof window === "undefined") {
-    return { openByThreadId: {}, dockByThreadId: {}, sizeByThreadId: {}, urlByProjectId: {} };
+    return createEmptyPersistedPreviewUiState();
   }
 
   try {
     const raw = window.localStorage.getItem(PREVIEW_STATE_STORAGE_KEY);
     if (!raw) {
-      return { openByThreadId: {}, dockByThreadId: {}, sizeByThreadId: {}, urlByProjectId: {} };
+      return createEmptyPersistedPreviewUiState();
     }
 
     const parsed = JSON.parse(raw) as Partial<PersistedPreviewUiState>;
     return {
-      openByThreadId:
-        parsed.openByThreadId && typeof parsed.openByThreadId === "object"
-          ? Object.fromEntries(
-              Object.entries(parsed.openByThreadId).filter(
-                (entry): entry is [string, boolean] =>
-                  typeof entry[0] === "string" && entry[1] === true,
-              ),
-            )
-          : {},
+      globalOpen: parsed.globalOpen === true,
       dockByThreadId:
         parsed.dockByThreadId && typeof parsed.dockByThreadId === "object"
           ? Object.fromEntries(
@@ -74,20 +77,14 @@ function readPersistedPreviewUiState(): PersistedPreviewUiState {
               }),
             )
           : {},
-      urlByProjectId:
-        parsed.urlByProjectId && typeof parsed.urlByProjectId === "object"
-          ? Object.fromEntries(
-              Object.entries(parsed.urlByProjectId).filter(
-                (entry): entry is [string, string] =>
-                  typeof entry[0] === "string" &&
-                  typeof entry[1] === "string" &&
-                  entry[1].trim().length > 0,
-              ),
-            )
-          : {},
+      favoriteUrls: Array.isArray(parsed.favoriteUrls)
+        ? parsed.favoriteUrls.filter(
+            (u): u is string => typeof u === "string" && u.trim().length > 0,
+          )
+        : [],
     };
   } catch {
-    return { openByThreadId: {}, dockByThreadId: {}, sizeByThreadId: {}, urlByProjectId: {} };
+    return createEmptyPersistedPreviewUiState();
   }
 }
 
@@ -100,10 +97,10 @@ function persistPreviewUiState(state: PersistedPreviewUiState): void {
     window.localStorage.setItem(
       PREVIEW_STATE_STORAGE_KEY,
       JSON.stringify({
-        openByThreadId: state.openByThreadId,
+        globalOpen: state.globalOpen,
         dockByThreadId: state.dockByThreadId,
         sizeByThreadId: state.sizeByThreadId,
-        urlByProjectId: state.urlByProjectId,
+        favoriteUrls: state.favoriteUrls,
       } satisfies PersistedPreviewUiState),
     );
   } catch {
@@ -111,30 +108,30 @@ function persistPreviewUiState(state: PersistedPreviewUiState): void {
   }
 }
 
+function snapshotState(state: PreviewStateStore): PersistedPreviewUiState {
+  return {
+    globalOpen: state.globalOpen,
+    dockByThreadId: state.dockByThreadId,
+    sizeByThreadId: state.sizeByThreadId,
+    favoriteUrls: state.favoriteUrls,
+  };
+}
+
 const initialState = readPersistedPreviewUiState();
 
 export const usePreviewStateStore = create<PreviewStateStore>((set, get) => ({
   ...initialState,
 
-  setThreadOpen: (threadId, open) => {
+  setGlobalOpen: (open) => {
     set((state) => {
-      const nextOpenByThreadId = {
-        ...state.openByThreadId,
-        [threadId]: open,
-      };
-      persistPreviewUiState({
-        openByThreadId: nextOpenByThreadId,
-        dockByThreadId: state.dockByThreadId,
-        sizeByThreadId: state.sizeByThreadId,
-        urlByProjectId: state.urlByProjectId,
-      });
-      return { openByThreadId: nextOpenByThreadId };
+      const next = { ...snapshotState(state), globalOpen: open };
+      persistPreviewUiState(next);
+      return { globalOpen: open };
     });
   },
 
-  toggleThreadOpen: (threadId) => {
-    const current = get().openByThreadId[threadId] === true;
-    get().setThreadOpen(threadId, !current);
+  toggleGlobalOpen: () => {
+    get().setGlobalOpen(!get().globalOpen);
   },
 
   setThreadDock: (threadId, dock) => {
@@ -144,10 +141,8 @@ export const usePreviewStateStore = create<PreviewStateStore>((set, get) => ({
         [threadId]: dock,
       };
       persistPreviewUiState({
-        openByThreadId: state.openByThreadId,
+        ...snapshotState(state),
         dockByThreadId: nextDockByThreadId,
-        sizeByThreadId: state.sizeByThreadId,
-        urlByProjectId: state.urlByProjectId,
       });
       return { dockByThreadId: nextDockByThreadId };
     });
@@ -178,31 +173,40 @@ export const usePreviewStateStore = create<PreviewStateStore>((set, get) => ({
         [threadId]: normalizedSize,
       };
       persistPreviewUiState({
-        openByThreadId: state.openByThreadId,
-        dockByThreadId: state.dockByThreadId,
+        ...snapshotState(state),
         sizeByThreadId: nextSizeByThreadId,
-        urlByProjectId: state.urlByProjectId,
       });
       return { sizeByThreadId: nextSizeByThreadId };
     });
   },
 
-  setProjectUrl: (projectId, url) => {
-    const normalizedUrl = url.trim();
+  addFavoriteUrl: (url) => {
+    const normalized = url.trim();
+    if (normalized.length === 0) return;
     set((state) => {
-      const nextUrlByProjectId = { ...state.urlByProjectId };
-      if (normalizedUrl.length > 0) {
-        nextUrlByProjectId[projectId] = normalizedUrl;
-      } else {
-        delete nextUrlByProjectId[projectId];
-      }
-      persistPreviewUiState({
-        openByThreadId: state.openByThreadId,
-        dockByThreadId: state.dockByThreadId,
-        sizeByThreadId: state.sizeByThreadId,
-        urlByProjectId: nextUrlByProjectId,
-      });
-      return { urlByProjectId: nextUrlByProjectId };
+      if (state.favoriteUrls.includes(normalized)) return state;
+      const nextFavorites = [...state.favoriteUrls, normalized];
+      persistPreviewUiState({ ...snapshotState(state), favoriteUrls: nextFavorites });
+      return { favoriteUrls: nextFavorites };
     });
+  },
+
+  removeFavoriteUrl: (url) => {
+    const normalized = url.trim();
+    set((state) => {
+      const nextFavorites = state.favoriteUrls.filter((u) => u !== normalized);
+      persistPreviewUiState({ ...snapshotState(state), favoriteUrls: nextFavorites });
+      return { favoriteUrls: nextFavorites };
+    });
+  },
+
+  toggleFavoriteUrl: (url) => {
+    const normalized = url.trim();
+    if (normalized.length === 0) return;
+    if (get().favoriteUrls.includes(normalized)) {
+      get().removeFavoriteUrl(normalized);
+    } else {
+      get().addFavoriteUrl(normalized);
+    }
   },
 }));

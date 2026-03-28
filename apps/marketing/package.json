@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@fontsource-variable/dm-sans": "^5.2.8",
     "astro": "^6.0.4"
   },
   "devDependencies": {

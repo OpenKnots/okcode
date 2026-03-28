@@ -30,6 +30,19 @@ export class PersistenceDecodeError extends Schema.TaggedErrorClass<PersistenceD
   }
 }
 
+export class PersistenceCryptoError extends Schema.TaggedErrorClass<PersistenceCryptoError>()(
+  "PersistenceCryptoError",
+  {
+    operation: Schema.String,
+    detail: Schema.String,
+    cause: Schema.optional(Schema.Defect),
+  },
+) {
+  override get message(): string {
+    return `Crypto error in ${this.operation}: ${this.detail}`;
+  }
+}
+
 export function toPersistenceSqlError(operation: string) {
   return (cause: unknown): PersistenceSqlError =>
     new PersistenceSqlError({
@@ -57,8 +70,19 @@ export function toPersistenceDecodeCauseError(operation: string) {
     });
 }
 
+export function toPersistenceCryptoError(operation: string) {
+  return (cause: unknown): PersistenceCryptoError =>
+    new PersistenceCryptoError({
+      operation,
+      detail: `Failed to execute ${operation}`,
+      cause,
+    });
+}
+
 export const isPersistenceError = (u: unknown) =>
-  Schema.is(PersistenceSqlError)(u) || Schema.is(PersistenceDecodeError)(u);
+  Schema.is(PersistenceSqlError)(u) ||
+  Schema.is(PersistenceDecodeError)(u) ||
+  Schema.is(PersistenceCryptoError)(u);
 
 // ===============================
 // Provider Session Repository Errors

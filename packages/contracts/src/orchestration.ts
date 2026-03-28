@@ -91,6 +91,20 @@ export type ProviderApprovalDecision = typeof ProviderApprovalDecision.Type;
 export const ProviderUserInputAnswers = Schema.Record(Schema.String, Schema.Unknown);
 export type ProviderUserInputAnswers = typeof ProviderUserInputAnswers.Type;
 
+/**
+ * Maximum number of active (non-deleted) projects allowed.
+ * When this limit is reached, the oldest project is automatically archived
+ * (soft-deleted) to make room for the new one.
+ */
+export const MAX_PROJECTS = 50;
+
+/**
+ * Maximum number of active (non-deleted) threads allowed per project.
+ * When this limit is reached, the oldest thread in the project is
+ * automatically archived (soft-deleted) to make room for the new one.
+ */
+export const MAX_THREADS_PER_PROJECT = 100;
+
 export const PROVIDER_SEND_TURN_MAX_INPUT_CHARS = 120_000;
 export const PROVIDER_SEND_TURN_MAX_ATTACHMENTS = 8;
 export const PROVIDER_SEND_TURN_MAX_IMAGE_BYTES = 10 * 1024 * 1024;

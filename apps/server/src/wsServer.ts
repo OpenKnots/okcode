@@ -82,6 +82,8 @@ import { makeServerReadiness } from "./wsServer/readiness.ts";
 import { decodeJsonResult, formatSchemaError } from "@okcode/shared/schemaJson";
 import { PrReview } from "./prReview/Services/PrReview.ts";
 import { GitActionExecutionError } from "./git/Errors.ts";
+import { EnvironmentVariables } from "./persistence/Services/EnvironmentVariables.ts";
+import { resolveRuntimeEnvironment } from "./runtimeEnvironment.ts";
 
 /**
  * Remote address from the HTTP upgrade (`request.socket`). The `ws` library often does not
@@ -262,7 +264,8 @@ export type ServerRuntimeServices =
   | TerminalManager
   | Keybindings
   | Open
-  | AnalyticsService;
+  | AnalyticsService
+  | EnvironmentVariables;
 
 export class ServerLifecycleError extends Schema.TaggedErrorClass<ServerLifecycleError>()(
   "ServerLifecycleError",
@@ -649,6 +652,7 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
   const orchestrationReactor = yield* OrchestrationReactor;
   const prReview = yield* PrReview;
   const { openInEditor } = yield* Open;
+  const environmentVariables = yield* EnvironmentVariables;
 
   const subscriptionsScope = yield* Scope.make("sequential");
   yield* Effect.addFinalizer(() => Scope.close(subscriptionsScope, Exit.void));
@@ -1080,7 +1084,18 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
 
       case WS_METHODS.terminalOpen: {
         const body = stripRequestTag(request.body);
-        return yield* terminalManager.open(body);
+        const snapshot = yield* projectionReadModelQuery.getSnapshot();
+        const runtimeEnv = yield* resolveRuntimeEnvironment({
+          projectId:
+            snapshot.threads.find(
+              (thread) => thread.id === body.threadId && thread.deletedAt === null,
+            )?.projectId ?? null,
+          extraEnv: body.env,
+        });
+        return yield* terminalManager.open({
+          ...body,
+          env: runtimeEnv,
+        });
       }
 
       case WS_METHODS.terminalWrite: {
@@ -1100,7 +1115,18 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
 
       case WS_METHODS.terminalRestart: {
         const body = stripRequestTag(request.body);
-        return yield* terminalManager.restart(body);
+        const snapshot = yield* projectionReadModelQuery.getSnapshot();
+        const runtimeEnv = yield* resolveRuntimeEnvironment({
+          projectId:
+            snapshot.threads.find(
+              (thread) => thread.id === body.threadId && thread.deletedAt === null,
+            )?.projectId ?? null,
+          extraEnv: body.env,
+        });
+        return yield* terminalManager.restart({
+          ...body,
+          env: runtimeEnv,
+        });
       }
 
       case WS_METHODS.terminalClose: {
@@ -1123,6 +1149,24 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
         const body = stripRequestTag(request.body);
         const keybindingsConfig = yield* keybindingsManager.upsertKeybindingRule(body);
         return { keybindings: keybindingsConfig, issues: [] };
+      }
+
+      case WS_METHODS.serverGetGlobalEnvironmentVariables:
+        return yield* environmentVariables.getGlobal();
+
+      case WS_METHODS.serverSaveGlobalEnvironmentVariables: {
+        const body = stripRequestTag(request.body);
+        return yield* environmentVariables.saveGlobal(body);
+      }
+
+      case WS_METHODS.serverGetProjectEnvironmentVariables: {
+        const body = stripRequestTag(request.body);
+        return yield* environmentVariables.getProject(body);
+      }
+
+      case WS_METHODS.serverSaveProjectEnvironmentVariables: {
+        const body = stripRequestTag(request.body);
+        return yield* environmentVariables.saveProject(body);
       }
 
       case WS_METHODS.serverPickFolder: {
@@ -1156,6 +1200,10 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
         code: "git_action_failed",
         data: squashed.failure,
       };
+    }
+
+    if (squashed instanceof Error) {
+      return { message: squashed.message };
     }
 
     return { message: Cause.pretty(cause) };

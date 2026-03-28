@@ -13,13 +13,18 @@ const UPDATE_STATE_CHANNEL = "desktop:update-state";
 const UPDATE_GET_STATE_CHANNEL = "desktop:update-get-state";
 const UPDATE_DOWNLOAD_CHANNEL = "desktop:update-download";
 const UPDATE_INSTALL_CHANNEL = "desktop:update-install";
-const PREVIEW_OPEN_CHANNEL = "desktop:preview-open";
-const PREVIEW_CLOSE_CHANNEL = "desktop:preview-close";
+const PREVIEW_CREATE_TAB_CHANNEL = "desktop:preview-create-tab";
+const PREVIEW_CLOSE_TAB_CHANNEL = "desktop:preview-close-tab";
+const PREVIEW_ACTIVATE_TAB_CHANNEL = "desktop:preview-activate-tab";
+const PREVIEW_GO_BACK_CHANNEL = "desktop:preview-go-back";
+const PREVIEW_GO_FORWARD_CHANNEL = "desktop:preview-go-forward";
 const PREVIEW_RELOAD_CHANNEL = "desktop:preview-reload";
 const PREVIEW_NAVIGATE_CHANNEL = "desktop:preview-navigate";
+const PREVIEW_TOGGLE_DEVTOOLS_CHANNEL = "desktop:preview-toggle-devtools";
 const PREVIEW_GET_STATE_CHANNEL = "desktop:preview-get-state";
 const PREVIEW_SET_BOUNDS_CHANNEL = "desktop:preview-set-bounds";
-const PREVIEW_STATE_CHANNEL = "desktop:preview-state";
+const PREVIEW_CLOSE_ALL_CHANNEL = "desktop:preview-close-all";
+const PREVIEW_TABS_STATE_CHANNEL = "desktop:preview-tabs-state";
 const wsUrl = process.env.OKCODE_DESKTOP_WS_URL ?? null;
 
 contextBridge.exposeInMainWorld("desktopBridge", {
@@ -57,21 +62,26 @@ contextBridge.exposeInMainWorld("desktopBridge", {
     };
   },
   preview: {
-    open: (input) => ipcRenderer.invoke(PREVIEW_OPEN_CHANNEL, input),
-    close: () => ipcRenderer.invoke(PREVIEW_CLOSE_CHANNEL),
+    createTab: (input) => ipcRenderer.invoke(PREVIEW_CREATE_TAB_CHANNEL, input),
+    closeTab: (input) => ipcRenderer.invoke(PREVIEW_CLOSE_TAB_CHANNEL, input),
+    activateTab: (input) => ipcRenderer.invoke(PREVIEW_ACTIVATE_TAB_CHANNEL, input),
+    goBack: () => ipcRenderer.invoke(PREVIEW_GO_BACK_CHANNEL),
+    goForward: () => ipcRenderer.invoke(PREVIEW_GO_FORWARD_CHANNEL),
     reload: () => ipcRenderer.invoke(PREVIEW_RELOAD_CHANNEL),
     navigate: (input) => ipcRenderer.invoke(PREVIEW_NAVIGATE_CHANNEL, input),
-    getState: () => ipcRenderer.invoke(PREVIEW_GET_STATE_CHANNEL),
+    toggleDevTools: () => ipcRenderer.invoke(PREVIEW_TOGGLE_DEVTOOLS_CHANNEL),
     setBounds: (bounds) => ipcRenderer.invoke(PREVIEW_SET_BOUNDS_CHANNEL, bounds),
+    closeAll: () => ipcRenderer.invoke(PREVIEW_CLOSE_ALL_CHANNEL),
+    getState: () => ipcRenderer.invoke(PREVIEW_GET_STATE_CHANNEL),
     onState: (listener) => {
       const wrappedListener = (_event: Electron.IpcRendererEvent, state: unknown) => {
         if (typeof state !== "object" || state === null) return;
         listener(state as Parameters<typeof listener>[0]);
       };
 
-      ipcRenderer.on(PREVIEW_STATE_CHANNEL, wrappedListener);
+      ipcRenderer.on(PREVIEW_TABS_STATE_CHANNEL, wrappedListener);
       return () => {
-        ipcRenderer.removeListener(PREVIEW_STATE_CHANNEL, wrappedListener);
+        ipcRenderer.removeListener(PREVIEW_TABS_STATE_CHANNEL, wrappedListener);
       };
     },
   },

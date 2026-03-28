@@ -5,7 +5,7 @@ A minimal web GUI for coding agents. Currently supports Codex and Claude, with m
 ## Quick Start
 
 ```bash
-npx okcode
+npx okcodes
 ```
 
 This starts the OK Code server and opens your browser. The app automatically detects which providers you have installed.
@@ -44,7 +44,7 @@ If using a custom model provider (Azure OpenAI, Portkey, etc.), configure `model
 Run the built-in diagnostic to check your setup:
 
 ```bash
-npx okcode doctor
+npx okcodes doctor
 ```
 
 If OK Code shows a provider error banner after launch:
@@ -116,7 +116,7 @@ The server spawns `codex app-server` as a child process, communicating over JSON
 
 | Package             | Path                 | Role                                                                                                                                                                                          |
 | ------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `okcode`            | `apps/server`        | Node.js CLI and WebSocket server. Wraps Codex app-server, serves the React web app, and manages provider sessions.                                                                            |
+| `okcodes`           | `apps/server`        | Node.js CLI and WebSocket server. Wraps Codex app-server, serves the React web app, and manages provider sessions.                                                                            |
 | `@okcode/web`       | `apps/web`           | React 19 + Vite SPA. Session UX, conversation rendering, and client-side state via Zustand. Connects to the server over WebSocket.                                                            |
 | `@okcode/desktop`   | `apps/desktop`       | Electron shell that bundles the server and web app into a native desktop application with auto-updates.                                                                                       |
 | `@okcode/marketing` | `apps/marketing`     | Astro marketing site.                                                                                                                                                                         |

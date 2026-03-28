@@ -1,0 +1,4 @@
+# Publish contents are defined by package.json "files" (dist/).
+# This file exists so npm does not fall back to the repository .gitignore.
+
+node_modules/

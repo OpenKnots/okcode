@@ -18,5 +18,5 @@ bun run start
 bun run dist:desktop:dmg
 
 # Or from any project directory after publishing:
-npx okcode
+npx okcodes
 ```

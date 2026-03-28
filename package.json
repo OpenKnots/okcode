@@ -1,5 +1,6 @@
 {
   "name": "@okcode/monorepo",
+  "version": "0.0.0",
   "private": true,
   "workspaces": {
     "packages": [
@@ -27,12 +28,12 @@
     "dev:web": "node scripts/dev-runner.ts dev:web",
     "dev:marketing": "turbo run dev --filter=@okcode/marketing",
     "dev:desktop": "node scripts/dev-runner.ts dev:desktop",
-    "start": "turbo run start --filter=okcode",
+    "start": "turbo run start --filter=okcodes",
     "start:desktop": "turbo run start --filter=@okcode/desktop",
     "start:marketing": "turbo run preview --filter=@okcode/marketing",
     "build": "turbo run build",
     "build:marketing": "turbo run build --filter=@okcode/marketing",
-    "build:desktop": "turbo run build --filter=@okcode/desktop --filter=okcode",
+    "build:desktop": "turbo run build --filter=@okcode/desktop --filter=okcodes",
     "typecheck": "turbo run typecheck",
     "lint": "oxlint --report-unused-disable-directives",
     "test": "turbo run test",

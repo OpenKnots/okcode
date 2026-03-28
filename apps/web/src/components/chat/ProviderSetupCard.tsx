@@ -146,7 +146,7 @@ export const ProviderSetupCard = memo(function ProviderSetupCard({
       </div>
 
       <p className="text-center text-xs text-muted-foreground/60">
-        Run <Code>npx okcode doctor</Code> to diagnose setup issues from the terminal.
+        Run <Code>npx okcodes doctor</Code> to diagnose setup issues from the terminal.
       </p>
     </div>
   );

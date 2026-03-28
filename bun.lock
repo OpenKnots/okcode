@@ -44,7 +44,7 @@
       },
     },
     "apps/server": {
-      "name": "okcode",
+      "name": "okcodes",
       "version": "0.0.1",
       "bin": {
         "okcode": "./dist/index.mjs",
@@ -1578,7 +1578,7 @@
 
     "ohash": ["ohash@2.0.11", "", {}, "sha512-RdR9FQrFwNBNXAr4GixM8YaRZRJ5PUWbKYbE5eOsrwAjJW0q2REGcf79oYPsLyskQCZG1PLN+S/K1V00joZAoQ=="],
 
-    "okcode": ["okcode@workspace:apps/server"],
+    "okcodes": ["okcodes@workspace:apps/server"],
 
     "once": ["once@1.4.0", "", { "dependencies": { "wrappy": "1" } }, "sha512-lNaJgI+2Q5URQBkccEKHTQOPaXdUxnZZElQTZY0MFUAuaEqe1E+Nyvgdz/aIyNi6Z9MzO5dv1H8n58/GELp3+w=="],
 

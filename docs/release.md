@@ -27,7 +27,7 @@ Canonical release process documentation for the OK Code project.
 A release of OK Code produces:
 
 - **Desktop installers** for macOS (arm64 + x64 DMG), Linux (x64 AppImage), and Windows (x64 NSIS).
-- **CLI npm package** (`okcode`) published to the npm registry.
+- **CLI npm package** (`okcodes`) published to the npm registry.
 - **GitHub Release** with all installer binaries, Electron updater metadata, and documentation attachments.
 - **Post-release version bump** committed to `main` by a GitHub App bot.
 
@@ -81,11 +81,11 @@ Setup:
 
 #### npm publishing (CLI)
 
-| Secret      | Description                                                              |
-| ----------- | ------------------------------------------------------------------------ |
-| `NPM_TOKEN` | npm access token for publishing the `okcode` package (if not using OIDC) |
+| Secret      | Description                                                                                                     |
+| ----------- | --------------------------------------------------------------------------------------------------------------- |
+| `NPM_TOKEN` | npm access token for publishing `okcodes` (if not using OIDC); passed as `NODE_AUTH_TOKEN` during `npm publish` |
 
-For OIDC trusted publishing, configure the npm package settings:
+For OIDC trusted publishing, configure the npm package settings for **`okcodes`** (create the unscoped package on npm if it does not exist yet):
 
 1. Provider: GitHub Actions.
 2. Repository: `OpenKnots/okcode`.
@@ -113,7 +113,7 @@ These are installed automatically in CI via `oven-sh/setup-bun` and `actions/set
 ### Permissions needed
 
 - **GitHub:** Write access to the repository (for tagging and releases).
-- **npm:** Publish rights on the `okcode` package.
+- **npm:** Publish rights on the `okcodes` package.
 - **Apple Developer:** Team membership with Developer ID Application certificate rights.
 - **Azure:** Service principal with Azure Trusted Signing permissions.
 
@@ -206,7 +206,7 @@ One-sentence description of what this release delivers.
 
 ## Upgrade and install
 
-- **CLI:** `npm install -g okcode@X.Y.Z`
+- **CLI:** `npm install -g okcodes@X.Y.Z`
 - **Desktop:** Download from [GitHub Releases](https://github.com/OpenKnots/okcode/releases/tag/vX.Y.Z).
 
 ## Known limitations
@@ -317,8 +317,8 @@ The release workflow (`.github/workflows/release.yml`) runs six jobs:
 - **Runner:** `ubuntu-24.04`
 - **Depends on:** Preflight, Build.
 - Aligns package versions to the release version.
-- Builds `@okcode/web` and `okcode` packages.
-- Publishes the `okcode` CLI to npm with `--tag latest` via `apps/server/scripts/cli.ts publish`.
+- Builds `@okcode/web` and `okcodes` packages.
+- Publishes the `okcodes` CLI to npm with `--tag latest` via `apps/server/scripts/cli.ts publish`.
 
 ### 5. Release
 
@@ -388,9 +388,9 @@ After a successful full-matrix release, the GitHub Release contains:
 
 ### npm package
 
-| Package  | Registry | Install command               |
-| -------- | -------- | ----------------------------- |
-| `okcode` | npm      | `npm install -g okcode@X.Y.Z` |
+| Package   | Registry | Install command                |
+| --------- | -------- | ------------------------------ |
+| `okcodes` | npm      | `npm install -g okcodes@X.Y.Z` |
 
 ---
 
@@ -402,8 +402,8 @@ After the pipeline completes:
 - [ ] **All expected assets** are attached (check against the inventory above).
 - [ ] **Prerelease flag** is correct (set for `-beta.N`, `-rc.N`, etc.; unset for stable).
 - [ ] **"Latest" badge** points to this release (stable releases only).
-- [ ] **npm package** is published: run `npm info okcode@X.Y.Z`.
-- [ ] **CLI works:** run `npx okcode@X.Y.Z --version` and confirm the expected version.
+- [ ] **npm package** is published: run `npm info okcodes@X.Y.Z`.
+- [ ] **CLI works:** run `npx okcodes@X.Y.Z --version` and confirm the expected version.
 - [ ] **Version bump commit** landed on `main`: look for `chore(release): prepare vX.Y.Z` in `git log origin/main`.
 - [ ] **macOS DMG (arm64):** Download, mount, drag to Applications, launch. Verify the app opens without Gatekeeper warnings (if signed).
 - [ ] **macOS DMG (x64):** Same verification on an Intel Mac or under Rosetta.
@@ -512,11 +512,12 @@ gh workflow run release.yml -f version=1.2.1 -f mac_arm64_only=true
 
 ### npm publish failures
 
-| Symptom                                                     | Likely cause                                    | Fix                                                                  |
-| ----------------------------------------------------------- | ----------------------------------------------- | -------------------------------------------------------------------- |
-| 401 or 403 from npm                                         | Token expired, missing, or lacks publish rights | Regenerate `NPM_TOKEN` or reconfigure OIDC trusted publishing        |
-| "You cannot publish over the previously published versions" | Version already exists on npm                   | This version was already published; bump the version if re-releasing |
-| Package contents missing web assets                         | Build step did not complete                     | Check the `publish_cli` job logs for build errors                    |
+| Symptom                                                     | Likely cause                                                         | Fix                                                                                       |
+| ----------------------------------------------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| 404 Not Found on `PUT` to the registry                      | Wrong package name, no publish rights, or package not created on npm | Ensure the package name is `okcodes`, the token can publish it, and the name is available |
+| 401 or 403 from npm                                         | Token expired, missing, or lacks publish rights                      | Regenerate `NPM_TOKEN` or reconfigure OIDC trusted publishing                             |
+| "You cannot publish over the previously published versions" | Version already exists on npm                                        | This version was already published; bump the version if re-releasing                      |
+| Package contents missing web assets                         | Build step did not complete                                          | Check the `publish_cli` job logs for build errors                                         |
 
 ### Missing release documentation
 

@@ -47,7 +47,7 @@ import {
 } from "../appSettings";
 import { isElectron } from "../env";
 import { APP_STAGE_LABEL, APP_VERSION } from "../branding";
-import { isLinuxPlatform, isMacPlatform, newCommandId, newProjectId } from "../lib/utils";
+import { cn, isLinuxPlatform, isMacPlatform, newCommandId, newProjectId } from "../lib/utils";
 import { useStore } from "../store";
 import { shortcutLabelForCommand } from "../keybindings";
 import { derivePendingApprovals, derivePendingUserInputs } from "../session-logic";
@@ -402,6 +402,7 @@ export default function Sidebar() {
   const [expandedThreadListsByProject, setExpandedThreadListsByProject] = useState<
     ReadonlySet<ProjectId>
   >(() => new Set());
+  const [filesExpanded, setFilesExpanded] = useState(true);
   const renamingCommittedRef = useRef(false);
   const renamingInputRef = useRef<HTMLInputElement | null>(null);
   const dragInProgressRef = useRef(false);
@@ -1409,11 +1410,23 @@ export default function Sidebar() {
 
           {project.expanded && activeProjectThread ? (
             <div className="mx-2 mt-2 border-sidebar-border/50 border-t pt-2">
-              <div className="mb-1.5 flex items-center gap-1.5 px-2 text-[10px] uppercase tracking-[0.14em] text-muted-foreground/58">
+              <button
+                type="button"
+                className="mb-1.5 flex w-full items-center gap-1.5 px-2 text-[10px] uppercase tracking-[0.14em] text-muted-foreground/58 hover:text-muted-foreground/80"
+                onClick={() => setFilesExpanded((prev) => !prev)}
+              >
+                <ChevronRightIcon
+                  className={cn(
+                    "size-3 shrink-0 transition-transform",
+                    filesExpanded && "rotate-90",
+                  )}
+                />
                 <FolderIcon className="size-3 shrink-0" />
                 <span>Files</span>
-              </div>
-              <WorkspaceFileTree cwd={activeWorkspaceCwd} resolvedTheme={resolvedTheme} />
+              </button>
+              {filesExpanded && (
+                <WorkspaceFileTree cwd={activeWorkspaceCwd} resolvedTheme={resolvedTheme} />
+              )}
             </div>
           ) : null}
         </CollapsibleContent>

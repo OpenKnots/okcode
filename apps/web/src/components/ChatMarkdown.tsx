@@ -16,13 +16,16 @@ import React, {
 import type { Components } from "react-markdown";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { openInPreferredEditor } from "../editorPreferences";
+import { useAppSettings } from "../appSettings";
+import { useCodeViewerStore } from "../codeViewerStore";
+import { openFileReference } from "../fileOpen";
 import { resolveDiffThemeName, type DiffThemeName } from "../lib/diffRendering";
 import { fnv1a32 } from "../lib/diffRendering";
 import { LRUCache } from "../lib/lruCache";
 import { useTheme } from "../hooks/useTheme";
 import { resolveMarkdownFileLinkTarget } from "../markdown-links";
 import { readNativeApi } from "../nativeApi";
+import { toastManager } from "./ui/toast";
 
 class CodeHighlightErrorBoundary extends React.Component<
   { fallback: ReactNode; children: ReactNode },
@@ -236,8 +239,11 @@ function SuspenseShikiCodeBlock({
 }
 
 function ChatMarkdown({ text, cwd, isStreaming = false }: ChatMarkdownProps) {
+  const { settings } = useAppSettings();
+  const openFileInViewer = useCodeViewerStore((state) => state.openFile);
   const { resolvedTheme } = useTheme();
   const diffThemeName = resolveDiffThemeName(resolvedTheme);
+  const openLinksExternally = settings.openLinksExternally;
   const markdownComponents = useMemo<Components>(
     () => ({
       a({ node: _node, href, ...props }) {
@@ -255,9 +261,21 @@ function ChatMarkdown({ text, cwd, isStreaming = false }: ChatMarkdownProps) {
               event.stopPropagation();
               const api = readNativeApi();
               if (api) {
-                void openInPreferredEditor(api, targetPath);
+                void openFileReference({
+                  api,
+                  cwd,
+                  targetPath,
+                  preferExternal: openLinksExternally,
+                  openInViewer: openFileInViewer,
+                }).catch((error) => {
+                  toastManager.add({
+                    type: "error",
+                    title: "Unable to open file",
+                    description: error instanceof Error ? error.message : "An error occurred.",
+                  });
+                });
               } else {
-                console.warn("Native API not found. Unable to open file in editor.");
+                console.warn("Native API not found. Unable to open file.");
               }
             }}
           />
@@ -285,7 +303,7 @@ function ChatMarkdown({ text, cwd, isStreaming = false }: ChatMarkdownProps) {
         );
       },
     }),
-    [cwd, diffThemeName, isStreaming],
+    [cwd, diffThemeName, isStreaming, openFileInViewer, openLinksExternally],
   );
 
   return (

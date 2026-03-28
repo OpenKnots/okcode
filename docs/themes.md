@@ -41,15 +41,15 @@ The goal is to avoid generic editor skins and instead build themes that feel lik
 
 ---
 
-### 3. Deep Sea Terminal
+### 3. Cursor Dark
 
-**Vibe:** submerged, dreamy, calm  
-**Palette:** abyss navy, blue-black, bioluminescent aqua, jellyfish pink, sea-glass mint
+**Vibe:** sleek, focused, professional
+**Palette:** charcoal, dark gray, cool indigo, soft blue, muted white
 
-- Soft glows instead of sharp neon
-- UI should feel deep and atmospheric rather than flashy
-- Good candidate for a lower-stress, long-session theme
-- Could make terminal feel phosphorescent
+- Clean and minimal dark workspace aesthetic
+- Familiar and comfortable for long coding sessions
+- Professional without being sterile
+- Strong candidate for a productivity-first theme
 
 ---
 
@@ -76,18 +76,7 @@ The goal is to avoid generic editor skins and instead build themes that feel lik
 
 ---
 
-### 6. Neon Bento
-
-**Vibe:** cute, modern, surprisingly usable  
-**Palette:** soft charcoal, melon, lavender, sky blue, peach
-
-- Rounded, color-blocked, friendly
-- Feels more playful than most coding tools without losing polish
-- Good if OK Code wants a theme that is joyful, not just dark and serious
-
----
-
-### 7. Moonlit Library
+### 6. Moonlit Library
 
 **Vibe:** scholarly, mysterious, elegant  
 **Palette:** charcoal, indigo-black, dusty gold, muted teal
@@ -98,7 +87,7 @@ The goal is to avoid generic editor skins and instead build themes that feel lik
 
 ---
 
-### 8. Glass Jungle
+### 7. Glass Jungle
 
 **Vibe:** organic sci-fi  
 **Palette:** rainforest green, wet stone, orchid purple, mist gray
@@ -109,7 +98,7 @@ The goal is to avoid generic editor skins and instead build themes that feel lik
 
 ---
 
-### 9. Candy Reactor
+### 8. Candy Reactor
 
 **Vibe:** chaotic good, joyful, bold  
 **Palette:** black, hot pink, tangerine, lemon, mint
@@ -120,7 +109,7 @@ The goal is to avoid generic editor skins and instead build themes that feel lik
 
 ---
 
-### 10. Arctic Signal
+### 9. Arctic Signal
 
 **Vibe:** crisp, focused, northern  
 **Palette:** icy slate, polar blue, snow glow, aurora green
@@ -131,7 +120,7 @@ The goal is to avoid generic editor skins and instead build themes that feel lik
 
 ---
 
-### 11. Cathedral Circuit
+### 10. Cathedral Circuit
 
 **Vibe:** sacred machine, techno-gothic  
 **Palette:** graphite, sapphire, ruby, emerald, dim gold
@@ -142,7 +131,7 @@ The goal is to avoid generic editor skins and instead build themes that feel lik
 
 ---
 
-### 12. Desert Mirage
+### 11. Desert Mirage
 
 **Vibe:** cinematic, unusual, warm  
 **Palette:** dark bronze-brown, sand, cactus green, sunset coral, twilight violet
@@ -159,10 +148,8 @@ If narrowing to a stronger first shortlist, these feel the most distinctive:
 
 - **Iridescent Void**
 - **Solar Witch**
-- **Deep Sea Terminal**
+- **Cursor Dark**
 - **Cathedral Circuit**
-- **Neon Bento**
-
 These avoid the “just another editor theme” problem best.
 
 ---
@@ -177,14 +164,13 @@ These avoid the “just another editor theme” problem best.
 
 ### Playful / expressive
 
-- Neon Bento
 - Candy Reactor
 - Velvet Casino
 
 ### Atmospheric / weird
 
 - Solar Witch
-- Deep Sea Terminal
+- Cursor Dark
 - Cathedral Circuit
 
 ---
@@ -238,7 +224,7 @@ The strongest candidates to develop first:
 
 1. **Iridescent Void**
 2. **Solar Witch**
-3. **Deep Sea Terminal**
+3. **Cursor Dark**
 
 These feel like the best combination of distinctiveness, beauty, and long-session usability.
 

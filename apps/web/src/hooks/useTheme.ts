@@ -5,9 +5,8 @@ type ColorTheme =
   | "default"
   | "iridescent-void"
   | "solar-witch"
-  | "deep-sea-terminal"
-  | "cathedral-circuit"
-  | "neon-bento";
+  | "cursor-dark"
+  | "cathedral-circuit";
 
 type ThemeSnapshot = {
   theme: Theme;
@@ -19,9 +18,8 @@ export const COLOR_THEMES: { id: ColorTheme; label: string }[] = [
   { id: "default", label: "Default" },
   { id: "iridescent-void", label: "Iridescent Void" },
   { id: "solar-witch", label: "Solar Witch" },
-  { id: "deep-sea-terminal", label: "Deep Sea Terminal" },
+  { id: "cursor-dark", label: "Cursor Dark" },
   { id: "cathedral-circuit", label: "Cathedral Circuit" },
-  { id: "neon-bento", label: "Neon Bento" },
 ];
 
 const STORAGE_KEY = "okcode:theme";
@@ -51,9 +49,8 @@ function getStoredColorTheme(): ColorTheme {
     raw === "default" ||
     raw === "iridescent-void" ||
     raw === "solar-witch" ||
-    raw === "deep-sea-terminal" ||
-    raw === "cathedral-circuit" ||
-    raw === "neon-bento"
+    raw === "cursor-dark" ||
+    raw === "cathedral-circuit"
   ) {
     return raw;
   }

@@ -1,5 +1,6 @@
 import { Schema } from "effect";
 import { TrimmedNonEmptyString } from "./baseSchemas";
+import { RuntimeEnvironmentVariables } from "./environment";
 
 export const DEFAULT_TERMINAL_ID = "default";
 
@@ -11,13 +12,6 @@ const TerminalRowsSchema = Schema.Int.check(Schema.isGreaterThanOrEqualTo(5)).ch
   Schema.isLessThanOrEqualTo(200),
 );
 const TerminalIdSchema = TrimmedNonEmptyStringSchema.check(Schema.isMaxLength(128));
-const TerminalEnvKeySchema = Schema.String.check(
-  Schema.isPattern(/^[A-Za-z_][A-Za-z0-9_]*$/),
-).check(Schema.isMaxLength(128));
-const TerminalEnvValueSchema = Schema.String.check(Schema.isMaxLength(8_192));
-const TerminalEnvSchema = Schema.Record(TerminalEnvKeySchema, TerminalEnvValueSchema).check(
-  Schema.isMaxProperties(128),
-);
 
 const TerminalIdWithDefaultSchema = TerminalIdSchema.pipe(
   Schema.withDecodingDefault(() => DEFAULT_TERMINAL_ID),
@@ -39,7 +33,7 @@ export const TerminalOpenInput = Schema.Struct({
   cwd: TrimmedNonEmptyStringSchema,
   cols: Schema.optional(TerminalColsSchema),
   rows: Schema.optional(TerminalRowsSchema),
-  env: Schema.optional(TerminalEnvSchema),
+  env: Schema.optional(RuntimeEnvironmentVariables),
 });
 export type TerminalOpenInput = Schema.Codec.Encoded<typeof TerminalOpenInput>;
 
@@ -64,7 +58,7 @@ export const TerminalRestartInput = Schema.Struct({
   cwd: TrimmedNonEmptyStringSchema,
   cols: TerminalColsSchema,
   rows: TerminalRowsSchema,
-  env: Schema.optional(TerminalEnvSchema),
+  env: Schema.optional(RuntimeEnvironmentVariables),
 });
 export type TerminalRestartInput = Schema.Codec.Encoded<typeof TerminalRestartInput>;
 

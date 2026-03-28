@@ -1,5 +1,13 @@
 ---
 import Layout from "../layouts/Layout.astro";
+import Hero from "../components/Hero.astro";
+import TrustStrip from "../components/TrustStrip.astro";
+import FeatureGrid from "../components/FeatureGrid.astro";
+import WorkflowSection from "../components/WorkflowSection.astro";
+import CoreSurfaces from "../components/CoreSurfaces.astro";
+import ThemeShowcase from "../components/ThemeShowcase.astro";
+import FaqSection from "../components/FaqSection.astro";
+import FinalCta from "../components/FinalCta.astro";
 
 const description =
   "OK Code is the premium dark workspace for AI coding flows — persistent threads, diffs, preview, PR review, and release actions in one calm desktop + web product.";
@@ -124,15 +132,15 @@ const themes = [
     accent: "#fbbf24",
   },
   {
-    id: "cursor-dark",
-    label: "Cursor Dark",
-    vibe: "Sleek, focused, professional",
+    id: "deep-sea-terminal",
+    label: "Deep Sea Terminal",
+    vibe: "Calm, submerged, low-stress",
     body:
-      "Refined charcoal with cool indigo accents for builders who want a polished, distraction-free workspace that stays sharp through long sessions.",
+      "Abyss navy with bioluminescent aqua and sea-glass mint for builders who want long sessions to feel quiet and breathable.",
     gradient:
-      "linear-gradient(135deg, rgba(107,158,255,0.2), rgba(90,90,180,0.18) 50%, rgba(60,60,140,0.22))",
-    border: "rgba(107, 158, 255, 0.3)",
-    accent: "#6b9eff",
+      "linear-gradient(135deg, rgba(34,211,238,0.18), rgba(59,130,246,0.2) 50%, rgba(45,212,191,0.24))",
+    border: "rgba(94, 234, 212, 0.3)",
+    accent: "#5eead4",
   },
 ] as const;
 
@@ -161,306 +169,14 @@ const faqs = [
 ---
 
 <Layout title="OK Code" {description}>
-  <section class="hero">
-    <div class="hero-copy">
-      <div class="eyebrow">
-        <span class="eyebrow-dot" aria-hidden="true"></span>
-        AI-native code workspace
-      </div>
-
-      <h1 class="tagline">The beautiful workspace for shipping with AI.</h1>
-
-      <p class="subtagline">
-        Chat, diffs, preview, PR review, and release actions in one glassy desktop + web
-        workspace — so you can stay in flow instead of juggling tabs, terminals, and disposable
-        prompts.
-      </p>
-
-      <div class="hero-actions">
-        <a id="download-btn" href="https://github.com/OpenKnots/okcode/releases" class="hero-button">
-          <span class="hero-button-shine" aria-hidden="true"></span>
-          <span id="download-label">Download OK Code</span>
-        </a>
-
-        <a
-          href="https://github.com/OpenKnots/okcode"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="secondary-button"
-        >
-          View on GitHub
-        </a>
-      </div>
-
-      <div class="hero-meta">
-        <a href="/download" class="other-platforms">Other platforms</a>
-        <div class="hero-pills" aria-label="Product highlights">
-          <span>Desktop + web</span>
-          <span>Persistent threads</span>
-          <span>Built-in diffs</span>
-          <span>Local preview</span>
-          <span>Open source</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="hero-visual" aria-hidden="true">
-      <div class="hero-glow hero-glow--violet"></div>
-      <div class="hero-glow hero-glow--cyan"></div>
-
-      <div class="orb orb--one"></div>
-      <div class="orb orb--two"></div>
-
-      <div class="glass-stage">
-        <div class="glass-toolbar">
-          <div class="traffic-lights"><span></span><span></span><span></span></div>
-          <div class="glass-label">OK Code</div>
-          <div class="glass-badge">Live workspace</div>
-        </div>
-
-        <div class="glass-body">
-          <aside class="rail rail--sidebar">
-            <div class="rail-title"></div>
-            <div class="rail-chip rail-chip--active"></div>
-            <div class="rail-chip"></div>
-            <div class="rail-chip"></div>
-            <div class="rail-chip rail-chip--short"></div>
-          </aside>
-
-          <section class="center-stack">
-            <div class="panel panel--thread">
-              <div class="panel-head">
-                <span class="panel-kicker">Thread</span>
-                <span class="panel-status">Agent warm</span>
-              </div>
-              <div class="message message--large"></div>
-              <div class="message"></div>
-              <div class="message message--short"></div>
-            </div>
-
-            <div class="panel-row">
-              <div class="panel panel--diff">
-                <div class="panel-head">
-                  <span class="panel-kicker">Latest diff</span>
-                </div>
-                <div class="code-line code-line--add"></div>
-                <div class="code-line"></div>
-                <div class="code-line code-line--remove"></div>
-                <div class="code-line code-line--short"></div>
-              </div>
-
-              <div class="panel panel--preview">
-                <div class="panel-head">
-                  <span class="panel-kicker">Preview</span>
-                </div>
-                <div class="preview-window">
-                  <div class="preview-nav"></div>
-                  <div class="preview-card"></div>
-                  <div class="preview-line"></div>
-                  <div class="preview-line preview-line--short"></div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <aside class="rail rail--meta">
-            <div class="meta-card">
-              <span class="meta-label">Review ready</span>
-              <strong>3 files changed</strong>
-            </div>
-            <div class="meta-card">
-              <span class="meta-label">Project action</span>
-              <strong>Release flow saved</strong>
-            </div>
-            <div class="meta-card">
-              <span class="meta-label">Mode</span>
-              <strong>Calm dark glass</strong>
-            </div>
-          </aside>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section class="trust-strip" aria-label="Why teams use OK Code">
-    <div class="trust-item">
-      <span class="trust-label">Made for builders</span>
-      <strong>Designed around real AI coding workflows</strong>
-    </div>
-    <div class="trust-item">
-      <span class="trust-label">Calm by default</span>
-      <strong>Less context switching, more legible work</strong>
-    </div>
-    <div class="trust-item">
-      <span class="trust-label">Close to the metal</span>
-      <strong>Open source, desktop-aware, release-friendly</strong>
-    </div>
-  </section>
-
-  <section class="feature-grid" aria-label="Core product pillars">
-    {pillars.map((pillar) => (
-      <article class="feature-card">
-        <div class="feature-eyebrow">{pillar.eyebrow}</div>
-        <h2>{pillar.title}</h2>
-        <p>{pillar.body}</p>
-      </article>
-    ))}
-  </section>
-
-  <section class="workflow-section" aria-label="Workflow overview">
-    <div class="section-heading">
-      <p class="section-kicker">Workflow</p>
-      <h2 class="section-title">From prompt to shipped change.</h2>
-      <p class="section-body">
-        OK Code keeps the whole loop visible: start the work, inspect the change, verify it,
-        and move toward release without blowing up your focus.
-      </p>
-    </div>
-
-    <div class="workflow-grid">
-      {workflowSteps.map((item) => (
-        <article class="workflow-card">
-          <span class="workflow-step">{item.step}</span>
-          <h3>{item.title}</h3>
-          <p>{item.body}</p>
-        </article>
-      ))}
-    </div>
-  </section>
-
-  <section class="spotlight" data-tab-group data-tab-default="threads">
-    <div class="spotlight-copy">
-      <p class="section-kicker">Core surfaces</p>
-      <h2 class="section-title">Built for the way real AI coding sessions actually unfold.</h2>
-      <p class="section-body">
-        Explore the surfaces that make OK Code feel coherent: thinking, reviewing, previewing,
-        and shipping without the usual tab chaos.
-      </p>
-      <div class="spotlight-nav" role="tablist" aria-label="Feature spotlight tabs">
-        {surfaces.map((item) => (
-          <button
-            type="button"
-            class="spotlight-item"
-            data-tab-button
-            data-tab-target={item.id}
-            role="tab"
-            aria-selected={item.id === "threads" ? "true" : "false"}
-          >
-            <span class="spotlight-item-label">{item.label}</span>
-            <span class="spotlight-item-meta">{item.kicker}</span>
-          </button>
-        ))}
-      </div>
-    </div>
-
-    <div class="spotlight-panels">
-      {surfaces.map((item) => (
-        <article class="spotlight-panel" data-tab-panel={item.id} hidden={item.id === "threads" ? undefined : true}>
-          <p class="section-kicker">{item.kicker}</p>
-          <h3>{item.title}</h3>
-          <p>{item.body}</p>
-          <ul class="detail-bullets">
-            {item.bullets.map((bullet) => (
-              <li>{bullet}</li>
-            ))}
-          </ul>
-        </article>
-      ))}
-    </div>
-  </section>
-
-  <section class="theme-section" data-tab-group data-tab-default="iridescent-void">
-    <div class="theme-copy">
-      <p class="section-kicker">Visual identity</p>
-      <h2 class="section-title">A workspace with actual visual taste.</h2>
-      <p class="section-body">
-        Designed to feel calm, sharp, and expensive: true blacks, soft glass, restrained color,
-        and enough personality to make long sessions feel better.
-      </p>
-      <div class="tab-row" role="tablist" aria-label="Theme preview tabs">
-        {themes.map((theme) => (
-          <button
-            type="button"
-            class="tab-chip"
-            data-tab-button
-            data-tab-target={theme.id}
-            role="tab"
-            aria-selected={theme.id === "iridescent-void" ? "true" : "false"}
-          >
-            {theme.label}
-          </button>
-        ))}
-      </div>
-    </div>
-
-    <div class="theme-preview-wrap">
-      {themes.map((theme) => (
-        <div class="theme-preview" data-tab-panel={theme.id} hidden={theme.id === "iridescent-void" ? undefined : true}>
-          <div
-            class="theme-preview-card"
-            style={`--theme-gradient:${theme.gradient}; --theme-border:${theme.border}; --theme-accent:${theme.accent};`}
-          >
-            <div class="theme-preview-bar">
-              <span></span><span></span><span></span>
-            </div>
-            <div class="theme-preview-body">
-              <div class="theme-preview-sidebar"></div>
-              <div class="theme-preview-main">
-                <div class="theme-preview-line theme-preview-line--short"></div>
-                <div class="theme-preview-line"></div>
-                <div class="theme-preview-line theme-preview-line--accent"></div>
-                <div class="theme-preview-line theme-preview-line--medium"></div>
-              </div>
-            </div>
-          </div>
-          <div class="theme-note">
-            <h3>{theme.label}</h3>
-            <p class="theme-vibe">{theme.vibe}</p>
-            <p>{theme.body}</p>
-          </div>
-        </div>
-      ))}
-    </div>
-  </section>
-
-  <section class="faq-section" aria-label="Frequently asked questions">
-    <div class="section-heading">
-      <p class="section-kicker">FAQ</p>
-      <h2 class="section-title">What people need to know before they click.</h2>
-    </div>
-
-    <div class="faq-grid">
-      {faqs.map((item) => (
-        <article class="faq-card">
-          <h3>{item.question}</h3>
-          <p>{item.answer}</p>
-        </article>
-      ))}
-    </div>
-  </section>
-
-  <section class="final-cta">
-    <p class="section-kicker">Ready</p>
-    <h2>Stop building through tab chaos.</h2>
-    <p>
-      Bring chat, code review, preview, and release flow into one calm workspace built for serious
-      AI-assisted work.
-    </p>
-    <div class="final-cta-actions">
-      <a href="https://github.com/OpenKnots/okcode/releases" class="hero-button">
-        <span class="hero-button-shine" aria-hidden="true"></span>
-        <span>Download OK Code</span>
-      </a>
-      <a
-        href="https://github.com/OpenKnots/okcode"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="secondary-button"
-      >
-        Explore on GitHub
-      </a>
-    </div>
-  </section>
+  <Hero />
+  <TrustStrip />
+  <FeatureGrid pillars={pillars} />
+  <WorkflowSection steps={workflowSteps} />
+  <CoreSurfaces surfaces={surfaces} />
+  <ThemeShowcase themes={themes} />
+  <FaqSection faqs={faqs} />
+  <FinalCta />
 </Layout>
 
 <script>
@@ -496,6 +212,11 @@ const faqs = [
       });
   }
 
+  /**
+   * Tab groups with:
+   * - CSS crossfade transitions (opacity + transform) instead of instant hidden toggle
+   * - Full keyboard navigation (Arrow keys, Home, End) per WAI-ARIA Tabs pattern
+   */
   function initTabGroups() {
     const groups = document.querySelectorAll<HTMLElement>("[data-tab-group]");
     groups.forEach((group) => {
@@ -503,22 +224,25 @@ const faqs = [
       const buttons = Array.from(group.querySelectorAll<HTMLElement>("[data-tab-button]"));
       const panels = Array.from(group.querySelectorAll<HTMLElement>("[data-tab-panel]"));
 
-      const activate = (id: string) => {
+      const activate = (id: string, focusButton = false) => {
         buttons.forEach((button) => {
           const isActive = button.getAttribute("data-tab-target") === id;
           button.setAttribute("aria-selected", isActive ? "true" : "false");
+          button.setAttribute("tabindex", isActive ? "0" : "-1");
           button.dataset.active = isActive ? "true" : "false";
+          if (isActive && focusButton) button.focus();
         });
 
         panels.forEach((panel) => {
           const isActive = panel.getAttribute("data-tab-panel") === id;
-          panel.hidden = !isActive;
+          panel.setAttribute("aria-hidden", isActive ? "false" : "true");
           panel.dataset.active = isActive ? "true" : "false";
         });
 
         group.setAttribute("data-active-tab", id);
       };
 
+      // Click activation
       buttons.forEach((button) => {
         button.addEventListener("click", () => {
           const id = button.getAttribute("data-tab-target");
@@ -526,43 +250,147 @@ const faqs = [
         });
       });
 
+      // Keyboard navigation (WAI-ARIA Tabs pattern)
+      buttons.forEach((button) => {
+        button.addEventListener("keydown", (e: KeyboardEvent) => {
+          const currentIndex = buttons.indexOf(button);
+          let targetIndex = -1;
+
+          switch (e.key) {
+            case "ArrowRight":
+            case "ArrowDown":
+              e.preventDefault();
+              targetIndex = (currentIndex + 1) % buttons.length;
+              break;
+            case "ArrowLeft":
+            case "ArrowUp":
+              e.preventDefault();
+              targetIndex = (currentIndex - 1 + buttons.length) % buttons.length;
+              break;
+            case "Home":
+              e.preventDefault();
+              targetIndex = 0;
+              break;
+            case "End":
+              e.preventDefault();
+              targetIndex = buttons.length - 1;
+              break;
+          }
+
+          if (targetIndex >= 0) {
+            const id = buttons[targetIndex]?.getAttribute("data-tab-target");
+            if (id) activate(id, true);
+          }
+        });
+      });
+
       if (defaultTab) activate(defaultTab);
     });
   }
 
+  /**
+   * IntersectionObserver-based scroll reveal — replaces hardcoded cascade delays
+   * so below-fold sections only animate in when they enter the viewport.
+   */
+  function initScrollReveal() {
+    const sections = document.querySelectorAll<HTMLElement>("[data-reveal]");
+    if (!sections.length) return;
+
+    // Respect reduced motion preference
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (prefersReducedMotion) {
+      sections.forEach((el) => {
+        el.classList.add("revealed");
+      });
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("revealed");
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.08, rootMargin: "0px 0px -40px 0px" },
+    );
+
+    sections.forEach((el) => observer.observe(el));
+  }
+
   initDownloadButton();
   initTabGroups();
+  initScrollReveal();
 </script>
 
 <style>
+  /* ── Scroll-triggered reveal ── */
+
+  :global([data-reveal]) {
+    opacity: 0;
+    transform: translateY(12px);
+    transition:
+      opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+    will-change: opacity, transform;
+  }
+
+  :global([data-reveal].revealed) {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* ── Tab panel crossfade transitions ── */
+
+  :global([data-tab-panel]) {
+    opacity: 0;
+    transform: translateY(6px);
+    transition:
+      opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    position: absolute;
+    pointer-events: none;
+    visibility: hidden;
+  }
+
+  :global([data-tab-panel][data-active="true"]) {
+    opacity: 1;
+    transform: translateY(0);
+    position: relative;
+    pointer-events: auto;
+    visibility: visible;
+  }
+
+  /* ── Below-fold paint optimization ── */
+
+  :global(.workflow-section),
+  :global(.spotlight),
+  :global(.theme-section),
+  :global(.faq-section),
+  :global(.final-cta) {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 32rem;
+  }
+
   .main {
     width: 100%;
     padding-block: 3.5rem 5.5rem;
   }
 
-  .hero,
-  .trust-strip,
-  .feature-grid,
-  .workflow-section,
-  .spotlight,
-  .theme-section,
-  .faq-section,
-  .final-cta {
+  :global(.hero),
+  :global(.trust-strip),
+  :global(.feature-grid),
+  :global(.workflow-section),
+  :global(.spotlight),
+  :global(.theme-section),
+  :global(.faq-section),
+  :global(.final-cta) {
     width: 100%;
-    opacity: 0;
-    animation: fade-in 0.8s ease-out forwards;
   }
 
-  .hero { animation-delay: 0.04s; }
-  .trust-strip { animation-delay: 0.1s; }
-  .feature-grid { animation-delay: 0.16s; }
-  .workflow-section { animation-delay: 0.22s; }
-  .spotlight { animation-delay: 0.28s; }
-  .theme-section { animation-delay: 0.34s; }
-  .faq-section { animation-delay: 0.4s; }
-  .final-cta { animation-delay: 0.46s; }
-
-  .hero {
+  :global(.hero) {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.12fr);
     gap: clamp(2.5rem, 5vw, 4.5rem);
@@ -570,12 +398,12 @@ const faqs = [
     margin-bottom: 2rem;
   }
 
-  .hero-copy {
+  :global(.hero-copy) {
     position: relative;
     z-index: 1;
   }
 
-  .eyebrow {
+  :global(.eyebrow) {
     display: inline-flex;
     align-items: center;
     gap: 0.65rem;
@@ -591,7 +419,7 @@ const faqs = [
     margin-bottom: 1.35rem;
   }
 
-  .eyebrow-dot {
+  :global(.eyebrow-dot) {
     width: 0.5rem;
     height: 0.5rem;
     border-radius: 999px;
@@ -599,7 +427,7 @@ const faqs = [
     box-shadow: 0 0 18px rgba(103, 232, 249, 0.55);
   }
 
-  .tagline {
+  :global(.tagline) {
     font-size: clamp(3rem, 6vw, 5.75rem);
     line-height: 0.96;
     letter-spacing: -0.06em;
@@ -607,7 +435,7 @@ const faqs = [
     text-wrap: balance;
   }
 
-  .subtagline {
+  :global(.subtagline) {
     margin-top: 1.35rem;
     max-width: 40rem;
     font-size: clamp(1.06rem, 1.5vw, 1.28rem);
@@ -615,33 +443,33 @@ const faqs = [
     color: rgba(250, 250, 250, 0.75);
   }
 
-  .hero-actions,
-  .hero-meta,
-  .hero-pills,
-  .trust-strip,
-  .workflow-grid,
-  .spotlight,
-  .theme-preview,
-  .faq-grid,
-  .final-cta-actions,
-  .tab-row,
-  .panel-row,
-  .traffic-lights,
-  .theme-preview-bar,
-  .theme-preview-body {
+  :global(.hero-actions),
+  :global(.hero-meta),
+  :global(.hero-pills),
+  :global(.trust-strip),
+  :global(.workflow-grid),
+  :global(.spotlight),
+  :global(.theme-preview),
+  :global(.faq-grid),
+  :global(.final-cta-actions),
+  :global(.tab-row),
+  :global(.panel-row),
+  :global(.traffic-lights),
+  :global(.theme-preview-bar),
+  :global(.theme-preview-body) {
     display: flex;
   }
 
-  .hero-actions {
+  :global(.hero-actions) {
     gap: 0.95rem;
     margin-top: 1.8rem;
     flex-wrap: wrap;
   }
 
-  .hero-button,
-  .secondary-button,
-  .tab-chip,
-  .spotlight-item {
+  :global(.hero-button),
+  :global(.secondary-button),
+  :global(.tab-chip),
+  :global(.spotlight-item) {
     transition:
       transform 0.24s ease,
       border-color 0.24s ease,
@@ -650,8 +478,8 @@ const faqs = [
       box-shadow 0.24s ease;
   }
 
-  .hero-button,
-  .secondary-button {
+  :global(.hero-button),
+  :global(.secondary-button) {
     position: relative;
     display: inline-flex;
     align-items: center;
@@ -665,7 +493,7 @@ const faqs = [
     overflow: hidden;
   }
 
-  .hero-button {
+  :global(.hero-button) {
     border: 1px solid rgba(103, 232, 249, 0.22);
     background:
       linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.02)),
@@ -676,7 +504,7 @@ const faqs = [
       inset 0 1px 0 rgba(255, 255, 255, 0.18);
   }
 
-  .hero-button-shine {
+  :global(.hero-button-shine) {
     content: "";
     position: absolute;
     inset: -30% auto auto -20%;
@@ -688,52 +516,52 @@ const faqs = [
     transition: transform 0.45s ease;
   }
 
-  .secondary-button {
+  :global(.secondary-button) {
     border: 1px solid rgba(255, 255, 255, 0.12);
     background: rgba(255, 255, 255, 0.03);
     color: rgba(250, 250, 250, 0.84);
     backdrop-filter: blur(18px);
   }
 
-  .hero-button:hover,
-  .secondary-button:hover,
-  .tab-chip:hover,
-  .spotlight-item:hover {
+  :global(.hero-button:hover),
+  :global(.secondary-button:hover),
+  :global(.tab-chip:hover),
+  :global(.spotlight-item:hover) {
     transform: translateY(-1px);
   }
 
-  .hero-button:hover .hero-button-shine {
+  :global(.hero-button:hover .hero-button-shine) {
     transform: rotate(24deg) translateX(1.4rem);
   }
 
-  .hero-meta {
+  :global(.hero-meta) {
     gap: 1rem;
     align-items: center;
     margin-top: 1.35rem;
     flex-wrap: wrap;
   }
 
-  .other-platforms {
+  :global(.other-platforms) {
     color: rgba(255, 255, 255, 0.62);
     font-size: 0.94rem;
   }
 
-  .other-platforms:hover {
+  :global(.other-platforms:hover) {
     color: rgba(255, 255, 255, 0.88);
   }
 
-  .hero-pills {
+  :global(.hero-pills) {
     gap: 0.65rem;
     flex-wrap: wrap;
   }
 
-  .hero-pills span,
-  .trust-item,
-  .feature-card,
-  .workflow-card,
-  .spotlight-panel,
-  .faq-card,
-  .meta-card {
+  :global(.hero-pills span),
+  :global(.trust-item),
+  :global(.feature-card),
+  :global(.workflow-card),
+  :global(.spotlight-panel),
+  :global(.faq-card),
+  :global(.meta-card) {
     border: 1px solid rgba(255, 255, 255, 0.08);
     background: rgba(255, 255, 255, 0.04);
     box-shadow:
@@ -742,29 +570,29 @@ const faqs = [
     backdrop-filter: blur(18px);
   }
 
-  .hero-pills span {
+  :global(.hero-pills span) {
     padding: 0.55rem 0.8rem;
     border-radius: 999px;
     color: rgba(255, 255, 255, 0.74);
     font-size: 0.86rem;
   }
 
-  .hero-visual {
+  :global(.hero-visual) {
     position: relative;
     min-height: 42rem;
     display: grid;
     place-items: center;
   }
 
-  .hero-glow,
-  .orb {
+  :global(.hero-glow),
+  :global(.orb) {
     position: absolute;
     border-radius: 999px;
     filter: blur(20px);
     pointer-events: none;
   }
 
-  .hero-glow--violet {
+  :global(.hero-glow--violet) {
     width: 26rem;
     height: 26rem;
     top: 1rem;
@@ -772,7 +600,7 @@ const faqs = [
     background: radial-gradient(circle, rgba(168, 85, 247, 0.28), transparent 72%);
   }
 
-  .hero-glow--cyan {
+  :global(.hero-glow--cyan) {
     width: 23rem;
     height: 23rem;
     bottom: 1rem;
@@ -780,7 +608,7 @@ const faqs = [
     background: radial-gradient(circle, rgba(34, 211, 238, 0.24), transparent 72%);
   }
 
-  .orb--one {
+  :global(.orb--one) {
     width: 10rem;
     height: 10rem;
     top: 8%;
@@ -788,7 +616,7 @@ const faqs = [
     background: radial-gradient(circle, rgba(103, 232, 249, 0.22), transparent 68%);
   }
 
-  .orb--two {
+  :global(.orb--two) {
     width: 12rem;
     height: 12rem;
     right: 8%;
@@ -796,7 +624,7 @@ const faqs = [
     background: radial-gradient(circle, rgba(217, 70, 239, 0.16), transparent 70%);
   }
 
-  .glass-stage {
+  :global(.glass-stage) {
     position: relative;
     width: min(100%, 52rem);
     border-radius: 1.85rem;
@@ -811,7 +639,7 @@ const faqs = [
     overflow: hidden;
   }
 
-  .glass-toolbar {
+  :global(.glass-toolbar) {
     display: grid;
     grid-template-columns: auto 1fr auto;
     gap: 1rem;
@@ -821,41 +649,41 @@ const faqs = [
     background: rgba(255, 255, 255, 0.04);
   }
 
-  .traffic-lights {
+  :global(.traffic-lights) {
     gap: 0.42rem;
   }
 
-  .traffic-lights span,
-  .theme-preview-bar span {
+  :global(.traffic-lights span),
+  :global(.theme-preview-bar span) {
     width: 0.72rem;
     height: 0.72rem;
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.22);
   }
 
-  .glass-label,
-  .chrome-label {
+  :global(.glass-label),
+  :global(.chrome-label) {
     color: rgba(255, 255, 255, 0.72);
     font-size: 0.94rem;
     font-weight: 500;
   }
 
-  .glass-badge,
-  .panel-status,
-  .meta-label,
-  .workflow-step,
-  .feature-eyebrow,
-  .floating-card-kicker,
-  .section-kicker,
-  .theme-vibe,
-  .trust-label {
+  :global(.glass-badge),
+  :global(.panel-status),
+  :global(.meta-label),
+  :global(.workflow-step),
+  :global(.feature-eyebrow),
+  :global(.floating-card-kicker),
+  :global(.section-kicker),
+  :global(.theme-vibe),
+  :global(.trust-label) {
     text-transform: uppercase;
     letter-spacing: 0.16em;
     font-size: 0.72rem;
   }
 
-  .glass-badge,
-  .panel-status {
+  :global(.glass-badge),
+  :global(.panel-status) {
     color: rgba(103, 232, 249, 0.88);
     padding: 0.45rem 0.65rem;
     border-radius: 999px;
@@ -863,7 +691,7 @@ const faqs = [
     background: rgba(103, 232, 249, 0.08);
   }
 
-  .glass-body {
+  :global(.glass-body) {
     display: grid;
     grid-template-columns: 12rem minmax(0, 1fr) 11rem;
     gap: 1rem;
@@ -871,71 +699,71 @@ const faqs = [
     min-height: 31rem;
   }
 
-  .rail,
-  .panel,
-  .theme-preview-card {
+  :global(.rail),
+  :global(.panel),
+  :global(.theme-preview-card) {
     border-radius: 1.3rem;
     border: 1px solid rgba(255, 255, 255, 0.08);
     background: rgba(255, 255, 255, 0.03);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
   }
 
-  .rail {
+  :global(.rail) {
     padding: 0.95rem;
   }
 
-  .rail--sidebar,
-  .rail--meta,
-  .center-stack,
-  .spotlight,
-  .theme-section,
-  .faq-grid,
-  .theme-preview-wrap {
+  :global(.rail--sidebar),
+  :global(.rail--meta),
+  :global(.center-stack),
+  :global(.spotlight),
+  :global(.theme-section),
+  :global(.faq-grid),
+  :global(.theme-preview-wrap) {
     display: grid;
   }
 
-  .rail-title,
-  .rail-chip,
-  .message,
-  .code-line,
-  .preview-nav,
-  .preview-card,
-  .preview-line,
-  .theme-preview-line,
-  .theme-preview-sidebar {
+  :global(.rail-title),
+  :global(.rail-chip),
+  :global(.message),
+  :global(.code-line),
+  :global(.preview-nav),
+  :global(.preview-card),
+  :global(.preview-line),
+  :global(.theme-preview-line),
+  :global(.theme-preview-sidebar) {
     border-radius: 999px;
     background: linear-gradient(90deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04));
   }
 
-  .rail-title {
+  :global(.rail-title) {
     height: 0.95rem;
     width: 55%;
     margin-bottom: 1rem;
   }
 
-  .rail-chip {
+  :global(.rail-chip) {
     height: 2.4rem;
     margin-bottom: 0.75rem;
   }
 
-  .rail-chip--active {
+  :global(.rail-chip--active) {
     background: linear-gradient(90deg, rgba(103, 232, 249, 0.26), rgba(168, 85, 247, 0.16));
   }
 
-  .rail-chip--short {
+  :global(.rail-chip--short) {
     width: 68%;
   }
 
-  .center-stack {
+  :global(.center-stack) {
     grid-template-rows: auto auto;
     gap: 1rem;
   }
 
-  .panel {
+  :global(.panel) {
     padding: 1rem;
   }
 
-  .panel-head {
+  :global(.panel-head) {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -943,64 +771,64 @@ const faqs = [
     margin-bottom: 0.95rem;
   }
 
-  .panel-kicker {
+  :global(.panel-kicker) {
     color: rgba(255, 255, 255, 0.86);
     font-size: 0.88rem;
     font-weight: 600;
   }
 
-  .message {
+  :global(.message) {
     height: 0.82rem;
     margin-top: 0.75rem;
   }
 
-  .message--large { width: 88%; }
-  .message--short { width: 54%; }
+  :global(.message--large) { width: 88%; }
+  :global(.message--short) { width: 54%; }
 
-  .panel-row {
+  :global(.panel-row) {
     gap: 1rem;
   }
 
-  .panel-row > * {
+  :global(.panel-row > *) {
     flex: 1;
   }
 
-  .code-line,
-  .preview-line,
-  .theme-preview-line {
+  :global(.code-line),
+  :global(.preview-line),
+  :global(.theme-preview-line) {
     height: 0.82rem;
     margin-top: 0.72rem;
   }
 
-  .code-line--add {
+  :global(.code-line--add) {
     width: 84%;
     background: linear-gradient(90deg, rgba(52, 211, 153, 0.38), rgba(255,255,255,0.05));
   }
 
-  .code-line--remove {
+  :global(.code-line--remove) {
     width: 61%;
     background: linear-gradient(90deg, rgba(248, 113, 113, 0.28), rgba(255,255,255,0.05));
   }
 
-  .code-line--short,
-  .preview-line--short,
-  .theme-preview-line--short {
+  :global(.code-line--short),
+  :global(.preview-line--short),
+  :global(.theme-preview-line--short) {
     width: 58%;
   }
 
-  .preview-window {
+  :global(.preview-window) {
     padding: 0.8rem;
     border-radius: 1rem;
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 255, 255, 0.05);
   }
 
-  .preview-nav {
+  :global(.preview-nav) {
     width: 44%;
     height: 0.8rem;
   }
 
-  .preview-card {
+  :global(.preview-card) {
     height: 7.5rem;
     margin-top: 0.85rem;
     border-radius: 1rem;
@@ -1009,152 +837,152 @@ const faqs = [
       rgba(255,255,255,0.04);
   }
 
-  .meta-card + .meta-card {
+  :global(.meta-card + .meta-card) {
     margin-top: 0.8rem;
   }
 
-  .meta-card {
+  :global(.meta-card) {
     padding: 0.9rem;
     border-radius: 1rem;
   }
 
-  .meta-card strong {
+  :global(.meta-card strong) {
     display: block;
     margin-top: 0.5rem;
     line-height: 1.35;
   }
 
-  .trust-strip {
+  :global(.trust-strip) {
     gap: 1rem;
     margin-bottom: 4rem;
     flex-wrap: wrap;
   }
 
-  .trust-item {
+  :global(.trust-item) {
     flex: 1 1 18rem;
     min-width: 0;
     border-radius: 1.15rem;
     padding: 1.15rem 1.2rem;
   }
 
-  .trust-label,
-  .feature-eyebrow,
-  .section-kicker,
-  .meta-label,
-  .theme-vibe,
-  .workflow-step {
+  :global(.trust-label),
+  :global(.feature-eyebrow),
+  :global(.section-kicker),
+  :global(.meta-label),
+  :global(.theme-vibe),
+  :global(.workflow-step) {
     color: rgba(255, 255, 255, 0.5);
     margin-bottom: 0.7rem;
   }
 
-  .trust-item strong,
-  .feature-card h2,
-  .workflow-card h3,
-  .spotlight-panel h3,
-  .faq-card h3,
-  .theme-note h3,
-  .final-cta h2,
-  .section-title {
+  :global(.trust-item strong),
+  :global(.feature-card h2),
+  :global(.workflow-card h3),
+  :global(.spotlight-panel h3),
+  :global(.faq-card h3),
+  :global(.theme-note h3),
+  :global(.final-cta h2),
+  :global(.section-title) {
     letter-spacing: -0.04em;
   }
 
-  .feature-grid,
-  .workflow-grid,
-  .faq-grid {
+  :global(.feature-grid),
+  :global(.workflow-grid),
+  :global(.faq-grid) {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 1rem;
   }
 
-  .feature-grid {
+  :global(.feature-grid) {
     margin-bottom: 4rem;
   }
 
-  .feature-card,
-  .workflow-card,
-  .faq-card {
+  :global(.feature-card),
+  :global(.workflow-card),
+  :global(.faq-card) {
     border-radius: 1.35rem;
     padding: 1.35rem;
   }
 
-  .feature-card h2 {
+  :global(.feature-card h2) {
     font-size: 1.5rem;
     line-height: 1.05;
     margin-bottom: 0.9rem;
   }
 
-  .feature-card p,
-  .workflow-card p,
-  .spotlight-panel p,
-  .theme-note p,
-  .faq-card p,
-  .section-body,
-  .final-cta p {
+  :global(.feature-card p),
+  :global(.workflow-card p),
+  :global(.spotlight-panel p),
+  :global(.theme-note p),
+  :global(.faq-card p),
+  :global(.section-body),
+  :global(.final-cta p) {
     color: rgba(250, 250, 250, 0.74);
     line-height: 1.7;
   }
 
-  .workflow-section,
-  .faq-section {
+  :global(.workflow-section),
+  :global(.faq-section) {
     margin-bottom: 4rem;
   }
 
-  .section-heading,
-  .spotlight-copy,
-  .theme-copy,
-  .final-cta {
+  :global(.section-heading),
+  :global(.spotlight-copy),
+  :global(.theme-copy),
+  :global(.final-cta) {
     max-width: 50rem;
   }
 
-  .section-title {
+  :global(.section-title) {
     font-size: clamp(2rem, 3vw, 3.15rem);
     line-height: 1.02;
     margin-top: 0.25rem;
     text-wrap: balance;
   }
 
-  .section-body {
+  :global(.section-body) {
     margin-top: 1rem;
     max-width: 42rem;
   }
 
-  .workflow-grid {
+  :global(.workflow-grid) {
     margin-top: 1.6rem;
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
-  .workflow-card {
+  :global(.workflow-card) {
     min-height: 100%;
   }
 
-  .workflow-card h3 {
+  :global(.workflow-card h3) {
     font-size: 1.2rem;
     margin-bottom: 0.75rem;
   }
 
-  .spotlight,
-  .theme-section {
+  :global(.spotlight),
+  :global(.theme-section) {
     grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
     gap: 1.25rem;
     align-items: start;
     margin-bottom: 4rem;
   }
 
-  .spotlight-copy,
-  .theme-copy {
+  :global(.spotlight-copy),
+  :global(.theme-copy) {
     position: sticky;
     top: 1.5rem;
   }
 
-  .spotlight-nav,
-  .tab-row {
+  :global(.spotlight-nav),
+  :global(.tab-row) {
     display: flex;
     gap: 0.75rem;
     flex-wrap: wrap;
     margin-top: 1.4rem;
   }
 
-  .spotlight-item,
-  .tab-chip {
+  :global(.spotlight-item),
+  :global(.tab-chip) {
     border-radius: 999px;
     border: 1px solid rgba(255, 255, 255, 0.1);
     background: rgba(255, 255, 255, 0.03);
@@ -1162,12 +990,12 @@ const faqs = [
     cursor: pointer;
   }
 
-  .tab-chip {
+  :global(.tab-chip) {
     padding: 0.7rem 0.95rem;
     font: inherit;
   }
 
-  .spotlight-item {
+  :global(.spotlight-item) {
     display: flex;
     align-items: flex-start;
     flex-direction: column;
@@ -1178,54 +1006,55 @@ const faqs = [
     font: inherit;
   }
 
-  .spotlight-item[aria-selected="true"],
-  .tab-chip[aria-selected="true"] {
+  :global(.spotlight-item[aria-selected="true"]),
+  :global(.tab-chip[aria-selected="true"]) {
     border-color: rgba(103, 232, 249, 0.22);
     background: linear-gradient(135deg, rgba(56, 189, 248, 0.16), rgba(168, 85, 247, 0.12));
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
   }
 
-  .spotlight-item-label {
+  :global(.spotlight-item-label) {
     font-weight: 600;
   }
 
-  .spotlight-item-meta {
+  :global(.spotlight-item-meta) {
     font-size: 0.8rem;
     color: rgba(255, 255, 255, 0.52);
   }
 
-  .spotlight-panels,
-  .theme-preview-wrap {
+  :global(.spotlight-panels),
+  :global(.theme-preview-wrap) {
+    position: relative;
     gap: 1rem;
   }
 
-  .spotlight-panel {
+  :global(.spotlight-panel) {
     border-radius: 1.5rem;
     padding: 1.45rem;
     min-height: 20rem;
   }
 
-  .spotlight-panel h3 {
+  :global(.spotlight-panel h3) {
     font-size: 1.65rem;
     line-height: 1.08;
     margin-bottom: 0.9rem;
     max-width: 18ch;
   }
 
-  .detail-bullets {
+  :global(.detail-bullets) {
     list-style: none;
     margin-top: 1.05rem;
     display: grid;
     gap: 0.75rem;
   }
 
-  .detail-bullets li {
+  :global(.detail-bullets li) {
     position: relative;
     padding-left: 1.15rem;
     color: rgba(255, 255, 255, 0.76);
   }
 
-  .detail-bullets li::before {
+  :global(.detail-bullets li::before) {
     content: "";
     position: absolute;
     left: 0;
@@ -1237,13 +1066,13 @@ const faqs = [
     box-shadow: 0 0 14px rgba(103, 232, 249, 0.35);
   }
 
-  .theme-preview {
+  :global(.theme-preview) {
     grid-template-columns: minmax(0, 1fr) minmax(16rem, 19rem);
     gap: 1rem;
     align-items: stretch;
   }
 
-  .theme-preview-card {
+  :global(.theme-preview-card) {
     min-height: 18rem;
     padding: 1rem;
     background:
@@ -1253,24 +1082,24 @@ const faqs = [
     border-color: var(--theme-border);
   }
 
-  .theme-preview-bar {
+  :global(.theme-preview-bar) {
     gap: 0.4rem;
     margin-bottom: 1rem;
   }
 
-  .theme-preview-body {
+  :global(.theme-preview-body) {
     gap: 1rem;
     height: calc(100% - 1.72rem);
   }
 
-  .theme-preview-sidebar {
+  :global(.theme-preview-sidebar) {
     width: 7rem;
     height: 100%;
     border-radius: 1rem;
     background: linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.03));
   }
 
-  .theme-preview-main {
+  :global(.theme-preview-main) {
     flex: 1;
     border-radius: 1rem;
     padding: 1rem;
@@ -1278,16 +1107,16 @@ const faqs = [
     border: 1px solid rgba(255,255,255,0.06);
   }
 
-  .theme-preview-line--accent {
+  :global(.theme-preview-line--accent) {
     width: 78%;
     background: linear-gradient(90deg, var(--theme-accent), rgba(255,255,255,0.05));
   }
 
-  .theme-preview-line--medium {
+  :global(.theme-preview-line--medium) {
     width: 72%;
   }
 
-  .theme-note {
+  :global(.theme-note) {
     border-radius: 1.35rem;
     border: 1px solid rgba(255, 255, 255, 0.08);
     background: rgba(255, 255, 255, 0.03);
@@ -1295,105 +1124,107 @@ const faqs = [
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
   }
 
-  .theme-note h3 {
+  :global(.theme-note h3) {
     font-size: 1.35rem;
     margin-bottom: 0.65rem;
   }
 
-  .faq-grid {
+  :global(.faq-grid) {
     margin-top: 1.5rem;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .faq-card h3 {
+  :global(.faq-card h3) {
     font-size: 1.18rem;
     margin-bottom: 0.7rem;
   }
 
-  .final-cta {
+  :global(.final-cta) {
     text-align: center;
     margin-inline: auto;
     padding: 2.2rem 1.5rem 0;
   }
 
-  .final-cta h2 {
+  :global(.final-cta h2) {
     font-size: clamp(2.15rem, 4vw, 3.75rem);
     margin-top: 0.3rem;
   }
 
-  .final-cta p {
+  :global(.final-cta p) {
     max-width: 42rem;
     margin: 1rem auto 0;
   }
 
-  .final-cta-actions {
+  :global(.final-cta-actions) {
     justify-content: center;
     gap: 0.95rem;
     margin-top: 1.5rem;
     flex-wrap: wrap;
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .hero,
-    .trust-strip,
-    .feature-grid,
-    .workflow-section,
-    .spotlight,
-    .theme-section,
-    .faq-section,
-    .final-cta {
-      animation: none;
-      opacity: 1;
-    }
+  /* ── Reduced motion ── */
 
-    .hero-button,
-    .secondary-button,
-    .tab-chip,
-    .spotlight-item,
-    .hero-button-shine {
+  @media (prefers-reduced-motion: reduce) {
+    :global([data-reveal]) {
+      opacity: 1;
+      transform: none;
       transition: none;
     }
 
-    .hero-button:hover,
-    .secondary-button:hover,
-    .tab-chip:hover,
-    .spotlight-item:hover,
-    .hero-button:hover .hero-button-shine {
+    :global([data-tab-panel]) {
+      transition: none;
+    }
+
+    :global(.hero-button),
+    :global(.secondary-button),
+    :global(.tab-chip),
+    :global(.spotlight-item),
+    :global(.hero-button-shine) {
+      transition: none;
+    }
+
+    :global(.hero-button:hover),
+    :global(.secondary-button:hover),
+    :global(.tab-chip:hover),
+    :global(.spotlight-item:hover),
+    :global(.hero-button:hover .hero-button-shine) {
       transform: none;
     }
   }
 
+  /* ── Responsive ── */
+
   @media (max-width: 1100px) {
-    .hero,
-    .spotlight,
-    .theme-section,
-    .theme-preview,
-    .feature-grid,
-    .workflow-grid,
-    .faq-grid {
+    :global(.hero),
+    :global(.spotlight),
+    :global(.theme-section),
+    :global(.theme-preview),
+    :global(.feature-grid),
+    :global(.workflow-grid),
+    :global(.faq-grid) {
       grid-template-columns: 1fr;
     }
 
-    .hero-visual {
+    :global(.hero-visual) {
       min-height: 34rem;
     }
 
-    .glass-body {
+    :global(.glass-body) {
       grid-template-columns: 1fr;
     }
 
-    .rail--meta {
+    :global(.rail--meta) {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 0.8rem;
     }
 
-    .meta-card + .meta-card {
+    :global(.meta-card + .meta-card) {
       margin-top: 0;
     }
 
-    .spotlight-copy,
-    .theme-copy {
+    :global(.spotlight-copy),
+    :global(.theme-copy) {
       position: static;
     }
   }
@@ -1403,36 +1234,36 @@ const faqs = [
       padding-block: 2.2rem 4rem;
     }
 
-    .tagline {
+    :global(.tagline) {
       max-width: 9ch;
     }
 
-    .hero-visual {
+    :global(.hero-visual) {
       min-height: 30rem;
     }
 
-    .glass-stage {
+    :global(.glass-stage) {
       width: 100%;
     }
 
-    .panel-row,
-    .trust-strip,
-    .hero-actions,
-    .hero-meta,
-    .final-cta-actions {
+    :global(.panel-row),
+    :global(.trust-strip),
+    :global(.hero-actions),
+    :global(.hero-meta),
+    :global(.final-cta-actions) {
       flex-direction: column;
       align-items: stretch;
     }
 
-    .hero-pills {
+    :global(.hero-pills) {
       gap: 0.5rem;
     }
 
-    .rail--meta {
+    :global(.rail--meta) {
       grid-template-columns: 1fr;
     }
 
-    .glass-toolbar {
+    :global(.glass-toolbar) {
       grid-template-columns: 1fr;
       justify-items: start;
     }

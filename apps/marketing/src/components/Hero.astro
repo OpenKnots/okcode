@@ -1,0 +1,126 @@
+---
+/**
+ * Hero section — headline, CTA, and glassmorphic workspace mockup.
+ */
+---
+
+<section class="hero" data-reveal>
+  <div class="hero-copy">
+    <div class="eyebrow">
+      <span class="eyebrow-dot" aria-hidden="true"></span>
+      AI-native code workspace
+    </div>
+
+    <h1 class="tagline">The beautiful workspace for shipping with AI.</h1>
+
+    <p class="subtagline">
+      Chat, diffs, preview, PR review, and release actions in one glassy desktop + web
+      workspace — so you can stay in flow instead of juggling tabs, terminals, and disposable
+      prompts.
+    </p>
+
+    <div class="hero-actions">
+      <a id="download-btn" href="https://github.com/OpenKnots/okcode/releases" class="hero-button">
+        <span class="hero-button-shine" aria-hidden="true"></span>
+        <span id="download-label">Download OK Code</span>
+      </a>
+
+      <a
+        href="https://github.com/OpenKnots/okcode"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="secondary-button"
+      >
+        View on GitHub
+      </a>
+    </div>
+
+    <div class="hero-meta">
+      <a href="/download" class="other-platforms">Other platforms</a>
+      <div class="hero-pills" aria-label="Product highlights">
+        <span>Desktop + web</span>
+        <span>Persistent threads</span>
+        <span>Built-in diffs</span>
+        <span>Local preview</span>
+        <span>Open source</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="hero-visual" aria-hidden="true">
+    <div class="hero-glow hero-glow--violet"></div>
+    <div class="hero-glow hero-glow--cyan"></div>
+
+    <div class="orb orb--one"></div>
+    <div class="orb orb--two"></div>
+
+    <div class="glass-stage">
+      <div class="glass-toolbar">
+        <div class="traffic-lights"><span></span><span></span><span></span></div>
+        <div class="glass-label">OK Code</div>
+        <div class="glass-badge">Live workspace</div>
+      </div>
+
+      <div class="glass-body">
+        <aside class="rail rail--sidebar">
+          <div class="rail-title"></div>
+          <div class="rail-chip rail-chip--active"></div>
+          <div class="rail-chip"></div>
+          <div class="rail-chip"></div>
+          <div class="rail-chip rail-chip--short"></div>
+        </aside>
+
+        <section class="center-stack">
+          <div class="panel panel--thread">
+            <div class="panel-head">
+              <span class="panel-kicker">Thread</span>
+              <span class="panel-status">Agent warm</span>
+            </div>
+            <div class="message message--large"></div>
+            <div class="message"></div>
+            <div class="message message--short"></div>
+          </div>
+
+          <div class="panel-row">
+            <div class="panel panel--diff">
+              <div class="panel-head">
+                <span class="panel-kicker">Latest diff</span>
+              </div>
+              <div class="code-line code-line--add"></div>
+              <div class="code-line"></div>
+              <div class="code-line code-line--remove"></div>
+              <div class="code-line code-line--short"></div>
+            </div>
+
+            <div class="panel panel--preview">
+              <div class="panel-head">
+                <span class="panel-kicker">Preview</span>
+              </div>
+              <div class="preview-window">
+                <div class="preview-nav"></div>
+                <div class="preview-card"></div>
+                <div class="preview-line"></div>
+                <div class="preview-line preview-line--short"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <aside class="rail rail--meta">
+          <div class="meta-card">
+            <span class="meta-label">Review ready</span>
+            <strong>3 files changed</strong>
+          </div>
+          <div class="meta-card">
+            <span class="meta-label">Project action</span>
+            <strong>Release flow saved</strong>
+          </div>
+          <div class="meta-card">
+            <span class="meta-label">Mode</span>
+            <strong>Calm dark glass</strong>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </div>
+</section>

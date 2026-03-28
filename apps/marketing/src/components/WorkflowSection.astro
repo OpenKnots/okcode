@@ -1,0 +1,32 @@
+---
+/**
+ * Workflow section — four-step numbered cards.
+ */
+
+interface Props {
+  steps: ReadonlyArray<{ step: string; title: string; body: string }>;
+}
+
+const { steps } = Astro.props;
+---
+
+<section class="workflow-section" aria-label="Workflow overview" data-reveal>
+  <div class="section-heading">
+    <p class="section-kicker">Workflow</p>
+    <h2 class="section-title">From prompt to shipped change.</h2>
+    <p class="section-body">
+      OK Code keeps the whole loop visible: start the work, inspect the change, verify it,
+      and move toward release without blowing up your focus.
+    </p>
+  </div>
+
+  <div class="workflow-grid">
+    {steps.map((item) => (
+      <article class="workflow-card">
+        <span class="workflow-step">{item.step}</span>
+        <h3>{item.title}</h3>
+        <p>{item.body}</p>
+      </article>
+    ))}
+  </div>
+</section>

@@ -11,6 +11,7 @@ import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/
 import { Schema } from "effect";
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import {
+  ArrowUpDownIcon,
   ChevronDownIcon,
   CircleAlertIcon,
   CloudUploadIcon,
@@ -28,8 +29,9 @@ import {
   type DefaultBranchConfirmableAction,
   requiresDefaultBranchConfirmation,
   resolveDefaultBranchActionDialogCopy,
-  resolveQuickAction,
   resolveGitFailureRetryLabel,
+  resolveQuickAction,
+  resolveSyncAction,
   summarizeGitFailure,
   summarizeGitResult,
 } from "./GitActionsControl.logic";
@@ -279,6 +281,10 @@ function GitQuickActionIcon({ quickAction }: { quickAction: GitQuickAction }) {
   return <InfoIcon className={iconClassName} />;
 }
 
+function GitSyncActionIcon() {
+  return <ArrowUpDownIcon className="size-3.5" />;
+}
+
 export default function GitActionsControl({ gitCwd, activeThreadId }: GitActionsControlProps) {
   const { settings } = useAppSettings();
   const threadToastData = useMemo(
@@ -363,8 +369,15 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
       resolveQuickAction(gitStatusForActions, isGitActionRunning, isDefaultBranch, hasOriginRemote),
     [gitStatusForActions, hasOriginRemote, isDefaultBranch, isGitActionRunning],
   );
+  const syncAction = useMemo(
+    () => resolveSyncAction(gitStatusForActions, isGitActionRunning),
+    [gitStatusForActions, isGitActionRunning],
+  );
   const quickActionDisabledReason = quickAction.disabled
     ? (quickAction.hint ?? "This action is currently unavailable.")
+    : null;
+  const syncActionDisabledReason = syncAction?.disabled
+    ? (syncAction.hint ?? "This action is currently unavailable.")
     : null;
   const pendingDefaultBranchActionCopy = pendingDefaultBranchAction
     ? resolveDefaultBranchActionDialogCopy({
@@ -838,17 +851,21 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
     void openPromise.catch(() => undefined);
   }, [conflictedFiles, gitCwd, threadToastData]);
 
-  const runQuickAction = useCallback(() => {
-    if (quickAction.kind === "open_pr") {
-      void openExistingPr();
-      return;
-    }
-    if (quickAction.kind === "run_pull") {
+  const runPullWithToast = useCallback(
+    (messages?: {
+      loadingTitle?: string;
+      pulledTitle?: string;
+      skippedTitle?: string;
+      errorTitle?: string;
+    }) => {
       const promise = pullMutation.mutateAsync();
       toastManager.promise(promise, {
-        loading: { title: "Pulling...", data: threadToastData },
+        loading: { title: messages?.loadingTitle ?? "Pulling...", data: threadToastData },
         success: (result) => ({
-          title: result.status === "pulled" ? "Pulled" : "Already up to date",
+          title:
+            result.status === "pulled"
+              ? (messages?.pulledTitle ?? "Pulled")
+              : (messages?.skippedTitle ?? "Already up to date"),
           description:
             result.status === "pulled"
               ? `Updated ${result.branch} from ${result.upstreamBranch ?? "upstream"}`
@@ -856,12 +873,41 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
           data: threadToastData,
         }),
         error: (err) => ({
-          title: "Pull failed",
+          title: messages?.errorTitle ?? "Pull failed",
           description: err instanceof Error ? err.message : "An error occurred.",
           data: threadToastData,
         }),
       });
       void promise.catch(() => undefined);
+    },
+    [pullMutation, threadToastData],
+  );
+
+  const runSyncAction = useCallback(() => {
+    if (!syncAction || syncAction.disabled) {
+      return;
+    }
+    if (syncAction.kind === "run_pull") {
+      runPullWithToast({
+        loadingTitle: "Syncing...",
+        pulledTitle: "Synced branch",
+        skippedTitle: "Already up to date",
+        errorTitle: "Sync failed",
+      });
+      return;
+    }
+    if (syncAction.kind === "run_action" && syncAction.action === "commit_push") {
+      void runGitActionWithToast({ action: "commit_push", forcePushOnlyProgress: true });
+    }
+  }, [runPullWithToast, syncAction]);
+
+  const runQuickAction = useCallback(() => {
+    if (quickAction.kind === "open_pr") {
+      void openExistingPr();
+      return;
+    }
+    if (quickAction.kind === "run_pull") {
+      runPullWithToast();
       return;
     }
     if (quickAction.kind === "resolve_conflicts") {
@@ -880,7 +926,7 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
     if (quickAction.action) {
       void runGitActionWithToast({ action: quickAction.action });
     }
-  }, [openConflictedFilesInEditor, openExistingPr, pullMutation, quickAction, threadToastData]);
+  }, [openConflictedFilesInEditor, openExistingPr, quickAction, runPullWithToast, threadToastData]);
 
   const openDialogForMenuItem = useCallback(
     (item: GitActionMenuItem) => {
@@ -964,6 +1010,41 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
         </Button>
       ) : (
         <Group aria-label="Git actions">
+          {syncAction ? (
+            <>
+              {syncActionDisabledReason ? (
+                <Popover>
+                  <PopoverTrigger
+                    openOnHover
+                    render={
+                      <Button
+                        aria-disabled="true"
+                        className="cursor-not-allowed opacity-64"
+                        size="icon-xs"
+                        variant="outline"
+                      />
+                    }
+                  >
+                    <GitSyncActionIcon />
+                  </PopoverTrigger>
+                  <PopoverPopup tooltipStyle side="bottom" align="start">
+                    {syncActionDisabledReason}
+                  </PopoverPopup>
+                </Popover>
+              ) : (
+                <Button
+                  aria-label={syncAction.label}
+                  title={syncAction.label}
+                  size="icon-xs"
+                  variant="outline"
+                  onClick={runSyncAction}
+                >
+                  <GitSyncActionIcon />
+                </Button>
+              )}
+              <GroupSeparator className="hidden @sm/header-actions:block" />
+            </>
+          ) : null}
           {quickActionDisabledReason ? (
             <Popover>
               <PopoverTrigger

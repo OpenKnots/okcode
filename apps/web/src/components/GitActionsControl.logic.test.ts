@@ -8,6 +8,7 @@ import {
   resolveDefaultBranchActionDialogCopy,
   resolveGitFailureRetryLabel,
   resolveQuickAction,
+  resolveSyncAction,
   summarizeGitFailure,
   summarizeGitResult,
 } from "./GitActionsControl.logic";
@@ -407,6 +408,55 @@ describe("when: branch has diverged from upstream", () => {
       kind: "show_hint",
       hint: "Branch has diverged from upstream. Rebase/merge first.",
     });
+  });
+});
+
+describe("sync button state", () => {
+  it("returns pull sync action when the branch is behind upstream", () => {
+    const syncAction = resolveSyncAction(status({ behindCount: 2 }), false);
+    assert.deepEqual(syncAction, {
+      label: "Sync branch",
+      disabled: false,
+      kind: "run_pull",
+    });
+  });
+
+  it("returns push sync action when the branch is ahead of upstream", () => {
+    const syncAction = resolveSyncAction(status({ aheadCount: 3 }), false);
+    assert.deepEqual(syncAction, {
+      label: "Sync branch",
+      disabled: false,
+      kind: "run_action",
+      action: "commit_push",
+    });
+  });
+
+  it("returns a disabled sync hint when the branch has diverged from upstream", () => {
+    const syncAction = resolveSyncAction(status({ aheadCount: 2, behindCount: 1 }), false);
+    assert.deepEqual(syncAction, {
+      label: "Sync branch",
+      disabled: true,
+      kind: "show_hint",
+      hint: "Branch has diverged from upstream. Rebase/merge first.",
+    });
+  });
+
+  it("returns a disabled sync hint while git actions are busy", () => {
+    const syncAction = resolveSyncAction(status({ aheadCount: 1 }), true);
+    assert.deepEqual(syncAction, {
+      label: "Sync branch",
+      disabled: true,
+      kind: "show_hint",
+      hint: "Git action in progress.",
+    });
+  });
+
+  it("does not show when the branch has no upstream", () => {
+    assert.isNull(resolveSyncAction(status({ hasUpstream: false, aheadCount: 1 }), false));
+  });
+
+  it("does not show when the working tree has local changes", () => {
+    assert.isNull(resolveSyncAction(status({ hasWorkingTreeChanges: true, aheadCount: 1 }), false));
   });
 });
 

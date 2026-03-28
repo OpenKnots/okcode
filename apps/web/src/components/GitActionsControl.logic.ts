@@ -26,6 +26,14 @@ export interface GitQuickAction {
   hint?: string;
 }
 
+export interface GitSyncAction {
+  label: string;
+  disabled: boolean;
+  kind: "run_action" | "run_pull" | "show_hint";
+  action?: "commit_push";
+  hint?: string;
+}
+
 export interface DefaultBranchActionDialogCopy {
   title: string;
   description: string;
@@ -335,6 +343,61 @@ export function resolveQuickAction(
     disabled: true,
     kind: "show_hint",
     hint: "Branch is up to date. No action needed.",
+  };
+}
+
+export function resolveSyncAction(
+  gitStatus: GitStatusResult | null,
+  isBusy: boolean,
+): GitSyncAction | null {
+  if (!gitStatus) return null;
+  if (
+    gitStatus.branch === null ||
+    gitStatus.hasWorkingTreeChanges ||
+    gitStatus.hasConflicts ||
+    !gitStatus.hasUpstream
+  ) {
+    return null;
+  }
+
+  const isAhead = gitStatus.aheadCount > 0;
+  const isBehind = gitStatus.behindCount > 0;
+
+  if (!isAhead && !isBehind) {
+    return null;
+  }
+
+  if (isBusy) {
+    return {
+      label: "Sync branch",
+      disabled: true,
+      kind: "show_hint",
+      hint: "Git action in progress.",
+    };
+  }
+
+  if (isAhead && isBehind) {
+    return {
+      label: "Sync branch",
+      disabled: true,
+      kind: "show_hint",
+      hint: "Branch has diverged from upstream. Rebase/merge first.",
+    };
+  }
+
+  if (isBehind) {
+    return {
+      label: "Sync branch",
+      disabled: false,
+      kind: "run_pull",
+    };
+  }
+
+  return {
+    label: "Sync branch",
+    disabled: false,
+    kind: "run_action",
+    action: "commit_push",
   };
 }
 

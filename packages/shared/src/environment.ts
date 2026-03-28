@@ -76,12 +76,15 @@ export function resolveProjectContextByCwd(
   const normalizedCwd = path.resolve(cwd);
   const projectById = new Map(readModel.projects.map((project) => [project.id, project] as const));
 
-  let bestMatch:
-    | (ProjectContext & {
-        readonly matchLength: number;
-        readonly hasWorktreePath: boolean;
-      })
-    | null = null;
+  type ProjectContextMatch = {
+    readonly projectId: ProjectId;
+    readonly projectRoot: string;
+    readonly worktreePath: string | null;
+    readonly matchLength: number;
+    readonly hasWorktreePath: boolean;
+  };
+
+  let bestMatch: ProjectContextMatch | null = null;
 
   const consider = (input: {
     readonly projectId: ProjectId;
@@ -94,10 +97,7 @@ export function resolveProjectContextByCwd(
       return;
     }
 
-    const candidate: ProjectContext & {
-      readonly matchLength: number;
-      readonly hasWorktreePath: boolean;
-    } = {
+    const candidate: ProjectContextMatch = {
       projectId: input.projectId,
       projectRoot: path.resolve(input.projectRoot),
       worktreePath: input.worktreePath,
@@ -136,13 +136,14 @@ export function resolveProjectContextByCwd(
     });
   }
 
-  if (!bestMatch) {
+  if (bestMatch === null) {
     return null;
   }
+  const match = bestMatch as ProjectContextMatch;
 
   return {
-    projectId: bestMatch.projectId,
-    projectRoot: bestMatch.projectRoot,
-    worktreePath: bestMatch.worktreePath,
+    projectId: match.projectId,
+    projectRoot: match.projectRoot,
+    worktreePath: match.worktreePath,
   };
 }

@@ -20,6 +20,7 @@ import {
   ProviderInteractionMode,
 } from "@okcode/contracts";
 import { normalizeModelSlug } from "@okcode/shared/model";
+import { mergeNodeProcessEnv } from "@okcode/shared/environment";
 import { Effect, ServiceMap } from "effect";
 
 import {
@@ -132,6 +133,7 @@ export interface CodexAppServerStartSessionInput {
   readonly serviceTier?: string;
   readonly resumeCursor?: unknown;
   readonly providerOptions?: ProviderSessionStartInput["providerOptions"];
+  readonly env?: NodeJS.ProcessEnv;
   readonly runtimeMode: RuntimeMode;
 }
 
@@ -572,17 +574,17 @@ export class CodexAppServerManager extends EventEmitter<CodexAppServerManagerEve
       const codexOptions = readCodexProviderOptions(input);
       const codexBinaryPath = codexOptions.binaryPath ?? "codex";
       const codexHomePath = codexOptions.homePath;
+      const baseEnv = mergeNodeProcessEnv(process.env, input.env);
+      const sessionEnv = codexHomePath ? { ...baseEnv, CODEX_HOME: codexHomePath } : baseEnv;
       this.assertSupportedCodexCliVersion({
         binaryPath: codexBinaryPath,
         cwd: resolvedCwd,
         ...(codexHomePath ? { homePath: codexHomePath } : {}),
+        env: sessionEnv,
       });
       const child = spawn(codexBinaryPath, ["app-server"], {
         cwd: resolvedCwd,
-        env: {
-          ...process.env,
-          ...(codexHomePath ? { CODEX_HOME: codexHomePath } : {}),
-        },
+        env: sessionEnv,
         stdio: ["pipe", "pipe", "pipe"],
         shell: process.platform === "win32",
       });
@@ -1637,13 +1639,15 @@ function assertSupportedCodexCliVersion(input: {
   readonly binaryPath: string;
   readonly cwd: string;
   readonly homePath?: string;
+  readonly env?: NodeJS.ProcessEnv;
 }): void {
   const result = spawnSync(input.binaryPath, ["--version"], {
     cwd: input.cwd,
-    env: {
-      ...process.env,
-      ...(input.homePath ? { CODEX_HOME: input.homePath } : {}),
-    },
+    env:
+      input.env ??
+      (input.homePath
+        ? { ...mergeNodeProcessEnv(process.env), CODEX_HOME: input.homePath }
+        : process.env),
     encoding: "utf8",
     shell: process.platform === "win32",
     stdio: ["ignore", "pipe", "pipe"],

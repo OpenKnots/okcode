@@ -219,11 +219,11 @@ const WebSocketRequestBody = Schema.Union([
   // Server meta
   tagRequestBody(WS_METHODS.serverGetConfig, Schema.Struct({})),
   tagRequestBody(WS_METHODS.serverGetGlobalEnvironmentVariables, Schema.Struct({})),
-  tagRequestBody(WS_METHODS.serverSaveGlobalEnvironmentVariables, SaveGlobalEnvironmentVariablesInput),
   tagRequestBody(
-    WS_METHODS.serverGetProjectEnvironmentVariables,
-    ProjectEnvironmentVariablesInput,
+    WS_METHODS.serverSaveGlobalEnvironmentVariables,
+    SaveGlobalEnvironmentVariablesInput,
   ),
+  tagRequestBody(WS_METHODS.serverGetProjectEnvironmentVariables, ProjectEnvironmentVariablesInput),
   tagRequestBody(
     WS_METHODS.serverSaveProjectEnvironmentVariables,
     SaveProjectEnvironmentVariablesInput,

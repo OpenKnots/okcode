@@ -16,12 +16,14 @@ import type {
 } from "@okcode/contracts";
 import { Array, Effect, Fiber, FileSystem, Layer, Option, Path, Result, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
+import { mergeNodeProcessEnv } from "@okcode/shared/environment";
 
 import {
   formatCodexCliUpgradeMessage,
   isCodexCliVersionSupported,
   parseCodexCliVersion,
 } from "../codexCliVersion";
+import { EnvironmentVariables } from "../../persistence/Services/EnvironmentVariables.ts";
 import { ProviderHealth, type ProviderHealthShape } from "../Services/ProviderHealth";
 
 const DEFAULT_TIMEOUT_MS = 4_000;
@@ -188,7 +190,10 @@ const OPENAI_AUTH_PROVIDERS = new Set(["openai"]);
 export const readCodexConfigModelProvider = Effect.gen(function* () {
   const fileSystem = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const codexHome = process.env.CODEX_HOME || path.join(OS.homedir(), ".codex");
+  const environmentVariables = yield* EnvironmentVariables;
+  const globalEnvironment = yield* environmentVariables.resolveEnvironment();
+  const mergedEnvironment = mergeNodeProcessEnv(process.env, globalEnvironment);
+  const codexHome = mergedEnvironment.CODEX_HOME || path.join(OS.homedir(), ".codex");
   const configPath = path.join(codexHome, "config.toml");
 
   const content = yield* fileSystem
@@ -242,8 +247,14 @@ const collectStreamAsString = <E>(stream: Stream.Stream<Uint8Array, E>): Effect.
 const runCodexCommand = (args: ReadonlyArray<string>) =>
   Effect.gen(function* () {
     const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+    const environmentVariables = yield* EnvironmentVariables;
+    const mergedEnvironment = mergeNodeProcessEnv(
+      process.env,
+      yield* environmentVariables.resolveEnvironment(),
+    );
     const command = ChildProcess.make("codex", [...args], {
       shell: process.platform === "win32",
+      env: mergedEnvironment,
     });
 
     const child = yield* spawner.spawn(command);
@@ -263,8 +274,14 @@ const runCodexCommand = (args: ReadonlyArray<string>) =>
 const runClaudeCommand = (args: ReadonlyArray<string>) =>
   Effect.gen(function* () {
     const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+    const environmentVariables = yield* EnvironmentVariables;
+    const mergedEnvironment = mergeNodeProcessEnv(
+      process.env,
+      yield* environmentVariables.resolveEnvironment(),
+    );
     const command = ChildProcess.make("claude", [...args], {
       shell: process.platform === "win32",
+      env: mergedEnvironment,
     });
 
     const child = yield* spawner.spawn(command);

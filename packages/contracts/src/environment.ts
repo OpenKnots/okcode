@@ -31,7 +31,7 @@ export type EnvironmentVariableEntries = typeof EnvironmentVariableEntries.Type;
 export const RuntimeEnvironmentVariables = Schema.Record(
   EnvironmentVariableKey,
   EnvironmentVariableValue,
-).check(Schema.isMaxLength(RUNTIME_ENV_MAX_PROPERTIES));
+).check(Schema.isMaxProperties(RUNTIME_ENV_MAX_PROPERTIES));
 export type RuntimeEnvironmentVariables = typeof RuntimeEnvironmentVariables.Type;
 
 export const GlobalEnvironmentVariablesResult = Schema.Struct({
@@ -59,5 +59,4 @@ export const SaveProjectEnvironmentVariablesInput = Schema.Struct({
   projectId: ProjectId,
   entries: EnvironmentVariableEntries,
 });
-export type SaveProjectEnvironmentVariablesInput =
-  typeof SaveProjectEnvironmentVariablesInput.Type;
+export type SaveProjectEnvironmentVariablesInput = typeof SaveProjectEnvironmentVariablesInput.Type;

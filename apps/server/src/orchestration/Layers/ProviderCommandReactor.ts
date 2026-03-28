@@ -27,6 +27,7 @@ import {
   type ProviderCommandReactorShape,
 } from "../Services/ProviderCommandReactor.ts";
 import { inferProviderForModel } from "@okcode/shared/model";
+import { resolveRuntimeEnvironment } from "../../runtimeEnvironment.ts";
 
 type ProviderIntentEvent = Extract<
   OrchestrationEvent,
@@ -263,11 +264,11 @@ const make = Effect.gen(function* () {
         .listSessions()
         .pipe(Effect.map((sessions) => sessions.find((session) => session.threadId === threadId)));
 
-    const startProviderSession = (input?: {
+    const startProviderSession = Effect.fnUntraced(function* (input?: {
       readonly resumeCursor?: unknown;
       readonly provider?: ProviderKind;
-    }) =>
-      providerService.startSession(threadId, {
+    }) {
+      return yield* providerService.startSession(threadId, {
         threadId,
         ...((input?.provider ?? preferredProvider)
           ? { provider: input?.provider ?? preferredProvider }
@@ -279,8 +280,12 @@ const make = Effect.gen(function* () {
           ? { providerOptions: options.providerOptions }
           : {}),
         ...(input?.resumeCursor !== undefined ? { resumeCursor: input.resumeCursor } : {}),
+        env: yield* resolveRuntimeEnvironment({
+          projectId: thread.projectId,
+        }),
         runtimeMode: desiredRuntimeMode,
       });
+    });
 
     const bindSessionToThread = (session: ProviderSession) =>
       setThreadSession({

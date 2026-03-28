@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 
+import { existsSync } from "node:fs";
 import { homedir } from "node:os";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -9,10 +12,20 @@ import { Config, Data, Effect, Hash, Layer, Logger, Option, Path, Schema } from 
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { ChildProcess } from "effect/unstable/process";
 
+const DEV_RUNNER_SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
+const MONOREPO_ROOT = join(DEV_RUNNER_SCRIPT_DIR, "..");
+
 const BASE_SERVER_PORT = 3773;
 const BASE_WEB_PORT = 5733;
 const MAX_HASH_OFFSET = 3000;
 const MAX_PORT = 65535;
+
+/** Prefer workspace `node_modules/.bin` so spawn works without a global `turbo` on PATH. */
+function resolveTurboExecutable(): string {
+  const name = process.platform === "win32" ? "turbo.cmd" : "turbo";
+  const local = join(MONOREPO_ROOT, "node_modules", ".bin", name);
+  return existsSync(local) ? local : "turbo";
+}
 
 export const DEFAULT_OKCODE_HOME = Effect.map(Effect.service(Path.Path), (path) =>
   path.join(homedir(), ".okcode"),
@@ -444,9 +457,10 @@ export function runDevRunnerWithInput(input: DevRunnerCliInput) {
     }
 
     const child = yield* ChildProcess.make(
-      "turbo",
+      resolveTurboExecutable(),
       [...MODE_ARGS[input.mode], ...input.turboArgs],
       {
+        cwd: MONOREPO_ROOT,
         stdin: "inherit",
         stdout: "inherit",
         stderr: "inherit",

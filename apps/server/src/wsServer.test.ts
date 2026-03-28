@@ -813,7 +813,8 @@ describe("WebSocket Server", () => {
     connections.push(ws);
 
     expect(
-      logSpy.mock.calls.some(([message]) => {
+      logSpy.mock.calls.some((call) => {
+        const [message] = call;
         if (typeof message !== "string") return false;
         return (
           message.includes("[ws]") &&
@@ -957,9 +958,18 @@ describe("WebSocket Server", () => {
         message: expect.any(String),
       },
     ]);
-    expect(result.keybindings).toHaveLength(DEFAULT_RESOLVED_KEYBINDINGS.length);
-    expect(result.keybindings.some((entry) => entry.command === "terminal.toggle")).toBe(true);
+    const expectedTerminalToggle = compileResolvedKeybindingRule({
+      key: "mod+j",
+      command: "terminal.toggle",
+    });
+    expect(expectedTerminalToggle).not.toBeNull();
+    expect(result.keybindings.filter((entry) => entry.command === "terminal.toggle")).toEqual([
+      expectedTerminalToggle,
+    ]);
     expect(result.keybindings.some((entry) => entry.command === "terminal.new")).toBe(true);
+    expect(result.keybindings.some((entry) => entry.command === "terminal.split")).toBe(true);
+    const invalidUserCommand: string = "not-a-real-command";
+    expect(result.keybindings.some((entry) => entry.command === invalidUserCommand)).toBe(false);
     expect(result.providers).toEqual(defaultProviderStatuses);
     expectAvailableEditors(result.availableEditors);
   });
@@ -1877,33 +1887,29 @@ describe("WebSocket Server", () => {
   });
 
   it("publishes git action progress only to the initiating websocket", async () => {
-    const runStackedAction = vi.fn(
-      (_input, options) =>
-        options?.progressReporter
-          ?.publish({
-            actionId: options.actionId ?? "action-1",
-            cwd: "/test",
-            action: "commit",
-            kind: "phase_started",
-            phase: "commit",
-            label: "Committing...",
-          })
-          .pipe(
-            Effect.flatMap(() =>
-              Effect.succeed({
-                action: "commit" as const,
-                branch: { status: "skipped_not_requested" as const },
-                commit: {
-                  status: "created" as const,
-                  commitSha: "abc1234",
-                  subject: "Test commit",
-                },
-                push: { status: "skipped_not_requested" as const },
-                pr: { status: "skipped_not_requested" as const },
-              }),
-            ),
-          ) ?? Effect.void,
-    );
+    const runStackedAction: GitManagerShape["runStackedAction"] = (input, options) =>
+      (
+        options?.progressReporter?.publish({
+          actionId: options?.actionId ?? input.actionId,
+          cwd: input.cwd,
+          action: "commit",
+          kind: "phase_started",
+          phase: "commit",
+          label: "Committing...",
+        }) ?? Effect.void
+      ).pipe(
+        Effect.as({
+          action: "commit" as const,
+          branch: { status: "skipped_not_requested" as const },
+          commit: {
+            status: "created" as const,
+            commitSha: "abc1234",
+            subject: "Test commit",
+          },
+          push: { status: "skipped_not_requested" as const },
+          pr: { status: "skipped_not_requested" as const },
+        }),
+      );
     const gitManager: GitManagerShape = {
       status: vi.fn(() => Effect.void as any),
       resolvePullRequest: vi.fn(() => Effect.void as any),

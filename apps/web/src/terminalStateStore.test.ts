@@ -1,20 +1,22 @@
 import { ThreadId } from "@okcode/contracts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { selectThreadTerminalState, useTerminalStateStore } from "./terminalStateStore";
-
 const THREAD_ID = ThreadId.makeUnsafe("thread-1");
 
+let selectThreadTerminalState: typeof import("./terminalStateStore").selectThreadTerminalState;
+let useTerminalStateStore: typeof import("./terminalStateStore").useTerminalStateStore;
+
 describe("terminalStateStore actions", () => {
-  beforeEach(() => {
-    const storage = {
+  beforeEach(async () => {
+    vi.resetModules();
+    vi.stubGlobal("localStorage", {
       getItem: () => null,
       setItem: () => {},
       removeItem: () => {},
       clear: () => {},
-    };
+    });
 
-    vi.stubGlobal("localStorage", storage);
+    ({ selectThreadTerminalState, useTerminalStateStore } = await import("./terminalStateStore"));
     localStorage.clear();
     useTerminalStateStore.setState({ terminalStateByThreadId: {} });
   });

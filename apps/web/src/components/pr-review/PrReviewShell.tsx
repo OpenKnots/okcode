@@ -23,7 +23,6 @@ import {
   CircleDotIcon,
   ExternalLinkIcon,
   FileCode2Icon,
-  FolderGit2Icon,
   GitBranchIcon,
   GitMergeIcon,
   GitPullRequestIcon,
@@ -33,7 +32,6 @@ import {
   SearchIcon,
   ShieldCheckIcon,
   SparklesIcon,
-  UserCheckIcon,
   UsersIcon,
   XCircleIcon,
 } from "lucide-react";
@@ -56,6 +54,8 @@ import {
 import { buildPatchCacheKey, resolveDiffThemeName } from "~/lib/diffRendering";
 import { cn } from "~/lib/utils";
 import { ensureNativeApi } from "~/nativeApi";
+import { SectionHeading, StatPill } from "~/components/review/ReviewChrome";
+import { joinPath, projectLabel } from "~/components/review/reviewUtils";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
@@ -127,14 +127,6 @@ const PR_REVIEW_DIFF_UNSAFE_CSS = `
   color: var(--foreground) !important;
 }
 `;
-
-function projectLabel(project: Project): string {
-  return project.name.trim().length > 0 ? project.name : project.cwd;
-}
-
-function joinPath(base: string, relativePath: string): string {
-  return `${base.replace(/\/+$/, "")}/${relativePath.replace(/^\/+/, "")}`;
-}
 
 function formatRelativeTime(value: string): string {
   if (!value) return "";
@@ -361,51 +353,6 @@ function resolveWorkflow(
 
 async function openPathInEditor(targetPath: string) {
   await openInPreferredEditor(ensureNativeApi(), targetPath);
-}
-
-function StatPill({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string | number;
-}) {
-  return (
-    <div className="flex items-center gap-2 rounded-full border border-border/70 bg-background/80 px-3 py-1.5 text-xs text-muted-foreground">
-      <span className="text-foreground/80">{icon}</span>
-      <span>{label}</span>
-      <span className="font-medium text-foreground">{value}</span>
-    </div>
-  );
-}
-
-function SectionHeading({
-  eyebrow,
-  title,
-  detail,
-  action,
-}: {
-  eyebrow: string;
-  title: string;
-  detail?: string;
-  action?: React.ReactNode;
-}) {
-  return (
-    <div className="flex items-start justify-between gap-3">
-      <div className="space-y-1">
-        <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-          {eyebrow}
-        </p>
-        <div className="space-y-1">
-          <h2 className="font-semibold text-base text-foreground">{title}</h2>
-          {detail ? <p className="text-sm text-muted-foreground">{detail}</p> : null}
-        </div>
-      </div>
-      {action}
-    </div>
-  );
 }
 
 function PrUserHoverCard({
@@ -1951,7 +1898,7 @@ export function PrReviewShell({
       unsubscribeSync();
       unsubscribeConfig();
     };
-  }, [handleRepoConfigUpdated, handleSyncUpdated]);
+  }, []);
 
   const addThreadMutation = useMutation({
     mutationFn: async (input: { path: string; line: number; body: string }) => {
@@ -2059,7 +2006,6 @@ export function PrReviewShell({
     },
   });
 
-  const selectedWorkflow = resolveWorkflow(configQuery.data, workflowId);
   const checksSummary = configQuery.data
     ? requiredChecksState(configQuery.data, dashboardQuery.data?.pullRequest.statusChecks ?? [])
     : { failing: [] as string[], pending: [] as string[] };

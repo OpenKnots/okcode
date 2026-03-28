@@ -4,6 +4,7 @@ import { useNavigate } from "@tanstack/react-router";
 import {
   FolderOpenIcon,
   FolderIcon,
+  GitMergeIcon,
   GitPullRequestIcon,
   SettingsIcon,
   SquarePenIcon,
@@ -184,6 +185,14 @@ export function ChatHomeEmptyState() {
                   >
                     <GitPullRequestIcon className="size-4" />
                     Review pull requests
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="justify-start gap-2"
+                    onClick={() => void navigate({ to: "/merge-conflicts" })}
+                  >
+                    <GitMergeIcon className="size-4" />
+                    Resolve merge conflicts
                   </Button>
                   <Button
                     variant="ghost"

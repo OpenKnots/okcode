@@ -1,0 +1,21 @@
+---
+/**
+ * Feature grid — three core product pillars.
+ */
+
+interface Props {
+  pillars: ReadonlyArray<{ eyebrow: string; title: string; body: string }>;
+}
+
+const { pillars } = Astro.props;
+---
+
+<section class="feature-grid" aria-label="Core product pillars" data-reveal>
+  {pillars.map((pillar) => (
+    <article class="feature-card">
+      <div class="feature-eyebrow">{pillar.eyebrow}</div>
+      <h2>{pillar.title}</h2>
+      <p>{pillar.body}</p>
+    </article>
+  ))}
+</section>

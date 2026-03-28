@@ -1,4 +1,6 @@
 ---
+import "@fontsource-variable/dm-sans";
+
 interface Props {
   title?: string;
   description?: string;
@@ -32,12 +34,7 @@ const ogImage = Astro.site ? new URL(ogImagePath, Astro.site).href : null;
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
     {ogImage && <meta name="twitter:image" content={ogImage} />}
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap"
-      rel="stylesheet"
-    />
+    <!-- Self-hosted DM Sans — eliminates render-blocking Google Fonts request -->
     <link rel="icon" href="/favicon.ico" sizes="48x48" />
     <link rel="icon" type="image/png" href="/favicon-32x32.png" sizes="32x32" />
     <link rel="icon" type="image/png" href="/favicon-16x16.png" sizes="16x16" />
@@ -108,7 +105,7 @@ const ogImage = Astro.site ? new URL(ogImagePath, Astro.site).href : null;
   body {
     background: var(--bg);
     color: var(--fg);
-    font-family: "DM Sans", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    font-family: "DM Sans Variable", "DM Sans", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     min-height: 100vh;
@@ -137,16 +134,7 @@ const ogImage = Astro.site ? new URL(ogImagePath, Astro.site).href : null;
     max-width: 100%;
   }
 
-  @keyframes fade-in {
-    from {
-      opacity: 0;
-      transform: translateY(8px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
+  /* fade-in keyframes removed — scroll reveal is now handled via IntersectionObserver in index.astro */
 </style>
 
 <style>

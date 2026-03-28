@@ -1,0 +1,27 @@
+---
+/**
+ * FAQ section — two-column grid of Q&A cards.
+ */
+
+interface Props {
+  faqs: ReadonlyArray<{ question: string; answer: string }>;
+}
+
+const { faqs } = Astro.props;
+---
+
+<section class="faq-section" aria-label="Frequently asked questions" data-reveal>
+  <div class="section-heading">
+    <p class="section-kicker">FAQ</p>
+    <h2 class="section-title">What people need to know before they click.</h2>
+  </div>
+
+  <div class="faq-grid">
+    {faqs.map((item) => (
+      <article class="faq-card">
+        <h3>{item.question}</h3>
+        <p>{item.answer}</p>
+      </article>
+    ))}
+  </div>
+</section>

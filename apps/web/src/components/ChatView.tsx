@@ -89,7 +89,7 @@ import BranchToolbar from "./BranchToolbar";
 import { resolveShortcutCommand, shortcutLabelForCommand } from "../keybindings";
 import PlanSidebar from "./PlanSidebar";
 import ThreadTerminalDrawer from "./ThreadTerminalDrawer";
-import { SpotifyPlayerDrawer } from "./SpotifyPlayer";
+import { YouTubePlayerDrawer } from "./YouTubePlayer";
 import {
   AtSignIcon,
   BotIcon,
@@ -4894,7 +4894,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
         );
       })()}
 
-      <SpotifyPlayerDrawer />
+      <YouTubePlayerDrawer />
 
       <Dialog
         open={pendingProjectScriptRun !== null}

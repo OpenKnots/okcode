@@ -12,7 +12,7 @@ import {
   TerminalIcon,
   TriangleAlertIcon,
 } from "lucide-react";
-import { SpotifyToggleButton } from "./SpotifyPlayer";
+import { YouTubeToggleButton } from "./YouTubePlayer";
 import { ThemeModeSwitcher } from "./ThemeModeSwitcher";
 import { autoAnimate } from "@formkit/auto-animate";
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
@@ -2027,7 +2027,7 @@ export default function Sidebar() {
       <SidebarFooter className="p-2">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SpotifyToggleButton />
+            <YouTubeToggleButton />
           </SidebarMenuItem>
           {isOnSubPage ? (
             <SidebarMenuItem>

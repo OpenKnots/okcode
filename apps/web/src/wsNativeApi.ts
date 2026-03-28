@@ -24,6 +24,10 @@ const prReviewRepoConfigUpdatedListeners = new Set<
   (payload: PrReviewRepoConfigUpdatedPayload) => void
 >();
 const transportStateListeners = new Set<(state: TransportState) => void>();
+const prReviewSyncUpdatedListeners = new Set<(payload: PrReviewSyncUpdatedPayload) => void>();
+const prReviewRepoConfigUpdatedListeners = new Set<
+  (payload: PrReviewRepoConfigUpdatedPayload) => void
+>();
 
 /**
  * Subscribe to the server welcome message. If a welcome was already received

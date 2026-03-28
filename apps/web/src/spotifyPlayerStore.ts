@@ -42,6 +42,7 @@ export const DEFAULT_PLAYLISTS: SpotifyPlaylist[] = [
 
 interface PersistedSpotifyState {
   isOpen: boolean;
+  minimized: boolean;
   selectedPlaylistUri: string | null;
   customUri: string | null;
   volume: number;
@@ -50,6 +51,7 @@ interface PersistedSpotifyState {
 interface SpotifyPlayerStore extends PersistedSpotifyState {
   toggle: () => void;
   setOpen: (open: boolean) => void;
+  setMinimized: (minimized: boolean) => void;
   selectPlaylist: (uri: string) => void;
   setCustomUri: (uri: string | null) => void;
   setVolume: (volume: number) => void;
@@ -60,6 +62,7 @@ const STORAGE_KEY = "okcode:spotify-player:v1";
 function readPersistedState(): PersistedSpotifyState {
   const defaults: PersistedSpotifyState = {
     isOpen: false,
+    minimized: false,
     selectedPlaylistUri: null,
     customUri: null,
     volume: 80,
@@ -74,6 +77,7 @@ function readPersistedState(): PersistedSpotifyState {
     const parsed = JSON.parse(raw) as Partial<PersistedSpotifyState>;
     return {
       isOpen: typeof parsed.isOpen === "boolean" ? parsed.isOpen : false,
+      minimized: typeof parsed.minimized === "boolean" ? parsed.minimized : false,
       selectedPlaylistUri:
         typeof parsed.selectedPlaylistUri === "string" ? parsed.selectedPlaylistUri : null,
       customUri: typeof parsed.customUri === "string" ? parsed.customUri : null,
@@ -110,6 +114,11 @@ export const useSpotifyPlayerStore = create<SpotifyPlayerStore>((set, get) => ({
   setOpen: (open) => {
     set({ isOpen: open });
     persistState({ ...get(), isOpen: open });
+  },
+
+  setMinimized: (minimized) => {
+    set({ minimized });
+    persistState({ ...get(), minimized });
   },
 
   selectPlaylist: (uri) => {

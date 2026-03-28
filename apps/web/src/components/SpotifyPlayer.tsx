@@ -1,4 +1,15 @@
-import { ChevronDownIcon, ChevronUpIcon, ListMusicIcon, Music2Icon, XIcon } from "lucide-react";
+import {
+  ChevronDownIcon,
+  ChevronUpIcon,
+  ListMusicIcon,
+  MaximizeIcon,
+  MinimizeIcon,
+  Music2Icon,
+  Volume1Icon,
+  Volume2Icon,
+  VolumeXIcon,
+  XIcon,
+} from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import {
   buildEmbedUrl,
@@ -41,15 +52,70 @@ export function SpotifyToggleButton() {
 const CATEGORIES = [...new Set(DEFAULT_PLAYLISTS.map((p) => p.category))];
 
 // ---------------------------------------------------------------------------
+// Volume slider — always accessible in the header bar
+// ---------------------------------------------------------------------------
+function VolumeControl() {
+  const { volume, setVolume } = useSpotifyPlayerStore();
+  const [premuteVolume, setPremuteVolume] = useState<number>(80);
+
+  const toggleMute = useCallback(() => {
+    if (volume > 0) {
+      setPremuteVolume(volume);
+      setVolume(0);
+    } else {
+      setVolume(premuteVolume || 80);
+    }
+  }, [volume, premuteVolume, setVolume]);
+
+  const VolumeIcon = volume === 0 ? VolumeXIcon : volume < 50 ? Volume1Icon : Volume2Icon;
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <button
+        type="button"
+        onClick={toggleMute}
+        className="rounded p-0.5 text-muted-foreground/60 transition-colors hover:text-foreground"
+        aria-label={volume === 0 ? "Unmute" : "Mute"}
+      >
+        <VolumeIcon className="size-3.5" />
+      </button>
+      <input
+        type="range"
+        min={0}
+        max={100}
+        step={1}
+        value={volume}
+        onChange={(e) => setVolume(Number(e.target.value))}
+        className="spotify-volume-slider h-1 w-16 cursor-pointer appearance-none rounded-full bg-muted-foreground/20 accent-emerald-400 [&::-webkit-slider-thumb]:size-2.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-emerald-400 [&::-webkit-slider-thumb]:transition-transform [&::-webkit-slider-thumb]:hover:scale-125 [&::-moz-range-thumb]:size-2.5 [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-emerald-400"
+        aria-label="Volume"
+      />
+      <span className="min-w-[2ch] text-[10px] tabular-nums text-muted-foreground/50">
+        {volume}
+      </span>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main Spotify Player Drawer — rendered at the bottom of ChatView
 // ---------------------------------------------------------------------------
 export function SpotifyPlayerDrawer() {
-  const { isOpen, selectedPlaylistUri, customUri, setOpen, selectPlaylist, setCustomUri } =
-    useSpotifyPlayerStore();
+  const {
+    isOpen,
+    minimized,
+    selectedPlaylistUri,
+    customUri,
+    setOpen,
+    setMinimized,
+    selectPlaylist,
+    setCustomUri,
+  } = useSpotifyPlayerStore();
   const [expanded, setExpanded] = useState(false);
   const [customInput, setCustomInput] = useState("");
   const [activeCategory, setActiveCategory] = useState<string>(CATEGORIES[0] ?? "Focus");
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const activePlaylist = DEFAULT_PLAYLISTS.find((p) => p.uri === selectedPlaylistUri);
 
   const embedUrl = useMemo(() => {
     // Custom URI takes priority
@@ -81,24 +147,55 @@ export function SpotifyPlayerDrawer() {
 
   return (
     <div className="border-t border-border/80 bg-background">
-      {/* Header bar */}
+      {/* Header bar — always visible */}
       <div className="flex items-center gap-2 px-3 py-1.5">
-        <Music2Icon className="size-3.5 text-emerald-400" />
-        <span className="text-xs font-medium text-foreground/80">Spotify</span>
+        <Music2Icon className="size-3.5 shrink-0 text-emerald-400" />
 
+        {/* Now-playing label */}
+        <span className="truncate text-xs font-medium text-foreground/80">
+          {activePlaylist ? activePlaylist.name : "Spotify"}
+        </span>
+
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Volume — always accessible */}
+        <VolumeControl />
+
+        {/* Playlist picker toggle (only when not minimized) */}
+        {!minimized && (
+          <button
+            type="button"
+            onClick={() => setExpanded(!expanded)}
+            className="rounded p-0.5 text-muted-foreground/60 transition-colors hover:bg-accent hover:text-foreground"
+            aria-label={expanded ? "Collapse playlist picker" : "Expand playlist picker"}
+          >
+            {expanded ? (
+              <ChevronDownIcon className="size-3.5" />
+            ) : (
+              <ChevronUpIcon className="size-3.5" />
+            )}
+          </button>
+        )}
+
+        {/* Minimize / Restore */}
         <button
           type="button"
-          onClick={() => setExpanded(!expanded)}
-          className="ml-auto rounded p-0.5 text-muted-foreground/60 transition-colors hover:bg-accent hover:text-foreground"
-          aria-label={expanded ? "Collapse playlist picker" : "Expand playlist picker"}
+          onClick={() => {
+            setMinimized(!minimized);
+            if (!minimized) setExpanded(false);
+          }}
+          className="rounded p-0.5 text-muted-foreground/60 transition-colors hover:bg-accent hover:text-foreground"
+          aria-label={minimized ? "Restore player" : "Minimize player"}
         >
-          {expanded ? (
-            <ChevronDownIcon className="size-3.5" />
+          {minimized ? (
+            <MaximizeIcon className="size-3.5" />
           ) : (
-            <ChevronUpIcon className="size-3.5" />
+            <MinimizeIcon className="size-3.5" />
           )}
         </button>
 
+        {/* Close */}
         <button
           type="button"
           onClick={() => setOpen(false)}
@@ -109,8 +206,8 @@ export function SpotifyPlayerDrawer() {
         </button>
       </div>
 
-      {/* Expanded playlist picker */}
-      {expanded && (
+      {/* Expanded playlist picker (hidden when minimized) */}
+      {expanded && !minimized && (
         <div className="border-t border-border/40 px-3 py-2">
           {/* Category tabs */}
           <div className="mb-2 flex gap-1 overflow-x-auto">
@@ -182,14 +279,22 @@ export function SpotifyPlayerDrawer() {
         </div>
       )}
 
-      {/* Spotify embed iframe */}
+      {/* Spotify embed iframe — kept in DOM when minimized so audio continues */}
       {embedUrl ? (
-        <div className="px-2 pb-2">
+        <div
+          className={cn(
+            "transition-all duration-200",
+            minimized
+              ? "pointer-events-none h-0 overflow-hidden opacity-0"
+              : "px-2 pb-2",
+          )}
+          aria-hidden={minimized}
+        >
           <iframe
             title="Spotify Player"
             src={embedUrl}
             width="100%"
-            height={expanded ? "80" : "80"}
+            height="80"
             allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
             // eslint-disable-next-line react/iframe-missing-sandbox -- Spotify embed requires both allow-scripts and allow-same-origin to function
             sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
@@ -197,7 +302,7 @@ export function SpotifyPlayerDrawer() {
             className="rounded-xl border-0"
           />
         </div>
-      ) : (
+      ) : !minimized ? (
         <div className="flex flex-col items-center gap-2 px-3 pb-3 pt-1">
           <p className="text-[11px] text-muted-foreground/50">
             Pick a playlist above or paste a Spotify link
@@ -211,7 +316,7 @@ export function SpotifyPlayerDrawer() {
             Browse Playlists
           </button>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

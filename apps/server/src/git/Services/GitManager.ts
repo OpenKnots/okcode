@@ -8,6 +8,8 @@
  */
 import {
   GitActionProgressEvent,
+  GitListPullRequestsInput,
+  GitListPullRequestsResult,
   GitPreparePullRequestThreadInput,
   GitPreparePullRequestThreadResult,
   GitPullRequestRefInput,
@@ -54,6 +56,13 @@ export interface GitManagerShape {
   readonly preparePullRequestThread: (
     input: GitPreparePullRequestThreadInput,
   ) => Effect.Effect<GitPreparePullRequestThreadResult, GitManagerServiceError>;
+
+  /**
+   * List pull requests for the repository, optionally filtered by state/label.
+   */
+  readonly listPullRequests: (
+    input: GitListPullRequestsInput,
+  ) => Effect.Effect<GitListPullRequestsResult, GitManagerServiceError>;
 
   /**
    * Run a stacked Git action (`commit`, `commit_push`, `commit_push_pr`).

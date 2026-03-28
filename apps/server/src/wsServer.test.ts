@@ -1757,6 +1757,7 @@ describe("WebSocket Server", () => {
       resolvePullRequest,
       preparePullRequestThread,
       runStackedAction,
+      listPullRequests: vi.fn(() => Effect.succeed({ pullRequests: [] })),
     };
 
     server = await createTestServer({ cwd: "/test", gitManager });
@@ -1796,6 +1797,7 @@ describe("WebSocket Server", () => {
       resolvePullRequest: vi.fn(() => Effect.succeed(resolvePullRequestResult)),
       preparePullRequestThread: vi.fn(() => Effect.succeed(preparePullRequestThreadResult)),
       runStackedAction: vi.fn(() => Effect.void as any),
+      listPullRequests: vi.fn(() => Effect.succeed({ pullRequests: [] })),
     };
 
     server = await createTestServer({ cwd: "/test", gitManager });
@@ -1844,6 +1846,7 @@ describe("WebSocket Server", () => {
       resolvePullRequest: vi.fn(() => Effect.void as any),
       preparePullRequestThread: vi.fn(() => Effect.void as any),
       runStackedAction,
+      listPullRequests: vi.fn(() => Effect.succeed({ pullRequests: [] })),
     };
 
     server = await createTestServer({ cwd: "/test", gitManager });
@@ -1906,6 +1909,7 @@ describe("WebSocket Server", () => {
       resolvePullRequest: vi.fn(() => Effect.void as any),
       preparePullRequestThread: vi.fn(() => Effect.void as any),
       runStackedAction,
+      listPullRequests: vi.fn(() => Effect.succeed({ pullRequests: [] })),
     };
 
     server = await createTestServer({ cwd: "/test", gitManager });

@@ -11,6 +11,7 @@ export const gitQueryKeys = {
   all: ["git"] as const,
   status: (cwd: string | null) => ["git", "status", cwd] as const,
   branches: (cwd: string | null) => ["git", "branches", cwd] as const,
+  pullRequests: (cwd: string | null) => ["git", "pull-requests", cwd] as const,
 };
 
 export const gitMutationKeys = {
@@ -75,6 +76,37 @@ export function gitResolvePullRequestQueryOptions(input: {
     staleTime: 30_000,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
+  });
+}
+
+export function gitListPullRequestsQueryOptions(input: {
+  cwd: string | null;
+  state?: "open" | "closed" | "merged";
+  label?: string;
+}) {
+  return queryOptions({
+    queryKey: [
+      "git",
+      "pull-requests",
+      input.cwd,
+      input.state ?? "open",
+      input.label ?? "",
+    ] as const,
+    queryFn: async () => {
+      const api = ensureNativeApi();
+      if (!input.cwd) throw new Error("Pull request listing is unavailable.");
+      return api.git.listPullRequests({
+        cwd: input.cwd,
+        ...(input.state ? { state: input.state } : {}),
+        ...(input.label ? { label: input.label } : {}),
+        limit: 100,
+      });
+    },
+    enabled: input.cwd !== null,
+    staleTime: 15_000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    refetchInterval: 30_000,
   });
 }
 

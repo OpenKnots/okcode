@@ -146,7 +146,11 @@ function normalizeRepositoryCloneUrls(
 function decodeGitHubJson<S extends Schema.Top>(
   raw: string,
   schema: S,
-  operation: "listOpenPullRequests" | "getPullRequest" | "getRepositoryCloneUrls",
+  operation:
+    | "listOpenPullRequests"
+    | "getPullRequest"
+    | "getRepositoryCloneUrls"
+    | "listAllPullRequests",
   invalidDetail: string,
 ): Effect.Effect<S["Type"], GitHubCliError, S["DecodingServices"]> {
   return Schema.decodeEffect(Schema.fromJsonString(schema))(raw).pipe(
@@ -202,6 +206,48 @@ const makeGitHubCli = Effect.sync(() => {
               ),
         ),
         Effect.map((pullRequests) => pullRequests.map(normalizePullRequestSummary)),
+      ),
+    listAllPullRequests: (input) =>
+      execute({
+        cwd: input.cwd,
+        args: [
+          "pr",
+          "list",
+          "--state",
+          input.state ?? "open",
+          "--limit",
+          String(input.limit ?? 50),
+          ...(input.label ? ["--label", input.label] : []),
+          "--json",
+          "number,title,url,baseRefName,headRefName,state,labels,updatedAt,author",
+        ],
+      }).pipe(
+        Effect.map((result) => result.stdout.trim()),
+        Effect.flatMap((raw) => {
+          if (raw.length === 0) return Effect.succeed([]);
+          return Effect.try({
+            try: () => {
+              const parsed = JSON.parse(raw) as Array<any>;
+              return parsed.map((pr: any) => ({
+                number: pr.number,
+                title: pr.title,
+                url: pr.url,
+                baseRefName: pr.baseRefName,
+                headRefName: pr.headRefName,
+                state: pr.state === "MERGED" ? "merged" : pr.state === "CLOSED" ? "closed" : "open",
+                labels: (pr.labels ?? []).map((l: any) => ({ name: l.name, color: l.color ?? "" })),
+                updatedAt: pr.updatedAt ?? "",
+                author: pr.author?.login ?? "",
+              }));
+            },
+            catch: (cause) =>
+              new GitHubCliError({
+                operation: "listAllPullRequests",
+                detail: "GitHub CLI returned invalid PR list JSON.",
+                cause,
+              }),
+          });
+        }),
       ),
     getPullRequest: (input) =>
       execute({

@@ -1273,11 +1273,37 @@ export const makeGitManager = Effect.gen(function* () {
     },
   );
 
+  const listPullRequests: GitManagerShape["listPullRequests"] = Effect.fnUntraced(
+    function* (input) {
+      const results = yield* gitHubCli.listAllPullRequests({
+        cwd: input.cwd,
+        ...(input.state !== undefined ? { state: input.state } : {}),
+        ...(input.label !== undefined ? { label: input.label } : {}),
+        ...(input.limit !== undefined ? { limit: input.limit } : {}),
+      });
+
+      return {
+        pullRequests: results.map((pr) => ({
+          number: pr.number,
+          title: pr.title,
+          url: pr.url,
+          baseBranch: pr.baseRefName,
+          headBranch: pr.headRefName,
+          state: pr.state as "open" | "closed" | "merged",
+          labels: pr.labels,
+          updatedAt: pr.updatedAt,
+          author: pr.author,
+        })),
+      };
+    },
+  );
+
   return {
     status,
     resolvePullRequest,
     preparePullRequestThread,
     runStackedAction,
+    listPullRequests,
   } satisfies GitManagerShape;
 });
 

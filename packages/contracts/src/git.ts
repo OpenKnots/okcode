@@ -59,6 +59,25 @@ const GitResolvedPullRequest = Schema.Struct({
 });
 export type GitResolvedPullRequest = typeof GitResolvedPullRequest.Type;
 
+const GitPullRequestLabel = Schema.Struct({
+  name: TrimmedNonEmptyStringSchema,
+  color: Schema.String,
+});
+export type GitPullRequestLabel = typeof GitPullRequestLabel.Type;
+
+const GitResolvedPullRequestWithLabels = Schema.Struct({
+  number: PositiveInt,
+  title: TrimmedNonEmptyStringSchema,
+  url: Schema.String,
+  baseBranch: TrimmedNonEmptyStringSchema,
+  headBranch: TrimmedNonEmptyStringSchema,
+  state: GitPullRequestState,
+  labels: Schema.Array(GitPullRequestLabel),
+  updatedAt: Schema.String,
+  author: Schema.String,
+});
+export type GitResolvedPullRequestWithLabels = typeof GitResolvedPullRequestWithLabels.Type;
+
 // RPC Inputs
 
 export const GitStatusInput = Schema.Struct({
@@ -104,6 +123,14 @@ export const GitPullRequestRefInput = Schema.Struct({
   reference: GitPullRequestReference,
 });
 export type GitPullRequestRefInput = typeof GitPullRequestRefInput.Type;
+
+export const GitListPullRequestsInput = Schema.Struct({
+  cwd: TrimmedNonEmptyStringSchema,
+  state: Schema.optional(GitPullRequestState),
+  label: Schema.optional(TrimmedNonEmptyStringSchema),
+  limit: Schema.optional(PositiveInt),
+});
+export type GitListPullRequestsInput = typeof GitListPullRequestsInput.Type;
 
 export const GitPreparePullRequestThreadInput = Schema.Struct({
   cwd: TrimmedNonEmptyStringSchema,
@@ -186,6 +213,11 @@ export const GitResolvePullRequestResult = Schema.Struct({
   pullRequest: GitResolvedPullRequest,
 });
 export type GitResolvePullRequestResult = typeof GitResolvePullRequestResult.Type;
+
+export const GitListPullRequestsResult = Schema.Struct({
+  pullRequests: Schema.Array(GitResolvedPullRequestWithLabels),
+});
+export type GitListPullRequestsResult = typeof GitListPullRequestsResult.Type;
 
 export const GitPreparePullRequestThreadResult = Schema.Struct({
   pullRequest: GitResolvedPullRequest,

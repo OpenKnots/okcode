@@ -393,6 +393,35 @@ function createGitHubCliWithFakeGh(scenario: FakeGhScenario = {}): {
             (result) => JSON.parse(result.stdout) as ReadonlyArray<GitHubPullRequestSummary>,
           ),
         ),
+      listAllPullRequests: (input) =>
+        execute({
+          cwd: input.cwd,
+          args: [
+            "pr",
+            "list",
+            "--state",
+            input.state ?? "open",
+            "--limit",
+            String(input.limit ?? 50),
+            "--json",
+            "number,title,url,baseRefName,headRefName,state,labels,updatedAt,author",
+          ],
+        }).pipe(
+          Effect.map((result) => {
+            const parsed = JSON.parse(result.stdout) as Array<any>;
+            return parsed.map((pr: any) => ({
+              number: pr.number,
+              title: pr.title,
+              url: pr.url,
+              baseRefName: pr.baseRefName,
+              headRefName: pr.headRefName,
+              state: pr.state === "MERGED" ? "merged" : pr.state === "CLOSED" ? "closed" : "open",
+              labels: (pr.labels ?? []).map((l: any) => ({ name: l.name, color: l.color ?? "" })),
+              updatedAt: pr.updatedAt ?? "",
+              author: pr.author?.login ?? "",
+            }));
+          }),
+        ),
       createPullRequest: (input) =>
         execute({
           cwd: input.cwd,

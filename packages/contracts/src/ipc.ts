@@ -10,6 +10,8 @@ import type {
   GitInitInput,
   GitListBranchesInput,
   GitListBranchesResult,
+  GitListPullRequestsInput,
+  GitListPullRequestsResult,
   GitPullInput,
   GitPullResult,
   GitRemoveWorktreeInput,
@@ -199,6 +201,7 @@ export interface NativeApi {
     checkout: (input: GitCheckoutInput) => Promise<void>;
     init: (input: GitInitInput) => Promise<void>;
     resolvePullRequest: (input: GitPullRequestRefInput) => Promise<GitResolvePullRequestResult>;
+    listPullRequests: (input: GitListPullRequestsInput) => Promise<GitListPullRequestsResult>;
     preparePullRequestThread: (
       input: GitPreparePullRequestThreadInput,
     ) => Promise<GitPreparePullRequestThreadResult>;

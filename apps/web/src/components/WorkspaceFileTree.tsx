@@ -172,6 +172,11 @@ const WorkspaceDirectoryRow = memo(function WorkspaceDirectoryRow(props: {
   return (
     <button
       type="button"
+      draggable
+      onDragStart={(event) => {
+        event.dataTransfer.setData("application/x-okcode-tree-path", props.entry.path);
+        event.dataTransfer.effectAllowed = "copy";
+      }}
       className={cn(
         "group flex w-full items-center gap-1.5 rounded-md py-1 pr-2 text-left hover:bg-accent/60",
         !props.entry.hasChildren && "cursor-default",
@@ -213,6 +218,11 @@ const WorkspaceFileRow = memo(function WorkspaceFileRow(props: {
   return (
     <button
       type="button"
+      draggable
+      onDragStart={(event) => {
+        event.dataTransfer.setData("application/x-okcode-tree-path", props.entry.path);
+        event.dataTransfer.effectAllowed = "copy";
+      }}
       className="group flex w-full items-center gap-1.5 rounded-md py-1 pr-2 text-left hover:bg-accent/60"
       style={{ paddingLeft: `${leftPadding}px` }}
       onClick={(event) =>

@@ -27,6 +27,7 @@ import {
   type GitCoreShape,
   type ExecuteGitInput,
   type ExecuteGitResult,
+  type GitStatusDetails,
 } from "../Services/GitCore.ts";
 import { ServerConfig } from "../../config.ts";
 import { decodeJsonResult } from "@okcode/shared/schemaJson";

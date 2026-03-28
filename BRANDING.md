@@ -7,17 +7,17 @@
 
 ## 1. Brand Identity
 
-| Property                  | Value                                  |
-| ------------------------- | -------------------------------------- |
-| **App Name**              | OK Code                                |
-| **Stage Label**           | Dev (development only)                 |
-| **Display Name**          | OK Code                                |
-| **Version**               | 0.0.1                                  |
-| **Tagline**               | `[TBD]`                                |
-| **One-liner Description** | `[TBD]`                                |
-| **Parent Organization**   | OpenKnots                              |
-| **Website URL**           | `[TBD]`                                |
-| **Repository**            | `OpenKnots/okcode`                     |
+| Property                  | Value                  |
+| ------------------------- | ---------------------- |
+| **App Name**              | OK Code                |
+| **Stage Label**           | Dev (development only) |
+| **Display Name**          | OK Code                |
+| **Version**               | 0.0.1                  |
+| **Tagline**               | `[TBD]`                |
+| **One-liner Description** | `[TBD]`                |
+| **Parent Organization**   | OpenKnots              |
+| **Website URL**           | `[TBD]`                |
+| **Repository**            | `OpenKnots/okcode`     |
 
 ### Brand Voice & Tone
 

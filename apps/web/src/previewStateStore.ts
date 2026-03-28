@@ -8,6 +8,7 @@ interface PersistedPreviewUiState {
   dockByThreadId: Record<string, PreviewDock>;
   sizeByThreadId: Record<string, number>;
   urlByProjectId: Record<string, string>;
+  favoriteUrlByProjectId: Record<string, string>;
 }
 
 interface PreviewStateStore extends PersistedPreviewUiState {
@@ -17,9 +18,54 @@ interface PreviewStateStore extends PersistedPreviewUiState {
   toggleThreadLayout: (threadId: ThreadId) => void;
   setThreadSize: (threadId: ThreadId, size: number) => void;
   setProjectUrl: (projectId: ProjectId, url: string) => void;
+  setProjectFavoriteUrl: (projectId: ProjectId, url: string | null) => void;
+  toggleProjectFavorite: (projectId: ProjectId, url: string) => void;
 }
 
 const PREVIEW_STATE_STORAGE_KEY = "okcode:desktop-preview:v2";
+
+function createEmptyPersistedPreviewUiState(): PersistedPreviewUiState {
+  return {
+    openByThreadId: {},
+    dockByThreadId: {},
+    sizeByThreadId: {},
+    urlByProjectId: {},
+    favoriteUrlByProjectId: {},
+  };
+}
+
+function snapshotPreviewUiState(state: {
+  openByThreadId: PersistedPreviewUiState["openByThreadId"];
+  dockByThreadId: PersistedPreviewUiState["dockByThreadId"];
+  sizeByThreadId: PersistedPreviewUiState["sizeByThreadId"];
+  urlByProjectId: PersistedPreviewUiState["urlByProjectId"];
+  favoriteUrlByProjectId: PersistedPreviewUiState["favoriteUrlByProjectId"];
+}): PersistedPreviewUiState {
+  return {
+    openByThreadId: state.openByThreadId,
+    dockByThreadId: state.dockByThreadId,
+    sizeByThreadId: state.sizeByThreadId,
+    urlByProjectId: state.urlByProjectId,
+    favoriteUrlByProjectId: state.favoriteUrlByProjectId,
+  };
+}
+
+function normalizeUrlRecord(record: unknown): Record<string, string> {
+  if (!record || typeof record !== "object") {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(record).flatMap(([key, value]) => {
+      if (typeof key !== "string" || typeof value !== "string") {
+        return [];
+      }
+
+      const normalizedValue = value.trim();
+      return normalizedValue.length > 0 ? [[key, normalizedValue] as const] : [];
+    }),
+  );
+}
 
 function normalizePreviewSize(size: unknown): number | null {
   if (typeof size !== "number" || !Number.isFinite(size)) {
@@ -30,13 +76,13 @@ function normalizePreviewSize(size: unknown): number | null {
 
 function readPersistedPreviewUiState(): PersistedPreviewUiState {
   if (typeof window === "undefined") {
-    return { openByThreadId: {}, dockByThreadId: {}, sizeByThreadId: {}, urlByProjectId: {} };
+    return createEmptyPersistedPreviewUiState();
   }
 
   try {
     const raw = window.localStorage.getItem(PREVIEW_STATE_STORAGE_KEY);
     if (!raw) {
-      return { openByThreadId: {}, dockByThreadId: {}, sizeByThreadId: {}, urlByProjectId: {} };
+      return createEmptyPersistedPreviewUiState();
     }
 
     const parsed = JSON.parse(raw) as Partial<PersistedPreviewUiState>;
@@ -74,20 +120,11 @@ function readPersistedPreviewUiState(): PersistedPreviewUiState {
               }),
             )
           : {},
-      urlByProjectId:
-        parsed.urlByProjectId && typeof parsed.urlByProjectId === "object"
-          ? Object.fromEntries(
-              Object.entries(parsed.urlByProjectId).filter(
-                (entry): entry is [string, string] =>
-                  typeof entry[0] === "string" &&
-                  typeof entry[1] === "string" &&
-                  entry[1].trim().length > 0,
-              ),
-            )
-          : {},
+      urlByProjectId: normalizeUrlRecord(parsed.urlByProjectId),
+      favoriteUrlByProjectId: normalizeUrlRecord(parsed.favoriteUrlByProjectId),
     };
   } catch {
-    return { openByThreadId: {}, dockByThreadId: {}, sizeByThreadId: {}, urlByProjectId: {} };
+    return createEmptyPersistedPreviewUiState();
   }
 }
 
@@ -104,6 +141,7 @@ function persistPreviewUiState(state: PersistedPreviewUiState): void {
         dockByThreadId: state.dockByThreadId,
         sizeByThreadId: state.sizeByThreadId,
         urlByProjectId: state.urlByProjectId,
+        favoriteUrlByProjectId: state.favoriteUrlByProjectId,
       } satisfies PersistedPreviewUiState),
     );
   } catch {
@@ -122,12 +160,12 @@ export const usePreviewStateStore = create<PreviewStateStore>((set, get) => ({
         ...state.openByThreadId,
         [threadId]: open,
       };
-      persistPreviewUiState({
-        openByThreadId: nextOpenByThreadId,
-        dockByThreadId: state.dockByThreadId,
-        sizeByThreadId: state.sizeByThreadId,
-        urlByProjectId: state.urlByProjectId,
-      });
+      persistPreviewUiState(
+        snapshotPreviewUiState({
+          ...state,
+          openByThreadId: nextOpenByThreadId,
+        }),
+      );
       return { openByThreadId: nextOpenByThreadId };
     });
   },
@@ -143,12 +181,12 @@ export const usePreviewStateStore = create<PreviewStateStore>((set, get) => ({
         ...state.dockByThreadId,
         [threadId]: dock,
       };
-      persistPreviewUiState({
-        openByThreadId: state.openByThreadId,
-        dockByThreadId: nextDockByThreadId,
-        sizeByThreadId: state.sizeByThreadId,
-        urlByProjectId: state.urlByProjectId,
-      });
+      persistPreviewUiState(
+        snapshotPreviewUiState({
+          ...state,
+          dockByThreadId: nextDockByThreadId,
+        }),
+      );
       return { dockByThreadId: nextDockByThreadId };
     });
   },
@@ -177,12 +215,12 @@ export const usePreviewStateStore = create<PreviewStateStore>((set, get) => ({
         ...state.sizeByThreadId,
         [threadId]: normalizedSize,
       };
-      persistPreviewUiState({
-        openByThreadId: state.openByThreadId,
-        dockByThreadId: state.dockByThreadId,
-        sizeByThreadId: nextSizeByThreadId,
-        urlByProjectId: state.urlByProjectId,
-      });
+      persistPreviewUiState(
+        snapshotPreviewUiState({
+          ...state,
+          sizeByThreadId: nextSizeByThreadId,
+        }),
+      );
       return { sizeByThreadId: nextSizeByThreadId };
     });
   },
@@ -196,13 +234,45 @@ export const usePreviewStateStore = create<PreviewStateStore>((set, get) => ({
       } else {
         delete nextUrlByProjectId[projectId];
       }
-      persistPreviewUiState({
-        openByThreadId: state.openByThreadId,
-        dockByThreadId: state.dockByThreadId,
-        sizeByThreadId: state.sizeByThreadId,
-        urlByProjectId: nextUrlByProjectId,
-      });
+      persistPreviewUiState(
+        snapshotPreviewUiState({
+          ...state,
+          urlByProjectId: nextUrlByProjectId,
+        }),
+      );
       return { urlByProjectId: nextUrlByProjectId };
     });
+  },
+
+  setProjectFavoriteUrl: (projectId, url) => {
+    const normalizedUrl = url?.trim() ?? "";
+    set((state) => {
+      const nextFavoriteUrlByProjectId = { ...state.favoriteUrlByProjectId };
+      if (normalizedUrl.length > 0) {
+        nextFavoriteUrlByProjectId[projectId] = normalizedUrl;
+      } else {
+        delete nextFavoriteUrlByProjectId[projectId];
+      }
+      persistPreviewUiState(
+        snapshotPreviewUiState({
+          ...state,
+          favoriteUrlByProjectId: nextFavoriteUrlByProjectId,
+        }),
+      );
+      return { favoriteUrlByProjectId: nextFavoriteUrlByProjectId };
+    });
+  },
+
+  toggleProjectFavorite: (projectId, url) => {
+    const normalizedUrl = url.trim();
+    if (normalizedUrl.length === 0) {
+      return;
+    }
+
+    const currentFavoriteUrl = get().favoriteUrlByProjectId[projectId] ?? null;
+    get().setProjectFavoriteUrl(
+      projectId,
+      currentFavoriteUrl === normalizedUrl ? null : normalizedUrl,
+    );
   },
 }));

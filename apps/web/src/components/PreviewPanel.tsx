@@ -2,21 +2,24 @@ import type { DesktopPreviewState, ProjectId, ThreadId } from "@okcode/contracts
 import { type FormEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   CircleAlertIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   ExternalLinkIcon,
-  EllipsisIcon,
+  GlobeIcon,
   LoaderCircleIcon,
   RefreshCwIcon,
+  StarIcon,
   XIcon,
 } from "lucide-react";
 
-import { readDesktopPreviewBridge } from "~/desktopPreview";
 import { validateHttpPreviewUrl } from "@okcode/shared/preview";
+import { readDesktopPreviewBridge } from "~/desktopPreview";
+import { cn } from "~/lib/utils";
 import { readNativeApi } from "~/nativeApi";
 import { usePreviewStateStore } from "~/previewStateStore";
 
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { Menu, MenuItem, MenuPopup, MenuTrigger } from "./ui/menu";
 
 const CLOSED_PREVIEW_STATE: DesktopPreviewState = {
   status: "closed",
@@ -24,6 +27,8 @@ const CLOSED_PREVIEW_STATE: DesktopPreviewState = {
   title: null,
   visible: false,
   error: null,
+  canGoBack: false,
+  canGoForward: false,
 };
 
 const HIDDEN_PREVIEW_BOUNDS = {
@@ -63,16 +68,25 @@ interface PreviewPanelProps {
 export function PreviewPanel({ threadId, projectId, projectName, onClose }: PreviewPanelProps) {
   const previewBridge = readDesktopPreviewBridge();
   const storedUrl = usePreviewStateStore((state) => state.urlByProjectId[projectId] ?? "");
+  const favoriteUrl = usePreviewStateStore(
+    (state) => state.favoriteUrlByProjectId[projectId] ?? "",
+  );
   const setProjectUrl = usePreviewStateStore((state) => state.setProjectUrl);
+  const toggleProjectFavorite = usePreviewStateStore((state) => state.toggleProjectFavorite);
   const setThreadOpen = usePreviewStateStore((state) => state.setThreadOpen);
   const [inputUrl, setInputUrl] = useState(storedUrl);
   const [inputError, setInputError] = useState<string | null>(null);
   const [previewState, setPreviewState] = useState<DesktopPreviewState>(CLOSED_PREVIEW_STATE);
   const surfaceRef = useRef<HTMLDivElement | null>(null);
+  const projectNameRef = useRef(projectName);
 
   useEffect(() => {
     setInputUrl(storedUrl);
   }, [storedUrl, projectId]);
+
+  useEffect(() => {
+    projectNameRef.current = projectName;
+  }, [projectName]);
 
   useEffect(() => {
     if (!previewBridge) {
@@ -110,11 +124,9 @@ export function PreviewPanel({ threadId, projectId, projectName, onClose }: Prev
       .setBounds(HIDDEN_PREVIEW_BOUNDS)
       .catch(() => undefined)
       .finally(() => {
-        void previewBridge.close().finally(() => {
-          void previewBridge.open({ url: storedUrl, title: `${projectName} preview` });
-        });
+        void previewBridge.open({ url: storedUrl, title: `${projectNameRef.current} preview` });
       });
-  }, [previewBridge, projectName, storedUrl, threadId]);
+  }, [previewBridge, storedUrl]);
 
   useEffect(() => {
     return () => {
@@ -242,51 +254,96 @@ export function PreviewPanel({ threadId, projectId, projectName, onClose }: Prev
   };
 
   const showEmbeddedSurface = previewState.status === "loading" || previewState.status === "ready";
+  const currentPageUrl = previewState.url;
+  const isFavorite = currentPageUrl !== null && favoriteUrl === currentPageUrl;
 
   return (
     <div className="flex h-full min-w-0 flex-col bg-background">
-      <div className="flex items-center justify-between gap-2 border-b border-border/60 px-3 py-2">
-        <p
-          className="truncate text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground/75"
-          title={projectName}
-        >
-          Preview
-        </p>
-        <div className="flex items-center gap-1">
-          <Menu>
-            <MenuTrigger
-              render={
-                <Button
-                  type="button"
-                  size="icon-xs"
-                  variant="ghost"
-                  className="text-muted-foreground/55 hover:bg-transparent hover:text-foreground"
-                  aria-label="Preview actions"
-                />
-              }
+      <div className="flex items-center gap-2 border-b border-border/60 px-3 py-2">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <Button
+            type="button"
+            size="icon-xs"
+            variant="ghost"
+            className="text-muted-foreground/55 hover:bg-transparent hover:text-foreground"
+            aria-label="Back"
+            onClick={() => {
+              void previewBridge?.goBack();
+            }}
+            disabled={!previewBridge || !previewState.canGoBack}
+          >
+            <ChevronLeftIcon className="size-3.5" />
+          </Button>
+          <Button
+            type="button"
+            size="icon-xs"
+            variant="ghost"
+            className="text-muted-foreground/55 hover:bg-transparent hover:text-foreground"
+            aria-label="Forward"
+            onClick={() => {
+              void previewBridge?.goForward();
+            }}
+            disabled={!previewBridge || !previewState.canGoForward}
+          >
+            <ChevronRightIcon className="size-3.5" />
+          </Button>
+          <GlobeIcon className="size-3.5 shrink-0 text-muted-foreground/65" />
+          <div className="min-w-0">
+            <p
+              className="truncate text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground/75"
+              title={projectName}
             >
-              <EllipsisIcon aria-hidden="true" className="size-3.5" />
-            </MenuTrigger>
-            <MenuPopup align="end">
-              <MenuItem
-                onClick={() => {
-                  setInputError(null);
-                  void previewBridge?.reload();
-                }}
-                disabled={!showEmbeddedSurface}
-              >
-                <RefreshCwIcon aria-hidden="true" className="size-4" />
-                Reload
-              </MenuItem>
-              <MenuItem
-                onClick={onOpenExternal}
-                disabled={!previewState.url && storedUrl.trim().length === 0}
-              >
-                <ExternalLinkIcon aria-hidden="true" className="size-4" />
-                Open in browser
-              </MenuItem>
-            </MenuPopup>
-          </Menu>
+              Preview
+            </p>
+            <p className="truncate text-[11px] text-muted-foreground/65">{projectName}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-1">
+          <Button
+            type="button"
+            size="icon-xs"
+            variant="ghost"
+            className={cn(
+              "text-muted-foreground/55 hover:bg-transparent hover:text-foreground",
+              isFavorite ? "text-amber-500 hover:text-amber-500" : undefined,
+            )}
+            aria-label={isFavorite ? "Remove favorite" : "Favorite current page"}
+            aria-pressed={isFavorite}
+            onClick={() => {
+              if (!currentPageUrl) {
+                return;
+              }
+              toggleProjectFavorite(projectId, currentPageUrl);
+            }}
+            disabled={!previewBridge || currentPageUrl === null}
+          >
+            <StarIcon className={cn("size-3.5", isFavorite ? "fill-current" : "")} />
+          </Button>
+          <Button
+            type="button"
+            size="icon-xs"
+            variant="ghost"
+            className="text-muted-foreground/55 hover:bg-transparent hover:text-foreground"
+            aria-label="Reload preview"
+            onClick={() => {
+              setInputError(null);
+              void previewBridge?.reload();
+            }}
+            disabled={!showEmbeddedSurface}
+          >
+            <RefreshCwIcon className="size-3.5" />
+          </Button>
+          <Button
+            type="button"
+            size="icon-xs"
+            variant="ghost"
+            className="text-muted-foreground/55 hover:bg-transparent hover:text-foreground"
+            aria-label="Open preview externally"
+            onClick={onOpenExternal}
+            disabled={!previewState.url && storedUrl.trim().length === 0}
+          >
+            <ExternalLinkIcon className="size-3.5" />
+          </Button>
           <Button
             type="button"
             size="icon-xs"

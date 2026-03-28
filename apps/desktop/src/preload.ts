@@ -15,6 +15,8 @@ const UPDATE_DOWNLOAD_CHANNEL = "desktop:update-download";
 const UPDATE_INSTALL_CHANNEL = "desktop:update-install";
 const PREVIEW_OPEN_CHANNEL = "desktop:preview-open";
 const PREVIEW_CLOSE_CHANNEL = "desktop:preview-close";
+const PREVIEW_GO_BACK_CHANNEL = "desktop:preview-go-back";
+const PREVIEW_GO_FORWARD_CHANNEL = "desktop:preview-go-forward";
 const PREVIEW_RELOAD_CHANNEL = "desktop:preview-reload";
 const PREVIEW_NAVIGATE_CHANNEL = "desktop:preview-navigate";
 const PREVIEW_GET_STATE_CHANNEL = "desktop:preview-get-state";
@@ -59,6 +61,8 @@ contextBridge.exposeInMainWorld("desktopBridge", {
   preview: {
     open: (input) => ipcRenderer.invoke(PREVIEW_OPEN_CHANNEL, input),
     close: () => ipcRenderer.invoke(PREVIEW_CLOSE_CHANNEL),
+    goBack: () => ipcRenderer.invoke(PREVIEW_GO_BACK_CHANNEL),
+    goForward: () => ipcRenderer.invoke(PREVIEW_GO_FORWARD_CHANNEL),
     reload: () => ipcRenderer.invoke(PREVIEW_RELOAD_CHANNEL),
     navigate: (input) => ipcRenderer.invoke(PREVIEW_NAVIGATE_CHANNEL, input),
     getState: () => ipcRenderer.invoke(PREVIEW_GET_STATE_CHANNEL),

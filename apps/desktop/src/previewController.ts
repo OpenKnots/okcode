@@ -24,7 +24,16 @@ const ABORTED_LOAD_ERROR_CODE = -3;
 const NAVIGATION_BLOCKED_MESSAGE = "Blocked navigation outside the local preview policy.";
 const PROCESS_GONE_MESSAGE = "Preview process exited unexpectedly.";
 
-function previewVisible(state: DesktopPreviewState, bounds: DesktopPreviewBounds): boolean {
+type DesktopPreviewStateDraft = Omit<
+  DesktopPreviewState,
+  "visible" | "canGoBack" | "canGoForward"
+> &
+  Partial<Pick<DesktopPreviewState, "visible" | "canGoBack" | "canGoForward">>;
+
+function previewVisible(
+  state: Pick<DesktopPreviewState, "status">,
+  bounds: DesktopPreviewBounds,
+): boolean {
   return bounds.visible && state.status !== "closed";
 }
 
@@ -71,16 +80,7 @@ export class DesktopPreviewController {
       status: "loading",
       url: validatedUrl.url,
       title: nextTitle ?? this.state.title,
-      visible: previewVisible(
-        {
-          status: "loading",
-          url: validatedUrl.url,
-          title: nextTitle ?? this.state.title,
-          visible: this.state.visible,
-          error: null,
-        },
-        this.bounds,
-      ),
+      visible: previewVisible({ status: "loading" }, this.bounds),
       error: null,
     });
 
@@ -116,6 +116,24 @@ export class DesktopPreviewController {
       accepted: result.accepted,
       state: result.state,
     };
+  }
+
+  goBack(): void {
+    const view = this.view;
+    if (!view || view.webContents.isDestroyed() || !view.webContents.canGoBack()) {
+      return;
+    }
+
+    view.webContents.goBack();
+  }
+
+  goForward(): void {
+    const view = this.view;
+    if (!view || view.webContents.isDestroyed() || !view.webContents.canGoForward()) {
+      return;
+    }
+
+    view.webContents.goForward();
   }
 
   reload(): void {
@@ -309,9 +327,25 @@ export class DesktopPreviewController {
     this.disposingView = false;
   }
 
-  private setState(nextState: DesktopPreviewState): void {
+  private currentNavigationState(): Pick<DesktopPreviewState, "canGoBack" | "canGoForward"> {
+    const webContents = this.view?.webContents;
+    if (!webContents || webContents.isDestroyed()) {
+      return {
+        canGoBack: false,
+        canGoForward: false,
+      };
+    }
+
+    return {
+      canGoBack: webContents.canGoBack(),
+      canGoForward: webContents.canGoForward(),
+    };
+  }
+
+  private setState(nextState: DesktopPreviewStateDraft): void {
     this.state = {
       ...nextState,
+      ...this.currentNavigationState(),
       visible: previewVisible(nextState, this.bounds),
     };
     this.onStateChange(this.state);

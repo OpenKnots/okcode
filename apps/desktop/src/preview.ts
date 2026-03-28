@@ -16,6 +16,8 @@ const CLOSED_PREVIEW_STATE: DesktopPreviewState = {
   title: null,
   visible: false,
   error: null,
+  canGoBack: false,
+  canGoForward: false,
 };
 
 function makePreviewError(code: DesktopPreviewErrorCode, message: string): DesktopPreviewError {
@@ -37,6 +39,8 @@ export function createPreviewErrorState(
     title: partial?.title ?? null,
     visible: false,
     error: makePreviewError(code, message),
+    canGoBack: false,
+    canGoForward: false,
   };
 }
 

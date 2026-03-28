@@ -136,6 +136,7 @@ export type DesktopPreviewStatus = "closed" | "loading" | "ready" | "error";
 export type DesktopPreviewErrorCode =
   | "invalid-url"
   | "non-local-url"
+  | "navigation-blocked"
   | "load-failed"
   | "process-gone";
 
@@ -154,26 +155,6 @@ export interface DesktopPreviewBounds {
   viewportHeight: number;
 }
 
-export type PreviewTabId = string;
-
-export interface PreviewTabState {
-  tabId: PreviewTabId;
-  status: DesktopPreviewStatus;
-  url: string | null;
-  title: string | null;
-  error: DesktopPreviewError | null;
-  canGoBack: boolean;
-  canGoForward: boolean;
-  devToolsOpen: boolean;
-}
-
-export interface PreviewTabsState {
-  tabs: PreviewTabState[];
-  activeTabId: PreviewTabId | null;
-  visible: boolean;
-}
-
-/** @deprecated Use PreviewTabsState instead */
 export interface DesktopPreviewState {
   status: DesktopPreviewStatus;
   url: string | null;
@@ -182,16 +163,43 @@ export interface DesktopPreviewState {
   error: DesktopPreviewError | null;
   canGoBack: boolean;
   canGoForward: boolean;
+  pickingElement: boolean;
 }
 
-export interface PreviewCreateTabResult {
-  tabId: PreviewTabId;
-  state: PreviewTabsState;
+export interface PreviewOpenResult {
+  accepted: boolean;
+  state: DesktopPreviewState;
 }
 
 export interface PreviewNavigateResult {
   accepted: boolean;
-  state: PreviewTabsState;
+  state: DesktopPreviewState;
+}
+
+export interface DesktopPreviewElementSelection {
+  pageUrl: string;
+  pageTitle: string | null;
+  selector: string;
+  tagName: string;
+  role: string | null;
+  ariaLabel: string | null;
+  text: string;
+  href: string | null;
+  name: string | null;
+  placeholder: string | null;
+}
+
+export type PreviewPickElementResultReason =
+  | "cancelled"
+  | "preview-unavailable"
+  | "already-picking"
+  | "selection-failed";
+
+export interface PreviewPickElementResult {
+  accepted: boolean;
+  selection: DesktopPreviewElementSelection | null;
+  reason: PreviewPickElementResultReason | null;
+  state: DesktopPreviewState;
 }
 
 export interface DesktopBridge {
@@ -212,18 +220,17 @@ export interface DesktopBridge {
   installUpdate: () => Promise<DesktopUpdateActionResult>;
   onUpdateState: (listener: (state: DesktopUpdateState) => void) => () => void;
   preview: {
-    createTab: (input: { url: string; title?: string | null }) => Promise<PreviewCreateTabResult>;
-    closeTab: (input: { tabId: PreviewTabId }) => Promise<PreviewTabsState>;
-    activateTab: (input: { tabId: PreviewTabId }) => Promise<PreviewTabsState>;
+    open: (input: { url: string; title?: string | null }) => Promise<PreviewOpenResult>;
+    close: () => Promise<void>;
     goBack: () => Promise<void>;
     goForward: () => Promise<void>;
     reload: () => Promise<void>;
     navigate: (input: { url: string }) => Promise<PreviewNavigateResult>;
-    toggleDevTools: () => Promise<void>;
+    pickElement: () => Promise<PreviewPickElementResult>;
+    cancelPickElement: () => Promise<void>;
+    getState: () => Promise<DesktopPreviewState>;
     setBounds: (bounds: DesktopPreviewBounds) => Promise<void>;
-    closeAll: () => Promise<void>;
-    getState: () => Promise<PreviewTabsState>;
-    onState: (listener: (state: PreviewTabsState) => void) => () => void;
+    onState: (listener: (state: DesktopPreviewState) => void) => () => void;
   };
 }
 

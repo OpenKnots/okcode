@@ -285,8 +285,8 @@ function ChatThreadRouteView() {
   const closeCodeViewerStore = useCodeViewerStore((state) => state.close);
 
   // Preview state from Zustand store
-  const previewOpen = usePreviewStateStore((state) => state.globalOpen);
-  const setPreviewOpen = usePreviewStateStore((state) => state.setGlobalOpen);
+  const previewOpen = usePreviewStateStore((state) => state.openByThreadId[threadId] === true);
+  const setPreviewOpen = usePreviewStateStore((state) => state.setThreadOpen);
 
   // TanStack Router keeps active route components mounted across param-only navigations
   // unless remountDeps are configured, so this stays warm across thread switches.
@@ -316,8 +316,8 @@ function ChatThreadRouteView() {
   }, [closeCodeViewerStore]);
 
   const closePreview = useCallback(() => {
-    setPreviewOpen(false);
-  }, [setPreviewOpen]);
+    setPreviewOpen(threadId, false);
+  }, [setPreviewOpen, threadId]);
 
   // Enforce mutual exclusivity: only one right-side panel open at a time.
   useMutuallyExclusivePanels(

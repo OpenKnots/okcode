@@ -1,15 +1,20 @@
-import { type BrowserWindow, Menu, MenuItem, WebContentsView } from "electron";
+import { type BrowserWindow, type HandlerDetails, shell, WebContentsView } from "electron";
 import type {
   DesktopPreviewBounds,
-  PreviewCreateTabResult,
+  DesktopPreviewElementSelection,
+  DesktopPreviewState,
   PreviewNavigateResult,
-  PreviewTabId,
-  PreviewTabState,
-  PreviewTabsState,
+  PreviewOpenResult,
+  PreviewPickElementResult,
 } from "@okcode/contracts";
-import { randomUUID } from "node:crypto";
 
-import { sanitizeDesktopPreviewBounds, validateDesktopPreviewUrl } from "./preview";
+import {
+  createClosedPreviewState,
+  createPreviewErrorState,
+  sanitizeDesktopPreviewBounds,
+  validateDesktopPreviewUrl,
+} from "./preview";
+import { beginPreviewElementPick, cancelPreviewElementPick } from "./previewPicker";
 import { projectPreviewBoundsToContent } from "./previewBounds";
 
 const PREVIEW_WEB_PREFERENCES = {
@@ -18,30 +23,26 @@ const PREVIEW_WEB_PREFERENCES = {
   sandbox: true,
 } as const;
 
-const ZERO_BOUNDS = { x: 0, y: 0, width: 0, height: 0 } as const;
+const ABORTED_LOAD_ERROR_CODE = -3;
+const NAVIGATION_BLOCKED_MESSAGE = "Blocked navigation outside the local preview policy.";
+const PROCESS_GONE_MESSAGE = "Preview process exited unexpectedly.";
 
-interface TabEntry {
-  id: PreviewTabId;
-  view: WebContentsView;
-  state: PreviewTabState;
-}
+type DesktopPreviewStateDraft = Omit<
+  DesktopPreviewState,
+  "visible" | "canGoBack" | "canGoForward"
+> &
+  Partial<Pick<DesktopPreviewState, "visible" | "canGoBack" | "canGoForward">>;
 
-function createClosedTabState(tabId: PreviewTabId): PreviewTabState {
-  return {
-    tabId,
-    status: "closed",
-    url: null,
-    title: null,
-    error: null,
-    canGoBack: false,
-    canGoForward: false,
-    devToolsOpen: false,
-  };
+function previewVisible(
+  state: Pick<DesktopPreviewState, "status">,
+  bounds: DesktopPreviewBounds,
+): boolean {
+  return bounds.visible && state.status !== "closed";
 }
 
 export class DesktopPreviewController {
-  private tabs: Map<PreviewTabId, TabEntry> = new Map();
-  private activeTabId: PreviewTabId | null = null;
+  private view: WebContentsView | null = null;
+  private state: DesktopPreviewState = createClosedPreviewState();
   private bounds: DesktopPreviewBounds = {
     x: 0,
     y: 0,
@@ -51,443 +52,398 @@ export class DesktopPreviewController {
     viewportWidth: 0,
     viewportHeight: 0,
   };
-  private disposingTab = false;
+  private unsubscribers: Array<() => void> = [];
+  private disposingView = false;
+  private activePickPromise: Promise<DesktopPreviewElementSelection | null> | null = null;
 
   constructor(
     private readonly window: BrowserWindow,
-    private readonly onStateChange: (state: PreviewTabsState) => void,
+    private readonly onStateChange: (state: DesktopPreviewState) => void,
   ) {}
 
-  getState(): PreviewTabsState {
-    return this.buildTabsState();
+  getState(): DesktopPreviewState {
+    return this.state;
   }
 
-  async createTab(input: { url: unknown; title?: unknown }): Promise<PreviewCreateTabResult> {
+  async open(input: { url: unknown; title?: unknown }): Promise<PreviewOpenResult> {
     const validatedUrl = validateDesktopPreviewUrl(input.url);
     if (!validatedUrl.ok) {
-      // Still create the tab but in error state
-      const tabId = randomUUID();
-      const tabState: PreviewTabState = {
-        tabId,
-        status: "error",
-        url: null,
-        title: null,
-        error: validatedUrl.error,
-        canGoBack: false,
-        canGoForward: false,
-        devToolsOpen: false,
-      };
-      // Don't actually create a view for invalid URLs
-      return { tabId, state: this.buildTabsState() };
+      this.setState(
+        createPreviewErrorState(validatedUrl.error.code, validatedUrl.error.message, {
+          url: this.state.url,
+          title: this.state.title,
+        }),
+      );
+      return { accepted: false, state: this.state };
     }
 
-    const tabId = randomUUID();
     const nextTitle =
       typeof input.title === "string" && input.title.trim().length > 0 ? input.title : null;
-
-    const view = this.createView(tabId);
-    const tabState: PreviewTabState = {
-      tabId,
+    const view = this.ensureView();
+    this.setState({
       status: "loading",
       url: validatedUrl.url,
-      title: nextTitle,
+      title: nextTitle ?? this.state.title,
+      visible: previewVisible({ status: "loading" }, this.bounds),
       error: null,
-      canGoBack: false,
-      canGoForward: false,
-      devToolsOpen: false,
-    };
-
-    const entry: TabEntry = { id: tabId, view, state: tabState };
-    this.tabs.set(tabId, entry);
-
-    // Switch to this tab
-    this.activateTabInternal(tabId);
-
-    // Load URL
-    void view.webContents.loadURL(validatedUrl.url).catch((error: unknown) => {
-      const tab = this.tabs.get(tabId);
-      if (!tab || tab.view !== view) return;
-      tab.state = {
-        ...tab.state,
-        status: "error",
-        error: {
-          code: "load-failed",
-          message: error instanceof Error ? error.message : String(error),
-        },
-      };
-      this.broadcastState();
+      pickingElement: false,
     });
 
-    const state = this.buildTabsState();
-    return { tabId, state };
+    void view.webContents.loadURL(validatedUrl.url).catch((error: unknown) => {
+      if (this.view !== view) {
+        return;
+      }
+      this.setState(
+        createPreviewErrorState(
+          "load-failed",
+          error instanceof Error ? error.message : String(error),
+          {
+            url: validatedUrl.url,
+            title: this.state.title,
+          },
+        ),
+      );
+    });
+
+    return { accepted: true, state: this.state };
   }
 
-  closeTab(tabId: PreviewTabId): PreviewTabsState {
-    const entry = this.tabs.get(tabId);
-    if (!entry) return this.buildTabsState();
-
-    this.disposeTabView(entry);
-    this.tabs.delete(tabId);
-
-    // If this was the active tab, activate an adjacent one
-    if (this.activeTabId === tabId) {
-      const remaining = Array.from(this.tabs.keys());
-      this.activeTabId = remaining.length > 0 ? remaining[remaining.length - 1]! : null;
-      if (this.activeTabId) {
-        this.applyActiveTabBounds();
-      }
+  async navigate(input: { url: unknown }): Promise<PreviewNavigateResult> {
+    if (!this.view) {
+      return {
+        accepted: false,
+        state: createClosedPreviewState(),
+      };
     }
 
-    return this.broadcastState();
-  }
-
-  activateTab(tabId: PreviewTabId): PreviewTabsState {
-    if (!this.tabs.has(tabId)) return this.buildTabsState();
-    this.activateTabInternal(tabId);
-    return this.broadcastState();
+    const result = await this.open({ url: input.url, title: this.state.title });
+    return {
+      accepted: result.accepted,
+      state: result.state,
+    };
   }
 
   goBack(): void {
-    const view = this.getActiveView();
-    if (!view || view.webContents.isDestroyed() || !view.webContents.canGoBack()) return;
+    const view = this.view;
+    if (!view || view.webContents.isDestroyed() || !view.webContents.canGoBack()) {
+      return;
+    }
+
     view.webContents.goBack();
   }
 
   goForward(): void {
-    const view = this.getActiveView();
-    if (!view || view.webContents.isDestroyed() || !view.webContents.canGoForward()) return;
+    const view = this.view;
+    if (!view || view.webContents.isDestroyed() || !view.webContents.canGoForward()) {
+      return;
+    }
+
     view.webContents.goForward();
   }
 
   reload(): void {
-    this.getActiveView()?.webContents.reload();
+    void this.cancelElementPick();
+    this.view?.webContents.reload();
   }
 
-  async navigate(input: { url: unknown }): Promise<PreviewNavigateResult> {
-    const activeEntry = this.getActiveEntry();
-    if (!activeEntry) {
-      return { accepted: false, state: this.buildTabsState() };
+  close(): void {
+    void this.cancelElementPick();
+    this.disposeView();
+    this.setState(createClosedPreviewState());
+  }
+
+  async pickElement(): Promise<PreviewPickElementResult> {
+    const view = this.view;
+    if (
+      !view ||
+      view.webContents.isDestroyed() ||
+      (this.state.status !== "ready" && this.state.status !== "loading")
+    ) {
+      return {
+        accepted: false,
+        selection: null,
+        reason: "preview-unavailable",
+        state: this.state,
+      };
     }
 
-    const validatedUrl = validateDesktopPreviewUrl(input.url);
-    if (!validatedUrl.ok) {
-      activeEntry.state = {
-        ...activeEntry.state,
-        status: "error",
-        error: validatedUrl.error,
+    if (this.activePickPromise) {
+      return {
+        accepted: false,
+        selection: null,
+        reason: "already-picking",
+        state: this.state,
       };
-      return { accepted: false, state: this.broadcastState() };
     }
 
-    activeEntry.state = {
-      ...activeEntry.state,
-      status: "loading",
-      url: validatedUrl.url,
-      error: null,
-    };
-    this.broadcastState();
-
-    void activeEntry.view.webContents.loadURL(validatedUrl.url).catch((error: unknown) => {
-      const tab = this.tabs.get(activeEntry.id);
-      if (!tab || tab.view !== activeEntry.view) return;
-      tab.state = {
-        ...tab.state,
-        status: "error",
-        error: {
-          code: "load-failed",
-          message: error instanceof Error ? error.message : String(error),
-        },
-      };
-      this.broadcastState();
+    this.setState({
+      ...this.state,
+      pickingElement: true,
     });
 
-    return { accepted: true, state: this.buildTabsState() };
-  }
+    const pickPromise = beginPreviewElementPick(view.webContents);
+    this.activePickPromise = pickPromise;
 
-  toggleDevTools(): void {
-    const view = this.getActiveView();
-    if (!view || view.webContents.isDestroyed()) return;
-    view.webContents.toggleDevTools();
-  }
-
-  closeAll(): void {
-    for (const entry of this.tabs.values()) {
-      this.disposeTabView(entry);
+    let result: Omit<PreviewPickElementResult, "state"> | null = null;
+    try {
+      const selection = await pickPromise;
+      result = {
+        accepted: true,
+        selection,
+        reason: selection ? null : "cancelled",
+      };
+    } catch {
+      result = {
+        accepted: false,
+        selection: null,
+        reason: "selection-failed",
+      };
+    } finally {
+      if (this.activePickPromise === pickPromise) {
+        this.activePickPromise = null;
+        this.setState({
+          ...this.state,
+          pickingElement: false,
+        });
+      }
     }
-    this.tabs.clear();
-    this.activeTabId = null;
-    this.broadcastState();
+
+    return {
+      ...(result ?? {
+        accepted: false,
+        selection: null,
+        reason: "selection-failed",
+      }),
+      state: this.state,
+    };
+  }
+
+  async cancelPickElement(): Promise<void> {
+    await this.cancelElementPick();
   }
 
   setBounds(bounds: DesktopPreviewBounds): void {
     this.bounds = sanitizeDesktopPreviewBounds(bounds);
-    this.applyActiveTabBounds();
-    this.broadcastState();
+    const appliedVisible = this.applyViewBounds();
+    if (this.state.status !== "closed") {
+      this.setState({
+        ...this.state,
+        visible: previewVisible(this.state, this.bounds) && appliedVisible,
+      });
+    }
   }
 
   destroy(): void {
-    this.closeAll();
+    void this.cancelElementPick();
+    this.disposeView();
+    this.unsubscribers.forEach((unsubscribe) => unsubscribe());
+    this.unsubscribers = [];
   }
 
-  // --- Private helpers ---
+  private ensureView(): WebContentsView {
+    if (this.view && !this.view.webContents.isDestroyed()) {
+      this.applyViewBounds();
+      return this.view;
+    }
 
-  private createView(tabId: PreviewTabId): WebContentsView {
     const view = new WebContentsView({
       webPreferences: PREVIEW_WEB_PREFERENCES,
     });
     view.setBorderRadius(8);
+    this.view = view;
     this.window.contentView.addChildView(view);
-    // Start hidden
-    view.setBounds(ZERO_BOUNDS);
-    this.bindView(tabId, view);
+    this.bindView(view);
+    this.applyViewBounds();
     return view;
   }
 
-  private bindView(tabId: PreviewTabId, view: WebContentsView): void {
+  private bindView(view: WebContentsView): void {
     const { webContents } = view;
 
-    webContents.on("did-start-loading", () => {
-      const tab = this.tabs.get(tabId);
-      if (!tab) return;
-      tab.state = {
-        ...tab.state,
+    const onDidStartLoading = () => {
+      void this.cancelElementPick();
+      this.setState({
         status: "loading",
-        url: webContents.getURL() || tab.state.url,
+        url: webContents.getURL() || this.state.url,
+        title: this.state.title,
+        visible: previewVisible(this.state, this.bounds),
         error: null,
-      };
-      this.broadcastState();
-    });
-
-    webContents.on("did-stop-loading", () => {
-      const tab = this.tabs.get(tabId);
-      if (!tab || tab.state.status === "error") return;
-      tab.state = {
-        ...tab.state,
-        status: "ready",
-        url: webContents.getURL() || tab.state.url,
-        title: webContents.getTitle() || tab.state.title,
-        canGoBack: webContents.canGoBack(),
-        canGoForward: webContents.canGoForward(),
-      };
-      this.broadcastState();
-    });
-
-    webContents.on("did-navigate", (_event, url) => {
-      const tab = this.tabs.get(tabId);
-      if (!tab) return;
-      tab.state = {
-        ...tab.state,
-        url,
-        canGoBack: webContents.canGoBack(),
-        canGoForward: webContents.canGoForward(),
-      };
-      this.broadcastState();
-    });
-
-    webContents.on("did-navigate-in-page", (_event, url) => {
-      const tab = this.tabs.get(tabId);
-      if (!tab) return;
-      tab.state = {
-        ...tab.state,
-        url,
-        canGoBack: webContents.canGoBack(),
-        canGoForward: webContents.canGoForward(),
-      };
-      this.broadcastState();
-    });
-
-    webContents.on("page-title-updated", (event, title) => {
-      event.preventDefault();
-      const tab = this.tabs.get(tabId);
-      if (!tab) return;
-      tab.state = { ...tab.state, title: title || null };
-      this.broadcastState();
-    });
-
-    webContents.on(
-      "did-fail-load",
-      (_event, errorCode, errorDescription, validatedUrl, isMainFrame) => {
-        if (!isMainFrame || errorCode === -3) return; // -3 = aborted
-        const tab = this.tabs.get(tabId);
-        if (!tab) return;
-        tab.state = {
-          ...tab.state,
-          status: "error",
-          url: validatedUrl || tab.state.url,
-          error: {
-            code: "load-failed",
-            message: errorDescription || "Page failed to load.",
-          },
-        };
-        this.broadcastState();
-      },
-    );
-
-    webContents.on("render-process-gone", () => {
-      const tab = this.tabs.get(tabId);
-      if (!tab) return;
-      tab.state = {
-        ...tab.state,
-        status: "error",
-        error: { code: "process-gone", message: "Tab process exited unexpectedly." },
-      };
-      this.broadcastState();
-    });
-
-    webContents.once("destroyed", () => {
-      if (this.disposingTab) return;
-      const tab = this.tabs.get(tabId);
-      if (!tab) return;
-      tab.state = {
-        ...tab.state,
-        status: "error",
-        error: { code: "process-gone", message: "Tab process exited unexpectedly." },
-      };
-      this.broadcastState();
-    });
-
-    // DevTools tracking
-    webContents.on("devtools-opened", () => {
-      const tab = this.tabs.get(tabId);
-      if (!tab) return;
-      tab.state = { ...tab.state, devToolsOpen: true };
-      this.broadcastState();
-    });
-
-    webContents.on("devtools-closed", () => {
-      const tab = this.tabs.get(tabId);
-      if (!tab) return;
-      tab.state = { ...tab.state, devToolsOpen: false };
-      this.broadcastState();
-    });
-
-    // Unrestricted navigation: no will-navigate blocker
-
-    // window.open() → create a new tab
-    webContents.setWindowOpenHandler((details) => {
-      void this.createTab({ url: details.url });
-      return { action: "deny" };
-    });
-
-    // Right-click context menu with "Inspect Element"
-    webContents.on("context-menu", (_event, params) => {
-      const menu = new Menu();
-      if (params.linkURL) {
-        menu.append(
-          new MenuItem({
-            label: "Open Link in New Tab",
-            click: () => {
-              void this.createTab({ url: params.linkURL });
-            },
-          }),
-        );
-        menu.append(new MenuItem({ type: "separator" }));
+        pickingElement: false,
+      });
+    };
+    const onDidStopLoading = () => {
+      if (this.state.status === "error" || this.state.status === "closed") {
+        return;
       }
-      menu.append(
-        new MenuItem({
-          label: "Back",
-          enabled: webContents.canGoBack(),
-          click: () => webContents.goBack(),
+      this.setState({
+        status: "ready",
+        url: webContents.getURL() || this.state.url,
+        title: webContents.getTitle() || this.state.title,
+        visible: previewVisible(this.state, this.bounds),
+        error: null,
+        pickingElement: false,
+      });
+    };
+    const onDidNavigate = (url: string) => {
+      this.setState({
+        ...this.state,
+        url,
+      });
+    };
+    const onPageTitleUpdated = (event: Electron.Event, title: string) => {
+      event.preventDefault();
+      this.setState({
+        ...this.state,
+        title: title || null,
+      });
+    };
+    const onDidFailLoad = (
+      _event: Electron.Event,
+      errorCode: number,
+      errorDescription: string,
+      validatedUrl: string,
+      isMainFrame: boolean,
+    ) => {
+      if (!isMainFrame || errorCode === ABORTED_LOAD_ERROR_CODE) {
+        return;
+      }
+      this.setState(
+        createPreviewErrorState("load-failed", errorDescription || "Preview failed to load.", {
+          url: validatedUrl || this.state.url,
+          title: this.state.title,
         }),
       );
-      menu.append(
-        new MenuItem({
-          label: "Forward",
-          enabled: webContents.canGoForward(),
-          click: () => webContents.goForward(),
+    };
+    const onRenderProcessGone = () => {
+      this.setState(
+        createPreviewErrorState("process-gone", PROCESS_GONE_MESSAGE, {
+          url: this.state.url,
+          title: this.state.title,
         }),
       );
-      menu.append(
-        new MenuItem({
-          label: "Reload",
-          click: () => webContents.reload(),
+    };
+    const onDestroyed = () => {
+      void this.cancelElementPick();
+      if (this.disposingView) {
+        return;
+      }
+      this.view = null;
+      this.setState(
+        createPreviewErrorState("process-gone", PROCESS_GONE_MESSAGE, {
+          url: this.state.url,
+          title: this.state.title,
         }),
       );
-      menu.append(new MenuItem({ type: "separator" }));
-      menu.append(
-        new MenuItem({
-          label: "Inspect Element",
-          click: () => {
-            webContents.inspectElement(params.x, params.y);
-          },
-        }),
-      );
-      menu.popup();
-    });
+    };
+
+    webContents.setWindowOpenHandler((details) => this.handleWindowOpen(details));
+    webContents.on("will-navigate", this.handleWillNavigate);
+    webContents.on("did-start-loading", onDidStartLoading);
+    webContents.on("did-stop-loading", onDidStopLoading);
+    webContents.on("did-navigate", (_event, url) => onDidNavigate(url));
+    webContents.on("did-navigate-in-page", (_event, url) => onDidNavigate(url));
+    webContents.on("page-title-updated", onPageTitleUpdated);
+    webContents.on("did-fail-load", onDidFailLoad);
+    webContents.on("render-process-gone", onRenderProcessGone);
+    webContents.once("destroyed", onDestroyed);
   }
 
-  private activateTabInternal(tabId: PreviewTabId): void {
-    // Hide current active tab
-    if (this.activeTabId && this.activeTabId !== tabId) {
-      const oldEntry = this.tabs.get(this.activeTabId);
-      if (oldEntry && !oldEntry.view.webContents.isDestroyed()) {
-        oldEntry.view.setBounds(ZERO_BOUNDS);
-      }
+  private readonly handleWillNavigate = (event: Electron.Event, url: string) => {
+    const validatedUrl = validateDesktopPreviewUrl(url);
+    if (validatedUrl.ok) {
+      return;
     }
 
-    this.activeTabId = tabId;
-    this.applyActiveTabBounds();
+    event.preventDefault();
+    this.setState(
+      createPreviewErrorState("navigation-blocked", NAVIGATION_BLOCKED_MESSAGE, {
+        url: this.state.url,
+        title: this.state.title,
+      }),
+    );
+  };
+
+  private handleWindowOpen(details: HandlerDetails): Electron.WindowOpenHandlerResponse {
+    const validatedUrl = validateDesktopPreviewUrl(details.url);
+    if (validatedUrl.ok) {
+      void shell.openExternal(validatedUrl.url);
+      return { action: "deny" };
+    }
+
+    this.setState(
+      createPreviewErrorState("navigation-blocked", NAVIGATION_BLOCKED_MESSAGE, {
+        url: this.state.url,
+        title: this.state.title,
+      }),
+    );
+    return { action: "deny" };
   }
 
-  private applyActiveTabBounds(): void {
-    if (!this.activeTabId) return;
-    const entry = this.tabs.get(this.activeTabId);
-    if (!entry || entry.view.webContents.isDestroyed()) return;
+  private applyViewBounds(): boolean {
+    if (!this.view || this.view.webContents.isDestroyed()) {
+      return false;
+    }
 
     const nextBounds = projectPreviewBoundsToContent(this.bounds, this.window.getContentBounds());
-    entry.view.setBounds(nextBounds);
+    this.view.setBounds(nextBounds);
+    return nextBounds.width > 0 && nextBounds.height > 0;
   }
 
-  private getActiveEntry(): TabEntry | null {
-    if (!this.activeTabId) return null;
-    return this.tabs.get(this.activeTabId) ?? null;
-  }
+  private disposeView(): void {
+    const existingView = this.view;
+    if (!existingView) {
+      return;
+    }
 
-  private getActiveView(): WebContentsView | null {
-    return this.getActiveEntry()?.view ?? null;
-  }
-
-  private disposeTabView(entry: TabEntry): void {
-    this.disposingTab = true;
+    this.disposingView = true;
+    this.view = null;
     try {
-      this.window.contentView.removeChildView(entry.view);
+      this.window.contentView.removeChildView(existingView);
     } catch {
       // Window may already be torn down.
     }
-    if (!entry.view.webContents.isDestroyed()) {
-      entry.view.webContents.close({ waitForBeforeUnload: false });
+    if (!existingView.webContents.isDestroyed()) {
+      existingView.webContents.close({ waitForBeforeUnload: false });
     }
-    entry.view.webContents.removeAllListeners();
-    this.disposingTab = false;
+    existingView.webContents.removeAllListeners();
+    this.disposingView = false;
   }
 
-  private buildTabsState(): PreviewTabsState {
-    const tabs: PreviewTabState[] = [];
-    for (const entry of this.tabs.values()) {
-      // Refresh navigation state from live webContents
-      const wc = entry.view.webContents;
-      if (!wc.isDestroyed()) {
-        entry.state = {
-          ...entry.state,
-          canGoBack: wc.canGoBack(),
-          canGoForward: wc.canGoForward(),
-        };
-      }
-      tabs.push(entry.state);
+  private currentNavigationState(): Pick<DesktopPreviewState, "canGoBack" | "canGoForward"> {
+    const webContents = this.view?.webContents;
+    if (!webContents || webContents.isDestroyed()) {
+      return {
+        canGoBack: false,
+        canGoForward: false,
+      };
     }
 
-    const visible = this.bounds.visible && tabs.length > 0 && this.activeTabId !== null;
-
     return {
-      tabs,
-      activeTabId: this.activeTabId,
-      visible,
+      canGoBack: webContents.canGoBack(),
+      canGoForward: webContents.canGoForward(),
     };
   }
 
-  private broadcastState(): PreviewTabsState {
-    const state = this.buildTabsState();
-    this.onStateChange(state);
-    return state;
+  private setState(nextState: DesktopPreviewStateDraft): void {
+    this.state = {
+      ...nextState,
+      ...this.currentNavigationState(),
+      visible: previewVisible(nextState, this.bounds),
+    };
+    this.onStateChange(this.state);
+  }
+
+  private async cancelElementPick(): Promise<void> {
+    const pickPromise = this.activePickPromise;
+    const webContents = this.view?.webContents;
+    if (!pickPromise || !webContents || webContents.isDestroyed()) {
+      return;
+    }
+
+    try {
+      await cancelPreviewElementPick(webContents);
+    } catch {
+      // The picker is best-effort cleanup; navigation and view disposal can race it.
+    }
   }
 }

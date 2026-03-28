@@ -153,13 +153,18 @@ import {
   useComposerThreadDraft,
 } from "../composerDraftStore";
 import {
-  appendTerminalContextsToPrompt,
   formatTerminalContextLabel,
   insertInlineTerminalContextPlaceholder,
   removeInlineTerminalContextPlaceholder,
   type TerminalContextDraft,
   type TerminalContextSelection,
 } from "../lib/terminalContext";
+import {
+  type PreviewContextDraft,
+  buildPreviewContextDedupKey,
+  formatPreviewContextLabel,
+} from "../lib/previewContext";
+import { appendUserMessageContextsToPrompt } from "../lib/userMessageContext";
 import { deriveLatestContextWindowSnapshot } from "../lib/contextWindow";
 import { shouldUseCompactComposerFooter } from "./composerFooterLayout";
 import { selectThreadTerminalState, useTerminalStateStore } from "../terminalStateStore";
@@ -188,6 +193,7 @@ import { ProviderHealthBanner } from "./chat/ProviderHealthBanner";
 import { CompanionConnectionBanner } from "./chat/CompanionConnectionBanner";
 import { MobileThreadAttentionBar } from "./chat/MobileThreadAttentionBar";
 import { ThreadErrorBanner } from "./chat/ThreadErrorBanner";
+import { ComposerPendingPreviewContexts } from "./chat/ComposerPendingPreviewContexts";
 import {
   buildExpiredTerminalContextToastCopy,
   buildLocalDraftThread,
@@ -205,7 +211,6 @@ import {
   SendPhase,
 } from "./ChatView.logic";
 import { useLocalStorage } from "~/hooks/useLocalStorage";
-import { readDesktopPreviewBridge } from "~/desktopPreview";
 import { usePreviewStateStore } from "~/previewStateStore";
 import { useClientMode } from "~/hooks/useClientMode";
 import { useTransportState } from "~/hooks/useTransportState";
@@ -292,9 +297,9 @@ export default function ChatView({ threadId }: ChatViewProps) {
   const setStickyComposerModel = useComposerDraftStore((store) => store.setStickyModel);
   const timestampFormat = settings.timestampFormat;
   const navigate = useNavigate();
-  const previewOpen = usePreviewStateStore((state) => state.globalOpen);
-  const togglePreviewOpen = usePreviewStateStore((state) => state.toggleGlobalOpen);
-  const setPreviewOpen = usePreviewStateStore((state) => state.setGlobalOpen);
+  const previewOpen = usePreviewStateStore((state) => state.openByThreadId[threadId] === true);
+  const togglePreviewOpen = usePreviewStateStore((state) => state.toggleThreadOpen);
+  const setPreviewOpen = usePreviewStateStore((state) => state.setThreadOpen);
   const previewDock = usePreviewStateStore((state) => state.dockByThreadId[threadId] ?? "right");
   const previewSize = usePreviewStateStore(
     (state) => state.sizeByThreadId[threadId] ?? PREVIEW_SPLIT_DEFAULT_SIZE_PX,
@@ -303,6 +308,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
   const setPreviewDock = usePreviewStateStore((state) => state.setThreadDock);
   const togglePreviewLayout = usePreviewStateStore((state) => state.toggleThreadLayout);
   const setPreviewSize = usePreviewStateStore((state) => state.setThreadSize);
+  const setPreviewProjectUrl = usePreviewStateStore((state) => state.setProjectUrl);
   const previewSplitRef = useRef<HTMLDivElement | null>(null);
   const previewResizeStateRef = useRef<{
     pointerId: number;
@@ -321,14 +327,16 @@ export default function ChatView({ threadId }: ChatViewProps) {
   const prompt = composerDraft.prompt;
   const composerImages = composerDraft.images;
   const composerTerminalContexts = composerDraft.terminalContexts;
+  const composerPreviewContexts = composerDraft.previewContexts;
   const composerSendState = useMemo(
     () =>
       deriveComposerSendState({
         prompt,
         imageCount: composerImages.length,
         terminalContexts: composerTerminalContexts,
+        previewContexts: composerPreviewContexts,
       }),
-    [composerImages.length, composerTerminalContexts, prompt],
+    [composerImages.length, composerPreviewContexts, composerTerminalContexts, prompt],
   );
   const nonPersistedComposerImageIds = composerDraft.nonPersistedImageIds;
   const setComposerDraftPrompt = useComposerDraftStore((store) => store.setPrompt);
@@ -347,8 +355,14 @@ export default function ChatView({ threadId }: ChatViewProps) {
   const addComposerDraftTerminalContexts = useComposerDraftStore(
     (store) => store.addTerminalContexts,
   );
+  const addComposerDraftPreviewContexts = useComposerDraftStore(
+    (store) => store.addPreviewContexts,
+  );
   const removeComposerDraftTerminalContext = useComposerDraftStore(
     (store) => store.removeTerminalContext,
+  );
+  const removeComposerDraftPreviewContext = useComposerDraftStore(
+    (store) => store.removePreviewContext,
   );
   const setComposerDraftTerminalContexts = useComposerDraftStore(
     (store) => store.setTerminalContexts,
@@ -384,6 +398,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
   const queuedMessagesRef = useRef(queuedMessages);
   queuedMessagesRef.current = queuedMessages;
   const composerTerminalContextsRef = useRef<TerminalContextDraft[]>(composerTerminalContexts);
+  const composerPreviewContextsRef = useRef<PreviewContextDraft[]>(composerPreviewContexts);
   const [localDraftErrorsByThreadId, setLocalDraftErrorsByThreadId] = useState<
     Record<ThreadId, string | null>
   >({});
@@ -500,6 +515,12 @@ export default function ChatView({ threadId }: ChatViewProps) {
     },
     [addComposerDraftTerminalContexts, threadId],
   );
+  const addComposerPreviewContextsToDraft = useCallback(
+    (contexts: PreviewContextDraft[]) => {
+      addComposerDraftPreviewContexts(threadId, contexts);
+    },
+    [addComposerDraftPreviewContexts, threadId],
+  );
   const removeComposerImageFromDraft = useCallback(
     (imageId: string) => {
       removeComposerDraftImage(threadId, imageId);
@@ -527,6 +548,12 @@ export default function ChatView({ threadId }: ChatViewProps) {
       );
     },
     [composerTerminalContexts, removeComposerDraftTerminalContext, setPrompt, threadId],
+  );
+  const removeComposerPreviewContextFromDraft = useCallback(
+    (contextId: string) => {
+      removeComposerDraftPreviewContext(threadId, contextId);
+    },
+    [removeComposerDraftPreviewContext, threadId],
   );
 
   const serverThread = threads.find((t) => t.id === threadId);
@@ -1299,6 +1326,31 @@ export default function ChatView({ threadId }: ChatViewProps) {
       focusComposer();
     });
   }, [focusComposer]);
+  const handlePreviewElementSelected = useCallback(
+    (selection: PreviewContextDraft) => {
+      const dedupKey = buildPreviewContextDedupKey(selection);
+      const alreadyAttached = composerPreviewContexts.some(
+        (context) => buildPreviewContextDedupKey(context) === dedupKey,
+      );
+      if (alreadyAttached) {
+        toastManager.add({
+          type: "info",
+          title: "Element already referenced",
+          description: `${formatPreviewContextLabel(selection)} is already attached to this draft.`,
+        });
+        return;
+      }
+
+      addComposerPreviewContextsToDraft([selection]);
+      focusComposer();
+      toastManager.add({
+        type: "success",
+        title: "Element referenced",
+        description: `${formatPreviewContextLabel(selection)} will be included with your next message.`,
+      });
+    },
+    [addComposerPreviewContextsToDraft, composerPreviewContexts, focusComposer],
+  );
   const addTerminalContextToDraft = useCallback(
     (selection: TerminalContextSelection) => {
       if (!activeThread) {
@@ -1341,14 +1393,13 @@ export default function ChatView({ threadId }: ChatViewProps) {
     },
     [activeThread, composerCursor, composerTerminalContexts, insertComposerDraftTerminalContext],
   );
-  const previewBridgeRef = readDesktopPreviewBridge();
   const handlePreviewUrl = useCallback(
     (url: string) => {
       if (!activeProject || !activeThread) return;
-      setPreviewOpen(true);
-      void previewBridgeRef?.createTab({ url });
+      setPreviewProjectUrl(activeProject.id, url);
+      setPreviewOpen(activeThread.id, true);
     },
-    [activeProject, activeThread, setPreviewOpen, previewBridgeRef],
+    [activeProject, activeThread, setPreviewProjectUrl, setPreviewOpen],
   );
   const openLinksExternally = settings.openLinksExternally;
   const onPreviewUrl =
@@ -2104,6 +2155,10 @@ export default function ChatView({ threadId }: ChatViewProps) {
   }, [composerTerminalContexts]);
 
   useEffect(() => {
+    composerPreviewContextsRef.current = composerPreviewContexts;
+  }, [composerPreviewContexts]);
+
+  useEffect(() => {
     if (!activeThread?.id) return;
     if (activeThread.messages.length === 0) {
       return;
@@ -2340,10 +2395,11 @@ export default function ChatView({ threadId }: ChatViewProps) {
     const messageIdForSend = nextQueued.id;
     const messageCreatedAt = new Date().toISOString();
     const composerTerminalContextsSnapshot = nextQueued.terminalContexts;
-    const messageTextForSend = appendTerminalContextsToPrompt(
-      nextQueued.text,
-      composerTerminalContextsSnapshot,
-    );
+    const composerPreviewContextsSnapshot = nextQueued.previewContexts;
+    const messageTextForSend = appendUserMessageContextsToPrompt(nextQueued.text, {
+      terminalContexts: composerTerminalContextsSnapshot,
+      previewContexts: composerPreviewContextsSnapshot,
+    });
     const outgoingMessageText = formatOutgoingPrompt({
       provider: selectedProvider,
       effort: selectedPromptEffort,
@@ -2705,13 +2761,16 @@ export default function ChatView({ threadId }: ChatViewProps) {
     const nextImages = latestDraft?.images ?? composerImagesRef.current;
     const nextTerminalContexts =
       latestDraft?.terminalContexts ?? composerTerminalContextsRef.current;
+    const nextPreviewContexts = latestDraft?.previewContexts ?? composerPreviewContextsRef.current;
     promptRef.current = nextPrompt;
     composerImagesRef.current = nextImages;
     composerTerminalContextsRef.current = nextTerminalContexts;
+    composerPreviewContextsRef.current = nextPreviewContexts;
     return {
       prompt: nextPrompt,
       images: nextImages,
       terminalContexts: nextTerminalContexts,
+      previewContexts: nextPreviewContexts,
     };
   }, [activeThread]);
 
@@ -2727,15 +2786,18 @@ export default function ChatView({ threadId }: ChatViewProps) {
     const promptForSend = liveComposerDraft.prompt;
     const composerImagesForSend = liveComposerDraft.images;
     const composerTerminalContextsForSend = liveComposerDraft.terminalContexts;
+    const composerPreviewContextsForSend = liveComposerDraft.previewContexts;
     const {
       trimmedPrompt: trimmed,
       sendableTerminalContexts: sendableComposerTerminalContexts,
+      sendablePreviewContexts: sendableComposerPreviewContexts,
       expiredTerminalContextCount,
       hasSendableContent,
     } = deriveComposerSendState({
       prompt: promptForSend,
       imageCount: composerImagesForSend.length,
       terminalContexts: composerTerminalContextsForSend,
+      previewContexts: composerPreviewContextsForSend,
     });
     if (showPlanFollowUpPrompt && activeProposedPlan) {
       const followUp = resolvePlanFollowUpSubmission({
@@ -2754,7 +2816,9 @@ export default function ChatView({ threadId }: ChatViewProps) {
       return;
     }
     const standaloneSlashCommand =
-      composerImagesForSend.length === 0 && sendableComposerTerminalContexts.length === 0
+      composerImagesForSend.length === 0 &&
+      sendableComposerTerminalContexts.length === 0 &&
+      sendableComposerPreviewContexts.length === 0
         ? parseStandaloneComposerSlashCommand(trimmed)
         : null;
     if (standaloneSlashCommand) {
@@ -2784,10 +2848,10 @@ export default function ChatView({ threadId }: ChatViewProps) {
     // ── Queue message if a turn is already running ────────────────────
     if (phase === "running") {
       const composerImagesSnapshot = [...composerImagesForSend];
-      const messageTextForSend = appendTerminalContextsToPrompt(
-        promptForSend,
-        sendableComposerTerminalContexts,
-      );
+      const messageTextForSend = appendUserMessageContextsToPrompt(promptForSend, {
+        terminalContexts: sendableComposerTerminalContexts,
+        previewContexts: sendableComposerPreviewContexts,
+      });
       const messageCreatedAt = new Date().toISOString();
       const outgoingMessageText = formatOutgoingPrompt({
         provider: selectedProvider,
@@ -2810,6 +2874,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
           text: promptForSend,
           images: composerImagesSnapshot,
           terminalContexts: [...sendableComposerTerminalContexts],
+          previewContexts: [...sendableComposerPreviewContexts],
           createdAt: messageCreatedAt,
         },
       ]);
@@ -2871,10 +2936,11 @@ export default function ChatView({ threadId }: ChatViewProps) {
 
     const composerImagesSnapshot = [...composerImagesForSend];
     const composerTerminalContextsSnapshot = [...sendableComposerTerminalContexts];
-    const messageTextForSend = appendTerminalContextsToPrompt(
-      promptForSend,
-      composerTerminalContextsSnapshot,
-    );
+    const composerPreviewContextsSnapshot = [...sendableComposerPreviewContexts];
+    const messageTextForSend = appendUserMessageContextsToPrompt(promptForSend, {
+      terminalContexts: composerTerminalContextsSnapshot,
+      previewContexts: composerPreviewContextsSnapshot,
+    });
     const messageIdForSend = newMessageId();
     const messageCreatedAt = new Date().toISOString();
     const outgoingMessageText = formatOutgoingPrompt({
@@ -3083,7 +3149,8 @@ export default function ChatView({ threadId }: ChatViewProps) {
         !turnStartSucceeded &&
         promptRef.current.length === 0 &&
         composerImagesRef.current.length === 0 &&
-        composerTerminalContextsRef.current.length === 0
+        composerTerminalContextsRef.current.length === 0 &&
+        composerPreviewContextsRef.current.length === 0
       ) {
         setOptimisticUserMessages((existing) => {
           const removed = existing.filter((message) => message.id === messageIdForSend);
@@ -3098,6 +3165,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
         setComposerCursor(collapseExpandedComposerCursor(promptForSend, promptForSend.length));
         addComposerImagesToDraft(composerImagesSnapshot.map(cloneComposerImageForRetry));
         addComposerTerminalContextsToDraft(composerTerminalContextsSnapshot);
+        addComposerPreviewContextsToDraft(composerPreviewContextsSnapshot);
         setComposerTrigger(detectComposerTrigger(promptForSend, promptForSend.length));
       }
       setThreadError(
@@ -4002,11 +4070,11 @@ export default function ChatView({ threadId }: ChatViewProps) {
 
       event.preventDefault();
       if (previewOpen && previewDock === targetDock) {
-        setPreviewOpen(false);
+        setPreviewOpen(threadId, false);
         return;
       }
 
-      setPreviewOpen(true);
+      setPreviewOpen(threadId, true);
       setPreviewDock(threadId, targetDock);
     };
 
@@ -4061,7 +4129,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
           onImportProjectScripts={importProjectScripts}
           onToggleTerminal={toggleTerminalVisibility}
           onToggleDiff={onToggleDiff}
-          onTogglePreview={() => togglePreviewOpen()}
+          onTogglePreview={() => togglePreviewOpen(activeThread.id)}
           onTogglePreviewLayout={() => togglePreviewLayout(activeThread.id)}
           onToggleCodeViewer={toggleCodeViewer}
         />
@@ -4098,7 +4166,17 @@ export default function ChatView({ threadId }: ChatViewProps) {
                 <PreviewPanel
                   key={previewPanelKey ?? undefined}
                   threadId={activeThread.id}
-                  onClose={() => setPreviewOpen(false)}
+                  projectId={activeProject.id}
+                  projectName={activeProject.name}
+                  onElementSelected={(selection) => {
+                    handlePreviewElementSelected({
+                      ...selection,
+                      id: randomUUID(),
+                      threadId: activeThread.id,
+                      createdAt: new Date().toISOString(),
+                    });
+                  }}
+                  onClose={() => setPreviewOpen(activeThread.id, false)}
                 />
               </div>
               <div
@@ -4357,6 +4435,15 @@ export default function ChatView({ threadId }: ChatViewProps) {
                             ))}
                           </div>
                         )}
+                      {!isComposerApprovalState &&
+                      pendingUserInputs.length === 0 &&
+                      composerPreviewContexts.length > 0 ? (
+                        <ComposerPendingPreviewContexts
+                          contexts={composerPreviewContexts}
+                          onRemoveContext={removeComposerPreviewContextFromDraft}
+                          className="mb-3"
+                        />
+                      ) : null}
                       <ComposerPromptEditor
                         ref={composerEditorRef}
                         value={
@@ -4832,7 +4919,17 @@ export default function ChatView({ threadId }: ChatViewProps) {
                 <PreviewPanel
                   key={previewPanelKey ?? undefined}
                   threadId={activeThread.id}
-                  onClose={() => setPreviewOpen(false)}
+                  projectId={activeProject.id}
+                  projectName={activeProject.name}
+                  onElementSelected={(selection) => {
+                    handlePreviewElementSelected({
+                      ...selection,
+                      id: randomUUID(),
+                      threadId: activeThread.id,
+                      createdAt: new Date().toISOString(),
+                    });
+                  }}
+                  onClose={() => setPreviewOpen(activeThread.id, false)}
                 />
               </div>
             </>

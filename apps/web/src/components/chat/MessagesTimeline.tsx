@@ -44,10 +44,9 @@ import { DiffStatLabel, hasNonZeroStat } from "./DiffStatLabel";
 import { MessageCopyButton } from "./MessageCopyButton";
 import { computeMessageDurationStart, normalizeCompactToolLabel } from "./MessagesTimeline.logic";
 import { TerminalContextInlineChip } from "./TerminalContextInlineChip";
-import {
-  deriveDisplayedUserMessageState,
-  type ParsedTerminalContextEntry,
-} from "~/lib/terminalContext";
+import { type ParsedPreviewContextEntry } from "~/lib/previewContext";
+import { deriveDisplayedUserMessageState } from "~/lib/userMessageContext";
+import { type ParsedTerminalContextEntry } from "~/lib/terminalContext";
 import { cn } from "~/lib/utils";
 import { type TimestampFormat } from "../../appSettings";
 import { formatTimestamp } from "../../timestampFormat";
@@ -56,6 +55,7 @@ import {
   formatInlineTerminalContextLabel,
   textContainsInlineTerminalContextLabels,
 } from "./userMessageTerminalContexts";
+import { PreviewContextInlineChip } from "./PreviewContextInlineChip";
 
 const MAX_VISIBLE_WORK_LOG_ENTRIES = 6;
 const ALWAYS_UNVIRTUALIZED_TAIL_ROWS = 8;
@@ -368,7 +368,8 @@ export const MessagesTimeline = memo(function MessagesTimeline({
         (() => {
           const userImages = row.message.attachments ?? [];
           const displayedUserMessage = deriveDisplayedUserMessageState(row.message.text);
-          const terminalContexts = displayedUserMessage.contexts;
+          const terminalContexts = displayedUserMessage.terminalContexts;
+          const previewContexts = displayedUserMessage.previewContexts;
           const canRevertAgentWork = revertTurnCountByUserMessageId.has(row.message.id);
           const isQueued = row.message.queued === true;
           return (
@@ -419,10 +420,12 @@ export const MessagesTimeline = memo(function MessagesTimeline({
                   </div>
                 )}
                 {(displayedUserMessage.visibleText.trim().length > 0 ||
-                  terminalContexts.length > 0) && (
+                  terminalContexts.length > 0 ||
+                  previewContexts.length > 0) && (
                   <UserMessageBody
                     text={displayedUserMessage.visibleText}
                     terminalContexts={terminalContexts}
+                    previewContexts={previewContexts}
                   />
                 )}
                 <div className="mt-1.5 flex items-center justify-end gap-2">
@@ -717,17 +720,44 @@ const UserMessageTerminalContextInlineLabel = memo(
   },
 );
 
+const UserMessagePreviewContextInlineLabel = memo(
+  function UserMessagePreviewContextInlineLabel(props: { context: ParsedPreviewContextEntry }) {
+    const tooltipText =
+      props.context.body.length > 0
+        ? `${props.context.header}\n${props.context.body}`
+        : props.context.header;
+
+    return <PreviewContextInlineChip label={props.context.header} tooltipText={tooltipText} />;
+  },
+);
+
 const UserMessageBody = memo(function UserMessageBody(props: {
   text: string;
   terminalContexts: ParsedTerminalContextEntry[];
+  previewContexts: ParsedPreviewContextEntry[];
 }) {
+  const prefixNodes: ReactNode[] = [];
+  for (const context of props.previewContexts) {
+    prefixNodes.push(
+      <UserMessagePreviewContextInlineLabel
+        key={`user-preview-context-inline:${context.header}`}
+        context={context}
+      />,
+    );
+    prefixNodes.push(
+      <span key={`user-preview-context-inline-space:${context.header}`} aria-hidden="true">
+        {" "}
+      </span>,
+    );
+  }
+
   if (props.terminalContexts.length > 0) {
     const hasEmbeddedInlineLabels = textContainsInlineTerminalContextLabels(
       props.text,
       props.terminalContexts,
     );
     const inlinePrefix = buildInlineTerminalContextText(props.terminalContexts);
-    const inlineNodes: ReactNode[] = [];
+    const inlineNodes: ReactNode[] = [...prefixNodes];
 
     if (hasEmbeddedInlineLabels) {
       let cursor = 0;
@@ -788,13 +818,25 @@ const UserMessageBody = memo(function UserMessageBody(props: {
 
     if (props.text.length > 0) {
       inlineNodes.push(<span key="user-message-terminal-context-inline-text">{props.text}</span>);
-    } else if (inlinePrefix.length === 0) {
+    } else if (inlinePrefix.length === 0 && props.previewContexts.length === 0) {
       return null;
     }
 
     return (
       <div className="wrap-break-word whitespace-pre-wrap font-mono text-sm leading-relaxed text-foreground">
         {inlineNodes}
+      </div>
+    );
+  }
+
+  if (props.previewContexts.length > 0) {
+    if (props.text.length > 0) {
+      prefixNodes.push(<span key="user-message-preview-context-inline-text">{props.text}</span>);
+    }
+
+    return (
+      <div className="wrap-break-word whitespace-pre-wrap font-mono text-sm leading-relaxed text-foreground">
+        {prefixNodes}
       </div>
     );
   }

@@ -1,4 +1,5 @@
-import { deriveDisplayedUserMessageState } from "../lib/terminalContext";
+import { buildInlinePreviewContextText } from "../lib/previewContext";
+import { deriveDisplayedUserMessageState } from "../lib/userMessageContext";
 import { buildInlineTerminalContextText } from "./chat/userMessageTerminalContexts";
 
 const ASSISTANT_CHARS_PER_LINE_FALLBACK = 72;
@@ -80,9 +81,11 @@ export function estimateTimelineMessageHeight(
     const charsPerLine = estimateCharsPerLineForUser(layout.timelineWidthPx);
     const displayedUserMessage = deriveDisplayedUserMessageState(message.text);
     const renderedText =
-      displayedUserMessage.contexts.length > 0
+      displayedUserMessage.terminalContexts.length > 0 ||
+      displayedUserMessage.previewContexts.length > 0
         ? [
-            buildInlineTerminalContextText(displayedUserMessage.contexts),
+            buildInlineTerminalContextText(displayedUserMessage.terminalContexts),
+            buildInlinePreviewContextText(displayedUserMessage.previewContexts),
             displayedUserMessage.visibleText,
           ]
             .filter((part) => part.length > 0)

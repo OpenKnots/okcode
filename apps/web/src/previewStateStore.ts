@@ -1,35 +1,70 @@
-import type { ThreadId } from "@okcode/contracts";
+import type { ProjectId, ThreadId } from "@okcode/contracts";
 import { create } from "zustand";
 
 export type PreviewDock = "left" | "right" | "top" | "bottom";
 
 interface PersistedPreviewUiState {
-  globalOpen: boolean;
+  openByThreadId: Record<string, boolean>;
   dockByThreadId: Record<string, PreviewDock>;
   sizeByThreadId: Record<string, number>;
-  favoriteUrls: string[];
+  urlByProjectId: Record<string, string>;
+  favoriteUrlByProjectId: Record<string, string>;
 }
 
 interface PreviewStateStore extends PersistedPreviewUiState {
-  setGlobalOpen: (open: boolean) => void;
-  toggleGlobalOpen: () => void;
+  setThreadOpen: (threadId: ThreadId, open: boolean) => void;
+  toggleThreadOpen: (threadId: ThreadId) => void;
   setThreadDock: (threadId: ThreadId, dock: PreviewDock) => void;
   toggleThreadLayout: (threadId: ThreadId) => void;
   setThreadSize: (threadId: ThreadId, size: number) => void;
-  addFavoriteUrl: (url: string) => void;
-  removeFavoriteUrl: (url: string) => void;
-  toggleFavoriteUrl: (url: string) => void;
+  setProjectUrl: (projectId: ProjectId, url: string) => void;
+  setProjectFavoriteUrl: (projectId: ProjectId, url: string | null) => void;
+  toggleProjectFavorite: (projectId: ProjectId, url: string) => void;
 }
 
-const PREVIEW_STATE_STORAGE_KEY = "okcode:desktop-preview:v3";
+const PREVIEW_STATE_STORAGE_KEY = "okcode:desktop-preview:v2";
 
 function createEmptyPersistedPreviewUiState(): PersistedPreviewUiState {
   return {
-    globalOpen: false,
+    openByThreadId: {},
     dockByThreadId: {},
     sizeByThreadId: {},
-    favoriteUrls: [],
+    urlByProjectId: {},
+    favoriteUrlByProjectId: {},
   };
+}
+
+function snapshotPreviewUiState(state: {
+  openByThreadId: PersistedPreviewUiState["openByThreadId"];
+  dockByThreadId: PersistedPreviewUiState["dockByThreadId"];
+  sizeByThreadId: PersistedPreviewUiState["sizeByThreadId"];
+  urlByProjectId: PersistedPreviewUiState["urlByProjectId"];
+  favoriteUrlByProjectId: PersistedPreviewUiState["favoriteUrlByProjectId"];
+}): PersistedPreviewUiState {
+  return {
+    openByThreadId: state.openByThreadId,
+    dockByThreadId: state.dockByThreadId,
+    sizeByThreadId: state.sizeByThreadId,
+    urlByProjectId: state.urlByProjectId,
+    favoriteUrlByProjectId: state.favoriteUrlByProjectId,
+  };
+}
+
+function normalizeUrlRecord(record: unknown): Record<string, string> {
+  if (!record || typeof record !== "object") {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(record).flatMap(([key, value]) => {
+      if (typeof key !== "string" || typeof value !== "string") {
+        return [];
+      }
+
+      const normalizedValue = value.trim();
+      return normalizedValue.length > 0 ? [[key, normalizedValue] as const] : [];
+    }),
+  );
 }
 
 function normalizePreviewSize(size: unknown): number | null {
@@ -52,7 +87,15 @@ function readPersistedPreviewUiState(): PersistedPreviewUiState {
 
     const parsed = JSON.parse(raw) as Partial<PersistedPreviewUiState>;
     return {
-      globalOpen: parsed.globalOpen === true,
+      openByThreadId:
+        parsed.openByThreadId && typeof parsed.openByThreadId === "object"
+          ? Object.fromEntries(
+              Object.entries(parsed.openByThreadId).filter(
+                (entry): entry is [string, boolean] =>
+                  typeof entry[0] === "string" && entry[1] === true,
+              ),
+            )
+          : {},
       dockByThreadId:
         parsed.dockByThreadId && typeof parsed.dockByThreadId === "object"
           ? Object.fromEntries(
@@ -77,11 +120,8 @@ function readPersistedPreviewUiState(): PersistedPreviewUiState {
               }),
             )
           : {},
-      favoriteUrls: Array.isArray(parsed.favoriteUrls)
-        ? parsed.favoriteUrls.filter(
-            (u): u is string => typeof u === "string" && u.trim().length > 0,
-          )
-        : [],
+      urlByProjectId: normalizeUrlRecord(parsed.urlByProjectId),
+      favoriteUrlByProjectId: normalizeUrlRecord(parsed.favoriteUrlByProjectId),
     };
   } catch {
     return createEmptyPersistedPreviewUiState();
@@ -97,10 +137,11 @@ function persistPreviewUiState(state: PersistedPreviewUiState): void {
     window.localStorage.setItem(
       PREVIEW_STATE_STORAGE_KEY,
       JSON.stringify({
-        globalOpen: state.globalOpen,
+        openByThreadId: state.openByThreadId,
         dockByThreadId: state.dockByThreadId,
         sizeByThreadId: state.sizeByThreadId,
-        favoriteUrls: state.favoriteUrls,
+        urlByProjectId: state.urlByProjectId,
+        favoriteUrlByProjectId: state.favoriteUrlByProjectId,
       } satisfies PersistedPreviewUiState),
     );
   } catch {
@@ -108,30 +149,30 @@ function persistPreviewUiState(state: PersistedPreviewUiState): void {
   }
 }
 
-function snapshotState(state: PreviewStateStore): PersistedPreviewUiState {
-  return {
-    globalOpen: state.globalOpen,
-    dockByThreadId: state.dockByThreadId,
-    sizeByThreadId: state.sizeByThreadId,
-    favoriteUrls: state.favoriteUrls,
-  };
-}
-
 const initialState = readPersistedPreviewUiState();
 
 export const usePreviewStateStore = create<PreviewStateStore>((set, get) => ({
   ...initialState,
 
-  setGlobalOpen: (open) => {
+  setThreadOpen: (threadId, open) => {
     set((state) => {
-      const next = { ...snapshotState(state), globalOpen: open };
-      persistPreviewUiState(next);
-      return { globalOpen: open };
+      const nextOpenByThreadId = {
+        ...state.openByThreadId,
+        [threadId]: open,
+      };
+      persistPreviewUiState(
+        snapshotPreviewUiState({
+          ...state,
+          openByThreadId: nextOpenByThreadId,
+        }),
+      );
+      return { openByThreadId: nextOpenByThreadId };
     });
   },
 
-  toggleGlobalOpen: () => {
-    get().setGlobalOpen(!get().globalOpen);
+  toggleThreadOpen: (threadId) => {
+    const current = get().openByThreadId[threadId] === true;
+    get().setThreadOpen(threadId, !current);
   },
 
   setThreadDock: (threadId, dock) => {
@@ -140,10 +181,12 @@ export const usePreviewStateStore = create<PreviewStateStore>((set, get) => ({
         ...state.dockByThreadId,
         [threadId]: dock,
       };
-      persistPreviewUiState({
-        ...snapshotState(state),
-        dockByThreadId: nextDockByThreadId,
-      });
+      persistPreviewUiState(
+        snapshotPreviewUiState({
+          ...state,
+          dockByThreadId: nextDockByThreadId,
+        }),
+      );
       return { dockByThreadId: nextDockByThreadId };
     });
   },
@@ -172,41 +215,64 @@ export const usePreviewStateStore = create<PreviewStateStore>((set, get) => ({
         ...state.sizeByThreadId,
         [threadId]: normalizedSize,
       };
-      persistPreviewUiState({
-        ...snapshotState(state),
-        sizeByThreadId: nextSizeByThreadId,
-      });
+      persistPreviewUiState(
+        snapshotPreviewUiState({
+          ...state,
+          sizeByThreadId: nextSizeByThreadId,
+        }),
+      );
       return { sizeByThreadId: nextSizeByThreadId };
     });
   },
 
-  addFavoriteUrl: (url) => {
-    const normalized = url.trim();
-    if (normalized.length === 0) return;
+  setProjectUrl: (projectId, url) => {
+    const normalizedUrl = url.trim();
     set((state) => {
-      if (state.favoriteUrls.includes(normalized)) return state;
-      const nextFavorites = [...state.favoriteUrls, normalized];
-      persistPreviewUiState({ ...snapshotState(state), favoriteUrls: nextFavorites });
-      return { favoriteUrls: nextFavorites };
+      const nextUrlByProjectId = { ...state.urlByProjectId };
+      if (normalizedUrl.length > 0) {
+        nextUrlByProjectId[projectId] = normalizedUrl;
+      } else {
+        delete nextUrlByProjectId[projectId];
+      }
+      persistPreviewUiState(
+        snapshotPreviewUiState({
+          ...state,
+          urlByProjectId: nextUrlByProjectId,
+        }),
+      );
+      return { urlByProjectId: nextUrlByProjectId };
     });
   },
 
-  removeFavoriteUrl: (url) => {
-    const normalized = url.trim();
+  setProjectFavoriteUrl: (projectId, url) => {
+    const normalizedUrl = url?.trim() ?? "";
     set((state) => {
-      const nextFavorites = state.favoriteUrls.filter((u) => u !== normalized);
-      persistPreviewUiState({ ...snapshotState(state), favoriteUrls: nextFavorites });
-      return { favoriteUrls: nextFavorites };
+      const nextFavoriteUrlByProjectId = { ...state.favoriteUrlByProjectId };
+      if (normalizedUrl.length > 0) {
+        nextFavoriteUrlByProjectId[projectId] = normalizedUrl;
+      } else {
+        delete nextFavoriteUrlByProjectId[projectId];
+      }
+      persistPreviewUiState(
+        snapshotPreviewUiState({
+          ...state,
+          favoriteUrlByProjectId: nextFavoriteUrlByProjectId,
+        }),
+      );
+      return { favoriteUrlByProjectId: nextFavoriteUrlByProjectId };
     });
   },
 
-  toggleFavoriteUrl: (url) => {
-    const normalized = url.trim();
-    if (normalized.length === 0) return;
-    if (get().favoriteUrls.includes(normalized)) {
-      get().removeFavoriteUrl(normalized);
-    } else {
-      get().addFavoriteUrl(normalized);
+  toggleProjectFavorite: (projectId, url) => {
+    const normalizedUrl = url.trim();
+    if (normalizedUrl.length === 0) {
+      return;
     }
+
+    const currentFavoriteUrl = get().favoriteUrlByProjectId[projectId] ?? null;
+    get().setProjectFavoriteUrl(
+      projectId,
+      currentFavoriteUrl === normalizedUrl ? null : normalizedUrl,
+    );
   },
 }));

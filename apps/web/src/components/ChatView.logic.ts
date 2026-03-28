@@ -8,6 +8,7 @@ import {
   stripInlineTerminalContextPlaceholders,
   type TerminalContextDraft,
 } from "../lib/terminalContext";
+import { type PreviewContextDraft } from "../lib/previewContext";
 
 export const LAST_INVOKED_SCRIPT_BY_PROJECT_KEY = "okcode:last-invoked-script-by-project";
 const WORKTREE_BRANCH_PREFIX = "okcode";
@@ -82,6 +83,7 @@ export interface QueuedMessage {
   text: string;
   images: ComposerImageAttachment[];
   terminalContexts: TerminalContextDraft[];
+  previewContexts: PreviewContextDraft[];
   createdAt: string;
 }
 
@@ -133,22 +135,29 @@ export function deriveComposerSendState(options: {
   prompt: string;
   imageCount: number;
   terminalContexts: ReadonlyArray<TerminalContextDraft>;
+  previewContexts: ReadonlyArray<PreviewContextDraft>;
 }): {
   trimmedPrompt: string;
   sendableTerminalContexts: TerminalContextDraft[];
+  sendablePreviewContexts: PreviewContextDraft[];
   expiredTerminalContextCount: number;
   hasSendableContent: boolean;
 } {
   const trimmedPrompt = stripInlineTerminalContextPlaceholders(options.prompt).trim();
   const sendableTerminalContexts = filterTerminalContextsWithText(options.terminalContexts);
+  const sendablePreviewContexts = [...options.previewContexts];
   const expiredTerminalContextCount =
     options.terminalContexts.length - sendableTerminalContexts.length;
   return {
     trimmedPrompt,
     sendableTerminalContexts,
+    sendablePreviewContexts,
     expiredTerminalContextCount,
     hasSendableContent:
-      trimmedPrompt.length > 0 || options.imageCount > 0 || sendableTerminalContexts.length > 0,
+      trimmedPrompt.length > 0 ||
+      options.imageCount > 0 ||
+      sendableTerminalContexts.length > 0 ||
+      sendablePreviewContexts.length > 0,
   };
 }
 

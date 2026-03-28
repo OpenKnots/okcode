@@ -13,6 +13,7 @@ import {
   insertInlineTerminalContextPlaceholder,
   type TerminalContextDraft,
 } from "./lib/terminalContext";
+import { type PreviewContextDraft } from "./lib/previewContext";
 import { createDebouncedStorage } from "./lib/storage";
 
 function makeImage(input: {
@@ -59,6 +60,32 @@ function makeTerminalContext(input: {
     lineEnd: input.lineEnd ?? 5,
     text: input.text ?? "git status\nOn branch main",
     createdAt: "2026-03-13T12:00:00.000Z",
+  };
+}
+
+function makePreviewContext(input: {
+  id: string;
+  selector?: string;
+  pageUrl?: string;
+  pageTitle?: string | null;
+  role?: string | null;
+  tagName?: string;
+  text?: string;
+}): PreviewContextDraft {
+  return {
+    id: input.id,
+    threadId: ThreadId.makeUnsafe("thread-dedupe"),
+    createdAt: "2026-03-28T12:00:00.000Z",
+    pageUrl: input.pageUrl ?? "http://localhost:3000/settings",
+    pageTitle: input.pageTitle ?? "Settings",
+    selector: input.selector ?? 'button[data-testid="save"]',
+    tagName: input.tagName ?? "button",
+    role: input.role ?? "button",
+    ariaLabel: null,
+    text: input.text ?? "Save changes",
+    href: null,
+    name: null,
+    placeholder: null,
   };
 }
 
@@ -415,6 +442,97 @@ describe("composerDraftStore terminal contexts", () => {
     expect(mergedState.draftsByThreadId[threadId]).toBeUndefined();
     expect(mergedState.draftThreadsByThreadId).toEqual({});
     expect(mergedState.projectDraftThreadIdByProjectId).toEqual({});
+  });
+});
+
+describe("composerDraftStore preview contexts", () => {
+  const threadId = ThreadId.makeUnsafe("thread-preview-contexts");
+
+  beforeEach(() => {
+    resetComposerDraftStore();
+  });
+
+  it("deduplicates identical preview contexts by page and selector", () => {
+    useComposerDraftStore
+      .getState()
+      .addPreviewContexts(threadId, [
+        makePreviewContext({ id: "preview-1" }),
+        makePreviewContext({ id: "preview-2" }),
+      ]);
+
+    const draft = useComposerDraftStore.getState().draftsByThreadId[threadId];
+    expect(draft?.previewContexts.map((context) => context.id)).toEqual(["preview-1"]);
+  });
+
+  it("persists preview contexts with their selection metadata", () => {
+    useComposerDraftStore
+      .getState()
+      .addPreviewContext(threadId, makePreviewContext({ id: "preview-persist" }));
+
+    const persistApi = useComposerDraftStore.persist as unknown as {
+      getOptions: () => {
+        partialize: (state: ReturnType<typeof useComposerDraftStore.getState>) => unknown;
+      };
+    };
+    const persistedState = persistApi.getOptions().partialize(useComposerDraftStore.getState()) as {
+      draftsByThreadId?: Record<string, { previewContexts?: Array<Record<string, unknown>> }>;
+    };
+
+    expect(persistedState.draftsByThreadId?.[threadId]?.previewContexts?.[0]).toMatchObject({
+      id: "preview-persist",
+      pageUrl: "http://localhost:3000/settings",
+      selector: 'button[data-testid="save"]',
+      role: "button",
+    });
+  });
+
+  it("hydrates persisted preview contexts into the draft store", () => {
+    const persistApi = useComposerDraftStore.persist as unknown as {
+      getOptions: () => {
+        merge: (
+          persistedState: unknown,
+          currentState: ReturnType<typeof useComposerDraftStore.getState>,
+        ) => ReturnType<typeof useComposerDraftStore.getState>;
+      };
+    };
+    const mergedState = persistApi.getOptions().merge(
+      {
+        draftsByThreadId: {
+          [threadId]: {
+            prompt: "",
+            attachments: [],
+            previewContexts: [
+              {
+                id: "preview-hydrated",
+                threadId,
+                createdAt: "2026-03-28T12:00:00.000Z",
+                pageUrl: "http://localhost:3000/settings",
+                pageTitle: "Settings",
+                selector: 'button[data-testid="save"]',
+                tagName: "button",
+                role: "button",
+                ariaLabel: null,
+                text: "Save changes",
+                href: null,
+                name: null,
+                placeholder: null,
+              },
+            ],
+          },
+        },
+        draftThreadsByThreadId: {},
+        projectDraftThreadIdByProjectId: {},
+      },
+      useComposerDraftStore.getInitialState(),
+    );
+
+    expect(mergedState.draftsByThreadId[threadId]?.previewContexts).toMatchObject([
+      {
+        id: "preview-hydrated",
+        selector: 'button[data-testid="save"]',
+        pageTitle: "Settings",
+      },
+    ]);
   });
 });
 

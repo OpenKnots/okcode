@@ -20,6 +20,7 @@ describe("deriveComposerSendState", () => {
           createdAt: "2026-03-17T12:52:29.000Z",
         },
       ],
+      previewContexts: [],
     });
 
     expect(state.trimmedPrompt).toBe("");
@@ -44,10 +45,39 @@ describe("deriveComposerSendState", () => {
           createdAt: "2026-03-17T12:52:29.000Z",
         },
       ],
+      previewContexts: [],
     });
 
     expect(state.trimmedPrompt).toBe("yoo  waddup");
     expect(state.expiredTerminalContextCount).toBe(1);
+    expect(state.hasSendableContent).toBe(true);
+  });
+
+  it("treats preview element references as sendable content even without text", () => {
+    const state = deriveComposerSendState({
+      prompt: "",
+      imageCount: 0,
+      terminalContexts: [],
+      previewContexts: [
+        {
+          id: "preview-1",
+          threadId: ThreadId.makeUnsafe("thread-1"),
+          createdAt: "2026-03-28T12:00:00.000Z",
+          pageUrl: "http://localhost:3000/",
+          pageTitle: "Homepage",
+          selector: 'button[data-testid="submit"]',
+          tagName: "button",
+          role: "button",
+          ariaLabel: null,
+          text: "Submit",
+          href: null,
+          name: null,
+          placeholder: null,
+        },
+      ],
+    });
+
+    expect(state.sendablePreviewContexts).toHaveLength(1);
     expect(state.hasSendableContent).toBe(true);
   });
 });

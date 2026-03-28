@@ -19,11 +19,11 @@ import type { MenuItemConstructorOptions } from "electron";
 import * as Effect from "effect/Effect";
 import type {
   DesktopPreviewBounds,
+  PreviewPickElementResult,
+  DesktopPreviewState,
   DesktopTheme,
   DesktopUpdateActionResult,
   DesktopUpdateState,
-  PreviewTabId,
-  PreviewTabsState,
 } from "@okcode/contracts";
 import { autoUpdater } from "electron-updater";
 
@@ -31,7 +31,7 @@ import type { ContextMenuItem } from "@okcode/contracts";
 import { NetService } from "@okcode/shared/Net";
 import { RotatingFileSink } from "@okcode/shared/logging";
 import { showDesktopConfirmDialog } from "./confirmDialog";
-import { createEmptyTabsState } from "./preview";
+import { createClosedPreviewState } from "./preview";
 import { DesktopPreviewController } from "./previewController";
 import { syncShellEnvironment } from "./syncShellEnvironment";
 import { getAutoUpdateDisabledReason, shouldBroadcastDownloadProgress } from "./updateState";
@@ -63,18 +63,17 @@ const UPDATE_STATE_CHANNEL = "desktop:update-state";
 const UPDATE_GET_STATE_CHANNEL = "desktop:update-get-state";
 const UPDATE_DOWNLOAD_CHANNEL = "desktop:update-download";
 const UPDATE_INSTALL_CHANNEL = "desktop:update-install";
-const PREVIEW_CREATE_TAB_CHANNEL = "desktop:preview-create-tab";
-const PREVIEW_CLOSE_TAB_CHANNEL = "desktop:preview-close-tab";
-const PREVIEW_ACTIVATE_TAB_CHANNEL = "desktop:preview-activate-tab";
+const PREVIEW_OPEN_CHANNEL = "desktop:preview-open";
+const PREVIEW_CLOSE_CHANNEL = "desktop:preview-close";
 const PREVIEW_GO_BACK_CHANNEL = "desktop:preview-go-back";
 const PREVIEW_GO_FORWARD_CHANNEL = "desktop:preview-go-forward";
 const PREVIEW_RELOAD_CHANNEL = "desktop:preview-reload";
 const PREVIEW_NAVIGATE_CHANNEL = "desktop:preview-navigate";
-const PREVIEW_TOGGLE_DEVTOOLS_CHANNEL = "desktop:preview-toggle-devtools";
 const PREVIEW_GET_STATE_CHANNEL = "desktop:preview-get-state";
 const PREVIEW_SET_BOUNDS_CHANNEL = "desktop:preview-set-bounds";
-const PREVIEW_CLOSE_ALL_CHANNEL = "desktop:preview-close-all";
-const PREVIEW_TABS_STATE_CHANNEL = "desktop:preview-tabs-state";
+const PREVIEW_PICK_ELEMENT_CHANNEL = "desktop:preview-pick-element";
+const PREVIEW_CANCEL_PICK_ELEMENT_CHANNEL = "desktop:preview-cancel-pick-element";
+const PREVIEW_STATE_CHANNEL = "desktop:preview-state";
 const BASE_DIR = process.env.OKCODE_HOME?.trim() || Path.join(OS.homedir(), ".okcode");
 const STATE_DIR = Path.join(BASE_DIR, "userdata");
 const DESKTOP_SCHEME = "okcode";
@@ -753,11 +752,11 @@ function emitUpdateState(): void {
   }
 }
 
-function emitPreviewState(window: BrowserWindow, state: PreviewTabsState): void {
+function emitPreviewState(window: BrowserWindow, state: DesktopPreviewState): void {
   if (window.isDestroyed()) {
     return;
   }
-  window.webContents.send(PREVIEW_TABS_STATE_CHANNEL, state);
+  window.webContents.send(PREVIEW_STATE_CHANNEL, state);
 }
 
 function getPreviewController(window: BrowserWindow): DesktopPreviewController {
@@ -1283,33 +1282,27 @@ function registerIpcHandlers(): void {
     } satisfies DesktopUpdateActionResult;
   });
 
-  ipcMain.removeHandler(PREVIEW_CREATE_TAB_CHANNEL);
-  ipcMain.handle(
-    PREVIEW_CREATE_TAB_CHANNEL,
-    async (event, input: { url?: unknown; title?: unknown }) => {
-      const window = resolvePreviewWindow(event.sender);
-      if (!window) {
-        return { tabId: "", state: createEmptyTabsState() };
-      }
-      return getPreviewController(window).createTab({
-        url: input?.url,
-        title: input?.title,
-      });
-    },
-  );
-
-  ipcMain.removeHandler(PREVIEW_CLOSE_TAB_CHANNEL);
-  ipcMain.handle(PREVIEW_CLOSE_TAB_CHANNEL, async (event, input: { tabId?: PreviewTabId }) => {
+  ipcMain.removeHandler(PREVIEW_OPEN_CHANNEL);
+  ipcMain.handle(PREVIEW_OPEN_CHANNEL, async (event, input: { url?: unknown; title?: unknown }) => {
     const window = resolvePreviewWindow(event.sender);
-    if (!window || !input?.tabId) return createEmptyTabsState();
-    return getPreviewController(window).closeTab(input.tabId);
+    if (!window) {
+      return {
+        accepted: false,
+        state: getPreviewController(mainWindow ?? createWindow()).getState(),
+      };
+    }
+    const controller = getPreviewController(window);
+    return controller.open({
+      url: input?.url,
+      title: input?.title,
+    });
   });
 
-  ipcMain.removeHandler(PREVIEW_ACTIVATE_TAB_CHANNEL);
-  ipcMain.handle(PREVIEW_ACTIVATE_TAB_CHANNEL, async (event, input: { tabId?: PreviewTabId }) => {
+  ipcMain.removeHandler(PREVIEW_CLOSE_CHANNEL);
+  ipcMain.handle(PREVIEW_CLOSE_CHANNEL, async (event) => {
     const window = resolvePreviewWindow(event.sender);
-    if (!window || !input?.tabId) return createEmptyTabsState();
-    return getPreviewController(window).activateTab(input.tabId);
+    if (!window) return;
+    getPreviewController(window).close();
   });
 
   ipcMain.removeHandler(PREVIEW_GO_BACK_CHANNEL);
@@ -1337,23 +1330,21 @@ function registerIpcHandlers(): void {
   ipcMain.handle(PREVIEW_NAVIGATE_CHANNEL, async (event, input: { url?: unknown }) => {
     const window = resolvePreviewWindow(event.sender);
     if (!window) {
-      return { accepted: false, state: createEmptyTabsState() };
+      return {
+        accepted: false,
+        state: getPreviewController(mainWindow ?? createWindow()).getState(),
+      };
     }
-    return getPreviewController(window).navigate({ url: input?.url });
-  });
-
-  ipcMain.removeHandler(PREVIEW_TOGGLE_DEVTOOLS_CHANNEL);
-  ipcMain.handle(PREVIEW_TOGGLE_DEVTOOLS_CHANNEL, async (event) => {
-    const window = resolvePreviewWindow(event.sender);
-    if (!window) return;
-    getPreviewController(window).toggleDevTools();
+    return getPreviewController(window).navigate({
+      url: input?.url,
+    });
   });
 
   ipcMain.removeHandler(PREVIEW_GET_STATE_CHANNEL);
   ipcMain.handle(PREVIEW_GET_STATE_CHANNEL, async (event) => {
     const window = resolvePreviewWindow(event.sender);
     if (!window) {
-      return createEmptyTabsState();
+      return createClosedPreviewState();
     }
     return getPreviewController(window).getState();
   });
@@ -1365,11 +1356,25 @@ function registerIpcHandlers(): void {
     getPreviewController(window).setBounds(bounds);
   });
 
-  ipcMain.removeHandler(PREVIEW_CLOSE_ALL_CHANNEL);
-  ipcMain.handle(PREVIEW_CLOSE_ALL_CHANNEL, async (event) => {
+  ipcMain.removeHandler(PREVIEW_PICK_ELEMENT_CHANNEL);
+  ipcMain.handle(PREVIEW_PICK_ELEMENT_CHANNEL, async (event) => {
+    const window = resolvePreviewWindow(event.sender);
+    if (!window) {
+      return {
+        accepted: false,
+        selection: null,
+        reason: "preview-unavailable",
+        state: createClosedPreviewState(),
+      } satisfies PreviewPickElementResult;
+    }
+    return getPreviewController(window).pickElement();
+  });
+
+  ipcMain.removeHandler(PREVIEW_CANCEL_PICK_ELEMENT_CHANNEL);
+  ipcMain.handle(PREVIEW_CANCEL_PICK_ELEMENT_CHANNEL, async (event) => {
     const window = resolvePreviewWindow(event.sender);
     if (!window) return;
-    getPreviewController(window).closeAll();
+    await getPreviewController(window).cancelPickElement();
   });
 }
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { appendTerminalContextsToPrompt } from "../lib/terminalContext";
+import { appendPreviewContextsToPrompt } from "../lib/previewContext";
 import { buildInlineTerminalContextText } from "./chat/userMessageTerminalContexts";
 import { estimateTimelineMessageHeight } from "./timelineHeight";
 
@@ -102,6 +103,35 @@ describe("estimateTimelineMessageHeight", () => {
       estimateTimelineMessageHeight({
         role: "user",
         text: `${buildInlineTerminalContextText([{ header: "Terminal 1 lines 40-43" }])} Investigate this`,
+      }),
+    );
+  });
+
+  it("adds preview context chrome without counting the hidden block as message text", () => {
+    const prompt = appendPreviewContextsToPrompt("Inspect this", [
+      {
+        pageUrl: "http://localhost:3000/",
+        pageTitle: "Homepage",
+        selector: 'button[data-testid="submit"]',
+        tagName: "button",
+        role: "button",
+        ariaLabel: null,
+        text: "Submit",
+        href: null,
+        name: null,
+        placeholder: null,
+      },
+    ]);
+
+    expect(
+      estimateTimelineMessageHeight({
+        role: "user",
+        text: prompt,
+      }),
+    ).toBe(
+      estimateTimelineMessageHeight({
+        role: "user",
+        text: 'button "Submit" Inspect this',
       }),
     );
   });

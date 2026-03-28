@@ -22,6 +22,7 @@ async function mountPicker(props: {
     nonPersistedImageIds: [],
     persistedAttachments: [],
     terminalContexts: [],
+    previewContexts: [],
     provider: "codex",
     model: null,
     modelOptions: {

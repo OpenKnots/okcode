@@ -362,7 +362,7 @@ export function PrReviewShell({
   return (
     <>
       {/* Main content area — flexbox layout with collapsible panels */}
-      <div className="flex min-h-0 flex-1 overflow-hidden">
+      <div className="flex min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
         {/* Left rail — collapsible */}
         <PrListRail
           collapsed={leftRailCollapsed}

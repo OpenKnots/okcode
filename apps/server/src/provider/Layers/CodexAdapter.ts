@@ -21,6 +21,7 @@ import {
   ThreadId,
   TurnId,
 } from "@okcode/contracts";
+import { compactNodeProcessEnv } from "@okcode/shared/environment";
 import { Effect, FileSystem, Layer, Queue, Schema, ServiceMap, Stream } from "effect";
 
 import {
@@ -38,9 +39,7 @@ import {
 } from "../../codexAppServerManager.ts";
 import { resolveAttachmentPath } from "../../attachmentStore.ts";
 import { ServerConfig } from "../../config.ts";
-import { ProjectionSnapshotQuery } from "../../orchestration/Services/ProjectionSnapshotQuery.ts";
 import { type EventNdjsonLogger, makeEventNdjsonLogger } from "./EventNdjsonLogger.ts";
-import { resolveRuntimeEnvironment } from "../../runtimeEnvironment.ts";
 
 const PROVIDER = "codex" as const;
 
@@ -1319,7 +1318,6 @@ const makeCodexAdapter = (options?: CodexAdapterLiveOptions) =>
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
     const serverConfig = yield* Effect.service(ServerConfig);
-    const projectionSnapshotQuery = yield* ProjectionSnapshotQuery;
     const nativeEventLogger =
       options?.nativeEventLogger ??
       (options?.nativeEventLogPath !== undefined
@@ -1355,15 +1353,7 @@ const makeCodexAdapter = (options?: CodexAdapterLiveOptions) =>
         });
       }
 
-      const runtimeEnv =
-        input.env !== undefined
-          ? input.env
-          : input.cwd !== undefined
-            ? yield* resolveRuntimeEnvironment({
-                cwd: input.cwd,
-                readModel: yield* projectionSnapshotQuery.getSnapshot(),
-              })
-            : undefined;
+      const runtimeEnv = input.env ? compactNodeProcessEnv(input.env) : undefined;
 
       const managerInput: CodexAppServerStartSessionInput = {
         threadId: input.threadId,

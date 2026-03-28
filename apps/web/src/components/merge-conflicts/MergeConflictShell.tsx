@@ -673,7 +673,7 @@ export function MergeConflictShell({
 
   return (
     <>
-      <div className="flex min-h-0 flex-1 overflow-hidden">
+      <div className="flex min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
         <div className="grid min-h-0 flex-1 grid-cols-[340px_minmax(0,1fr)] overflow-hidden xl:grid-cols-[340px_minmax(0,1fr)_360px]">
           <div className="min-h-0 border-e border-border/70 bg-background/96">
             <ScrollArea className="h-full">

@@ -48,7 +48,7 @@ import {
   supportsClaudeThinkingToggle,
   supportsClaudeUltrathinkKeyword,
 } from "@okcode/shared/model";
-import { mergeNodeProcessEnv } from "@okcode/shared/environment";
+import { compactNodeProcessEnv, mergeNodeProcessEnv } from "@okcode/shared/environment";
 import {
   Cause,
   DateTime,
@@ -66,7 +66,6 @@ import {
 
 import { resolveAttachmentPath } from "../../attachmentStore.ts";
 import { ServerConfig } from "../../config.ts";
-import { ProjectionSnapshotQuery } from "../../orchestration/Services/ProjectionSnapshotQuery.ts";
 import {
   ProviderAdapterProcessError,
   ProviderAdapterRequestError,
@@ -77,7 +76,6 @@ import {
 } from "../Errors.ts";
 import { ClaudeAdapter, type ClaudeAdapterShape } from "../Services/ClaudeAdapter.ts";
 import { type EventNdjsonLogger, makeEventNdjsonLogger } from "./EventNdjsonLogger.ts";
-import { resolveRuntimeEnvironment } from "../../runtimeEnvironment.ts";
 
 const PROVIDER = "claudeAgent" as const;
 type ClaudeTextStreamKind = Extract<RuntimeContentStreamKind, "assistant_text" | "reasoning_text">;
@@ -920,7 +918,6 @@ function makeClaudeAdapter(options?: ClaudeAdapterLiveOptions) {
   return Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
     const serverConfig = yield* ServerConfig;
-    const projectionSnapshotQuery = yield* ProjectionSnapshotQuery;
     const nativeEventLogger =
       options?.nativeEventLogger ??
       (options?.nativeEventLogPath !== undefined
@@ -2726,15 +2723,7 @@ function makeClaudeAdapter(options?: ClaudeAdapterLiveOptions) {
           ...(typeof thinking === "boolean" ? { alwaysThinkingEnabled: thinking } : {}),
           ...(fastMode ? { fastMode: true } : {}),
         };
-        const runtimeEnv =
-          input.env !== undefined
-            ? input.env
-            : input.cwd !== undefined
-              ? yield* resolveRuntimeEnvironment({
-                  cwd: input.cwd,
-                  readModel: yield* projectionSnapshotQuery.getSnapshot(),
-                })
-              : undefined;
+        const runtimeEnv = input.env ? compactNodeProcessEnv(input.env) : undefined;
 
         const queryOptions: ClaudeQueryOptions = {
           ...(input.cwd ? { cwd: input.cwd } : {}),

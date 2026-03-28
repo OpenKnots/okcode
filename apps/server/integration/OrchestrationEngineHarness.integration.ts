@@ -35,6 +35,7 @@ import { ProviderSessionRuntimeRepositoryLive } from "../src/persistence/Layers/
 import { makeSqlitePersistenceLive } from "../src/persistence/Layers/Sqlite.ts";
 import { ProjectionCheckpointRepository } from "../src/persistence/Services/ProjectionCheckpoints.ts";
 import { ProjectionPendingApprovalRepository } from "../src/persistence/Services/ProjectionPendingApprovals.ts";
+import { EnvironmentVariablesLive } from "../src/persistence/Services/EnvironmentVariables.ts";
 import { ProviderUnsupportedError } from "../src/provider/Errors.ts";
 import { ProviderAdapterRegistry } from "../src/provider/Services/ProviderAdapterRegistry.ts";
 import { ProviderSessionDirectoryLive } from "../src/provider/Layers/ProviderSessionDirectory.ts";
@@ -286,14 +287,15 @@ export const makeOrchestrationIntegrationHarness = (
         );
 
     const checkpointStoreLayer = CheckpointStoreLive.pipe(Layer.provide(GitCoreLive));
-    const runtimeServicesLayer = Layer.mergeAll(
-      orchestrationLayer,
-      OrchestrationProjectionSnapshotQueryLive,
-      ProjectionCheckpointRepositoryLive,
-      ProjectionPendingApprovalRepositoryLive,
-      checkpointStoreLayer,
-      providerLayer,
-      RuntimeReceiptBusLive,
+    const runtimeServicesLayer = Layer.empty.pipe(
+      Layer.provideMerge(EnvironmentVariablesLive),
+      Layer.provideMerge(OrchestrationProjectionSnapshotQueryLive),
+      Layer.provideMerge(orchestrationLayer),
+      Layer.provideMerge(ProjectionCheckpointRepositoryLive),
+      Layer.provideMerge(ProjectionPendingApprovalRepositoryLive),
+      Layer.provideMerge(checkpointStoreLayer),
+      Layer.provideMerge(providerLayer),
+      Layer.provideMerge(RuntimeReceiptBusLive),
     );
     const runtimeIngestionLayer = ProviderRuntimeIngestionLive.pipe(
       Layer.provideMerge(runtimeServicesLayer),

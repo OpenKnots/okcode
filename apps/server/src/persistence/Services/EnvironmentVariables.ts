@@ -14,10 +14,10 @@ import path from "node:path";
 import {
   type EnvironmentVariableEntry,
   type GlobalEnvironmentVariablesResult,
-  type ProjectEnvironmentVariablesInput,
+  ProjectEnvironmentVariablesInput,
   type ProjectEnvironmentVariablesResult,
-  type SaveGlobalEnvironmentVariablesInput,
-  type SaveProjectEnvironmentVariablesInput,
+  SaveGlobalEnvironmentVariablesInput,
+  SaveProjectEnvironmentVariablesInput,
 } from "@okcode/contracts";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 import * as SqlSchema from "effect/unstable/sql/SqlSchema";

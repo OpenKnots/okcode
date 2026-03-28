@@ -75,9 +75,15 @@ export function makeServerProviderLayer(): Layer.Layer<
     );
     const codexAdapterLayer = makeCodexAdapterLive(
       nativeEventLogger ? { nativeEventLogger } : undefined,
+    ).pipe(
+      Layer.provideMerge(EnvironmentVariablesLive),
+      Layer.provideMerge(OrchestrationProjectionSnapshotQueryLive),
     );
     const claudeAdapterLayer = makeClaudeAdapterLive(
       nativeEventLogger ? { nativeEventLogger } : undefined,
+    ).pipe(
+      Layer.provideMerge(EnvironmentVariablesLive),
+      Layer.provideMerge(OrchestrationProjectionSnapshotQueryLive),
     );
     const adapterRegistryLayer = ProviderAdapterRegistryLive.pipe(
       Layer.provide(codexAdapterLayer),
@@ -105,13 +111,13 @@ export function makeServerRuntimeServicesLayer() {
     Layer.provideMerge(checkpointStoreLayer),
   );
 
-  const runtimeServicesLayer = Layer.mergeAll(
-    orchestrationLayer,
-    OrchestrationProjectionSnapshotQueryLive,
-    checkpointStoreLayer,
-    checkpointDiffQueryLayer,
-    RuntimeReceiptBusLive,
-    EnvironmentVariablesLive,
+  const runtimeServicesLayer = Layer.empty.pipe(
+    Layer.provideMerge(EnvironmentVariablesLive),
+    Layer.provideMerge(OrchestrationProjectionSnapshotQueryLive),
+    Layer.provideMerge(orchestrationLayer),
+    Layer.provideMerge(checkpointStoreLayer),
+    Layer.provideMerge(checkpointDiffQueryLayer),
+    Layer.provideMerge(RuntimeReceiptBusLive),
   );
   const runtimeIngestionLayer = ProviderRuntimeIngestionLive.pipe(
     Layer.provideMerge(runtimeServicesLayer),

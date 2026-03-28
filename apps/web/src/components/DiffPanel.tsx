@@ -637,7 +637,7 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
         <>
           <div
             ref={patchViewportRef}
-            className="diff-panel-viewport min-h-0 min-w-0 flex-1 overflow-hidden"
+            className="diff-panel-viewport min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto"
           >
             {checkpointDiffError && !renderablePatch && (
               <div className="px-3">

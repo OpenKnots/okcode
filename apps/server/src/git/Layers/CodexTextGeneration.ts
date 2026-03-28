@@ -9,7 +9,6 @@ import { sanitizeBranchFragment, sanitizeFeatureBranchName } from "@okcode/share
 
 import { resolveAttachmentPath } from "../../attachmentStore.ts";
 import { ServerConfig } from "../../config.ts";
-import { ProjectionSnapshotQuery } from "../../orchestration/Services/ProjectionSnapshotQuery.ts";
 import { TextGenerationError } from "../Errors.ts";
 import {
   type BranchNameGenerationInput,
@@ -19,7 +18,6 @@ import {
   type TextGenerationShape,
   TextGeneration,
 } from "../Services/TextGeneration.ts";
-import { resolveRuntimeEnvironment } from "../../runtimeEnvironment.ts";
 
 const CODEX_REASONING_EFFORT = "low";
 const CODEX_TIMEOUT_MS = 180_000;
@@ -103,7 +101,6 @@ const makeCodexTextGeneration = Effect.gen(function* () {
   const path = yield* Path.Path;
   const commandSpawner = yield* ChildProcessSpawner.ChildProcessSpawner;
   const serverConfig = yield* Effect.service(ServerConfig);
-  const projectionSnapshotQuery = yield* ProjectionSnapshotQuery;
 
   type MaterializedImageAttachments = {
     readonly imagePaths: ReadonlyArray<string>;
@@ -210,10 +207,6 @@ const makeCodexTextGeneration = Effect.gen(function* () {
       const outputPath = yield* writeTempFile(operation, "codex-output", "");
 
       const runCodexCommand = Effect.gen(function* () {
-        const runtimeEnv = yield* resolveRuntimeEnvironment({
-          cwd,
-          readModel: yield* projectionSnapshotQuery.getSnapshot(),
-        });
         const command = ChildProcess.make(
           "codex",
           [
@@ -235,7 +228,7 @@ const makeCodexTextGeneration = Effect.gen(function* () {
           {
             cwd,
             shell: process.platform === "win32",
-            env: mergeNodeProcessEnv(process.env, runtimeEnv),
+            env: process.env,
             stdin: {
               stream: Stream.make(new TextEncoder().encode(prompt)),
             },

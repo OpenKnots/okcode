@@ -10,6 +10,8 @@ import { createServer } from "./wsServer";
 import WebSocket from "ws";
 import { deriveServerPaths, ServerConfig, type ServerConfigShape } from "./config";
 import { makeServerProviderLayer, makeServerRuntimeServicesLayer } from "./serverLayers";
+import { OrchestrationProjectionSnapshotQueryLive } from "./orchestration/Layers/ProjectionSnapshotQuery";
+import { EnvironmentVariablesLive } from "./persistence/Services/EnvironmentVariables";
 
 import {
   DEFAULT_TERMINAL_ID,
@@ -550,7 +552,14 @@ describe("WebSocket Server", () => {
       Layer.provideMerge(NodeServices.layer),
     );
     const runtimeServices = await Effect.runPromise(
-      Layer.build(dependenciesLayer).pipe(Scope.provide(scope)),
+      Layer.build(
+        dependenciesLayer.pipe(
+          Layer.provideMerge(EnvironmentVariablesLive),
+          Layer.provideMerge(OrchestrationProjectionSnapshotQueryLive),
+          Layer.provideMerge(serverConfigLayer),
+          Layer.provideMerge(persistenceLayer),
+        ),
+      ).pipe(Scope.provide(scope)),
     );
 
     try {

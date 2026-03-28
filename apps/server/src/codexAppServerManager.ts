@@ -20,7 +20,7 @@ import {
   ProviderInteractionMode,
 } from "@okcode/contracts";
 import { normalizeModelSlug } from "@okcode/shared/model";
-import { mergeNodeProcessEnv } from "@okcode/shared/environment";
+import { compactNodeProcessEnv, mergeNodeProcessEnv } from "@okcode/shared/environment";
 import { Effect, ServiceMap } from "effect";
 
 import {
@@ -574,13 +574,15 @@ export class CodexAppServerManager extends EventEmitter<CodexAppServerManagerEve
       const codexOptions = readCodexProviderOptions(input);
       const codexBinaryPath = codexOptions.binaryPath ?? "codex";
       const codexHomePath = codexOptions.homePath;
-      const baseEnv = mergeNodeProcessEnv(process.env, input.env);
+      const baseEnv = mergeNodeProcessEnv(
+        process.env,
+        input.env ? compactNodeProcessEnv(input.env) : undefined,
+      );
       const sessionEnv = codexHomePath ? { ...baseEnv, CODEX_HOME: codexHomePath } : baseEnv;
       this.assertSupportedCodexCliVersion({
         binaryPath: codexBinaryPath,
         cwd: resolvedCwd,
         ...(codexHomePath ? { homePath: codexHomePath } : {}),
-        env: sessionEnv,
       });
       const child = spawn(codexBinaryPath, ["app-server"], {
         cwd: resolvedCwd,

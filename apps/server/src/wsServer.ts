@@ -1090,7 +1090,7 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
             snapshot.threads.find(
               (thread) => thread.id === body.threadId && thread.deletedAt === null,
             )?.projectId ?? null,
-          extraEnv: body.env,
+          ...(body.env !== undefined ? { extraEnv: body.env } : {}),
         });
         return yield* terminalManager.open({
           ...body,
@@ -1121,7 +1121,7 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
             snapshot.threads.find(
               (thread) => thread.id === body.threadId && thread.deletedAt === null,
             )?.projectId ?? null,
-          extraEnv: body.env,
+          ...(body.env !== undefined ? { extraEnv: body.env } : {}),
         });
         return yield* terminalManager.restart({
           ...body,

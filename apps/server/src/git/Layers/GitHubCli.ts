@@ -170,21 +170,14 @@ function decodeGitHubJson<S extends Schema.Top>(
 
 const makeGitHubCli = Effect.sync(() => {
   const execute: GitHubCliShape["execute"] = (input) =>
-    Effect.gen(function* () {
-      const projectionSnapshotQuery = yield* ProjectionSnapshotQuery;
-      const runtimeEnv = yield* resolveRuntimeEnvironment({
-        cwd: input.cwd,
-        readModel: yield* projectionSnapshotQuery.getSnapshot(),
-      });
-      return yield* Effect.tryPromise({
-        try: () =>
-          runProcess("gh", input.args, {
-            cwd: input.cwd,
-            timeoutMs: input.timeoutMs ?? DEFAULT_TIMEOUT_MS,
-            env: mergeNodeProcessEnv(process.env, runtimeEnv),
-          }),
-        catch: (error) => normalizeGitHubCliError("execute", error),
-      });
+    Effect.tryPromise({
+      try: () =>
+        runProcess("gh", input.args, {
+          cwd: input.cwd,
+          timeoutMs: input.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+          env: process.env,
+        }),
+      catch: (error) => normalizeGitHubCliError("execute", error),
     });
 
   const service = {

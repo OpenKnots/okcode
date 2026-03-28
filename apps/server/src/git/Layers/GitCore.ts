@@ -17,7 +17,7 @@ import {
   Stream,
 } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
-import { mergeNodeProcessEnv } from "@okcode/shared/environment";
+import { compactNodeProcessEnv, mergeNodeProcessEnv } from "@okcode/shared/environment";
 
 import { GitCommandError } from "../Errors.ts";
 import {
@@ -136,7 +136,6 @@ const EMPTY_STATUS_DETAILS = {
   aheadCount: 0,
   behindCount: 0,
   upstreamRef: null,
-  pr: null,
 } satisfies GitStatusDetails;
 
 function parseBranchLine(line: string): { name: string; current: boolean } | null {
@@ -525,7 +524,6 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
     const fileSystem = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const { worktreesDir } = yield* ServerConfig;
-    const projectionSnapshotQuery = yield* ProjectionSnapshotQuery;
 
     let execute: GitCoreShape["execute"];
 
@@ -547,20 +545,16 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
             Effect.provideService(FileSystem.FileSystem, fileSystem),
             Effect.mapError(toGitCommandError(commandInput, "failed to create trace2 monitor.")),
           );
-          const runtimeEnv =
-            input.env !== undefined
-              ? input.env
-              : yield* resolveRuntimeEnvironment({
-                  cwd: commandInput.cwd,
-                  readModel: yield* projectionSnapshotQuery.getSnapshot(),
-                });
+          const runtimeEnv = input.env ? compactNodeProcessEnv(input.env) : undefined;
           const child = yield* commandSpawner
             .spawn(
               ChildProcess.make("git", commandInput.args, {
                 cwd: commandInput.cwd,
                 env: mergeNodeProcessEnv(
-                  mergeNodeProcessEnv(process.env, runtimeEnv),
-                  trace2Monitor.env,
+                  compactNodeProcessEnv(
+                    mergeNodeProcessEnv(compactNodeProcessEnv(process.env), runtimeEnv),
+                  ),
+                  compactNodeProcessEnv(trace2Monitor.env),
                 ),
               }),
             )

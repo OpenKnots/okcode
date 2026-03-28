@@ -49,7 +49,7 @@ function clampDrawerHeight(height: number): number {
 }
 
 function writeSystemMessage(terminal: Terminal, message: string): void {
-  terminal.write(`\r\n[terminal] ${message}\r\n`);
+  terminal.write(`\r\n\x1b[33m⚠ ${message}\x1b[0m\r\n`);
 }
 
 function terminalThemeFromApp(): ITheme {

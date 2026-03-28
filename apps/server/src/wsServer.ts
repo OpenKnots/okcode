@@ -1202,6 +1202,10 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
       };
     }
 
+    if (squashed instanceof Error) {
+      return { message: squashed.message };
+    }
+
     return { message: Cause.pretty(cause) };
   };
 

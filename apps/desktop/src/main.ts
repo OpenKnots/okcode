@@ -52,6 +52,8 @@ syncShellEnvironment();
 const PICK_FOLDER_CHANNEL = "desktop:pick-folder";
 const CONFIRM_CHANNEL = "desktop:confirm";
 const SET_THEME_CHANNEL = "desktop:set-theme";
+const SET_WINDOW_OPACITY_CHANNEL = "desktop:set-window-opacity";
+const SET_SIDEBAR_OPACITY_CHANNEL = "desktop:set-sidebar-opacity";
 const CONTEXT_MENU_CHANNEL = "desktop:context-menu";
 const OPEN_EXTERNAL_CHANNEL = "desktop:open-external";
 const MENU_ACTION_CHANNEL = "desktop:menu-action";
@@ -1149,6 +1151,23 @@ function registerIpcHandlers(): void {
     }
 
     nativeTheme.themeSource = theme;
+  });
+
+  ipcMain.removeHandler(SET_WINDOW_OPACITY_CHANNEL);
+  ipcMain.handle(SET_WINDOW_OPACITY_CHANNEL, async (event, rawOpacity: unknown) => {
+    if (typeof rawOpacity !== "number" || !Number.isFinite(rawOpacity)) return;
+    const opacity = Math.max(0.3, Math.min(1, rawOpacity));
+    const window = BrowserWindow.fromWebContents(event.sender);
+    if (window) {
+      window.setOpacity(opacity);
+    }
+  });
+
+  ipcMain.removeHandler(SET_SIDEBAR_OPACITY_CHANNEL);
+  ipcMain.handle(SET_SIDEBAR_OPACITY_CHANNEL, async (_event, rawOpacity: unknown) => {
+    // Sidebar opacity is handled purely on the renderer side via CSS.
+    // This channel exists so the bridge contract is satisfied; the renderer
+    // applies the value through a CSS custom-property.
   });
 
   ipcMain.removeHandler(CONTEXT_MENU_CHANNEL);

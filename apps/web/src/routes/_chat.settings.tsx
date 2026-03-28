@@ -500,6 +500,80 @@ function SettingsRouteView() {
               />
 
               <SettingsRow
+                title="Window opacity"
+                description="Adjust the transparency of the entire application window."
+                resetAction={
+                  settings.windowOpacity !== defaults.windowOpacity ? (
+                    <SettingResetButton
+                      label="window opacity"
+                      onClick={() => {
+                        updateSettings({ windowOpacity: defaults.windowOpacity });
+                        if (isElectron && window.desktopBridge) {
+                          void window.desktopBridge.setWindowOpacity(defaults.windowOpacity);
+                        }
+                      }}
+                    />
+                  ) : null
+                }
+                control={
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="range"
+                      min={30}
+                      max={100}
+                      value={Math.round(settings.windowOpacity * 100)}
+                      onChange={(e) => {
+                        const value = Number(e.target.value) / 100;
+                        updateSettings({ windowOpacity: value });
+                        if (isElectron && window.desktopBridge) {
+                          void window.desktopBridge.setWindowOpacity(value);
+                        }
+                      }}
+                      className="h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-muted accent-foreground sm:w-28"
+                      aria-label="Window opacity"
+                    />
+                    <span className="w-9 text-right text-xs tabular-nums text-muted-foreground">
+                      {Math.round(settings.windowOpacity * 100)}%
+                    </span>
+                  </div>
+                }
+              />
+
+              <SettingsRow
+                title="Sidebar opacity"
+                description="Adjust the transparency of the side panel and project list."
+                resetAction={
+                  settings.sidebarOpacity !== defaults.sidebarOpacity ? (
+                    <SettingResetButton
+                      label="sidebar opacity"
+                      onClick={() =>
+                        updateSettings({ sidebarOpacity: defaults.sidebarOpacity })
+                      }
+                    />
+                  ) : null
+                }
+                control={
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="range"
+                      min={30}
+                      max={100}
+                      value={Math.round(settings.sidebarOpacity * 100)}
+                      onChange={(e) => {
+                        const value = Number(e.target.value) / 100;
+                        updateSettings({ sidebarOpacity: value });
+                      }}
+                      className="h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-muted accent-foreground sm:w-28"
+                      aria-label="Sidebar opacity"
+                    />
+                    <span className="w-9 text-right text-xs tabular-nums text-muted-foreground">
+                      {Math.round(settings.sidebarOpacity * 100)}%
+                    </span>
+                  </div>
+                }
+              />
+
+              <SettingsRow
                 title="Time format"
                 description="System default follows your browser or OS clock preference."
                 resetAction={

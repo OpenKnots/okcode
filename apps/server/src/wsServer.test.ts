@@ -47,7 +47,11 @@ import { SqlClient, SqlError } from "effect/unstable/sql";
 import { ProviderService, type ProviderServiceShape } from "./provider/Services/ProviderService";
 import { ProviderHealth, type ProviderHealthShape } from "./provider/Services/ProviderHealth";
 import { Open, type OpenShape } from "./open";
-import { GitManager, type GitManagerShape } from "./git/Services/GitManager.ts";
+import {
+  GitActionProgressReporter,
+  GitManager,
+  type GitManagerShape,
+} from "./git/Services/GitManager.ts";
 import type { GitCoreShape } from "./git/Services/GitCore.ts";
 import { GitCore } from "./git/Services/GitCore.ts";
 import { GitCommandError, GitManagerError } from "./git/Errors.ts";
@@ -813,7 +817,7 @@ describe("WebSocket Server", () => {
     connections.push(ws);
 
     expect(
-      logSpy.mock.calls.some(([message]) => {
+      logSpy.mock.calls.some(([message]: [unknown]) => {
         if (typeof message !== "string") return false;
         return (
           message.includes("[ws]") &&
@@ -957,9 +961,19 @@ describe("WebSocket Server", () => {
         message: expect.any(String),
       },
     ]);
-    expect(result.keybindings).toHaveLength(DEFAULT_RESOLVED_KEYBINDINGS.length);
-    expect(result.keybindings.some((entry) => entry.command === "terminal.toggle")).toBe(true);
+    const expectedTerminalToggle = compileResolvedKeybindingRule({
+      key: "mod+j",
+      command: "terminal.toggle",
+    });
+    expect(expectedTerminalToggle).not.toBeNull();
+    expect(result.keybindings.filter((entry) => entry.command === "terminal.toggle")).toEqual([
+      expectedTerminalToggle,
+    ]);
     expect(result.keybindings.some((entry) => entry.command === "terminal.new")).toBe(true);
+    expect(result.keybindings.some((entry) => entry.command === "terminal.split")).toBe(true);
+    expect(result.keybindings.some((entry) => String(entry.command) === "not-a-real-command")).toBe(
+      false,
+    );
     expect(result.providers).toEqual(defaultProviderStatuses);
     expectAvailableEditors(result.availableEditors);
   });
@@ -1878,10 +1892,13 @@ describe("WebSocket Server", () => {
 
   it("publishes git action progress only to the initiating websocket", async () => {
     const runStackedAction = vi.fn(
-      (_input, options) =>
+      (
+        _input: GitRunStackedActionInput,
+        options?: { actionId?: string; progressReporter?: GitActionProgressReporter } | undefined,
+      ) =>
         options?.progressReporter
           ?.publish({
-            actionId: options.actionId ?? "action-1",
+            actionId: options?.actionId ?? "action-1",
             cwd: "/test",
             action: "commit",
             kind: "phase_started",

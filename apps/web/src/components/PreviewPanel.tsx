@@ -25,6 +25,14 @@ const CLOSED_PREVIEW_STATE: DesktopPreviewState = {
   error: null,
 };
 
+const HIDDEN_PREVIEW_BOUNDS = {
+  x: 0,
+  y: 0,
+  width: 0,
+  height: 0,
+  visible: false,
+} as const;
+
 export function resolvePreviewStatusCopy(state: DesktopPreviewState): string {
   if (state.error) {
     return state.error.message;
@@ -88,14 +96,21 @@ export function PreviewPanel({ threadId, projectId, projectName, onClose }: Prev
     }
 
     if (storedUrl.trim().length === 0) {
-      void previewBridge.close();
+      void previewBridge.setBounds(HIDDEN_PREVIEW_BOUNDS).finally(() => {
+        void previewBridge.close();
+      });
       setPreviewState(CLOSED_PREVIEW_STATE);
       return;
     }
 
-    void previewBridge.close().finally(() => {
-      void previewBridge.open({ url: storedUrl, title: `${projectName} preview` });
-    });
+    void previewBridge
+      .setBounds(HIDDEN_PREVIEW_BOUNDS)
+      .catch(() => undefined)
+      .finally(() => {
+        void previewBridge.close().finally(() => {
+          void previewBridge.open({ url: storedUrl, title: `${projectName} preview` });
+        });
+      });
   }, [previewBridge, projectName, storedUrl, threadId]);
 
   useEffect(() => {
@@ -114,33 +129,43 @@ export function PreviewPanel({ threadId, projectId, projectName, onClose }: Prev
     let lastBoundsKey = "";
     let resizeObserver: ResizeObserver | null = null;
 
-    const syncBounds = () => {
-      frameId = 0;
-      if (destroyed) {
-        return;
-      }
-
+    const computeBounds = () => {
       const element = surfaceRef.current;
       if (!element) {
-        return;
+        return HIDDEN_PREVIEW_BOUNDS;
       }
 
       const rect = element.getBoundingClientRect();
-      const nextBounds = {
+      const visible =
+        storedUrl.trim().length > 0 &&
+        document.visibilityState === "visible" &&
+        rect.width > 0 &&
+        rect.height > 0;
+      return {
         x: rect.left,
         y: rect.top,
         width: rect.width,
         height: rect.height,
-        visible: rect.width > 0 && rect.height > 0,
+        visible,
       };
+    };
+
+    const syncBounds = () => {
+      if (destroyed) {
+        return;
+      }
+
+      const nextBounds = computeBounds();
       const nextKey = `${Math.round(nextBounds.x)}:${Math.round(nextBounds.y)}:${Math.round(nextBounds.width)}:${Math.round(nextBounds.height)}:${nextBounds.visible ? 1 : 0}`;
       if (nextKey !== lastBoundsKey) {
         lastBoundsKey = nextKey;
         void previewBridge.setBounds(nextBounds);
       }
+
+      frameId = window.requestAnimationFrame(syncBounds);
     };
 
-    const scheduleSync = () => {
+    const scheduleImmediateSync = () => {
       if (destroyed || frameId !== 0) {
         return;
       }
@@ -150,38 +175,36 @@ export function PreviewPanel({ threadId, projectId, projectName, onClose }: Prev
     const element = surfaceRef.current;
     if (typeof ResizeObserver !== "undefined" && element) {
       resizeObserver = new ResizeObserver(() => {
-        scheduleSync();
+        lastBoundsKey = "";
       });
       resizeObserver.observe(element);
     }
 
     const visualViewport = window.visualViewport;
-    window.addEventListener("resize", scheduleSync);
-    window.addEventListener("scroll", scheduleSync, true);
-    visualViewport?.addEventListener("resize", scheduleSync);
-    visualViewport?.addEventListener("scroll", scheduleSync);
+    const invalidateBounds = () => {
+      lastBoundsKey = "";
+    };
 
-    scheduleSync();
-    const settleTimeoutId = window.setTimeout(scheduleSync, 50);
+    window.addEventListener("resize", invalidateBounds);
+    window.addEventListener("scroll", invalidateBounds, true);
+    document.addEventListener("visibilitychange", invalidateBounds);
+    visualViewport?.addEventListener("resize", invalidateBounds);
+    visualViewport?.addEventListener("scroll", invalidateBounds);
+
+    scheduleImmediateSync();
 
     return () => {
       destroyed = true;
-      window.clearTimeout(settleTimeoutId);
       if (frameId !== 0) {
         window.cancelAnimationFrame(frameId);
       }
       resizeObserver?.disconnect();
-      window.removeEventListener("resize", scheduleSync);
-      window.removeEventListener("scroll", scheduleSync, true);
-      visualViewport?.removeEventListener("resize", scheduleSync);
-      visualViewport?.removeEventListener("scroll", scheduleSync);
-      void previewBridge.setBounds({
-        x: 0,
-        y: 0,
-        width: 0,
-        height: 0,
-        visible: false,
-      });
+      window.removeEventListener("resize", invalidateBounds);
+      window.removeEventListener("scroll", invalidateBounds, true);
+      document.removeEventListener("visibilitychange", invalidateBounds);
+      visualViewport?.removeEventListener("resize", invalidateBounds);
+      visualViewport?.removeEventListener("scroll", invalidateBounds);
+      void previewBridge.setBounds(HIDDEN_PREVIEW_BOUNDS);
     };
   }, [previewBridge, storedUrl, threadId, projectId]);
 

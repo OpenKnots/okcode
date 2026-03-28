@@ -126,11 +126,11 @@ export class DesktopPreviewController {
 
   setBounds(bounds: DesktopPreviewBounds): void {
     this.bounds = sanitizeDesktopPreviewBounds(bounds);
-    this.applyViewBounds();
+    const appliedVisible = this.applyViewBounds();
     if (this.state.status !== "closed") {
       this.setState({
         ...this.state,
-        visible: previewVisible(this.state, this.bounds),
+        visible: previewVisible(this.state, this.bounds) && appliedVisible,
       });
     }
   }
@@ -275,20 +275,35 @@ export class DesktopPreviewController {
     return { action: "deny" };
   }
 
-  private applyViewBounds(): void {
+  private applyViewBounds(): boolean {
     if (!this.view || this.view.webContents.isDestroyed()) {
-      return;
+      return false;
     }
 
-    const nextBounds = this.bounds.visible
-      ? {
-          x: this.bounds.x,
-          y: this.bounds.y,
-          width: this.bounds.width,
-          height: this.bounds.height,
-        }
-      : { x: 0, y: 0, width: 0, height: 0 };
-    this.view.setBounds(nextBounds);
+    const contentBounds = this.window.getContentBounds();
+    const rawWidth = Math.round(this.bounds.width);
+    const rawHeight = Math.round(this.bounds.height);
+
+    if (
+      !this.bounds.visible ||
+      rawWidth <= 0 ||
+      rawHeight <= 0 ||
+      contentBounds.width <= 0 ||
+      contentBounds.height <= 0
+    ) {
+      this.view.setBounds({ x: 0, y: 0, width: 0, height: 0 });
+      return false;
+    }
+
+    const width = Math.min(rawWidth, contentBounds.width);
+    const height = Math.min(rawHeight, contentBounds.height);
+    const maxX = Math.max(0, contentBounds.width - width);
+    const maxY = Math.max(0, contentBounds.height - height);
+    const x = Math.max(0, Math.min(Math.round(this.bounds.x), maxX));
+    const y = Math.max(0, Math.min(Math.round(this.bounds.y), maxY));
+
+    this.view.setBounds({ x, y, width, height });
+    return width > 0 && height > 0;
   }
 
   private disposeView(): void {

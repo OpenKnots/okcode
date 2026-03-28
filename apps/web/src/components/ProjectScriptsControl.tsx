@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import React, { type FormEvent, type KeyboardEvent, useCallback, useMemo, useState } from "react";
 
+import { ensureNativeApi } from "~/nativeApi";
 import {
   keybindingValueForCommand,
   decodeProjectScriptKeybindingRule,
@@ -25,6 +26,14 @@ import {
   nextProjectScriptId,
   primaryProjectScript,
 } from "~/projectScripts";
+import {
+  type PackageScriptInventory,
+  type ProjectPackageManager,
+  type ProjectScriptDraft,
+  buildProjectScriptDraftsFromPackageScripts,
+  readPackageScriptInventory,
+  resolvePackageManagerResolution,
+} from "~/projectScriptDefaults";
 import { shortcutLabelForCommand } from "~/keybindings";
 import { isMacPlatform } from "~/lib/utils";
 import {
@@ -49,8 +58,9 @@ import {
 import { Group, GroupSeparator } from "./ui/group";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { Menu, MenuItem, MenuPopup, MenuShortcut, MenuTrigger } from "./ui/menu";
+import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuShortcut, MenuTrigger } from "./ui/menu";
 import { Popover, PopoverPopup, PopoverTrigger } from "./ui/popover";
+import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "./ui/select";
 import { Switch } from "./ui/switch";
 import { Textarea } from "./ui/textarea";
 
@@ -87,6 +97,7 @@ export interface NewProjectScriptInput {
 }
 
 interface ProjectScriptsControlProps {
+  projectCwd: string;
   scripts: ProjectScript[];
   keybindings: ResolvedKeybindingsConfig;
   preferredScriptId?: string | null;
@@ -94,6 +105,7 @@ interface ProjectScriptsControlProps {
   onAddScript: (input: NewProjectScriptInput) => Promise<void> | void;
   onUpdateScript: (scriptId: string, input: NewProjectScriptInput) => Promise<void> | void;
   onDeleteScript: (scriptId: string) => Promise<void> | void;
+  onImportScripts: (scripts: ProjectScriptDraft[]) => Promise<void> | void;
 }
 
 function normalizeShortcutKeyToken(key: string): string | null {
@@ -148,6 +160,7 @@ function keybindingFromEvent(event: KeyboardEvent<HTMLInputElement>): string | n
 }
 
 export default function ProjectScriptsControl({
+  projectCwd,
   scripts,
   keybindings,
   preferredScriptId = null,
@@ -155,6 +168,7 @@ export default function ProjectScriptsControl({
   onAddScript,
   onUpdateScript,
   onDeleteScript,
+  onImportScripts,
 }: ProjectScriptsControlProps) {
   const addScriptFormId = React.useId();
   const [editingScriptId, setEditingScriptId] = useState<string | null>(null);
@@ -167,6 +181,12 @@ export default function ProjectScriptsControl({
   const [keybinding, setKeybinding] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importInventory, setImportInventory] = useState<PackageScriptInventory | null>(null);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [selectedPackageManager, setSelectedPackageManager] =
+    useState<ProjectPackageManager | null>(null);
 
   const primaryScript = useMemo(() => {
     if (preferredScriptId) {
@@ -178,6 +198,17 @@ export default function ProjectScriptsControl({
   const isEditing = editingScriptId !== null;
   const dropdownItemClassName =
     "data-highlighted:bg-transparent data-highlighted:text-foreground hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground data-highlighted:hover:bg-accent data-highlighted:hover:text-accent-foreground data-highlighted:focus-visible:bg-accent data-highlighted:focus-visible:text-accent-foreground";
+  const packageManagerResolution = useMemo(
+    () => (importInventory ? resolvePackageManagerResolution(importInventory) : null),
+    [importInventory],
+  );
+  const availableImportDrafts = useMemo(() => {
+    if (!importInventory || !selectedPackageManager) return [];
+    return buildProjectScriptDraftsFromPackageScripts({
+      scriptNames: importInventory.scriptNames,
+      packageManager: selectedPackageManager,
+    });
+  }, [importInventory, selectedPackageManager]);
 
   const captureKeybinding = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "Tab") return;
@@ -266,6 +297,44 @@ export default function ProjectScriptsControl({
     void onDeleteScript(editingScriptId);
   }, [editingScriptId, onDeleteScript]);
 
+  const openImportDialog = useCallback(() => {
+    setImportDialogOpen(true);
+    setImportLoading(true);
+    setImportError(null);
+    setImportInventory(null);
+    const api = ensureNativeApi();
+    void readPackageScriptInventory(api, projectCwd)
+      .then((inventory) => {
+        setImportInventory(inventory);
+        const resolution = resolvePackageManagerResolution(inventory);
+        setSelectedPackageManager(
+          resolution.preferredPackageManager ??
+            inventory.lockfilePackageManagers[0] ??
+            inventory.packageManagerField ??
+            "npm",
+        );
+      })
+      .catch((error) => {
+        setImportError(
+          error instanceof Error ? error.message : "Could not read package.json for this project.",
+        );
+      })
+      .finally(() => setImportLoading(false));
+  }, [projectCwd]);
+
+  const handleImportScripts = useCallback(async () => {
+    if (!selectedPackageManager) {
+      setImportError("Select a package manager before importing actions.");
+      return;
+    }
+    try {
+      await onImportScripts(availableImportDrafts);
+      setImportDialogOpen(false);
+    } catch (error) {
+      setImportError(error instanceof Error ? error.message : "Failed to import actions.");
+    }
+  }, [availableImportDrafts, onImportScripts, selectedPackageManager]);
+
   return (
     <>
       {primaryScript ? (
@@ -332,6 +401,11 @@ export default function ProjectScriptsControl({
                   </MenuItem>
                 );
               })}
+              <MenuSeparator />
+              <MenuItem className={dropdownItemClassName} onClick={openImportDialog}>
+                <ListChecksIcon className="size-4" />
+                Import package scripts
+              </MenuItem>
               <MenuItem className={dropdownItemClassName} onClick={openAddDialog}>
                 <PlusIcon className="size-4" />
                 Add action
@@ -340,12 +414,32 @@ export default function ProjectScriptsControl({
           </Menu>
         </Group>
       ) : (
-        <Button size="xs" variant="outline" onClick={openAddDialog} title="Add action">
-          <PlusIcon className="size-3.5" />
-          <span className="sr-only @sm/header-actions:not-sr-only @sm/header-actions:ml-0.5">
-            Add action
-          </span>
-        </Button>
+        <Group aria-label="Project scripts">
+          <Button size="xs" variant="outline" onClick={openAddDialog} title="Add action">
+            <PlusIcon className="size-3.5" />
+            <span className="sr-only @sm/header-actions:not-sr-only @sm/header-actions:ml-0.5">
+              Add action
+            </span>
+          </Button>
+          <GroupSeparator className="hidden @sm/header-actions:block" />
+          <Menu highlightItemOnHover={false}>
+            <MenuTrigger
+              render={<Button size="icon-xs" variant="outline" aria-label="Action options" />}
+            >
+              <ChevronDownIcon className="size-4" />
+            </MenuTrigger>
+            <MenuPopup align="end">
+              <MenuItem className={dropdownItemClassName} onClick={openImportDialog}>
+                <ListChecksIcon className="size-4" />
+                Import package scripts
+              </MenuItem>
+              <MenuItem className={dropdownItemClassName} onClick={openAddDialog}>
+                <PlusIcon className="size-4" />
+                Add action
+              </MenuItem>
+            </MenuPopup>
+          </Menu>
+        </Group>
       )}
 
       <Dialog
@@ -500,6 +594,94 @@ export default function ProjectScriptsControl({
           </AlertDialogFooter>
         </AlertDialogPopup>
       </AlertDialog>
+
+      <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
+        <DialogPopup>
+          <DialogHeader>
+            <DialogTitle>Import Package Scripts</DialogTitle>
+            <DialogDescription>
+              Create project actions from the scripts defined in this project&apos;s{" "}
+              <code>package.json</code>.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogPanel className="space-y-4">
+            {importLoading ? (
+              <p className="text-sm text-muted-foreground">Reading package.json and lockfiles…</p>
+            ) : importError ? (
+              <p className="text-sm text-destructive">{importError}</p>
+            ) : importInventory ? (
+              <>
+                {packageManagerResolution?.warning ? (
+                  <p className="rounded-md border border-amber-500/30 bg-amber-500/8 px-3 py-2 text-sm text-amber-900 dark:text-amber-100">
+                    {packageManagerResolution.warning}
+                  </p>
+                ) : null}
+                <div className="space-y-1.5">
+                  <Label htmlFor="package-manager">Package manager</Label>
+                  <Select
+                    value={selectedPackageManager ?? undefined}
+                    onValueChange={(value) =>
+                      setSelectedPackageManager(value as ProjectPackageManager)
+                    }
+                    disabled={
+                      !packageManagerResolution?.requiresManualSelection &&
+                      packageManagerResolution?.preferredPackageManager !== null
+                    }
+                  >
+                    <SelectTrigger id="package-manager">
+                      <SelectValue placeholder="Select a package manager" />
+                    </SelectTrigger>
+                    <SelectPopup>
+                      <SelectItem value="bun">bun</SelectItem>
+                      <SelectItem value="pnpm">pnpm</SelectItem>
+                      <SelectItem value="yarn">yarn</SelectItem>
+                      <SelectItem value="npm">npm</SelectItem>
+                    </SelectPopup>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <p className="text-sm font-medium text-foreground">
+                    {importInventory.packageName ?? "This project"} has{" "}
+                    {importInventory.scriptNames.length} package script
+                    {importInventory.scriptNames.length === 1 ? "" : "s"}.
+                  </p>
+                  {importInventory.scriptNames.length > 0 ? (
+                    <div className="max-h-40 overflow-y-auto rounded-md border border-border/70">
+                      {availableImportDrafts.map((script) => (
+                        <div
+                          key={script.name}
+                          className="border-t border-border/60 px-3 py-2 text-sm first:border-t-0"
+                        >
+                          <div className="font-medium text-foreground">{script.name}</div>
+                          <div className="font-mono text-muted-foreground text-xs">
+                            {script.command}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No runnable package scripts were found.
+                    </p>
+                  )}
+                </div>
+              </>
+            ) : null}
+          </DialogPanel>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setImportDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void handleImportScripts()}
+              disabled={importLoading || availableImportDrafts.length === 0}
+            >
+              Import actions
+            </Button>
+          </DialogFooter>
+        </DialogPopup>
+      </Dialog>
     </>
   );
 }

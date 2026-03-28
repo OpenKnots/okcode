@@ -4,6 +4,7 @@ import {
   type ResolvedKeybindingsConfig,
 } from "@okcode/contracts";
 import { memo } from "react";
+import type { ProjectScriptDraft } from "~/projectScriptDefaults";
 import GitActionsControl from "../GitActionsControl";
 import {
   ArrowLeftRightIcon,
@@ -25,6 +26,7 @@ interface ChatHeaderProps {
   activeThreadId: ThreadId;
   activeThreadTitle: string;
   activeProjectName: string | undefined;
+  activeProjectCwd: string | undefined;
   isGitRepo: boolean;
   openInCwd: string | null;
   activeProjectScripts: ProjectScript[] | undefined;
@@ -43,6 +45,7 @@ interface ChatHeaderProps {
   onAddProjectScript: (input: NewProjectScriptInput) => Promise<void>;
   onUpdateProjectScript: (scriptId: string, input: NewProjectScriptInput) => Promise<void>;
   onDeleteProjectScript: (scriptId: string) => Promise<void>;
+  onImportProjectScripts: (scripts: ProjectScriptDraft[]) => Promise<void>;
   onToggleTerminal: () => void;
   onToggleDiff: () => void;
   onTogglePreview: () => void;
@@ -54,6 +57,7 @@ export const ChatHeader = memo(function ChatHeader({
   activeThreadId,
   activeThreadTitle,
   activeProjectName,
+  activeProjectCwd,
   isGitRepo,
   openInCwd,
   activeProjectScripts,
@@ -72,6 +76,7 @@ export const ChatHeader = memo(function ChatHeader({
   onAddProjectScript,
   onUpdateProjectScript,
   onDeleteProjectScript,
+  onImportProjectScripts,
   onToggleTerminal,
   onToggleDiff,
   onTogglePreview,
@@ -102,6 +107,7 @@ export const ChatHeader = memo(function ChatHeader({
       <div className="@container/header-actions flex min-w-0 flex-1 items-center justify-end gap-2 @sm/header-actions:gap-3">
         {activeProjectScripts && (
           <ProjectScriptsControl
+            projectCwd={activeProjectCwd ?? ""}
             scripts={activeProjectScripts}
             keybindings={keybindings}
             preferredScriptId={preferredScriptId}
@@ -109,6 +115,7 @@ export const ChatHeader = memo(function ChatHeader({
             onAddScript={onAddProjectScript}
             onUpdateScript={onUpdateProjectScript}
             onDeleteScript={onDeleteProjectScript}
+            onImportScripts={onImportProjectScripts}
           />
         )}
         {activeProjectName && <OpenInPicker onToggleCodeViewer={onToggleCodeViewer} />}

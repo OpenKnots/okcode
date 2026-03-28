@@ -105,6 +105,12 @@ import {
 } from "./Sidebar.logic";
 import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
 import { WorkspaceFileTree } from "~/components/WorkspaceFileTree";
+import {
+  buildProjectScriptDraftsFromPackageScripts,
+  materializeProjectScripts,
+  readPackageScriptInventory,
+  resolvePackageManagerResolution,
+} from "~/projectScriptDefaults";
 
 const EMPTY_KEYBINDINGS: ResolvedKeybindingsConfig = [];
 const THREAD_PREVIEW_LIMIT = 10;
@@ -533,6 +539,29 @@ export default function Sidebar() {
       const createdAt = new Date().toISOString();
       const title = cwd.split(/[/\\]/).findLast(isNonEmptyString) ?? cwd;
       try {
+        let projectScripts;
+        let packageScriptWarning: string | null = null;
+        try {
+          const inventory = await readPackageScriptInventory(api, cwd);
+          const packageManagerResolution = resolvePackageManagerResolution(inventory);
+          packageScriptWarning =
+            inventory.scriptNames.length > 0 ? packageManagerResolution.warning : null;
+          if (
+            inventory.scriptNames.length > 0 &&
+            packageManagerResolution.preferredPackageManager &&
+            !packageManagerResolution.requiresManualSelection
+          ) {
+            projectScripts = materializeProjectScripts(
+              buildProjectScriptDraftsFromPackageScripts({
+                scriptNames: inventory.scriptNames,
+                packageManager: packageManagerResolution.preferredPackageManager,
+              }),
+            );
+          }
+        } catch {
+          projectScripts = undefined;
+        }
+
         await api.orchestration.dispatchCommand({
           type: "project.create",
           commandId: newCommandId(),
@@ -540,8 +569,16 @@ export default function Sidebar() {
           title,
           workspaceRoot: cwd,
           defaultModel: DEFAULT_MODEL_BY_PROVIDER.codex,
+          ...(projectScripts ? { scripts: projectScripts } : {}),
           createdAt,
         });
+        if (packageScriptWarning) {
+          toastManager.add({
+            type: "warning",
+            title: "Project actions need a package manager choice",
+            description: packageScriptWarning,
+          });
+        }
         await handleNewThread(projectId, {
           envMode: appSettings.defaultThreadEnvMode,
         }).catch(() => undefined);

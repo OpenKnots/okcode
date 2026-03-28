@@ -40,6 +40,39 @@ describe("decider project scripts", () => {
     expect((event.payload as { scripts: unknown[] }).scripts).toEqual([]);
   });
 
+  it("propagates scripts on project.create", async () => {
+    const now = new Date().toISOString();
+    const readModel = createEmptyReadModel(now);
+    const scripts = [
+      {
+        id: "lint",
+        name: "Lint",
+        command: "bun run lint",
+        icon: "lint",
+        runOnWorktreeCreate: false,
+      },
+    ] as const;
+
+    const result = await Effect.runPromise(
+      decideOrchestrationCommand({
+        command: {
+          type: "project.create",
+          commandId: CommandId.makeUnsafe("cmd-project-create-scripts-populated"),
+          projectId: asProjectId("project-scripts-populated"),
+          title: "Scripts",
+          workspaceRoot: "/tmp/scripts-populated",
+          scripts: Array.from(scripts),
+          createdAt: now,
+        },
+        readModel,
+      }),
+    );
+
+    const event = Array.isArray(result) ? result[0] : result;
+    expect(event.type).toBe("project.created");
+    expect((event.payload as { scripts: unknown[] }).scripts).toEqual(scripts);
+  });
+
   it("propagates scripts in project.meta.update payload", async () => {
     const now = new Date().toISOString();
     const initial = createEmptyReadModel(now);

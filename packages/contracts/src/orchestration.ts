@@ -317,6 +317,7 @@ export const ProjectCreateCommand = Schema.Struct({
   title: TrimmedNonEmptyString,
   workspaceRoot: TrimmedNonEmptyString,
   defaultModel: Schema.optional(TrimmedNonEmptyString),
+  scripts: Schema.optional(Schema.Array(ProjectScript)),
   createdAt: IsoDateTime,
 });
 

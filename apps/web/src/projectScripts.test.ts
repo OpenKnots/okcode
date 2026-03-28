@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   commandForProjectScript,
+  interpolateProjectScriptCommand,
   nextProjectScriptId,
   primaryProjectScript,
   projectScriptCwd,
+  projectScriptTemplateInputLabel,
+  projectScriptTemplateInputs,
   projectScriptRuntimeEnv,
   projectScriptIdFromCommand,
   setupProjectScript,
@@ -85,5 +88,25 @@ describe("projectScripts helpers", () => {
         worktreePath: null,
       }),
     ).toBe("/repo");
+  });
+
+  it("extracts and formats dynamic command inputs", () => {
+    expect(
+      projectScriptTemplateInputs("gh pr checkout {{pr_number}} --repo {{repo_name}}"),
+    ).toEqual(["pr_number", "repo_name"]);
+    expect(projectScriptTemplateInputLabel("repo_name")).toBe("Repo Name");
+  });
+
+  it("interpolates dynamic command inputs", () => {
+    expect(
+      interpolateProjectScriptCommand("gh pr checkout {{pr_number}}", {
+        pr_number: "42",
+      }),
+    ).toBe("gh pr checkout 42");
+    expect(() =>
+      interpolateProjectScriptCommand("gh pr checkout {{pr_number}}", {
+        pr_number: "",
+      }),
+    ).toThrow('Missing a value for "pr_number".');
   });
 });

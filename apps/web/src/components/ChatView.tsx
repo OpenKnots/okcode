@@ -105,6 +105,17 @@ import {
   XIcon,
 } from "lucide-react";
 import { Button } from "./ui/button";
+import {
+  Dialog,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogPanel,
+  DialogPopup,
+  DialogTitle,
+} from "./ui/dialog";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
 import { Separator } from "./ui/separator";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "./ui/menu";
 import { cn, randomUUID } from "~/lib/utils";
@@ -114,12 +125,16 @@ import { decodeProjectScriptKeybindingRule } from "~/lib/projectScriptKeybinding
 import { type NewProjectScriptInput } from "./ProjectScriptsControl";
 import {
   commandForProjectScript,
+  interpolateProjectScriptCommand,
   nextProjectScriptId,
   projectScriptCwd,
+  projectScriptTemplateInputLabel,
+  projectScriptTemplateInputs,
   projectScriptRuntimeEnv,
   projectScriptIdFromCommand,
   setupProjectScript,
 } from "~/projectScripts";
+import { type ProjectScriptDraft, materializeProjectScripts } from "~/projectScriptDefaults";
 import { newCommandId, newMessageId, newThreadId } from "~/lib/utils";
 import { readNativeApi } from "~/nativeApi";
 import {
@@ -249,6 +264,14 @@ const INTERACTION_MODE_CYCLE: readonly ProviderInteractionMode[] = ["chat", "cod
 
 interface ChatViewProps {
   threadId: ThreadId;
+}
+
+interface RunProjectScriptOptions {
+  cwd?: string;
+  env?: Record<string, string>;
+  worktreePath?: string | null;
+  preferNewTerminal?: boolean;
+  rememberAsLastInvoked?: boolean;
 }
 
 export default function ChatView({ threadId }: ChatViewProps) {
@@ -384,6 +407,13 @@ export default function ChatView({ threadId }: ChatViewProps) {
   const [composerHighlightedItemId, setComposerHighlightedItemId] = useState<string | null>(null);
   const [pullRequestDialogState, setPullRequestDialogState] =
     useState<PullRequestDialogState | null>(null);
+  const [pendingProjectScriptRun, setPendingProjectScriptRun] = useState<{
+    script: ProjectScript;
+    inputIds: string[];
+    values: Record<string, string>;
+    error: string | null;
+    options?: RunProjectScriptOptions;
+  } | null>(null);
   const [attachmentPreviewHandoffByMessageId, setAttachmentPreviewHandoffByMessageId] = useState<
     Record<string, string[]>
   >({});
@@ -1381,17 +1411,8 @@ export default function ChatView({ threadId }: ChatViewProps) {
     },
     [activeThreadId, storeCloseTerminal, terminalState.terminalIds.length],
   );
-  const runProjectScript = useCallback(
-    async (
-      script: ProjectScript,
-      options?: {
-        cwd?: string;
-        env?: Record<string, string>;
-        worktreePath?: string | null;
-        preferNewTerminal?: boolean;
-        rememberAsLastInvoked?: boolean;
-      },
-    ) => {
+  const executeProjectScript = useCallback(
+    async (script: ProjectScript, options?: RunProjectScriptOptions) => {
       const api = readNativeApi();
       if (!api || !activeThreadId || !activeProject || !activeThread) return;
       if (options?.rememberAsLastInvoked !== false) {
@@ -1472,6 +1493,50 @@ export default function ChatView({ threadId }: ChatViewProps) {
       terminalState.terminalIds,
     ],
   );
+  const runProjectScript = useCallback(
+    async (script: ProjectScript, options?: RunProjectScriptOptions) => {
+      const inputIds = projectScriptTemplateInputs(script.command);
+      if (inputIds.length === 0) {
+        await executeProjectScript(script, options);
+        return;
+      }
+
+      setPendingProjectScriptRun({
+        script,
+        inputIds,
+        values: Object.fromEntries(inputIds.map((inputId) => [inputId, ""])),
+        error: null,
+        ...(options ? { options } : {}),
+      });
+    },
+    [executeProjectScript],
+  );
+  const submitPendingProjectScriptRun = useCallback(async () => {
+    if (!pendingProjectScriptRun) return;
+    try {
+      const resolvedCommand = interpolateProjectScriptCommand(
+        pendingProjectScriptRun.script.command,
+        pendingProjectScriptRun.values,
+      );
+      await executeProjectScript(
+        {
+          ...pendingProjectScriptRun.script,
+          command: resolvedCommand,
+        },
+        pendingProjectScriptRun.options,
+      );
+      setPendingProjectScriptRun(null);
+    } catch (error) {
+      setPendingProjectScriptRun((current) =>
+        current
+          ? {
+              ...current,
+              error: error instanceof Error ? error.message : "Failed to resolve action inputs.",
+            }
+          : current,
+      );
+    }
+  }, [executeProjectScript, pendingProjectScriptRun]);
   const persistProjectScripts = useCallback(
     async (input: {
       projectId: ProjectId;
@@ -1479,7 +1544,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
       previousScripts: ProjectScript[];
       nextScripts: ProjectScript[];
       keybinding?: string | null;
-      keybindingCommand: KeybindingCommand;
+      keybindingCommand?: KeybindingCommand;
     }) => {
       const api = readNativeApi();
       if (!api) return;
@@ -1491,10 +1556,12 @@ export default function ChatView({ threadId }: ChatViewProps) {
         scripts: input.nextScripts,
       });
 
-      const keybindingRule = decodeProjectScriptKeybindingRule({
-        keybinding: input.keybinding,
-        command: input.keybindingCommand,
-      });
+      const keybindingRule = input.keybindingCommand
+        ? decodeProjectScriptKeybindingRule({
+            keybinding: input.keybinding,
+            command: input.keybindingCommand,
+          })
+        : null;
 
       if (isElectron && keybindingRule) {
         await api.server.upsertKeybinding(keybindingRule);
@@ -1502,6 +1569,58 @@ export default function ChatView({ threadId }: ChatViewProps) {
       }
     },
     [queryClient],
+  );
+  const importProjectScripts = useCallback(
+    async (drafts: ProjectScriptDraft[]) => {
+      if (!activeProject) return;
+
+      const nextScripts = materializeProjectScripts(drafts, activeProject.scripts);
+      const unchanged = JSON.stringify(nextScripts) === JSON.stringify(activeProject.scripts);
+      if (unchanged) {
+        toastManager.add({
+          type: "info",
+          title: "Project actions are already up to date",
+        });
+        return;
+      }
+
+      const previousByName = new Map(
+        activeProject.scripts.map((script) => [script.name.trim().toLowerCase(), script]),
+      );
+      let addedCount = 0;
+      let updatedCount = 0;
+      for (const draft of drafts) {
+        const existingScript = previousByName.get(draft.name.trim().toLowerCase());
+        if (!existingScript) {
+          addedCount += 1;
+          continue;
+        }
+        if (
+          existingScript.command !== draft.command ||
+          existingScript.icon !== draft.icon ||
+          existingScript.runOnWorktreeCreate !== draft.runOnWorktreeCreate
+        ) {
+          updatedCount += 1;
+        }
+      }
+
+      await persistProjectScripts({
+        projectId: activeProject.id,
+        projectCwd: activeProject.cwd,
+        previousScripts: activeProject.scripts,
+        nextScripts,
+      });
+      toastManager.add({
+        type: "success",
+        title:
+          addedCount > 0 && updatedCount > 0
+            ? `Imported ${addedCount} action${addedCount === 1 ? "" : "s"} and refreshed ${updatedCount}`
+            : addedCount > 0
+              ? `Imported ${addedCount} action${addedCount === 1 ? "" : "s"}`
+              : `Refreshed ${updatedCount} imported action${updatedCount === 1 ? "" : "s"}`,
+      });
+    },
+    [activeProject, persistProjectScripts],
   );
   const saveProjectScript = useCallback(
     async (input: NewProjectScriptInput) => {
@@ -3865,6 +3984,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
           activeThreadId={activeThread.id}
           activeThreadTitle={activeThread.title}
           activeProjectName={activeProject?.name}
+          activeProjectCwd={activeProject?.cwd}
           isGitRepo={isGitRepo}
           openInCwd={gitCwd}
           activeProjectScripts={activeProject?.scripts}
@@ -3887,6 +4007,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
           onAddProjectScript={saveProjectScript}
           onUpdateProjectScript={updateProjectScript}
           onDeleteProjectScript={deleteProjectScript}
+          onImportProjectScripts={importProjectScripts}
           onToggleTerminal={toggleTerminalVisibility}
           onToggleDiff={onToggleDiff}
           onTogglePreview={() => togglePreviewOpen(activeThread.id)}
@@ -4688,6 +4809,82 @@ export default function ChatView({ threadId }: ChatViewProps) {
       })()}
 
       <SpotifyPlayerDrawer />
+
+      <Dialog
+        open={pendingProjectScriptRun !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingProjectScriptRun(null);
+          }
+        }}
+      >
+        <DialogPopup>
+          <DialogHeader>
+            <DialogTitle>
+              {pendingProjectScriptRun
+                ? `Run ${pendingProjectScriptRun.script.name}`
+                : "Run action"}
+            </DialogTitle>
+            <DialogDescription>
+              Fill in the template values for this action. Values are inserted directly into the
+              command before it runs.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogPanel>
+            {pendingProjectScriptRun ? (
+              <form
+                className="space-y-4"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void submitPendingProjectScriptRun();
+                }}
+              >
+                {pendingProjectScriptRun.inputIds.map((inputId) => (
+                  <div key={inputId} className="space-y-1.5">
+                    <Label htmlFor={`project-script-input-${inputId}`}>
+                      {projectScriptTemplateInputLabel(inputId)}
+                    </Label>
+                    <Input
+                      id={`project-script-input-${inputId}`}
+                      value={pendingProjectScriptRun.values[inputId] ?? ""}
+                      onChange={(event) => {
+                        const nextValue = event.target.value;
+                        setPendingProjectScriptRun((current) =>
+                          current
+                            ? {
+                                ...current,
+                                error: null,
+                                values: {
+                                  ...current.values,
+                                  [inputId]: nextValue,
+                                },
+                              }
+                            : current,
+                        );
+                      }}
+                    />
+                  </div>
+                ))}
+                {pendingProjectScriptRun.error ? (
+                  <p className="text-sm text-destructive">{pendingProjectScriptRun.error}</p>
+                ) : null}
+              </form>
+            ) : null}
+          </DialogPanel>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setPendingProjectScriptRun(null)}
+            >
+              Cancel
+            </Button>
+            <Button type="button" onClick={() => void submitPendingProjectScriptRun()}>
+              Run action
+            </Button>
+          </DialogFooter>
+        </DialogPopup>
+      </Dialog>
 
       {expandedImage && expandedImageItem && (
         <div

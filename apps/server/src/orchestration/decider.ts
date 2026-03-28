@@ -78,7 +78,7 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
           title: command.title,
           workspaceRoot: command.workspaceRoot,
           defaultModel: command.defaultModel ?? null,
-          scripts: [],
+          scripts: command.scripts ?? [],
           createdAt: command.createdAt,
           updatedAt: command.createdAt,
         },

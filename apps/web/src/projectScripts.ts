@@ -6,7 +6,9 @@ import {
 } from "@okcode/contracts";
 import { Schema } from "effect";
 
-function normalizeScriptId(value: string): string {
+const PROJECT_SCRIPT_TEMPLATE_INPUT_PATTERN = /{{\s*([a-z][a-z0-9_-]*)\s*}}/gi;
+
+export function normalizeProjectScriptId(value: string): string {
   const cleaned = value
     .trim()
     .toLowerCase()
@@ -35,7 +37,7 @@ export function projectScriptIdFromCommand(command: string): string | null {
 
 export function nextProjectScriptId(name: string, existingIds: Iterable<string>): string {
   const taken = new Set(Array.from(existingIds));
-  const baseId = normalizeScriptId(name);
+  const baseId = normalizeProjectScriptId(name);
   if (!taken.has(baseId)) return baseId;
 
   let suffix = 2;
@@ -94,4 +96,41 @@ export function primaryProjectScript(scripts: ProjectScript[]): ProjectScript | 
 
 export function setupProjectScript(scripts: ProjectScript[]): ProjectScript | null {
   return scripts.find((script) => script.runOnWorktreeCreate) ?? null;
+}
+
+export function projectScriptTemplateInputs(command: string): string[] {
+  const matches = command.matchAll(PROJECT_SCRIPT_TEMPLATE_INPUT_PATTERN);
+  const seen = new Set<string>();
+  const inputs: string[] = [];
+
+  for (const match of matches) {
+    const inputId = match[1]?.trim().toLowerCase();
+    if (!inputId || seen.has(inputId)) continue;
+    seen.add(inputId);
+    inputs.push(inputId);
+  }
+
+  return inputs;
+}
+
+export function interpolateProjectScriptCommand(
+  command: string,
+  values: Record<string, string>,
+): string {
+  return command.replaceAll(PROJECT_SCRIPT_TEMPLATE_INPUT_PATTERN, (_match, rawInputId: string) => {
+    const inputId = rawInputId.trim().toLowerCase();
+    const value = values[inputId];
+    if (typeof value !== "string" || value.trim().length === 0) {
+      throw new Error(`Missing a value for "${inputId}".`);
+    }
+    return value;
+  });
+}
+
+export function projectScriptTemplateInputLabel(inputId: string): string {
+  return inputId
+    .split(/[-_]+/g)
+    .map((segment) => (segment.length > 0 ? `${segment[0]!.toUpperCase()}${segment.slice(1)}` : ""))
+    .filter((segment) => segment.length > 0)
+    .join(" ");
 }

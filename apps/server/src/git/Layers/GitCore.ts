@@ -1071,7 +1071,7 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
         const status = yield* executeGit(
           "GitCore.statusDetails.status",
           cwd,
-          [...statusArgs],
+          statusArgs,
           { allowNonZeroExit: true },
         );
         if (status.code !== 0) {
@@ -1082,7 +1082,7 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
           return yield* createGitCommandError(
             "GitCore.statusDetails.status",
             cwd,
-            [...statusArgs],
+            statusArgs,
             stderr.length > 0 ? stderr : `git status failed with code ${status.code}.`,
           );
         }

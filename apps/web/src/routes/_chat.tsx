@@ -95,6 +95,7 @@ function ChatRouteGlobalShortcuts() {
 
 function ChatRouteLayout() {
   const navigate = useNavigate();
+  const { settings } = useAppSettings();
 
   useEffect(() => {
     const onMenuAction = window.desktopBridge?.onMenuAction;
@@ -112,6 +113,13 @@ function ChatRouteLayout() {
     };
   }, [navigate]);
 
+  // Apply window opacity via the desktop bridge when the setting changes
+  useEffect(() => {
+    if (window.desktopBridge) {
+      void window.desktopBridge.setWindowOpacity(settings.windowOpacity);
+    }
+  }, [settings.windowOpacity]);
+
   return (
     <SidebarProvider defaultOpen>
       <ChatRouteGlobalShortcuts />
@@ -119,6 +127,7 @@ function ChatRouteLayout() {
         side="left"
         collapsible="offcanvas"
         className="border-r border-border bg-card text-foreground"
+        style={{ opacity: settings.sidebarOpacity }}
         resizable={{
           minWidth: THREAD_SIDEBAR_MIN_WIDTH,
           shouldAcceptWidth: ({ nextWidth, wrapper }) =>

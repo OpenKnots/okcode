@@ -72,6 +72,8 @@ export const AppSettingsSchema = Schema.Struct({
     withDefaults(() => DEFAULT_SIDEBAR_THREAD_SORT_ORDER),
   ),
   timestampFormat: TimestampFormat.pipe(withDefaults(() => DEFAULT_TIMESTAMP_FORMAT)),
+  windowOpacity: Schema.Number.pipe(withDefaults(() => 1)),
+  sidebarOpacity: Schema.Number.pipe(withDefaults(() => 1)),
   customCodexModels: Schema.Array(Schema.String).pipe(withDefaults(() => [])),
   customClaudeModels: Schema.Array(Schema.String).pipe(withDefaults(() => [])),
   textGenerationModel: Schema.optional(TrimmedNonEmptyString),
@@ -136,9 +138,15 @@ export function normalizeCustomModelSlugs(
   return normalizedModels;
 }
 
+function clampOpacity(value: number): number {
+  return Math.max(0.3, Math.min(1, value));
+}
+
 function normalizeAppSettings(settings: AppSettings): AppSettings {
   return {
     ...settings,
+    windowOpacity: clampOpacity(settings.windowOpacity),
+    sidebarOpacity: clampOpacity(settings.sidebarOpacity),
     customCodexModels: normalizeCustomModelSlugs(settings.customCodexModels, "codex"),
     customClaudeModels: normalizeCustomModelSlugs(settings.customClaudeModels, "claudeAgent"),
   };

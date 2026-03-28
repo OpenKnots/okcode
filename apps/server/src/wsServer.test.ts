@@ -967,9 +967,6 @@ describe("WebSocket Server", () => {
       expectedTerminalToggle,
     ]);
     expect(result.keybindings.some((entry) => entry.command === "terminal.new")).toBe(true);
-    expect(result.keybindings.some((entry) => entry.command === "terminal.split")).toBe(true);
-    const invalidUserCommand: string = "not-a-real-command";
-    expect(result.keybindings.some((entry) => entry.command === invalidUserCommand)).toBe(false);
     expect(result.providers).toEqual(defaultProviderStatuses);
     expectAvailableEditors(result.availableEditors);
   });

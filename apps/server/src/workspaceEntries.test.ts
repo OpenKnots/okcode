@@ -133,6 +133,39 @@ describe("searchWorkspaceEntries", () => {
     assert.include(paths, "src/components/Composer.tsx");
   });
 
+  it("prefers CamelCase boundary matches over lowercase substrings", async () => {
+    const cwd = makeTempDir("okcode-workspace-camel-query-");
+    writeFile(cwd, "src/components/CodeViewerPanel.tsx");
+    writeFile(cwd, "docs/cvp-reference.md");
+    writeFile(cwd, "src/components/code-view-panel.txt");
+
+    const result = await searchWorkspaceEntries({ cwd, query: "CVP", limit: 10 });
+
+    assert.equal(result.entries[0]?.path, "src/components/CodeViewerPanel.tsx");
+  });
+
+  it("supports VS Code-style include and exclude glob filters", async () => {
+    const cwd = makeTempDir("okcode-workspace-glob-query-");
+    writeFile(cwd, "src/components/CodeViewerPanel.tsx");
+    writeFile(cwd, "src/components/CodeViewerPanel.test.tsx");
+    writeFile(cwd, "docs/CodeViewerPanel.md");
+    writeFile(cwd, "dist/CodeViewerPanel.tsx");
+
+    const result = await searchWorkspaceEntries({
+      cwd,
+      query: "",
+      includePattern: "src/**",
+      excludePattern: "**/*.test.tsx",
+      limit: 100,
+    });
+    const paths = result.entries.map((entry) => entry.path);
+
+    assert.include(paths, "src/components/CodeViewerPanel.tsx");
+    assert.notInclude(paths, "src/components/CodeViewerPanel.test.tsx");
+    assert.notInclude(paths, "docs/CodeViewerPanel.md");
+    assert.notInclude(paths, "dist/CodeViewerPanel.tsx");
+  });
+
   it("tracks truncation without sorting every fuzzy match", async () => {
     const cwd = makeTempDir("okcode-workspace-fuzzy-limit-");
     writeFile(cwd, "src/components/Composer.tsx");

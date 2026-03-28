@@ -8,8 +8,13 @@ import { ensureNativeApi } from "~/nativeApi";
 
 export const projectQueryKeys = {
   all: ["projects"] as const,
-  searchEntries: (cwd: string | null, query: string, limit: number) =>
-    ["projects", "search-entries", cwd, query, limit] as const,
+  searchEntries: (
+    cwd: string | null,
+    query: string,
+    includePattern: string,
+    excludePattern: string,
+    limit: number,
+  ) => ["projects", "search-entries", cwd, query, includePattern, excludePattern, limit] as const,
   listDirectory: (cwd: string | null, directoryPath: string | null) =>
     ["projects", "list-directory", cwd, directoryPath] as const,
   readFile: (cwd: string | null, relativePath: string | null) =>
@@ -30,13 +35,25 @@ const EMPTY_LIST_DIRECTORY_RESULT: ProjectListDirectoryResult = {
 export function projectSearchEntriesQueryOptions(input: {
   cwd: string | null;
   query: string;
+  includePattern?: string;
+  excludePattern?: string;
   enabled?: boolean;
   limit?: number;
   staleTime?: number;
 }) {
   const limit = input.limit ?? DEFAULT_SEARCH_ENTRIES_LIMIT;
+  const includePattern = input.includePattern?.trim() ?? "";
+  const excludePattern = input.excludePattern?.trim() ?? "";
+  const hasSearchFilters =
+    input.query.trim().length > 0 || includePattern.length > 0 || excludePattern.length > 0;
   return queryOptions({
-    queryKey: projectQueryKeys.searchEntries(input.cwd, input.query, limit),
+    queryKey: projectQueryKeys.searchEntries(
+      input.cwd,
+      input.query,
+      includePattern,
+      excludePattern,
+      limit,
+    ),
     queryFn: async () => {
       const api = ensureNativeApi();
       if (!input.cwd) {
@@ -46,9 +63,11 @@ export function projectSearchEntriesQueryOptions(input: {
         cwd: input.cwd,
         query: input.query,
         limit,
+        ...(includePattern ? { includePattern } : {}),
+        ...(excludePattern ? { excludePattern } : {}),
       });
     },
-    enabled: (input.enabled ?? true) && input.cwd !== null && input.query.length > 0,
+    enabled: (input.enabled ?? true) && input.cwd !== null && hasSearchFilters,
     staleTime: input.staleTime ?? DEFAULT_PROJECT_STALE_TIME,
     placeholderData: (previous) => previous ?? EMPTY_SEARCH_ENTRIES_RESULT,
   });

@@ -38,6 +38,7 @@ interface WorkspaceIndex {
 }
 
 interface SearchableWorkspaceEntry extends ProjectEntry {
+  name: string;
   normalizedPath: string;
   normalizedName: string;
 }
@@ -45,6 +46,20 @@ interface SearchableWorkspaceEntry extends ProjectEntry {
 interface RankedWorkspaceEntry {
   entry: SearchableWorkspaceEntry;
   score: number;
+}
+
+interface QueryTokenMatch {
+  score: number;
+  lastMatchIndex: number;
+}
+
+interface CompiledWorkspaceGlob {
+  matches: (relativePath: string) => boolean;
+}
+
+interface CompiledWorkspaceGlobExpression {
+  positive: CompiledWorkspaceGlob[];
+  negative: CompiledWorkspaceGlob[];
 }
 
 const workspaceIndexCache = new Map<string, WorkspaceIndex>();
@@ -72,87 +87,458 @@ function basenameOf(input: string): string {
 }
 
 function toSearchableWorkspaceEntry(entry: ProjectEntry): SearchableWorkspaceEntry {
+  const name = basenameOf(entry.path);
   const normalizedPath = entry.path.toLowerCase();
   return {
     ...entry,
+    name,
     normalizedPath,
-    normalizedName: basenameOf(normalizedPath),
+    normalizedName: name.toLowerCase(),
   };
 }
 
 function normalizeQuery(input: string): string {
-  return input
-    .trim()
-    .replace(/^[@./]+/, "")
-    .toLowerCase();
+  return input.trim().replace(/^[@./]+/, "");
 }
 
-function scoreSubsequenceMatch(value: string, query: string): number | null {
-  if (!query) return 0;
+function splitQueryTokens(input: string): string[] {
+  const normalizedQuery = normalizeQuery(input);
+  if (!normalizedQuery) return [];
+  return normalizedQuery.split(/\s+/).filter((token) => token.length > 0);
+}
 
-  let queryIndex = 0;
-  let firstMatchIndex = -1;
-  let previousMatchIndex = -1;
-  let gapPenalty = 0;
+function splitGlobPatternList(input?: string): string[] {
+  if (!input) return [];
+  return input
+    .split(/[\n,]+/)
+    .map((part) => part.trim().replace(/\\/g, "/").replace(/^\.\//, "").replace(/\/+$/, ""))
+    .filter((part) => part.length > 0);
+}
 
-  for (let valueIndex = 0; valueIndex < value.length; valueIndex += 1) {
-    if (value[valueIndex] !== query[queryIndex]) {
+function findBraceClosingIndex(input: string, openIndex: number): number {
+  let depth = 0;
+  for (let index = openIndex; index < input.length; index += 1) {
+    if (input[index] === "{") {
+      depth += 1;
       continue;
     }
-
-    if (firstMatchIndex === -1) {
-      firstMatchIndex = valueIndex;
-    }
-    if (previousMatchIndex !== -1) {
-      gapPenalty += valueIndex - previousMatchIndex - 1;
-    }
-
-    previousMatchIndex = valueIndex;
-    queryIndex += 1;
-    if (queryIndex === query.length) {
-      const spanPenalty = valueIndex - firstMatchIndex + 1 - query.length;
-      const lengthPenalty = Math.min(64, value.length - query.length);
-      return firstMatchIndex * 2 + gapPenalty * 3 + spanPenalty + lengthPenalty;
+    if (input[index] === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        return index;
+      }
     }
   }
-
-  return null;
+  return -1;
 }
 
-function scoreEntry(entry: SearchableWorkspaceEntry, query: string): number | null {
-  if (!query) {
-    return entry.kind === "directory" ? 0 : 1;
+function splitBraceAlternatives(input: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let current = "";
+
+  for (let index = 0; index < input.length; index += 1) {
+    const character = input[index];
+    if (character === "," && depth === 0) {
+      parts.push(current);
+      current = "";
+      continue;
+    }
+    if (character === "{") {
+      depth += 1;
+    } else if (character === "}") {
+      depth = Math.max(0, depth - 1);
+    }
+    current += character;
   }
 
-  const { normalizedPath, normalizedName } = entry;
+  parts.push(current);
+  return parts;
+}
 
-  if (normalizedName === query) return 0;
-  if (normalizedPath === query) return 1;
-  if (normalizedName.startsWith(query)) return 2;
-  if (normalizedPath.startsWith(query)) return 3;
-  if (normalizedPath.includes(`/${query}`)) return 4;
-  if (normalizedName.includes(query)) return 5;
-  if (normalizedPath.includes(query)) return 6;
+function escapeRegExp(input: string): string {
+  return input.replace(/[|\\{}()[\]^$+?.]/g, "\\$&");
+}
 
-  const nameFuzzyScore = scoreSubsequenceMatch(normalizedName, query);
-  if (nameFuzzyScore !== null) {
-    return 100 + nameFuzzyScore;
+function globToRegExpSource(pattern: string): string {
+  let source = "";
+
+  for (let index = 0; index < pattern.length; index += 1) {
+    const character = pattern[index];
+    if (character === "*") {
+      if (pattern[index + 1] === "*") {
+        const followedBySlash = pattern[index + 2] === "/";
+        source += followedBySlash ? "(?:.*\\/)?" : ".*";
+        index += followedBySlash ? 2 : 1;
+        continue;
+      }
+      source += "[^/]*";
+      continue;
+    }
+    if (character === "?") {
+      source += "[^/]";
+      continue;
+    }
+    if (character === "{") {
+      const closingIndex = findBraceClosingIndex(pattern, index);
+      if (closingIndex > index) {
+        const alternatives = splitBraceAlternatives(pattern.slice(index + 1, closingIndex)).filter(
+          (part) => part.length > 0,
+        );
+        if (alternatives.length > 0) {
+          source += `(?:${alternatives.map(globToRegExpSource).join("|")})`;
+          index = closingIndex;
+          continue;
+        }
+      }
+    }
+    source += escapeRegExp(character ?? "");
   }
 
-  const pathFuzzyScore = scoreSubsequenceMatch(normalizedPath, query);
-  if (pathFuzzyScore !== null) {
-    return 200 + pathFuzzyScore;
+  return source;
+}
+
+function hasGlobMagic(pattern: string): boolean {
+  return /[*?{]/.test(pattern);
+}
+
+function compileWorkspaceGlob(pattern: string): CompiledWorkspaceGlob {
+  const normalizedPattern = pattern.trim().replace(/\\/g, "/").replace(/^\.\//, "");
+  if (!normalizedPattern || normalizedPattern === "**") {
+    return { matches: () => true };
   }
 
-  return null;
+  if (normalizedPattern.endsWith("/**")) {
+    const prefix = normalizedPattern.slice(0, -3);
+    return {
+      matches: (relativePath) => relativePath === prefix || relativePath.startsWith(`${prefix}/`),
+    };
+  }
+
+  const includesSlash = normalizedPattern.includes("/");
+  const magic = hasGlobMagic(normalizedPattern);
+
+  if (!includesSlash && !magic) {
+    return {
+      matches: (relativePath) =>
+        relativePath === normalizedPattern || relativePath.split("/").includes(normalizedPattern),
+    };
+  }
+
+  if (!includesSlash) {
+    const segmentExpression = new RegExp(`^${globToRegExpSource(normalizedPattern)}$`, "i");
+    return {
+      matches: (relativePath) =>
+        relativePath.split("/").some((segment) => segmentExpression.test(segment)),
+    };
+  }
+
+  if (!magic) {
+    return {
+      matches: (relativePath) =>
+        relativePath === normalizedPattern || relativePath.startsWith(`${normalizedPattern}/`),
+    };
+  }
+
+  const pathExpression = new RegExp(`^${globToRegExpSource(normalizedPattern)}$`, "i");
+  return {
+    matches: (relativePath) => pathExpression.test(relativePath),
+  };
+}
+
+function compileWorkspaceGlobExpression(input?: string): CompiledWorkspaceGlobExpression {
+  const expression: CompiledWorkspaceGlobExpression = {
+    positive: [],
+    negative: [],
+  };
+
+  for (const pattern of splitGlobPatternList(input)) {
+    const isNegative = pattern.startsWith("!");
+    const normalizedPattern = isNegative ? pattern.slice(1).trim() : pattern;
+    if (!normalizedPattern) continue;
+    const target = isNegative ? expression.negative : expression.positive;
+    target.push(compileWorkspaceGlob(normalizedPattern));
+  }
+
+  return expression;
+}
+
+function matchesWorkspaceGlobExpression(
+  relativePath: string,
+  expression: CompiledWorkspaceGlobExpression,
+): boolean {
+  if (
+    expression.positive.length > 0 &&
+    !expression.positive.some((glob) => glob.matches(relativePath))
+  ) {
+    return false;
+  }
+  if (expression.negative.some((glob) => glob.matches(relativePath))) {
+    return false;
+  }
+  return true;
+}
+
+function shouldIncludeSearchableEntry(
+  entry: SearchableWorkspaceEntry,
+  includeExpression: CompiledWorkspaceGlobExpression,
+  excludeExpression: CompiledWorkspaceGlobExpression,
+): boolean {
+  if (!matchesWorkspaceGlobExpression(entry.path, includeExpression)) {
+    return false;
+  }
+  if (excludeExpression.positive.some((glob) => glob.matches(entry.path))) {
+    return false;
+  }
+  return true;
+}
+
+function isWordSeparator(character: string | undefined): boolean {
+  return (
+    character === "/" ||
+    character === "\\" ||
+    character === "-" ||
+    character === "_" ||
+    character === "." ||
+    character === " "
+  );
+}
+
+function isUppercaseAscii(character: string | undefined): boolean {
+  return Boolean(character && character >= "A" && character <= "Z");
+}
+
+function isLowercaseAscii(character: string | undefined): boolean {
+  return Boolean(character && character >= "a" && character <= "z");
+}
+
+function isDigit(character: string | undefined): boolean {
+  return Boolean(character && character >= "0" && character <= "9");
+}
+
+function isWordStart(value: string, index: number): boolean {
+  if (index <= 0) return true;
+  const current = value[index];
+  const previous = value[index - 1];
+  if (isWordSeparator(previous)) {
+    return true;
+  }
+  if (isLowercaseAscii(previous) && isUppercaseAscii(current)) {
+    return true;
+  }
+  return isDigit(previous) !== isDigit(current);
+}
+
+function countExactCaseMatches(value: string, queryToken: string, startIndex: number): number {
+  let exactCaseMatches = 0;
+  for (let index = 0; index < queryToken.length; index += 1) {
+    if (value[startIndex + index] === queryToken[index]) {
+      exactCaseMatches += 1;
+    }
+  }
+  return exactCaseMatches;
+}
+
+function countUppercaseQueryCharacters(queryToken: string): number {
+  let uppercaseCharacters = 0;
+  for (let index = 0; index < queryToken.length; index += 1) {
+    if (isUppercaseAscii(queryToken[index])) {
+      uppercaseCharacters += 1;
+    }
+  }
+  return uppercaseCharacters;
+}
+
+function findTightSubsequencePositions(
+  valueLower: string,
+  queryLower: string,
+  startIndex: number,
+): number[] | null {
+  if (!queryLower) return [];
+
+  const forwardPositions: number[] = [];
+  let queryIndex = 0;
+
+  for (
+    let valueIndex = Math.max(0, startIndex);
+    valueIndex < valueLower.length && queryIndex < queryLower.length;
+    valueIndex += 1
+  ) {
+    if (valueLower[valueIndex] !== queryLower[queryIndex]) {
+      continue;
+    }
+    forwardPositions[queryIndex] = valueIndex;
+    queryIndex += 1;
+  }
+
+  if (queryIndex !== queryLower.length) {
+    return null;
+  }
+
+  const positions = Array<number>(queryLower.length);
+  let valueIndex = forwardPositions[forwardPositions.length - 1] ?? startIndex;
+  for (
+    let reverseQueryIndex = queryLower.length - 1;
+    reverseQueryIndex >= 0;
+    reverseQueryIndex -= 1
+  ) {
+    while (valueIndex >= startIndex && valueLower[valueIndex] !== queryLower[reverseQueryIndex]) {
+      valueIndex -= 1;
+    }
+    if (valueIndex < startIndex) {
+      return null;
+    }
+    positions[reverseQueryIndex] = valueIndex;
+    valueIndex -= 1;
+  }
+
+  return positions;
+}
+
+function scoreExactTokenMatch(
+  value: string,
+  queryToken: string,
+  startIndex: number,
+): QueryTokenMatch {
+  const exactCaseMatches = countExactCaseMatches(value, queryToken, startIndex);
+  const uppercaseCaseMismatches = Math.max(
+    0,
+    countUppercaseQueryCharacters(queryToken) - exactCaseMatches,
+  );
+  let score = 1_450;
+  if (startIndex === 0) {
+    score += 140;
+  }
+  if (isWordStart(value, startIndex)) {
+    score += 140;
+  }
+  score += exactCaseMatches * 70;
+  score -= uppercaseCaseMismatches * 120;
+  score -= startIndex * 8;
+  score -= Math.max(0, value.length - queryToken.length);
+  return {
+    score,
+    lastMatchIndex: startIndex + queryToken.length - 1,
+  };
+}
+
+function scoreFuzzyTokenMatch(
+  value: string,
+  queryToken: string,
+  positions: readonly number[],
+): QueryTokenMatch {
+  const firstMatchIndex = positions[0] ?? 0;
+  const lastMatchIndex = positions[positions.length - 1] ?? firstMatchIndex;
+  let score = 1_150;
+  score -= firstMatchIndex * 8;
+  score -= (lastMatchIndex - firstMatchIndex + 1 - queryToken.length) * 12;
+  score -= Math.max(0, value.length - queryToken.length);
+
+  for (let index = 0; index < positions.length; index += 1) {
+    const position = positions[index] ?? 0;
+    if (isWordStart(value, position)) {
+      score += 90;
+    }
+    if (value[position] === queryToken[index]) {
+      score += 50;
+    }
+    if (index > 0 && position === (positions[index - 1] ?? -2) + 1) {
+      score += 60;
+    }
+  }
+
+  return {
+    score,
+    lastMatchIndex,
+  };
+}
+
+function scoreQueryTokenMatch(
+  value: string,
+  valueLower: string,
+  queryToken: string,
+  startIndex: number,
+): QueryTokenMatch | null {
+  if (!queryToken) {
+    return {
+      score: 0,
+      lastMatchIndex: Math.max(0, startIndex - 1),
+    };
+  }
+
+  const queryLower = queryToken.toLowerCase();
+  const exactIndex = valueLower.indexOf(queryLower, startIndex);
+  const exactMatch = exactIndex === -1 ? null : scoreExactTokenMatch(value, queryToken, exactIndex);
+
+  const positions = findTightSubsequencePositions(valueLower, queryLower, startIndex);
+  const fuzzyMatch = positions ? scoreFuzzyTokenMatch(value, queryToken, positions) : null;
+
+  if (!exactMatch) {
+    return fuzzyMatch;
+  }
+  if (!fuzzyMatch) {
+    return exactMatch;
+  }
+  return exactMatch.score >= fuzzyMatch.score ? exactMatch : fuzzyMatch;
+}
+
+function scoreQueryTokensOnValue(value: string, queryTokens: readonly string[]): number | null {
+  const valueLower = value.toLowerCase();
+  let score = 0;
+  let nextStartIndex = 0;
+
+  for (const queryToken of queryTokens) {
+    const tokenMatch = scoreQueryTokenMatch(value, valueLower, queryToken, nextStartIndex);
+    if (!tokenMatch) {
+      return null;
+    }
+    score += tokenMatch.score;
+    nextStartIndex = tokenMatch.lastMatchIndex + 1;
+  }
+
+  return score;
+}
+
+function scoreEntry(
+  entry: SearchableWorkspaceEntry,
+  queryTokens: readonly string[],
+): number | null {
+  if (queryTokens.length === 0) {
+    return entry.kind === "file" ? 250 : 200;
+  }
+
+  const nameScore = scoreQueryTokensOnValue(entry.name, queryTokens);
+  const pathScore = scoreQueryTokensOnValue(entry.path, queryTokens);
+  if (nameScore === null && pathScore === null) {
+    return null;
+  }
+
+  const bestScore = Math.max(
+    nameScore ?? Number.NEGATIVE_INFINITY,
+    pathScore ?? Number.NEGATIVE_INFINITY,
+  );
+  let score = bestScore;
+  if (nameScore !== null) {
+    score += 220;
+  }
+  if (pathScore !== null && nameScore !== null) {
+    score += 20;
+  }
+  if (entry.kind === "file") {
+    score += 30;
+  }
+  return score;
 }
 
 function compareRankedWorkspaceEntries(
   left: RankedWorkspaceEntry,
   right: RankedWorkspaceEntry,
 ): number {
-  const scoreDelta = left.score - right.score;
+  const scoreDelta = right.score - left.score;
   if (scoreDelta !== 0) return scoreDelta;
+  if (left.entry.kind !== right.entry.kind) {
+    return left.entry.kind === "file" ? -1 : 1;
+  }
   return left.entry.path.localeCompare(right.entry.path);
 }
 
@@ -618,13 +1004,19 @@ export async function searchWorkspaceEntries(
   input: ProjectSearchEntriesInput,
 ): Promise<ProjectSearchEntriesResult> {
   const index = await getWorkspaceIndex(input.cwd);
-  const normalizedQuery = normalizeQuery(input.query);
+  const queryTokens = splitQueryTokens(input.query);
+  const includeExpression = compileWorkspaceGlobExpression(input.includePattern);
+  const excludeExpression = compileWorkspaceGlobExpression(input.excludePattern);
   const limit = Math.max(0, Math.floor(input.limit));
   const rankedEntries: RankedWorkspaceEntry[] = [];
   let matchedEntryCount = 0;
 
   for (const entry of index.entries) {
-    const score = scoreEntry(entry, normalizedQuery);
+    if (!shouldIncludeSearchableEntry(entry, includeExpression, excludeExpression)) {
+      continue;
+    }
+
+    const score = scoreEntry(entry, queryTokens);
     if (score === null) {
       continue;
     }

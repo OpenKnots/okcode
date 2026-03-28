@@ -70,7 +70,7 @@
   },
   "lint-staged": {
     "*": [
-      "oxfmt"
+      "oxfmt --no-error-on-unmatched-pattern"
     ],
     "*.{ts,tsx,js,jsx}": [
       "oxlint --report-unused-disable-directives"

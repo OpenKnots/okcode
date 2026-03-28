@@ -394,7 +394,11 @@ const themeIdeas = [
 </Layout>
 
 <script>
-  import { fetchLatestRelease, RELEASES_URL } from "../lib/releases";
+  import {
+    fetchLatestRelease,
+    RELEASES_URL,
+    type Release,
+  } from "../lib/releases";
   import { detectPlatform, pickAsset } from "../lib/download";
 
   function initDownloadButton() {
@@ -409,7 +413,7 @@ const themeIdeas = [
     label.textContent = platform.label;
 
     fetchLatestRelease()
-      .then((release: any) => {
+      .then((release: Release) => {
         const url = pickAsset(release.assets ?? [], platform);
         if (url) {
           btn.href = url;
@@ -423,24 +427,24 @@ const themeIdeas = [
   }
 
   function initTabGroups() {
-    const groups = document.querySelectorAll("[data-tab-group]");
+    const groups = document.querySelectorAll<HTMLElement>("[data-tab-group]");
     groups.forEach((group) => {
       const defaultTab = group.getAttribute("data-tab-default");
       const buttons = Array.from(group.querySelectorAll<HTMLElement>("[data-tab-button]"));
       const panels = Array.from(group.querySelectorAll<HTMLElement>("[data-tab-panel]"));
-      const heroOverlay = group.querySelector("[data-hero-overlay]");
+      const heroOverlay = group.querySelector<HTMLElement>("[data-hero-overlay]");
 
       const activate = (id: string) => {
         buttons.forEach((button) => {
           const isActive = button.getAttribute("data-tab-target") === id;
           button.setAttribute("aria-selected", isActive ? "true" : "false");
-          (button as HTMLElement).dataset.active = isActive ? "true" : "false";
+          button.dataset.active = isActive ? "true" : "false";
         });
 
         panels.forEach((panel) => {
           const isActive = panel.getAttribute("data-tab-panel") === id;
-          (panel as HTMLElement).hidden = !isActive;
-          (panel as HTMLElement).dataset.active = isActive ? "true" : "false";
+          panel.hidden = !isActive;
+          panel.dataset.active = isActive ? "true" : "false";
         });
 
         group.setAttribute("data-active-tab", id);

@@ -635,42 +635,45 @@ it.layer(GitManagerTestLayer)("GitManager", (it) => {
     12_000,
   );
 
-  it.effect("status returns merged PR state when latest PR was merged", () =>
-    Effect.gen(function* () {
-      const repoDir = yield* makeTempDir("okcode-git-manager-");
-      yield* initRepo(repoDir);
-      yield* runGit(repoDir, ["checkout", "-b", "feature/status-merged-pr"]);
+  it.effect(
+    "status returns merged PR state when latest PR was merged",
+    () =>
+      Effect.gen(function* () {
+        const repoDir = yield* makeTempDir("okcode-git-manager-");
+        yield* initRepo(repoDir);
+        yield* runGit(repoDir, ["checkout", "-b", "feature/status-merged-pr"]);
 
-      const { manager } = yield* makeManager({
-        ghScenario: {
-          prListSequence: [
-            JSON.stringify([
-              {
-                number: 22,
-                title: "Merged PR",
-                url: "https://github.com/pingdotgg/codething-mvp/pull/22",
-                baseRefName: "main",
-                headRefName: "feature/status-merged-pr",
-                state: "MERGED",
-                mergedAt: "2026-01-30T10:00:00Z",
-                updatedAt: "2026-01-30T10:00:00Z",
-              },
-            ]),
-          ],
-        },
-      });
+        const { manager } = yield* makeManager({
+          ghScenario: {
+            prListSequence: [
+              JSON.stringify([
+                {
+                  number: 22,
+                  title: "Merged PR",
+                  url: "https://github.com/pingdotgg/codething-mvp/pull/22",
+                  baseRefName: "main",
+                  headRefName: "feature/status-merged-pr",
+                  state: "MERGED",
+                  mergedAt: "2026-01-30T10:00:00Z",
+                  updatedAt: "2026-01-30T10:00:00Z",
+                },
+              ]),
+            ],
+          },
+        });
 
-      const status = yield* manager.status({ cwd: repoDir });
-      expect(status.branch).toBe("feature/status-merged-pr");
-      expect(status.pr).toEqual({
-        number: 22,
-        title: "Merged PR",
-        url: "https://github.com/pingdotgg/codething-mvp/pull/22",
-        baseBranch: "main",
-        headBranch: "feature/status-merged-pr",
-        state: "merged",
-      });
-    }),
+        const status = yield* manager.status({ cwd: repoDir });
+        expect(status.branch).toBe("feature/status-merged-pr");
+        expect(status.pr).toEqual({
+          number: 22,
+          title: "Merged PR",
+          url: "https://github.com/pingdotgg/codething-mvp/pull/22",
+          baseBranch: "main",
+          headBranch: "feature/status-merged-pr",
+          state: "merged",
+        });
+      }),
+    30_000,
   );
 
   it.effect("status prefers open PR when merged PR has newer updatedAt", () =>

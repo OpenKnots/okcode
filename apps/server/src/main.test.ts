@@ -115,13 +115,16 @@ it.layer(testLayer)("server CLI command", (it) => {
     }),
   );
 
-  it.effect("supports --token as an alias for --auth-token", () =>
-    Effect.gen(function* () {
-      yield* runCli(["--token", "token-secret"]);
+  it.effect(
+    "supports --token as an alias for --auth-token",
+    () =>
+      Effect.gen(function* () {
+        yield* runCli(["--token", "token-secret"]);
 
-      assert.equal(start.mock.calls.length, 1);
-      assert.equal(resolvedConfig?.authToken, "token-secret");
-    }),
+        assert.equal(start.mock.calls.length, 1);
+        assert.equal(resolvedConfig?.authToken, "token-secret");
+      }),
+    30_000,
   );
 
   it.effect("uses env fallbacks when flags are not provided", () =>

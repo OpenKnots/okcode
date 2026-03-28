@@ -260,7 +260,7 @@ export function PreviewPanel({ threadId, projectId, projectName, onClose }: Prev
                   type="button"
                   size="icon-xs"
                   variant="ghost"
-                  className="text-muted-foreground/55 hover:text-foreground"
+                  className="text-muted-foreground/55 hover:bg-transparent hover:text-foreground"
                   aria-label="Preview actions"
                 />
               }
@@ -291,7 +291,7 @@ export function PreviewPanel({ threadId, projectId, projectName, onClose }: Prev
             type="button"
             size="icon-xs"
             variant="ghost"
-            className="text-muted-foreground/55 hover:text-foreground"
+            className="text-muted-foreground/55 hover:bg-transparent hover:text-foreground"
             aria-label="Close preview"
             onClick={onClosePreview}
           >

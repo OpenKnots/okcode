@@ -150,7 +150,7 @@ If narrowing to a stronger first shortlist, these feel the most distinctive:
 - **Solar Witch**
 - **Cursor Dark**
 - **Cathedral Circuit**
-These avoid the “just another editor theme” problem best.
+  These avoid the “just another editor theme” problem best.
 
 ---
 

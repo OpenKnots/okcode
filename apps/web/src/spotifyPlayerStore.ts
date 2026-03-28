@@ -45,7 +45,6 @@ interface PersistedSpotifyState {
   minimized: boolean;
   selectedPlaylistUri: string | null;
   customUri: string | null;
-  volume: number;
 }
 
 interface SpotifyPlayerStore extends PersistedSpotifyState {
@@ -54,7 +53,6 @@ interface SpotifyPlayerStore extends PersistedSpotifyState {
   setMinimized: (minimized: boolean) => void;
   selectPlaylist: (uri: string) => void;
   setCustomUri: (uri: string | null) => void;
-  setVolume: (volume: number) => void;
 }
 
 const STORAGE_KEY = "okcode:spotify-player:v1";
@@ -65,7 +63,6 @@ function readPersistedState(): PersistedSpotifyState {
     minimized: false,
     selectedPlaylistUri: null,
     customUri: null,
-    volume: 80,
   };
 
   if (typeof window === "undefined") return defaults;
@@ -81,10 +78,6 @@ function readPersistedState(): PersistedSpotifyState {
       selectedPlaylistUri:
         typeof parsed.selectedPlaylistUri === "string" ? parsed.selectedPlaylistUri : null,
       customUri: typeof parsed.customUri === "string" ? parsed.customUri : null,
-      volume:
-        typeof parsed.volume === "number" && Number.isFinite(parsed.volume)
-          ? Math.max(0, Math.min(100, parsed.volume))
-          : 80,
     };
   } catch {
     return defaults;
@@ -129,12 +122,6 @@ export const useSpotifyPlayerStore = create<SpotifyPlayerStore>((set, get) => ({
   setCustomUri: (uri) => {
     set({ customUri: uri });
     persistState({ ...get(), customUri: uri });
-  },
-
-  setVolume: (volume) => {
-    const clamped = Math.max(0, Math.min(100, volume));
-    set({ volume: clamped });
-    persistState({ ...get(), volume: clamped });
   },
 }));
 

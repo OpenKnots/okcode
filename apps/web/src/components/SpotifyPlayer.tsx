@@ -5,9 +5,6 @@ import {
   MaximizeIcon,
   MinimizeIcon,
   Music2Icon,
-  Volume1Icon,
-  Volume2Icon,
-  VolumeXIcon,
   XIcon,
 } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
@@ -50,51 +47,6 @@ export function SpotifyToggleButton() {
 // Categories for the playlist picker
 // ---------------------------------------------------------------------------
 const CATEGORIES = [...new Set(DEFAULT_PLAYLISTS.map((p) => p.category))];
-
-// ---------------------------------------------------------------------------
-// Volume slider — always accessible in the header bar
-// ---------------------------------------------------------------------------
-function VolumeControl() {
-  const { volume, setVolume } = useSpotifyPlayerStore();
-  const [premuteVolume, setPremuteVolume] = useState<number>(80);
-
-  const toggleMute = useCallback(() => {
-    if (volume > 0) {
-      setPremuteVolume(volume);
-      setVolume(0);
-    } else {
-      setVolume(premuteVolume || 80);
-    }
-  }, [volume, premuteVolume, setVolume]);
-
-  const VolumeIcon = volume === 0 ? VolumeXIcon : volume < 50 ? Volume1Icon : Volume2Icon;
-
-  return (
-    <div className="flex items-center gap-1.5">
-      <button
-        type="button"
-        onClick={toggleMute}
-        className="rounded p-0.5 text-muted-foreground/60 transition-colors hover:text-foreground"
-        aria-label={volume === 0 ? "Unmute" : "Mute"}
-      >
-        <VolumeIcon className="size-3.5" />
-      </button>
-      <input
-        type="range"
-        min={0}
-        max={100}
-        step={1}
-        value={volume}
-        onChange={(e) => setVolume(Number(e.target.value))}
-        className="spotify-volume-slider h-1 w-16 cursor-pointer appearance-none rounded-full bg-muted-foreground/20 accent-emerald-400 [&::-webkit-slider-thumb]:size-2.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-emerald-400 [&::-webkit-slider-thumb]:transition-transform [&::-webkit-slider-thumb]:hover:scale-125 [&::-moz-range-thumb]:size-2.5 [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-emerald-400"
-        aria-label="Volume"
-      />
-      <span className="min-w-[2ch] text-[10px] tabular-nums text-muted-foreground/50">
-        {volume}
-      </span>
-    </div>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Main Spotify Player Drawer — rendered at the bottom of ChatView
@@ -159,8 +111,12 @@ export function SpotifyPlayerDrawer() {
         {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Volume — always accessible */}
-        <VolumeControl />
+        <span
+          className="rounded-full border border-border/60 px-2 py-0.5 text-[10px] text-muted-foreground/60"
+          title="Spotify embeds do not expose volume control. Adjust volume in Spotify or with your system/browser controls."
+        >
+          Volume in Spotify/system
+        </span>
 
         {/* Playlist picker toggle (only when not minimized) */}
         {!minimized && (

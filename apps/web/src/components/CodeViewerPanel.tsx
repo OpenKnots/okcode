@@ -95,7 +95,7 @@ const CodeViewerFileContent = memo(function CodeViewerFileContent(props: {
   }
 
   return (
-    <div className="min-h-0 flex-1 overflow-hidden">
+    <div className="min-h-0 flex-1 overflow-y-auto">
       {query.data.truncated && (
         <div className="border-b border-amber-500/30 bg-amber-500/10 px-3 py-1 text-[11px] text-amber-700 dark:text-amber-300/90">
           File is larger than 1MB. Showing truncated content.
@@ -177,7 +177,7 @@ export default function CodeViewerPanel() {
         </div>
       </div>
       {/* Content */}
-      <div className="flex min-h-0 flex-1 justify-center overflow-hidden">
+      <div className="flex min-h-0 flex-1 justify-center overflow-y-auto">
         <div className="h-full w-full max-w-5xl">
           {!activeTab ? (
             <div className="flex h-full flex-col items-center justify-center gap-2 px-5 text-center text-muted-foreground/60">

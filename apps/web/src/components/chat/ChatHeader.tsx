@@ -19,6 +19,7 @@ import ProjectScriptsControl, { type NewProjectScriptInput } from "../ProjectScr
 import { Toggle } from "../ui/toggle";
 import { SidebarTrigger } from "../ui/sidebar";
 import { OpenInPicker } from "./OpenInPicker";
+import { useCodeViewerStore } from "~/codeViewerStore";
 import type { ClientMode } from "~/lib/clientMode";
 
 import type { PreviewDock } from "~/previewStateStore";
@@ -87,6 +88,7 @@ export const ChatHeader = memo(function ChatHeader({
   onToggleCodeViewer,
 }: ChatHeaderProps) {
   const isMobileCompanion = clientMode === "mobile";
+  const hasCodeViewerTabs = useCodeViewerStore((state) => state.tabs.length > 0);
 
   return (
     <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -123,7 +125,7 @@ export const ChatHeader = memo(function ChatHeader({
             onImportScripts={onImportProjectScripts}
           />
         )}
-        {activeProjectName && <OpenInPicker onToggleCodeViewer={onToggleCodeViewer} />}
+        {activeProjectName && hasCodeViewerTabs && <OpenInPicker onToggleCodeViewer={onToggleCodeViewer} />}
         {!isMobileCompanion && activeProjectName && (
           <GitActionsControl gitCwd={gitCwd} activeThreadId={activeThreadId} />
         )}

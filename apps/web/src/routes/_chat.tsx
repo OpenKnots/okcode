@@ -1,7 +1,7 @@
 import { type ResolvedKeybindingsConfig } from "@okcode/contracts";
 import { useQuery } from "@tanstack/react-query";
 import { Outlet, createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { type CSSProperties, useEffect } from "react";
 
 import ThreadSidebar from "../components/Sidebar";
 import { useHandleNewThread } from "../hooks/useHandleNewThread";
@@ -96,6 +96,8 @@ function ChatRouteGlobalShortcuts() {
 function ChatRouteLayout() {
   const navigate = useNavigate();
   const { settings } = useAppSettings();
+  const sidebarBorderOpacity =
+    settings.sidebarOpacity >= 1 ? 1 : Math.max(settings.sidebarOpacity, 0.18);
 
   useEffect(() => {
     const onMenuAction = window.desktopBridge?.onMenuAction;
@@ -127,7 +129,12 @@ function ChatRouteLayout() {
         side="left"
         collapsible="offcanvas"
         className="border-r border-border bg-card text-foreground"
-        style={{ opacity: settings.sidebarOpacity }}
+        style={
+          {
+            "--sidebar-background-opacity": settings.sidebarOpacity,
+            "--sidebar-border-opacity": sidebarBorderOpacity,
+          } as CSSProperties
+        }
         resizable={{
           minWidth: THREAD_SIDEBAR_MIN_WIDTH,
           shouldAcceptWidth: ({ nextWidth, wrapper }) =>

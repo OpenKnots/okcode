@@ -1,7 +1,9 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { type CSSProperties } from "react";
 
 import {
+  Sidebar,
   SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuSubButton,
@@ -49,5 +51,27 @@ describe("sidebar interactive cursors", () => {
 
     expect(html).toContain('data-slot="sidebar-menu-sub-button"');
     expect(html).toContain("cursor-pointer");
+  });
+
+  it("applies sidebar transparency to the surface color instead of container opacity", () => {
+    const html = renderToStaticMarkup(
+      <SidebarProvider>
+        <Sidebar
+          style={
+            {
+              "--sidebar-background-opacity": 0.4,
+              "--sidebar-border-opacity": 0.52,
+            } as CSSProperties
+          }
+        >
+          <div>Projects</div>
+        </Sidebar>
+      </SidebarProvider>,
+    );
+
+    expect(html).toContain("--sidebar-background-opacity:0.4");
+    expect(html).toContain("background-color:color-mix");
+    expect(html).toContain("border-color:color-mix");
+    expect(html).not.toContain("opacity:0.4");
   });
 });

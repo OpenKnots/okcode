@@ -136,7 +136,6 @@ export type DesktopPreviewStatus = "closed" | "loading" | "ready" | "error";
 export type DesktopPreviewErrorCode =
   | "invalid-url"
   | "non-local-url"
-  | "navigation-blocked"
   | "load-failed"
   | "process-gone";
 
@@ -155,6 +154,26 @@ export interface DesktopPreviewBounds {
   viewportHeight: number;
 }
 
+export type PreviewTabId = string;
+
+export interface PreviewTabState {
+  tabId: PreviewTabId;
+  status: DesktopPreviewStatus;
+  url: string | null;
+  title: string | null;
+  error: DesktopPreviewError | null;
+  canGoBack: boolean;
+  canGoForward: boolean;
+  devToolsOpen: boolean;
+}
+
+export interface PreviewTabsState {
+  tabs: PreviewTabState[];
+  activeTabId: PreviewTabId | null;
+  visible: boolean;
+}
+
+/** @deprecated Use PreviewTabsState instead */
 export interface DesktopPreviewState {
   status: DesktopPreviewStatus;
   url: string | null;
@@ -165,14 +184,14 @@ export interface DesktopPreviewState {
   canGoForward: boolean;
 }
 
-export interface PreviewOpenResult {
-  accepted: boolean;
-  state: DesktopPreviewState;
+export interface PreviewCreateTabResult {
+  tabId: PreviewTabId;
+  state: PreviewTabsState;
 }
 
 export interface PreviewNavigateResult {
   accepted: boolean;
-  state: DesktopPreviewState;
+  state: PreviewTabsState;
 }
 
 export interface DesktopBridge {
@@ -193,15 +212,18 @@ export interface DesktopBridge {
   installUpdate: () => Promise<DesktopUpdateActionResult>;
   onUpdateState: (listener: (state: DesktopUpdateState) => void) => () => void;
   preview: {
-    open: (input: { url: string; title?: string | null }) => Promise<PreviewOpenResult>;
-    close: () => Promise<void>;
+    createTab: (input: { url: string; title?: string | null }) => Promise<PreviewCreateTabResult>;
+    closeTab: (input: { tabId: PreviewTabId }) => Promise<PreviewTabsState>;
+    activateTab: (input: { tabId: PreviewTabId }) => Promise<PreviewTabsState>;
     goBack: () => Promise<void>;
     goForward: () => Promise<void>;
     reload: () => Promise<void>;
     navigate: (input: { url: string }) => Promise<PreviewNavigateResult>;
-    getState: () => Promise<DesktopPreviewState>;
+    toggleDevTools: () => Promise<void>;
     setBounds: (bounds: DesktopPreviewBounds) => Promise<void>;
-    onState: (listener: (state: DesktopPreviewState) => void) => () => void;
+    closeAll: () => Promise<void>;
+    getState: () => Promise<PreviewTabsState>;
+    onState: (listener: (state: PreviewTabsState) => void) => () => void;
   };
 }
 

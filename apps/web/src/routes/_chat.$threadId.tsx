@@ -38,6 +38,9 @@ const DIFF_INLINE_LAYOUT_MEDIA_QUERY = "(max-width: 1180px)";
 const DIFF_INLINE_SIDEBAR_WIDTH_STORAGE_KEY = "chat_diff_sidebar_width";
 const DIFF_INLINE_DEFAULT_WIDTH = "clamp(28rem,48vw,44rem)";
 const DIFF_INLINE_SIDEBAR_MIN_WIDTH = 26 * 16;
+const CODE_VIEWER_SIDEBAR_WIDTH_STORAGE_KEY = "chat_code_viewer_sidebar_width";
+const CODE_VIEWER_DEFAULT_WIDTH = "clamp(28rem,48vw,44rem)";
+const CODE_VIEWER_SIDEBAR_MIN_WIDTH = 26 * 16;
 const COMPOSER_COMPACT_MIN_LEFT_CONTROLS_WIDTH_PX = 208;
 
 const DiffPanelSheet = (props: {
@@ -189,17 +192,45 @@ const DiffPanelInlineSidebar = (props: {
   );
 };
 
-/** Full-page overlay for the code viewer — covers the chat area entirely. */
-const CodeViewerFullPage = (props: { codeViewerOpen: boolean; renderContent: boolean }) => {
-  if (!props.codeViewerOpen && !props.renderContent) return null;
+/** Right-side sidebar panel for the code viewer — sits alongside the chat area. */
+const CodeViewerInlineSidebar = (props: {
+  codeViewerOpen: boolean;
+  onCloseCodeViewer: () => void;
+  renderContent: boolean;
+}) => {
+  const { codeViewerOpen, onCloseCodeViewer, renderContent } = props;
+  const onOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open) {
+        onCloseCodeViewer();
+      }
+    },
+    [onCloseCodeViewer],
+  );
+  const shouldAcceptInlineSidebarWidth = useShouldAcceptInlineSidebarWidth();
 
   return (
-    <div
-      className="absolute inset-0 z-30 bg-background"
-      style={{ display: props.codeViewerOpen ? undefined : "none" }}
+    <SidebarProvider
+      defaultOpen={false}
+      open={codeViewerOpen}
+      onOpenChange={onOpenChange}
+      className="w-auto min-h-0 flex-none bg-transparent"
+      style={{ "--sidebar-width": CODE_VIEWER_DEFAULT_WIDTH } as CSSProperties}
     >
-      {props.renderContent ? <LazyCodeViewerPanel /> : null}
-    </div>
+      <Sidebar
+        side="right"
+        collapsible="offcanvas"
+        className="border-l border-border bg-card text-foreground"
+        resizable={{
+          minWidth: CODE_VIEWER_SIDEBAR_MIN_WIDTH,
+          shouldAcceptWidth: shouldAcceptInlineSidebarWidth,
+          storageKey: CODE_VIEWER_SIDEBAR_WIDTH_STORAGE_KEY,
+        }}
+      >
+        {renderContent ? <LazyCodeViewerPanel /> : null}
+        <SidebarRail />
+      </Sidebar>
+    </SidebarProvider>
   );
 };
 
@@ -287,11 +318,12 @@ function ChatThreadRouteView() {
       <>
         <SidebarInset className="relative h-dvh min-h-0 overflow-hidden overscroll-y-none bg-background text-foreground">
           <ChatView key={threadId} threadId={threadId} />
-          <CodeViewerFullPage
-            codeViewerOpen={codeViewerOpen}
-            renderContent={shouldRenderCodeViewerContent}
-          />
         </SidebarInset>
+        <CodeViewerInlineSidebar
+          codeViewerOpen={codeViewerOpen}
+          onCloseCodeViewer={closeCodeViewer}
+          renderContent={shouldRenderCodeViewerContent}
+        />
         <DiffPanelInlineSidebar
           diffOpen={diffOpen}
           onCloseDiff={closeDiff}
@@ -306,11 +338,12 @@ function ChatThreadRouteView() {
     <>
       <SidebarInset className="relative h-dvh min-h-0 overflow-hidden overscroll-y-none bg-background text-foreground">
         <ChatView key={threadId} threadId={threadId} />
-        <CodeViewerFullPage
-          codeViewerOpen={codeViewerOpen}
-          renderContent={shouldRenderCodeViewerContent}
-        />
       </SidebarInset>
+      <CodeViewerInlineSidebar
+        codeViewerOpen={codeViewerOpen}
+        onCloseCodeViewer={closeCodeViewer}
+        renderContent={shouldRenderCodeViewerContent}
+      />
       <DiffPanelSheet diffOpen={diffOpen} onCloseDiff={closeDiff}>
         {shouldRenderDiffContent ? <LazyDiffPanel mode="sheet" /> : null}
       </DiffPanelSheet>

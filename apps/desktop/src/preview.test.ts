@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  createClosedPreviewState,
-  createPreviewErrorState,
+  createEmptyTabsState,
   sanitizeDesktopPreviewBounds,
   validateDesktopPreviewUrl,
 } from "./preview";
@@ -104,32 +103,11 @@ describe("sanitizeDesktopPreviewBounds", () => {
 });
 
 describe("preview state helpers", () => {
-  it("creates closed and error states with predictable defaults", () => {
-    expect(createClosedPreviewState()).toEqual({
-      status: "closed",
-      url: null,
-      title: null,
+  it("creates empty tabs state", () => {
+    expect(createEmptyTabsState()).toEqual({
+      tabs: [],
+      activeTabId: null,
       visible: false,
-      error: null,
-      canGoBack: false,
-      canGoForward: false,
-    });
-
-    expect(
-      createPreviewErrorState("load-failed", "Dev server did not respond.", {
-        url: "http://localhost:3000/",
-      }),
-    ).toEqual({
-      status: "error",
-      url: "http://localhost:3000/",
-      title: null,
-      visible: false,
-      error: {
-        code: "load-failed",
-        message: "Dev server did not respond.",
-      },
-      canGoBack: false,
-      canGoForward: false,
     });
   });
 });

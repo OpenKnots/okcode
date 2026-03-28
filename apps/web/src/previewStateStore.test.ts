@@ -1,7 +1,6 @@
-import { ProjectId } from "@okcode/contracts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const STORAGE_KEY = "okcode:desktop-preview:v2";
+const STORAGE_KEY = "okcode:desktop-preview:v3";
 
 let usePreviewStateStore: typeof import("./previewStateStore").usePreviewStateStore;
 let storage: Map<string, string>;
@@ -27,27 +26,33 @@ describe("previewStateStore", () => {
 
     ({ usePreviewStateStore } = await import("./previewStateStore"));
     usePreviewStateStore.setState({
-      openByThreadId: {},
+      globalOpen: false,
       dockByThreadId: {},
       sizeByThreadId: {},
-      urlByProjectId: {},
-      favoriteUrlByProjectId: {},
+      favoriteUrls: [],
     });
     storage.clear();
   });
 
-  it("persists and clears the project favorite URL", () => {
-    const projectId = ProjectId.makeUnsafe("project-1");
+  it("persists and clears favorite URLs", () => {
     const store = usePreviewStateStore.getState();
 
-    store.setProjectFavoriteUrl(projectId, "http://localhost:3000/");
-    expect(usePreviewStateStore.getState().favoriteUrlByProjectId[projectId]).toBe(
-      "http://localhost:3000/",
-    );
-    expect(storage.get(STORAGE_KEY)).toContain('"favoriteUrlByProjectId"');
+    store.addFavoriteUrl("http://localhost:3000/");
+    expect(usePreviewStateStore.getState().favoriteUrls).toContain("http://localhost:3000/");
+    expect(storage.get(STORAGE_KEY)).toContain('"favoriteUrls"');
 
-    store.toggleProjectFavorite(projectId, "http://localhost:3000/");
-    expect(usePreviewStateStore.getState().favoriteUrlByProjectId[projectId]).toBeUndefined();
-    expect(storage.get(STORAGE_KEY)).toContain('"favoriteUrlByProjectId":{}');
+    store.toggleFavoriteUrl("http://localhost:3000/");
+    expect(usePreviewStateStore.getState().favoriteUrls).not.toContain("http://localhost:3000/");
+  });
+
+  it("toggles globalOpen", () => {
+    const store = usePreviewStateStore.getState();
+
+    store.setGlobalOpen(true);
+    expect(usePreviewStateStore.getState().globalOpen).toBe(true);
+    expect(storage.get(STORAGE_KEY)).toContain('"globalOpen":true');
+
+    store.toggleGlobalOpen();
+    expect(usePreviewStateStore.getState().globalOpen).toBe(false);
   });
 });

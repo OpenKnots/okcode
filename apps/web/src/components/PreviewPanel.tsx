@@ -1,14 +1,15 @@
-import type { DesktopPreviewState, ProjectId, ThreadId } from "@okcode/contracts";
+import type { PreviewTabsState, PreviewTabState, ThreadId } from "@okcode/contracts";
 import { type FormEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
-  CircleAlertIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   ExternalLinkIcon,
   GlobeIcon,
   LoaderCircleIcon,
+  PlusIcon,
   RefreshCwIcon,
   StarIcon,
+  WrenchIcon,
   XIcon,
 } from "lucide-react";
 
@@ -21,14 +22,10 @@ import { usePreviewStateStore } from "~/previewStateStore";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 
-const CLOSED_PREVIEW_STATE: DesktopPreviewState = {
-  status: "closed",
-  url: null,
-  title: null,
+const EMPTY_TABS_STATE: PreviewTabsState = {
+  tabs: [],
+  activeTabId: null,
   visible: false,
-  error: null,
-  canGoBack: false,
-  canGoForward: false,
 };
 
 const HIDDEN_PREVIEW_BOUNDS = {
@@ -41,65 +38,64 @@ const HIDDEN_PREVIEW_BOUNDS = {
   viewportHeight: 0,
 } as const;
 
-export function resolvePreviewStatusCopy(state: DesktopPreviewState): string {
-  if (state.error) {
-    return state.error.message;
-  }
+function getActiveTab(state: PreviewTabsState): PreviewTabState | null {
+  if (!state.activeTabId) return null;
+  return state.tabs.find((t) => t.tabId === state.activeTabId) ?? null;
+}
 
-  switch (state.status) {
-    case "loading":
-      return "Loading local preview...";
-    case "ready":
-      return state.url ? `Rendering ${state.url}` : "Preview ready.";
-    case "closed":
-      return "Enter a URL to preview inside OK Code.";
-    case "error":
-      return "Preview failed.";
+function tabDisplayTitle(tab: PreviewTabState): string {
+  if (tab.title) return tab.title;
+  if (tab.url) {
+    try {
+      const u = new URL(tab.url);
+      return u.hostname + (u.pathname !== "/" ? u.pathname : "");
+    } catch {
+      return tab.url;
+    }
   }
+  return "New Tab";
 }
 
 interface PreviewPanelProps {
   threadId: ThreadId;
-  projectId: ProjectId;
-  projectName: string;
   onClose: () => void;
 }
 
-export function PreviewPanel({ threadId, projectId, projectName, onClose }: PreviewPanelProps) {
+export function PreviewPanel({ threadId, onClose }: PreviewPanelProps) {
   const previewBridge = readDesktopPreviewBridge();
-  const storedUrl = usePreviewStateStore((state) => state.urlByProjectId[projectId] ?? "");
-  const favoriteUrl = usePreviewStateStore(
-    (state) => state.favoriteUrlByProjectId[projectId] ?? "",
-  );
-  const setProjectUrl = usePreviewStateStore((state) => state.setProjectUrl);
-  const toggleProjectFavorite = usePreviewStateStore((state) => state.toggleProjectFavorite);
-  const setThreadOpen = usePreviewStateStore((state) => state.setThreadOpen);
-  const [inputUrl, setInputUrl] = useState(storedUrl);
+  const setGlobalOpen = usePreviewStateStore((state) => state.setGlobalOpen);
+  const favoriteUrls = usePreviewStateStore((state) => state.favoriteUrls);
+  const toggleFavoriteUrl = usePreviewStateStore((state) => state.toggleFavoriteUrl);
+
+  const [tabsState, setTabsState] = useState<PreviewTabsState>(EMPTY_TABS_STATE);
+  const [inputUrl, setInputUrl] = useState("");
   const [inputError, setInputError] = useState<string | null>(null);
-  const [previewState, setPreviewState] = useState<DesktopPreviewState>(CLOSED_PREVIEW_STATE);
   const surfaceRef = useRef<HTMLDivElement | null>(null);
-  const projectNameRef = useRef(projectName);
 
+  const activeTab = getActiveTab(tabsState);
+  const showEmbeddedSurface =
+    activeTab !== null && (activeTab.status === "loading" || activeTab.status === "ready");
+
+  // Sync URL input when active tab changes
   useEffect(() => {
-    setInputUrl(storedUrl);
-  }, [storedUrl, projectId]);
+    if (activeTab?.url) {
+      setInputUrl(activeTab.url);
+    }
+  }, [activeTab?.tabId, activeTab?.url]);
 
-  useEffect(() => {
-    projectNameRef.current = projectName;
-  }, [projectName]);
-
+  // Subscribe to state changes
   useEffect(() => {
     if (!previewBridge) {
-      setPreviewState(CLOSED_PREVIEW_STATE);
+      setTabsState(EMPTY_TABS_STATE);
       return;
     }
 
     const unsubscribe = previewBridge.onState((state) => {
-      setPreviewState(state);
+      setTabsState(state);
     });
 
     void previewBridge.getState().then((state) => {
-      setPreviewState(state);
+      setTabsState(state);
     });
 
     return () => {
@@ -107,37 +103,9 @@ export function PreviewPanel({ threadId, projectId, projectName, onClose }: Prev
     };
   }, [previewBridge]);
 
-  useEffect(() => {
-    if (!previewBridge) {
-      return;
-    }
-
-    if (storedUrl.trim().length === 0) {
-      void previewBridge.setBounds(HIDDEN_PREVIEW_BOUNDS).finally(() => {
-        void previewBridge.close();
-      });
-      setPreviewState(CLOSED_PREVIEW_STATE);
-      return;
-    }
-
-    void previewBridge
-      .setBounds(HIDDEN_PREVIEW_BOUNDS)
-      .catch(() => undefined)
-      .finally(() => {
-        void previewBridge.open({ url: storedUrl, title: `${projectNameRef.current} preview` });
-      });
-  }, [previewBridge, storedUrl]);
-
-  useEffect(() => {
-    return () => {
-      void previewBridge?.close();
-    };
-  }, [previewBridge]);
-
+  // Bounds sync
   useLayoutEffect(() => {
-    if (!previewBridge) {
-      return;
-    }
+    if (!previewBridge) return;
 
     let frameId = 0;
     let destroyed = false;
@@ -146,13 +114,11 @@ export function PreviewPanel({ threadId, projectId, projectName, onClose }: Prev
 
     const computeBounds = () => {
       const element = surfaceRef.current;
-      if (!element) {
-        return HIDDEN_PREVIEW_BOUNDS;
-      }
+      if (!element) return HIDDEN_PREVIEW_BOUNDS;
 
       const rect = element.getBoundingClientRect();
       const visible =
-        storedUrl.trim().length > 0 &&
+        tabsState.tabs.length > 0 &&
         document.visibilityState === "visible" &&
         rect.width > 0 &&
         rect.height > 0;
@@ -168,9 +134,7 @@ export function PreviewPanel({ threadId, projectId, projectName, onClose }: Prev
     };
 
     const syncBounds = () => {
-      if (destroyed) {
-        return;
-      }
+      if (destroyed) return;
 
       const nextBounds = computeBounds();
       const nextKey = `${Math.round(nextBounds.x)}:${Math.round(nextBounds.y)}:${Math.round(nextBounds.width)}:${Math.round(nextBounds.height)}:${nextBounds.visible ? 1 : 0}`;
@@ -183,9 +147,7 @@ export function PreviewPanel({ threadId, projectId, projectName, onClose }: Prev
     };
 
     const scheduleImmediateSync = () => {
-      if (destroyed || frameId !== 0) {
-        return;
-      }
+      if (destroyed || frameId !== 0) return;
       frameId = window.requestAnimationFrame(syncBounds);
     };
 
@@ -212,9 +174,7 @@ export function PreviewPanel({ threadId, projectId, projectName, onClose }: Prev
 
     return () => {
       destroyed = true;
-      if (frameId !== 0) {
-        window.cancelAnimationFrame(frameId);
-      }
+      if (frameId !== 0) window.cancelAnimationFrame(frameId);
       resizeObserver?.disconnect();
       window.removeEventListener("resize", invalidateBounds);
       window.removeEventListener("scroll", invalidateBounds, true);
@@ -223,7 +183,14 @@ export function PreviewPanel({ threadId, projectId, projectName, onClose }: Prev
       visualViewport?.removeEventListener("scroll", invalidateBounds);
       void previewBridge.setBounds(HIDDEN_PREVIEW_BOUNDS);
     };
-  }, [previewBridge, storedUrl, threadId, projectId]);
+  }, [previewBridge, tabsState.tabs.length, threadId]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      void previewBridge?.setBounds(HIDDEN_PREVIEW_BOUNDS);
+    };
+  }, [previewBridge]);
 
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -234,31 +201,48 @@ export function PreviewPanel({ threadId, projectId, projectName, onClose }: Prev
     }
 
     setInputError(null);
-    setProjectUrl(projectId, validatedUrl.url);
+
+    if (activeTab) {
+      // Navigate existing active tab
+      void previewBridge?.navigate({ url: validatedUrl.url });
+    } else {
+      // Create a new tab
+      void previewBridge?.createTab({ url: validatedUrl.url });
+    }
+  };
+
+  const onNewTab = () => {
+    const url = inputUrl.trim();
+    if (url.length > 0) {
+      const validatedUrl = validateHttpPreviewUrl(url);
+      if (validatedUrl.ok) {
+        void previewBridge?.createTab({ url: validatedUrl.url });
+        return;
+      }
+    }
+    // Create tab with a default page
+    void previewBridge?.createTab({ url: "https://www.google.com" });
   };
 
   const onClosePreview = () => {
-    setThreadOpen(threadId, false);
-    void previewBridge?.close();
+    setGlobalOpen(false);
+    void previewBridge?.closeAll();
     onClose();
   };
 
   const onOpenExternal = () => {
-    const targetUrl = previewState.url ?? storedUrl;
-    if (!targetUrl) {
-      return;
-    }
-
+    const targetUrl = activeTab?.url;
+    if (!targetUrl) return;
     const api = readNativeApi();
     void api?.shell.openExternal(targetUrl);
   };
 
-  const showEmbeddedSurface = previewState.status === "loading" || previewState.status === "ready";
-  const currentPageUrl = previewState.url;
-  const isFavorite = currentPageUrl !== null && favoriteUrl === currentPageUrl;
+  const currentPageUrl = activeTab?.url ?? null;
+  const isFavorite = currentPageUrl !== null && favoriteUrls.includes(currentPageUrl);
 
   return (
     <div className="flex h-full min-w-0 flex-col bg-background">
+      {/* Toolbar */}
       <div className="flex items-center gap-2 border-b border-border/60 px-3 py-2">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <Button
@@ -267,10 +251,8 @@ export function PreviewPanel({ threadId, projectId, projectName, onClose }: Prev
             variant="ghost"
             className="text-muted-foreground/55 hover:bg-transparent hover:text-foreground"
             aria-label="Back"
-            onClick={() => {
-              void previewBridge?.goBack();
-            }}
-            disabled={!previewBridge || !previewState.canGoBack}
+            onClick={() => void previewBridge?.goBack()}
+            disabled={!previewBridge || !activeTab?.canGoBack}
           >
             <ChevronLeftIcon className="size-3.5" />
           </Button>
@@ -280,25 +262,58 @@ export function PreviewPanel({ threadId, projectId, projectName, onClose }: Prev
             variant="ghost"
             className="text-muted-foreground/55 hover:bg-transparent hover:text-foreground"
             aria-label="Forward"
-            onClick={() => {
-              void previewBridge?.goForward();
-            }}
-            disabled={!previewBridge || !previewState.canGoForward}
+            onClick={() => void previewBridge?.goForward()}
+            disabled={!previewBridge || !activeTab?.canGoForward}
           >
             <ChevronRightIcon className="size-3.5" />
           </Button>
+          <Button
+            type="button"
+            size="icon-xs"
+            variant="ghost"
+            className="text-muted-foreground/55 hover:bg-transparent hover:text-foreground"
+            aria-label="Reload"
+            onClick={() => {
+              setInputError(null);
+              void previewBridge?.reload();
+            }}
+            disabled={!showEmbeddedSurface}
+          >
+            <RefreshCwIcon className="size-3.5" />
+          </Button>
           <GlobeIcon className="size-3.5 shrink-0 text-muted-foreground/65" />
-          <div className="min-w-0">
-            <p
-              className="truncate text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground/75"
-              title={projectName}
-            >
-              Preview
-            </p>
-            <p className="truncate text-[11px] text-muted-foreground/65">{projectName}</p>
-          </div>
+          <form className="min-w-0 flex-1" onSubmit={onSubmit}>
+            <Input
+              value={inputUrl}
+              onChange={(event) => {
+                setInputUrl(event.target.value);
+                if (inputError) setInputError(null);
+              }}
+              placeholder="https://example.com"
+              aria-label="URL"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+              className="h-7 text-xs"
+            />
+          </form>
         </div>
         <div className="flex items-center gap-1">
+          <Button
+            type="button"
+            size="icon-xs"
+            variant="ghost"
+            className={cn(
+              "text-muted-foreground/55 hover:bg-transparent hover:text-foreground",
+              activeTab?.devToolsOpen ? "text-blue-500 hover:text-blue-500" : undefined,
+            )}
+            aria-label="Toggle DevTools"
+            aria-pressed={activeTab?.devToolsOpen ?? false}
+            onClick={() => void previewBridge?.toggleDevTools()}
+            disabled={!previewBridge || !activeTab}
+          >
+            <WrenchIcon className="size-3.5" />
+          </Button>
           <Button
             type="button"
             size="icon-xs"
@@ -310,10 +325,7 @@ export function PreviewPanel({ threadId, projectId, projectName, onClose }: Prev
             aria-label={isFavorite ? "Remove favorite" : "Favorite current page"}
             aria-pressed={isFavorite}
             onClick={() => {
-              if (!currentPageUrl) {
-                return;
-              }
-              toggleProjectFavorite(projectId, currentPageUrl);
+              if (currentPageUrl) toggleFavoriteUrl(currentPageUrl);
             }}
             disabled={!previewBridge || currentPageUrl === null}
           >
@@ -324,23 +336,9 @@ export function PreviewPanel({ threadId, projectId, projectName, onClose }: Prev
             size="icon-xs"
             variant="ghost"
             className="text-muted-foreground/55 hover:bg-transparent hover:text-foreground"
-            aria-label="Reload preview"
-            onClick={() => {
-              setInputError(null);
-              void previewBridge?.reload();
-            }}
-            disabled={!showEmbeddedSurface}
-          >
-            <RefreshCwIcon className="size-3.5" />
-          </Button>
-          <Button
-            type="button"
-            size="icon-xs"
-            variant="ghost"
-            className="text-muted-foreground/55 hover:bg-transparent hover:text-foreground"
-            aria-label="Open preview externally"
+            aria-label="Open externally"
             onClick={onOpenExternal}
-            disabled={!previewState.url && storedUrl.trim().length === 0}
+            disabled={!activeTab?.url}
           >
             <ExternalLinkIcon className="size-3.5" />
           </Button>
@@ -349,7 +347,7 @@ export function PreviewPanel({ threadId, projectId, projectName, onClose }: Prev
             size="icon-xs"
             variant="ghost"
             className="text-muted-foreground/55 hover:bg-transparent hover:text-foreground"
-            aria-label="Close preview"
+            aria-label="Close browser"
             onClick={onClosePreview}
           >
             <XIcon className="size-3.5" />
@@ -357,42 +355,69 @@ export function PreviewPanel({ threadId, projectId, projectName, onClose }: Prev
         </div>
       </div>
 
-      <form className="border-b border-border px-3 py-3" onSubmit={onSubmit}>
-        <div className="flex items-center gap-2">
-          <Input
-            value={inputUrl}
-            onChange={(event) => {
-              setInputUrl(event.target.value);
-              if (inputError) {
-                setInputError(null);
-              }
-            }}
-            placeholder="http://localhost:3000"
-            aria-label="Preview URL"
-            autoCapitalize="off"
-            autoCorrect="off"
-            spellCheck={false}
-          />
-          <Button type="submit" size="sm">
-            Open
-          </Button>
-        </div>
-        <div className="mt-2 flex items-start gap-2 text-xs">
-          {previewState.status === "loading" ? (
+      {/* Tab bar */}
+      <div className="flex items-center gap-0.5 overflow-x-auto border-b border-border/40 bg-muted/30 px-2 py-1">
+        {tabsState.tabs.map((tab) => (
+          <button
+            key={tab.tabId}
+            type="button"
+            className={cn(
+              "group flex max-w-[180px] items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] transition-colors",
+              tab.tabId === tabsState.activeTabId
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:bg-background/50 hover:text-foreground",
+            )}
+            onClick={() => void previewBridge?.activateTab({ tabId: tab.tabId })}
+            title={tab.url ?? tabDisplayTitle(tab)}
+          >
+            {tab.status === "loading" ? (
+              <LoaderCircleIcon className="size-3 shrink-0 animate-spin" />
+            ) : (
+              <GlobeIcon className="size-3 shrink-0 opacity-50" />
+            )}
+            <span className="truncate">{tabDisplayTitle(tab)}</span>
+            <button
+              type="button"
+              className="ml-auto shrink-0 rounded p-0.5 opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100"
+              onClick={(e) => {
+                e.stopPropagation();
+                void previewBridge?.closeTab({ tabId: tab.tabId });
+              }}
+              aria-label={`Close ${tabDisplayTitle(tab)}`}
+            >
+              <XIcon className="size-2.5" />
+            </button>
+          </button>
+        ))}
+        <button
+          type="button"
+          className="flex items-center justify-center rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-background/50 hover:text-foreground"
+          onClick={onNewTab}
+          aria-label="New tab"
+        >
+          <PlusIcon className="size-3.5" />
+        </button>
+      </div>
+
+      {/* Status bar */}
+      {(inputError || (activeTab && activeTab.status !== "ready")) && (
+        <div className="flex items-start gap-2 border-b border-border/40 px-3 py-1.5 text-xs">
+          {activeTab?.status === "loading" ? (
             <LoaderCircleIcon className="mt-0.5 size-3.5 shrink-0 animate-spin text-muted-foreground/70" />
-          ) : previewState.error || inputError ? (
-            <CircleAlertIcon className="mt-0.5 size-3.5 shrink-0 text-amber-600" />
           ) : null}
           <p
             className={
-              previewState.error || inputError ? "text-amber-700" : "text-muted-foreground/70"
+              activeTab?.error || inputError ? "text-amber-700" : "text-muted-foreground/70"
             }
           >
-            {inputError ?? resolvePreviewStatusCopy(previewState)}
+            {inputError ??
+              activeTab?.error?.message ??
+              (activeTab?.status === "loading" ? `Loading ${activeTab.url ?? ""}...` : null)}
           </p>
         </div>
-      </form>
+      )}
 
+      {/* Content area */}
       <div className="flex min-h-0 flex-1 flex-col p-3">
         <div
           ref={surfaceRef}
@@ -400,7 +425,9 @@ export function PreviewPanel({ threadId, projectId, projectName, onClose }: Prev
         >
           {!showEmbeddedSurface ? (
             <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground/70">
-              {inputError ?? resolvePreviewStatusCopy(previewState)}
+              {tabsState.tabs.length === 0
+                ? "Enter a URL or click + to open a new tab."
+                : (activeTab?.error?.message ?? "Preview closed.")}
             </div>
           ) : null}
         </div>

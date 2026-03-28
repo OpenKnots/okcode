@@ -205,6 +205,7 @@ import {
   SendPhase,
 } from "./ChatView.logic";
 import { useLocalStorage } from "~/hooks/useLocalStorage";
+import { readDesktopPreviewBridge } from "~/desktopPreview";
 import { usePreviewStateStore } from "~/previewStateStore";
 import { useClientMode } from "~/hooks/useClientMode";
 import { useTransportState } from "~/hooks/useTransportState";
@@ -291,9 +292,9 @@ export default function ChatView({ threadId }: ChatViewProps) {
   const setStickyComposerModel = useComposerDraftStore((store) => store.setStickyModel);
   const timestampFormat = settings.timestampFormat;
   const navigate = useNavigate();
-  const previewOpen = usePreviewStateStore((state) => state.openByThreadId[threadId] === true);
-  const togglePreviewOpen = usePreviewStateStore((state) => state.toggleThreadOpen);
-  const setPreviewOpen = usePreviewStateStore((state) => state.setThreadOpen);
+  const previewOpen = usePreviewStateStore((state) => state.globalOpen);
+  const togglePreviewOpen = usePreviewStateStore((state) => state.toggleGlobalOpen);
+  const setPreviewOpen = usePreviewStateStore((state) => state.setGlobalOpen);
   const previewDock = usePreviewStateStore((state) => state.dockByThreadId[threadId] ?? "right");
   const previewSize = usePreviewStateStore(
     (state) => state.sizeByThreadId[threadId] ?? PREVIEW_SPLIT_DEFAULT_SIZE_PX,
@@ -302,7 +303,6 @@ export default function ChatView({ threadId }: ChatViewProps) {
   const setPreviewDock = usePreviewStateStore((state) => state.setThreadDock);
   const togglePreviewLayout = usePreviewStateStore((state) => state.toggleThreadLayout);
   const setPreviewSize = usePreviewStateStore((state) => state.setThreadSize);
-  const setPreviewProjectUrl = usePreviewStateStore((state) => state.setProjectUrl);
   const previewSplitRef = useRef<HTMLDivElement | null>(null);
   const previewResizeStateRef = useRef<{
     pointerId: number;
@@ -1341,13 +1341,14 @@ export default function ChatView({ threadId }: ChatViewProps) {
     },
     [activeThread, composerCursor, composerTerminalContexts, insertComposerDraftTerminalContext],
   );
+  const previewBridgeRef = readDesktopPreviewBridge();
   const handlePreviewUrl = useCallback(
     (url: string) => {
       if (!activeProject || !activeThread) return;
-      setPreviewProjectUrl(activeProject.id, url);
-      setPreviewOpen(activeThread.id, true);
+      setPreviewOpen(true);
+      void previewBridgeRef?.createTab({ url });
     },
-    [activeProject, activeThread, setPreviewProjectUrl, setPreviewOpen],
+    [activeProject, activeThread, setPreviewOpen, previewBridgeRef],
   );
   const openLinksExternally = settings.openLinksExternally;
   const onPreviewUrl =
@@ -4001,11 +4002,11 @@ export default function ChatView({ threadId }: ChatViewProps) {
 
       event.preventDefault();
       if (previewOpen && previewDock === targetDock) {
-        setPreviewOpen(threadId, false);
+        setPreviewOpen(false);
         return;
       }
 
-      setPreviewOpen(threadId, true);
+      setPreviewOpen(true);
       setPreviewDock(threadId, targetDock);
     };
 
@@ -4060,7 +4061,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
           onImportProjectScripts={importProjectScripts}
           onToggleTerminal={toggleTerminalVisibility}
           onToggleDiff={onToggleDiff}
-          onTogglePreview={() => togglePreviewOpen(activeThread.id)}
+          onTogglePreview={() => togglePreviewOpen()}
           onTogglePreviewLayout={() => togglePreviewLayout(activeThread.id)}
           onToggleCodeViewer={toggleCodeViewer}
         />
@@ -4097,9 +4098,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
                 <PreviewPanel
                   key={previewPanelKey ?? undefined}
                   threadId={activeThread.id}
-                  projectId={activeProject.id}
-                  projectName={activeProject.name}
-                  onClose={() => setPreviewOpen(activeThread.id, false)}
+                  onClose={() => setPreviewOpen(false)}
                 />
               </div>
               <div
@@ -4833,9 +4832,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
                 <PreviewPanel
                   key={previewPanelKey ?? undefined}
                   threadId={activeThread.id}
-                  projectId={activeProject.id}
-                  projectName={activeProject.name}
-                  onClose={() => setPreviewOpen(activeThread.id, false)}
+                  onClose={() => setPreviewOpen(false)}
                 />
               </div>
             </>

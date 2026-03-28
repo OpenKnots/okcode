@@ -118,6 +118,23 @@ function parsePorcelainConflictPath(line: string): string | null {
   return parsePorcelainPath(line);
 }
 
+const EMPTY_STATUS_DETAILS = {
+  branch: null,
+  hasWorkingTreeChanges: false,
+  hasConflicts: false,
+  conflictedFiles: [],
+  workingTree: {
+    files: [],
+    insertions: 0,
+    deletions: 0,
+  },
+  hasUpstream: false,
+  aheadCount: 0,
+  behindCount: 0,
+  upstreamRef: null,
+  pr: null,
+} satisfies GitStatusDetails;
+
 function parseBranchLine(line: string): { name: string; current: boolean } | null {
   const trimmed = line.trim();
   if (trimmed.length === 0) return null;
@@ -1032,15 +1049,34 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
 
     const statusDetails: GitCoreShape["statusDetails"] = (cwd) =>
       Effect.gen(function* () {
+        const cwdStat = yield* fileSystem.stat(cwd).pipe(Effect.catch(() => Effect.succeed(null)));
+        if (!cwdStat || cwdStat.type !== "Directory") {
+          return EMPTY_STATUS_DETAILS;
+        }
+
         yield* refreshStatusUpstreamIfStale(cwd).pipe(Effect.ignoreCause({ log: true }));
 
-        const [statusStdout, unstagedNumstatStdout, stagedNumstatStdout] = yield* Effect.all(
+        const status = yield* executeGit(
+          "GitCore.statusDetails.status",
+          cwd,
+          ["status", "--porcelain=2", "--branch"],
+          { allowNonZeroExit: true },
+        );
+        if (status.code !== 0) {
+          const stderr = status.stderr.trim();
+          if (stderr.toLowerCase().includes("not a git repository")) {
+            return EMPTY_STATUS_DETAILS;
+          }
+          return yield* createGitCommandError(
+            "GitCore.statusDetails.status",
+            cwd,
+            ["status", "--porcelain=2", "--branch"],
+            stderr.length > 0 ? stderr : `git status failed with code ${status.code}.`,
+          );
+        }
+
+        const [unstagedNumstatStdout, stagedNumstatStdout] = yield* Effect.all(
           [
-            runGitStdout("GitCore.statusDetails.status", cwd, [
-              "status",
-              "--porcelain=2",
-              "--branch",
-            ]),
             runGitStdout("GitCore.statusDetails.unstagedNumstat", cwd, ["diff", "--numstat"]),
             runGitStdout("GitCore.statusDetails.stagedNumstat", cwd, [
               "diff",
@@ -1050,6 +1086,8 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
           ],
           { concurrency: "unbounded" },
         );
+
+        const statusStdout = status.stdout;
 
         let branch: string | null = null;
         let upstreamRef: string | null = null;

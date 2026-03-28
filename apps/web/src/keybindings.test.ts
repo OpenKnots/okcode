@@ -78,6 +78,17 @@ function compile(bindings: TestBinding[]): ResolvedKeybindingsConfig {
 const DEFAULT_BINDINGS = compile([
   { shortcut: modShortcut("j"), command: "terminal.toggle" },
   {
+    shortcut: {
+      key: "`",
+      metaKey: false,
+      ctrlKey: true,
+      shiftKey: false,
+      altKey: false,
+      modKey: false,
+    },
+    command: "terminal.toggle",
+  },
+  {
     shortcut: modShortcut("d"),
     command: "terminal.split",
     whenAst: whenIdentifier("terminalFocus"),
@@ -114,6 +125,24 @@ describe("isTerminalToggleShortcut", () => {
   it("matches Ctrl+J on non-macOS", () => {
     assert.isTrue(
       isTerminalToggleShortcut(event({ ctrlKey: true }), DEFAULT_BINDINGS, { platform: "Win32" }),
+    );
+  });
+
+  it("matches Ctrl+` on all platforms", () => {
+    assert.isTrue(
+      isTerminalToggleShortcut(event({ key: "`", ctrlKey: true }), DEFAULT_BINDINGS, {
+        platform: "MacIntel",
+      }),
+    );
+    assert.isTrue(
+      isTerminalToggleShortcut(event({ key: "`", ctrlKey: true }), DEFAULT_BINDINGS, {
+        platform: "Win32",
+      }),
+    );
+    assert.isTrue(
+      isTerminalToggleShortcut(event({ key: "`", ctrlKey: true }), DEFAULT_BINDINGS, {
+        platform: "Linux",
+      }),
     );
   });
 });

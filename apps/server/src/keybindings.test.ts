@@ -277,7 +277,14 @@ it.layer(NodeServices.layer)("keybindings", (it) => {
       });
 
       const persisted = yield* readKeybindingsConfig(keybindingsConfigPath);
-      assert.isFalse(persisted.some((entry) => entry.command === "terminal.toggle"));
+      // The conflicting mod+j binding for terminal.toggle should NOT be added
+      assert.isFalse(
+        persisted.some((entry) => entry.command === "terminal.toggle" && entry.key === "mod+j"),
+      );
+      // But the non-conflicting ctrl+` binding for terminal.toggle should still be added
+      assert.isTrue(
+        persisted.some((entry) => entry.command === "terminal.toggle" && entry.key === "ctrl+`"),
+      );
       assert.isTrue(persisted.some((entry) => entry.command === "script.custom-action.run"));
 
       assert.isTrue(

@@ -47,11 +47,7 @@ import { SqlClient, SqlError } from "effect/unstable/sql";
 import { ProviderService, type ProviderServiceShape } from "./provider/Services/ProviderService";
 import { ProviderHealth, type ProviderHealthShape } from "./provider/Services/ProviderHealth";
 import { Open, type OpenShape } from "./open";
-import {
-  GitActionProgressReporter,
-  GitManager,
-  type GitManagerShape,
-} from "./git/Services/GitManager.ts";
+import { GitManager, type GitManagerShape } from "./git/Services/GitManager.ts";
 import type { GitCoreShape } from "./git/Services/GitCore.ts";
 import { GitCore } from "./git/Services/GitCore.ts";
 import { GitCommandError, GitManagerError } from "./git/Errors.ts";
@@ -817,7 +813,8 @@ describe("WebSocket Server", () => {
     connections.push(ws);
 
     expect(
-      logSpy.mock.calls.some(([message]: [unknown]) => {
+      logSpy.mock.calls.some((call) => {
+        const [message] = call;
         if (typeof message !== "string") return false;
         return (
           message.includes("[ws]") &&
@@ -971,9 +968,8 @@ describe("WebSocket Server", () => {
     ]);
     expect(result.keybindings.some((entry) => entry.command === "terminal.new")).toBe(true);
     expect(result.keybindings.some((entry) => entry.command === "terminal.split")).toBe(true);
-    expect(result.keybindings.some((entry) => String(entry.command) === "not-a-real-command")).toBe(
-      false,
-    );
+    const invalidUserCommand: string = "not-a-real-command";
+    expect(result.keybindings.some((entry) => entry.command === invalidUserCommand)).toBe(false);
     expect(result.providers).toEqual(defaultProviderStatuses);
     expectAvailableEditors(result.availableEditors);
   });
@@ -1891,36 +1887,29 @@ describe("WebSocket Server", () => {
   });
 
   it("publishes git action progress only to the initiating websocket", async () => {
-    const runStackedAction = vi.fn(
+    const runStackedAction: GitManagerShape["runStackedAction"] = (input, options) =>
       (
-        _input: GitRunStackedActionInput,
-        options?: { actionId?: string; progressReporter?: GitActionProgressReporter } | undefined,
-      ) =>
-        options?.progressReporter
-          ?.publish({
-            actionId: options?.actionId ?? "action-1",
-            cwd: "/test",
-            action: "commit",
-            kind: "phase_started",
-            phase: "commit",
-            label: "Committing...",
-          })
-          .pipe(
-            Effect.flatMap(() =>
-              Effect.succeed({
-                action: "commit" as const,
-                branch: { status: "skipped_not_requested" as const },
-                commit: {
-                  status: "created" as const,
-                  commitSha: "abc1234",
-                  subject: "Test commit",
-                },
-                push: { status: "skipped_not_requested" as const },
-                pr: { status: "skipped_not_requested" as const },
-              }),
-            ),
-          ) ?? Effect.void,
-    );
+        options?.progressReporter?.publish({
+          actionId: options?.actionId ?? input.actionId,
+          cwd: input.cwd,
+          action: "commit",
+          kind: "phase_started",
+          phase: "commit",
+          label: "Committing...",
+        }) ?? Effect.void
+      ).pipe(
+        Effect.as({
+          action: "commit" as const,
+          branch: { status: "skipped_not_requested" as const },
+          commit: {
+            status: "created" as const,
+            commitSha: "abc1234",
+            subject: "Test commit",
+          },
+          push: { status: "skipped_not_requested" as const },
+          pr: { status: "skipped_not_requested" as const },
+        }),
+      );
     const gitManager: GitManagerShape = {
       status: vi.fn(() => Effect.void as any),
       resolvePullRequest: vi.fn(() => Effect.void as any),

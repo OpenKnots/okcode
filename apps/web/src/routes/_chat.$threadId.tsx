@@ -275,8 +275,8 @@ function ChatThreadRouteView() {
   const routeThreadExists = threadExists || draftThreadExists;
   const diffOpen = search.diff === "1";
   const clientMode = useClientMode();
-  const shouldUseDiffSheet =
-    clientMode === "mobile" || useMediaQuery(DIFF_INLINE_LAYOUT_MEDIA_QUERY);
+  const isNarrowDiffLayout = useMediaQuery(DIFF_INLINE_LAYOUT_MEDIA_QUERY);
+  const shouldUseDiffSheet = clientMode === "mobile" || isNarrowDiffLayout;
   const shouldUseCodeViewerSheet = clientMode === "mobile";
 
   // Code viewer state from Zustand store

@@ -1,0 +1,95 @@
+- generic [ref=e1]:
+    - generic [ref=e3]:
+        - generic [ref=e6]:
+            - generic [ref=e9] [cursor=pointer]:
+                - generic [ref=e10]: OK
+                - generic [ref=e11]: Code
+                - generic [ref=e12]: Dev
+            - generic [ref=e15]:
+                - generic [ref=e16]:
+                    - generic [ref=e17]: Projects
+                    - generic [ref=e18]:
+                        - button [ref=e19] [cursor=pointer]:
+                            - img [ref=e20]
+                        - button [ref=e23] [cursor=pointer]:
+                            - img [ref=e24]
+                - generic [ref=e25]: No projects yet
+            - separator [ref=e26]
+            - list [ref=e28]:
+                - listitem [ref=e29]:
+                    - button [ref=e30]:
+                        - img [ref=e31]
+                        - generic [ref=e34]: Spotify
+                - listitem [ref=e35]:
+                    - button [ref=e36] [cursor=pointer]:
+                        - img [ref=e37]
+                        - generic [ref=e41]: PR Review
+                - listitem [ref=e42]:
+                    - button [ref=e43] [cursor=pointer]:
+                        - img [ref=e44]
+                        - generic [ref=e48]: Merge Conflicts
+                - listitem [ref=e49]:
+                    - button [ref=e50] [cursor=pointer]:
+                        - img [ref=e51]
+                        - generic [ref=e54]: Settings
+                - listitem [ref=e55]:
+                    - generic [ref=e56]:
+                        - button [ref=e57]:
+                            - img [ref=e58]
+                        - button [ref=e60]:
+                            - img [ref=e61]
+                        - button [ref=e67]:
+                            - img [ref=e68]
+            - button [ref=e70]
+        - generic [ref=e74]:
+            - generic [ref=e75]:
+                - paragraph [ref=e76]: Start here
+                - heading [level=1] [ref=e77]: Pick up a project or start a fresh thread.
+                - paragraph [ref=e78]: Open a project folder, jump back into something recent, or create a new thread without digging through the sidebar first.
+                - generic [ref=e79]:
+                    - button [ref=e80]:
+                        - img
+                        - text: Open project folder
+                    - button [ref=e81]:
+                        - img
+                        - text: Open project folder
+                    - button [ref=e82]:
+                        - img
+                        - text: Review pull requests
+                    - button [ref=e83]:
+                        - img
+                        - text: Resolve merge conflicts
+                    - button [ref=e84]:
+                        - img
+                        - text: Settings
+            - complementary [ref=e85]:
+                - generic [ref=e87]:
+                    - heading [level=2] [ref=e88]: Recent projects
+                    - paragraph [ref=e89]: Jump back in without hunting through the sidebar.
+                - generic [ref=e90]: No projects yet. Open your first folder to get started.
+    - generic:
+        - region "Notifications"
+    - generic:
+        - region "Notifications"
+    - dialog "Welcome to OK Code" [ref=e94]:
+        - generic [ref=e97]:
+            - img [ref=e99]
+            - heading "Welcome to OK Code" [level=2] [ref=e102]
+            - paragraph [ref=e103]: Your AI-powered coding companion. Let's take a quick tour of the features that will supercharge your workflow.
+            - list [ref=e104]:
+                - listitem [ref=e105]: Work alongside AI agents that read, write, and reason about your code
+                - listitem [ref=e107]: Every conversation runs in an isolated git worktree by default
+                - listitem [ref=e109]: This tour takes about a minute — you can skip at any time
+        - generic [ref=e111]:
+            - group "Onboarding progress" [ref=e112]:
+                - 'button "Go to step 1 of 8: Welcome to OK Code" [active] [ref=e113]'
+                - 'button "Go to step 2 of 8: AI-Powered Conversations" [ref=e114]'
+                - 'button "Go to step 3 of 8: Built-in Git Workflows" [ref=e115]'
+                - 'button "Go to step 4 of 8: Review Changes Side-by-Side" [ref=e116]'
+                - 'button "Go to step 5 of 8: Integrated Terminal" [ref=e117]'
+                - 'button "Go to step 6 of 8: AI-Generated Plans" [ref=e118]'
+                - 'button "Go to step 7 of 8: Stay in Control" [ref=e119]'
+                - 'button "Go to step 8 of 8: You''re All Set!" [ref=e120]'
+            - generic [ref=e121]:
+                - button "Skip" [ref=e122]
+                - button "Next" [ref=e123]

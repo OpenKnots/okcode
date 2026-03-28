@@ -161,6 +161,8 @@ export interface DesktopPreviewState {
   title: string | null;
   visible: boolean;
   error: DesktopPreviewError | null;
+  canGoBack: boolean;
+  canGoForward: boolean;
 }
 
 export interface PreviewOpenResult {
@@ -193,6 +195,8 @@ export interface DesktopBridge {
   preview: {
     open: (input: { url: string; title?: string | null }) => Promise<PreviewOpenResult>;
     close: () => Promise<void>;
+    goBack: () => Promise<void>;
+    goForward: () => Promise<void>;
     reload: () => Promise<void>;
     navigate: (input: { url: string }) => Promise<PreviewNavigateResult>;
     getState: () => Promise<DesktopPreviewState>;

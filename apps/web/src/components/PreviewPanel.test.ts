@@ -11,6 +11,8 @@ describe("resolvePreviewStatusCopy", () => {
         title: null,
         visible: false,
         error: null,
+        canGoBack: false,
+        canGoForward: false,
       }),
     ).toContain("Enter a URL");
 
@@ -21,6 +23,8 @@ describe("resolvePreviewStatusCopy", () => {
         title: null,
         visible: true,
         error: null,
+        canGoBack: false,
+        canGoForward: false,
       }),
     ).toContain("Loading");
 
@@ -31,6 +35,8 @@ describe("resolvePreviewStatusCopy", () => {
         title: "App",
         visible: true,
         error: null,
+        canGoBack: true,
+        canGoForward: false,
       }),
     ).toContain("http://localhost:3000/");
   });
@@ -46,6 +52,8 @@ describe("resolvePreviewStatusCopy", () => {
           code: "load-failed",
           message: "Dev server did not respond.",
         },
+        canGoBack: false,
+        canGoForward: false,
       }),
     ).toBe("Dev server did not respond.");
   });

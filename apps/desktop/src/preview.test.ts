@@ -111,6 +111,8 @@ describe("preview state helpers", () => {
       title: null,
       visible: false,
       error: null,
+      canGoBack: false,
+      canGoForward: false,
     });
 
     expect(
@@ -126,6 +128,8 @@ describe("preview state helpers", () => {
         code: "load-failed",
         message: "Dev server did not respond.",
       },
+      canGoBack: false,
+      canGoForward: false,
     });
   });
 });

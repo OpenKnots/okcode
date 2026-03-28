@@ -30,6 +30,7 @@ import type { ContextMenuItem } from "@okcode/contracts";
 import { NetService } from "@okcode/shared/Net";
 import { RotatingFileSink } from "@okcode/shared/logging";
 import { showDesktopConfirmDialog } from "./confirmDialog";
+import { createClosedPreviewState } from "./preview";
 import { DesktopPreviewController } from "./previewController";
 import { syncShellEnvironment } from "./syncShellEnvironment";
 import { getAutoUpdateDisabledReason, shouldBroadcastDownloadProgress } from "./updateState";
@@ -63,6 +64,8 @@ const UPDATE_DOWNLOAD_CHANNEL = "desktop:update-download";
 const UPDATE_INSTALL_CHANNEL = "desktop:update-install";
 const PREVIEW_OPEN_CHANNEL = "desktop:preview-open";
 const PREVIEW_CLOSE_CHANNEL = "desktop:preview-close";
+const PREVIEW_GO_BACK_CHANNEL = "desktop:preview-go-back";
+const PREVIEW_GO_FORWARD_CHANNEL = "desktop:preview-go-forward";
 const PREVIEW_RELOAD_CHANNEL = "desktop:preview-reload";
 const PREVIEW_NAVIGATE_CHANNEL = "desktop:preview-navigate";
 const PREVIEW_GET_STATE_CHANNEL = "desktop:preview-get-state";
@@ -1299,6 +1302,20 @@ function registerIpcHandlers(): void {
     getPreviewController(window).close();
   });
 
+  ipcMain.removeHandler(PREVIEW_GO_BACK_CHANNEL);
+  ipcMain.handle(PREVIEW_GO_BACK_CHANNEL, async (event) => {
+    const window = resolvePreviewWindow(event.sender);
+    if (!window) return;
+    getPreviewController(window).goBack();
+  });
+
+  ipcMain.removeHandler(PREVIEW_GO_FORWARD_CHANNEL);
+  ipcMain.handle(PREVIEW_GO_FORWARD_CHANNEL, async (event) => {
+    const window = resolvePreviewWindow(event.sender);
+    if (!window) return;
+    getPreviewController(window).goForward();
+  });
+
   ipcMain.removeHandler(PREVIEW_RELOAD_CHANNEL);
   ipcMain.handle(PREVIEW_RELOAD_CHANNEL, async (event) => {
     const window = resolvePreviewWindow(event.sender);
@@ -1324,13 +1341,7 @@ function registerIpcHandlers(): void {
   ipcMain.handle(PREVIEW_GET_STATE_CHANNEL, async (event) => {
     const window = resolvePreviewWindow(event.sender);
     if (!window) {
-      return {
-        status: "closed",
-        url: null,
-        title: null,
-        visible: false,
-        error: null,
-      } satisfies DesktopPreviewState;
+      return createClosedPreviewState();
     }
     return getPreviewController(window).getState();
   });

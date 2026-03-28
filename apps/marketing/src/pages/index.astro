@@ -2,7 +2,150 @@
 import Layout from "../layouts/Layout.astro";
 
 const description =
-  "OK Code is the calm workspace for coding agents — Codex and Anthropic in one focused UI, with diffs, preview, scripts, and desktop-grade workflow control.";
+  "OK Code is the calm workspace for coding agents — threads, diffs, preview, PR review, release actions, and themes in one focused desktop + web app.";
+
+const heroTabs = [
+  {
+    id: "chat",
+    label: "Chat",
+    kicker: "Long-running threads",
+    title: "Keep serious coding conversations coherent.",
+    body:
+      "OK Code gives agents a real workspace instead of a disposable prompt box — with durable threads, project-aware context, and room to keep working.",
+    bullets: ["Project-scoped threads", "Provider-aware models", "Less context sludge"],
+    overlay: "Thread + agent workspace",
+  },
+  {
+    id: "diffs",
+    label: "Diffs",
+    kicker: "See what changed",
+    title: "Review code like a human, not a log parser.",
+    body:
+      "Diffs stay tied to the work. Scan the latest change, compare checkpoints, and understand what moved without swimming through terminal noise.",
+    bullets: ["Latest vs all changes", "Cleaner review flow", "Built for real edits"],
+    overlay: "Diff review built in",
+  },
+  {
+    id: "preview",
+    label: "Preview",
+    kicker: "Preview locally",
+    title: "Open localhost right beside the conversation.",
+    body:
+      "Launch your local app, keep the agent nearby, and iterate without bouncing across five windows just to verify one UI tweak.",
+    bullets: ["Embedded localhost preview", "Desktop-friendly layout", "Faster fix / refresh loop"],
+    overlay: "Preview without context switching",
+  },
+  {
+    id: "pr-review",
+    label: "PR Review",
+    kicker: "Review work clearly",
+    title: "Pull request review belongs in the workspace too.",
+    body:
+      "Bring review into the same place you think, diff, and ship — so feedback, code changes, and release decisions stay connected.",
+    bullets: ["Dedicated PR review surface", "Sidebar navigation", "Less tab chaos"],
+    overlay: "PR review surface",
+  },
+  {
+    id: "release",
+    label: "Release",
+    kicker: "Ship from the same flow",
+    title: "From coding thread to release action without leaving the app.",
+    body:
+      "Scripts, packaging, and release actions can live right next to the work, so shipping feels like part of the product instead of a separate ritual.",
+    bullets: ["Project actions", "Release-friendly workflows", "Desktop packaging aware"],
+    overlay: "Ship from one workspace",
+  },
+] as const;
+
+const spotlightItems = [
+  {
+    id: "threads",
+    label: "Threads",
+    eyebrow: "Thinking space",
+    title: "Durable agent threads that survive real work.",
+    body:
+      "Open a project, start a thread, and keep the session coherent while the work evolves. Great for long fixes, reviews, and iterative UI polish.",
+    bullets: ["Project-scoped sessions", "Provider + model control", "Better continuity than one-shot chat"],
+  },
+  {
+    id: "diffs",
+    label: "Diffs",
+    eyebrow: "Code visibility",
+    title: "Diffs that explain the work instead of obscuring it.",
+    body:
+      "Compare changes without exposing raw runtime internals. OK Code is moving toward a human-first review flow, not debug sludge.",
+    bullets: ["Latest / all changes", "Thread-aware change history", "Readable review UI"],
+  },
+  {
+    id: "preview",
+    label: "Preview",
+    eyebrow: "Fast iteration",
+    title: "Preview local apps inside the workspace.",
+    body:
+      "Useful for frontend and desktop workflows where validating UI state matters as much as generating the code itself.",
+    bullets: ["Localhost preview", "Docked desktop surface", "Fewer context switches"],
+  },
+  {
+    id: "pr-review",
+    label: "PR Review",
+    eyebrow: "Review surface",
+    title: "Handle pull requests without leaving the product context.",
+    body:
+      "PR review in OK Code keeps code, comments, and release decisions tied together instead of scattering them across browser tabs.",
+    bullets: ["Dedicated review page", "Sidebar entry point", "Pairs naturally with diffs"],
+  },
+  {
+    id: "actions",
+    label: "Actions",
+    eyebrow: "Shipping tools",
+    title: "Save the commands you actually use to ship.",
+    body:
+      "Project actions can become lightweight release, preview, and maintenance buttons — enough automation to help, not enough complexity to become a platform.",
+    bullets: ["Saved commands", "Release-friendly actions", "Project-specific workflows"],
+  },
+  {
+    id: "themes",
+    label: "Themes",
+    eyebrow: "Product personality",
+    title: "A workspace with actual visual taste.",
+    body:
+      "Themes are part of the product story, not an afterthought. They can shape the app’s mood without sacrificing readability.",
+    bullets: ["Signature themes", "Premium dark modes", "Future design identity"],
+  },
+] as const;
+
+const themeIdeas = [
+  {
+    id: "iridescent-void",
+    label: "Iridescent Void",
+    vibe: "Futuristic, expensive, slightly alien",
+    body:
+      "True black with spectral cyan, violet, and magenta accents. Great flagship theme energy.",
+    gradient: "linear-gradient(135deg, rgba(56,189,248,0.24), rgba(168,85,247,0.2) 45%, rgba(244,114,182,0.22))",
+    border: "rgba(103, 232, 249, 0.36)",
+    accent: "#67e8f9",
+  },
+  {
+    id: "solar-witch",
+    label: "Solar Witch",
+    vibe: "Magical, cozy, ritualistic",
+    body:
+      "Obsidian with ember orange, candle gold, and smoky plum. Warm without becoming mushy.",
+    gradient: "linear-gradient(135deg, rgba(251,146,60,0.26), rgba(217,70,239,0.16) 48%, rgba(253,224,71,0.18))",
+    border: "rgba(251, 191, 36, 0.34)",
+    accent: "#fbbf24",
+  },
+  {
+    id: "deep-sea-terminal",
+    label: "Deep Sea Terminal",
+    vibe: "Submerged, dreamy, calm",
+    body:
+      "Abyss navy with bioluminescent aqua and sea-glass mint. Built for lower-stress long sessions.",
+    gradient: "linear-gradient(135deg, rgba(34,211,238,0.18), rgba(59,130,246,0.18) 50%, rgba(45,212,191,0.24))",
+    border: "rgba(94, 234, 212, 0.34)",
+    accent: "#5eead4",
+  },
+] as const;
 ---
 
 <Layout title="OK Code" {description}>
@@ -13,11 +156,11 @@ const description =
         Calm desktop + web workspace for coding agents
       </div>
 
-      <h1 class="tagline">Ship faster with Codex and Anthropic in one focused workspace.</h1>
+      <h1 class="tagline">A focused home for coding agents, from thread to release.</h1>
 
       <p class="subtagline">
-        OK Code gives serious coding agents a home: threads, git-aware diffs, preview,
-        scripts, and desktop-grade control — without turning your editor into a casino.
+        OK Code brings long-running threads, diffs, preview, PR review, release actions,
+        and desktop-grade control into one product — without turning the UI into a theme park.
       </p>
 
       <div class="hero-actions">
@@ -28,7 +171,7 @@ const description =
         >
           <svg class="hero-button-icon hero-button-icon--apple" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 814 1000" aria-hidden="true"><path fill="currentColor" d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76.5 0-103.7 40.8-165.9 40.8s-105.6-57-155.5-127C46.7 790.7 0 663 0 541.8c0-194.4 126.4-297.5 250.8-297.5 66.1 0 121.2 43.4 162.7 43.4 39.5 0 101.1-46 176.3-46 28.5 0 130.9 2.6 198.3 99.2zm-234-181.5c31.1-36.9 53.1-88.1 53.1-139.3 0-7.1-.6-14.3-1.9-20.1-50.6 1.9-110.8 33.7-147.1 75.8-28.5 32.4-55.1 83.6-55.1 135.5 0 7.8 1.3 15.6 1.9 18.1 3.2.6 8.4 1.3 13.6 1.3 45.4 0 102.5-30.4 135.5-71.3z"/></svg>
           <svg class="hero-button-icon hero-button-icon--windows" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 88 88" aria-hidden="true"><path fill="currentColor" d="m0 12.402 35.687-4.86.016 34.423-35.67.203zm35.67 33.529.028 34.453L.028 75.48.026 45.7zm4.326-39.025L87.314 0v41.527l-47.318.376zm47.329 39.349-.011 41.34-47.318-6.678-.066-34.739z"/></svg>
-          <svg class="hero-button-icon hero-button-icon--linux" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 295" aria-hidden="true"><defs><linearGradient id="lt0" x1="48.548%" x2="51.047%" y1="115.276%" y2="41.364%"><stop offset="0%" stop-color="#FFEED7"/><stop offset="100%" stop-color="#BDBFC2"/></linearGradient><linearGradient id="lt6" x1="49.984%" x2="49.984%" y1="89.845%" y2="40.632%"><stop offset="0%" stop-color="#FFEED7"/><stop offset="100%" stop-color="#BDBFC2"/></linearGradient><linearGradient id="lt8" x1="49.841%" x2="50.241%" y1="13.229%" y2="94.673%"><stop offset="0%" stop-color="#FFF" stop-opacity=".8"/><stop offset="100%" stop-color="#FFF" stop-opacity="0"/></linearGradient><linearGradient id="ltc" x1="53.467%" x2="38.949%" y1="48.921%" y2="98.1%"><stop offset="0%" stop-color="#FFA63F"/><stop offset="100%" stop-color="#FF0"/></linearGradient><linearGradient id="lte" x1="30.581%" x2="65.887%" y1="34.024%" y2="89.175%"><stop offset="0%" stop-color="#FFA63F"/><stop offset="100%" stop-color="#FF0"/></linearGradient><linearGradient id="lti" x1="49.733%" x2="50.558%" y1="17.609%" y2="99.385%"><stop offset="0%" stop-color="#FFA63F"/><stop offset="100%" stop-color="#FF0"/></linearGradient></defs><g fill="none"><path fill="#000" d="M63.213 215.474c-11.387-16.346-13.591-69.606 12.947-102.39C89.292 97.383 92.69 86.455 93.7 71.67c.734-16.805-11.846-66.851 35.537-70.616 48.027-3.857 45.364 43.526 45.088 68.596-.183 21.12 15.52 33.15 26.355 49.68 19.927 30.303 18.274 82.461-3.765 110.745-27.916 35.354-51.791 20.018-67.678 21.304-29.752 1.745-30.762 17.54-66.024-35.905"/><path fill="url(#lt6)" d="M81.027 145.684c6.52-14.785 20.386-40.772 20.662-60.883 0-15.978 47.843-19.835 51.7-3.856 3.856 15.978 13.59 39.853 19.834 51.424 6.245 11.478 24.335 48.118 5.051 80.074-17.356 28.284-69.973 50.69-98.073-3.856-9.55-18.917-7.806-42.333.826-62.903"/><path fill="url(#lt8)" d="M166.428 151.285c0 16.162-15.519 37.1-42.15 36.916-27.456.183-39.118-20.754-39.118-36.916 0-16.161 18.182-29.293 40.588-29.293 22.498.092 40.68 13.132 40.68 29.293"/><path fill="#000" stroke="#000" stroke-width=".977" d="M176.805 117.86c13.59 11.02 38.292 49.587 2.204 74.748-11.846 7.806 10.468 32.508 23.049 19.927 43.618-43.894-1.102-94.308-16.53-111.664-13.774-15.151-25.987 3.49-8.723 16.989z"/><path fill="#000" stroke="#000" stroke-width="1.25" d="M79.925 122.727c-8.907 14.509-30.211 48.669-1.652 66.484 38.384 23.6 27.548 47.108-7.53 25.895-49.404-29.568-5.97-89.257 13.774-112.03 22.59-25.529 4.316 4.683-4.592 19.65z"/><path fill="url(#ltc)" stroke="#E68C3F" stroke-width="6.25" d="M51.835 258.542c-20.57-10.928-50.414 2.112-39.578-27.457 2.204-6.704-3.214-16.805.275-23.325 4.133-7.989 13.04-6.244 18.366-11.57 5.234-5.51 8.54-15.06 18.366-13.59 9.734 1.468 16.254 13.406 23.049 28.099 5.05 10.468 22.865 25.253 21.672 37.007-1.47 17.998-21.948 21.396-42.15 10.836z" transform="translate(10)"/><path fill="url(#lte)" stroke="#E68C3F" stroke-width="6.251" d="M194.445 253.49c15.06-18.273 48.578-14.508 25.988-39.577-4.775-5.418-3.306-16.989-9.183-21.947-6.887-6.061-14.509-1.102-21.488-4.224-6.979-3.398-14.325-9.918-22.865-5.327-8.54 4.684-9.459 16.805-10.285 32.783-.735 11.479-11.203 30.671-5.602 41.231 8.081 16.346 29.11 14.142 43.435-2.938z" transform="translate(10)"/><path fill="url(#lti)" stroke="#E68C3F" stroke-width="3.75" d="M97.107 66.344c3.673-3.398 12.58-13.774 29.477-2.939 3.122 2.02 5.693 2.204 11.662 4.775 12.03 4.96 6.336 16.897-6.52 20.937-5.51 1.745-10.468 8.449-20.386 7.806-8.54-.46-10.744-6.06-15.978-9.091-9.275-5.234-10.652-12.305-5.602-16.07 5.051-3.765 6.98-5.143 7.347-5.418z" transform="translate(10)"/><path fill="#000" d="M133.186 57.712c-.092 5.234 2.48 9.458 5.877 9.458 3.306 0 6.153-4.224 6.245-9.366.091-5.234-2.48-9.459-5.878-9.459-3.397 0-6.152 4.225-6.244 9.367m-21.212.092c.459 4.316-1.194 7.989-3.582 8.356-2.387.276-4.683-2.938-5.142-7.254-.46-4.316 1.194-7.99 3.581-8.357 2.388-.275 4.684 2.939 5.143 7.255"/></g></svg>
+          <svg class="hero-button-icon hero-button-icon--linux" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 295" aria-hidden="true"><path fill="currentColor" d="M63.213 215.474c-11.387-16.346-13.591-69.606 12.947-102.39C89.292 97.383 92.69 86.455 93.7 71.67c.734-16.805-11.846-66.851 35.537-70.616 48.027-3.857 45.364 43.526 45.088 68.596-.183 21.12 15.52 33.15 26.355 49.68 19.927 30.303 18.274 82.461-3.765 110.745-27.916 35.354-51.791 20.018-67.678 21.304-29.752 1.745-30.762 17.54-66.024-35.905"/></svg>
           <span id="download-label">Download now</span>
         </a>
 
@@ -46,86 +189,220 @@ const description =
         <a href="/download" class="other-platforms">Other platforms</a>
         <div class="hero-pills" aria-label="Product highlights">
           <span>Codex + Anthropic</span>
+          <span>Threads + diffs</span>
+          <span>Preview + PR review</span>
           <span>Desktop + web</span>
-          <span>Diffs + preview</span>
-          <span>Open source</span>
         </div>
       </div>
     </div>
 
-    <div class="hero-visual">
+    <div class="hero-visual" data-tab-group data-tab-default="chat" data-group-theme="hero">
       <div class="hero-glow hero-glow--pink"></div>
       <div class="hero-glow hero-glow--blue"></div>
 
-      <div class="screenshot-card">
-        <div class="screenshot-chrome">
-          <div class="traffic-lights" aria-hidden="true">
-            <span></span><span></span><span></span>
-          </div>
-          <div class="chrome-label">OK Code</div>
-          <div class="chrome-badge">Focused agent workspace</div>
+      <div class="interactive-section-head">
+        <p class="section-kicker">Explore the product</p>
+        <div class="tab-row" role="tablist" aria-label="Hero preview tabs">
+          {heroTabs.map((tab) => (
+            <button
+              type="button"
+              class="tab-chip"
+              data-tab-button
+              data-tab-target={tab.id}
+              role="tab"
+              aria-selected={tab.id === "chat" ? "true" : "false"}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
-        <div class="screenshot-wrap">
-          <img src="/screenshot.jpeg" alt="OK Code showing agent chat, diffs, and workflow controls." class="screenshot" />
+      </div>
+
+      <div class="hero-showcase" data-hero-surface>
+        <div class="screenshot-card">
+          <div class="screenshot-chrome">
+            <div class="traffic-lights" aria-hidden="true">
+              <span></span><span></span><span></span>
+            </div>
+            <div class="chrome-label">OK Code</div>
+            <div class="chrome-badge" data-hero-overlay>
+              {heroTabs[0].overlay}
+            </div>
+          </div>
+          <div class="screenshot-wrap">
+            <img
+              src="/screenshot.jpeg"
+              alt="OK Code showing agent chat, diffs, and workflow controls."
+              class="screenshot"
+            />
+          </div>
+        </div>
+
+        <div class="hero-detail-stack">
+          {heroTabs.map((tab) => (
+            <article
+              class="hero-detail-panel"
+              data-tab-panel={tab.id}
+              hidden={tab.id === "chat" ? undefined : true}
+            >
+              <p class="section-kicker">{tab.kicker}</p>
+              <h2>{tab.title}</h2>
+              <p>{tab.body}</p>
+              <ul class="detail-bullets">
+                {tab.bullets.map((bullet) => (
+                  <li>{bullet}</li>
+                ))}
+              </ul>
+            </article>
+          ))}
         </div>
       </div>
 
       <div class="floating-card floating-card--left">
         <div class="floating-card-kicker">Why it feels different</div>
         <strong>Built for long-running agent work.</strong>
-        <span>Threads, scripts, diffs, and preview live together instead of hiding behind plugins.</span>
+        <span>Threads, scripts, diffs, preview, and release actions live together instead of hiding behind plugins.</span>
       </div>
 
       <div class="floating-card floating-card--right">
         <div class="floating-card-kicker">Local-first power</div>
         <strong>Desktop when you need control.</strong>
-        <span>Open previews, inspect changes, and manage repo workflows without leaving the app.</span>
+        <span>Open previews, inspect changes, review PRs, and ship without leaving the product context.</span>
       </div>
     </div>
   </section>
 
-  <section class="feature-grid" aria-label="Core product features">
+  <section class="feature-grid" aria-label="Core product pillars">
     <article class="feature-card">
-      <div class="feature-eyebrow">Threads that stay coherent</div>
-      <h2>Keep serious agent sessions readable.</h2>
+      <div class="feature-eyebrow">Thinking space</div>
+      <h2>Threads that stay coherent.</h2>
       <p>
-        OK Code is designed for real coding runs — not one-off toy prompts. You get durable
-        threads, agent state, cleaner context, and less UI noise while the work is happening.
+        Project-scoped sessions and model-aware workflows make OK Code feel like a real coding space,
+        not a disposable prompt toy.
       </p>
     </article>
 
     <article class="feature-card">
-      <div class="feature-eyebrow">Diffs that tell the story</div>
-      <h2>See what changed without runtime sludge.</h2>
+      <div class="feature-eyebrow">Code visibility</div>
+      <h2>Diffs and preview that explain the work.</h2>
       <p>
-        Review file changes like a human. Inspect the latest change, zoom out to all changes,
-        and keep the conversation tied to the code instead of buried in terminal soup.
+        Review the actual changes, open local UI, and keep the conversation tied to the code instead of buried in logs.
       </p>
     </article>
 
     <article class="feature-card">
-      <div class="feature-eyebrow">Preview without context switching</div>
-      <h2>Open local apps right beside the work.</h2>
+      <div class="feature-eyebrow">Shipping</div>
+      <h2>From thread to release.</h2>
       <p>
-        Launch a localhost preview directly inside OK Code, keep the agent conversation nearby,
-        and iterate without bouncing between windows every 30 seconds.
+        PR review, project actions, and release-friendly workflows make shipping feel like part of the same product, not another app.
       </p>
     </article>
+  </section>
+
+  <section class="spotlight" data-tab-group data-tab-default="threads">
+    <div class="spotlight-copy">
+      <p class="section-kicker">Feature spotlight</p>
+      <h2 class="section-title">Cover the whole product without forcing people to read a wall of text.</h2>
+      <p class="section-body">
+        Click through the core surfaces to understand what OK Code actually helps with — thinking, reviewing, previewing, and shipping.
+      </p>
+      <div class="spotlight-nav" role="tablist" aria-label="Feature spotlight tabs">
+        {spotlightItems.map((item) => (
+          <button
+            type="button"
+            class="spotlight-item"
+            data-tab-button
+            data-tab-target={item.id}
+            role="tab"
+            aria-selected={item.id === "threads" ? "true" : "false"}
+          >
+            <span class="spotlight-item-label">{item.label}</span>
+            <span class="spotlight-item-meta">{item.eyebrow}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+
+    <div class="spotlight-panels">
+      {spotlightItems.map((item) => (
+        <article class="spotlight-panel" data-tab-panel={item.id} hidden={item.id === "threads" ? undefined : true}>
+          <p class="section-kicker">{item.eyebrow}</p>
+          <h3>{item.title}</h3>
+          <p>{item.body}</p>
+          <ul class="detail-bullets">
+            {item.bullets.map((bullet) => (
+              <li>{bullet}</li>
+            ))}
+          </ul>
+        </article>
+      ))}
+    </div>
+  </section>
+
+  <section class="theme-section" data-tab-group data-tab-default="iridescent-void">
+    <div class="theme-copy">
+      <p class="section-kicker">Theme direction</p>
+      <h2 class="section-title">A workspace with actual visual taste.</h2>
+      <p class="section-body">
+        Themes can make OK Code feel memorable in screenshots and long sessions — without turning readability into collateral damage.
+      </p>
+      <div class="tab-row" role="tablist" aria-label="Theme preview tabs">
+        {themeIdeas.map((theme) => (
+          <button
+            type="button"
+            class="tab-chip"
+            data-tab-button
+            data-tab-target={theme.id}
+            role="tab"
+            aria-selected={theme.id === "iridescent-void" ? "true" : "false"}
+          >
+            {theme.label}
+          </button>
+        ))}
+      </div>
+    </div>
+
+    <div class="theme-preview-wrap">
+      {themeIdeas.map((theme) => (
+        <div class="theme-preview" data-tab-panel={theme.id} hidden={theme.id === "iridescent-void" ? undefined : true}>
+          <div
+            class="theme-preview-card"
+            style={`--theme-gradient:${theme.gradient}; --theme-border:${theme.border}; --theme-accent:${theme.accent};`}
+          >
+            <div class="theme-preview-bar">
+              <span></span><span></span><span></span>
+            </div>
+            <div class="theme-preview-body">
+              <div class="theme-preview-sidebar"></div>
+              <div class="theme-preview-main">
+                <div class="theme-preview-line theme-preview-line--short"></div>
+                <div class="theme-preview-line"></div>
+                <div class="theme-preview-line theme-preview-line--accent"></div>
+                <div class="theme-preview-line theme-preview-line--medium"></div>
+              </div>
+            </div>
+          </div>
+          <div class="theme-note">
+            <h3>{theme.label}</h3>
+            <p class="theme-vibe">{theme.vibe}</p>
+            <p>{theme.body}</p>
+          </div>
+        </div>
+      ))}
+    </div>
   </section>
 </Layout>
 
 <script>
-  import { fetchLatestRelease, RELEASES_URL, type ReleaseAsset } from "../lib/releases";
+  import { fetchLatestRelease, RELEASES_URL } from "../lib/releases";
 
-  type Platform = { os: "mac" | "win" | "linux"; label: string; arch?: string };
-
-  function detectPlatform(): Platform | null {
+  function detectPlatform() {
     const ua = navigator.userAgent;
     if (/Win/i.test(ua)) return { os: "win", label: "Download for Windows" };
     if (/Mac/i.test(ua)) {
       return {
         os: "mac",
-        label: `Download for macOS`,
+        label: "Download for macOS",
         arch: "arm64",
       };
     }
@@ -133,7 +410,7 @@ const description =
     return null;
   }
 
-  function pickAsset(assets: ReleaseAsset[], platform: Platform): string | null {
+  function pickAsset(assets, platform) {
     if (platform.os === "win") {
       return assets.find((a) => a.name.endsWith("-x64.exe"))?.browser_download_url ?? null;
     }
@@ -148,8 +425,8 @@ const description =
     return null;
   }
 
-  async function init() {
-    const btn = document.getElementById("download-btn") as HTMLAnchorElement | null;
+  function initDownloadButton() {
+    const btn = document.getElementById("download-btn");
     const label = document.getElementById("download-label");
     if (!btn || !label) return;
 
@@ -159,20 +436,65 @@ const description =
     document.documentElement.dataset.platform = platform.os;
     label.textContent = platform.label;
 
-    try {
-      const release = await fetchLatestRelease();
-      const url = pickAsset(release.assets ?? [], platform);
-      if (url) {
-        btn.href = url;
-        btn.removeAttribute("target");
-        btn.removeAttribute("rel");
-      }
-    } catch {
-      btn.href = RELEASES_URL;
-    }
+    fetchLatestRelease()
+      .then((release) => {
+        const url = pickAsset(release.assets ?? [], platform);
+        if (url) {
+          btn.href = url;
+          btn.removeAttribute("target");
+          btn.removeAttribute("rel");
+        }
+      })
+      .catch(() => {
+        btn.href = RELEASES_URL;
+      });
   }
 
-  init();
+  function initTabGroups() {
+    const groups = document.querySelectorAll("[data-tab-group]");
+    groups.forEach((group) => {
+      const defaultTab = group.getAttribute("data-tab-default");
+      const buttons = Array.from(group.querySelectorAll("[data-tab-button]"));
+      const panels = Array.from(group.querySelectorAll("[data-tab-panel]"));
+      const heroOverlay = group.querySelector("[data-hero-overlay]");
+
+      const activate = (id) => {
+        buttons.forEach((button) => {
+          const isActive = button.getAttribute("data-tab-target") === id;
+          button.setAttribute("aria-selected", isActive ? "true" : "false");
+          button.dataset.active = isActive ? "true" : "false";
+        });
+
+        panels.forEach((panel) => {
+          const isActive = panel.getAttribute("data-tab-panel") === id;
+          panel.hidden = !isActive;
+          panel.dataset.active = isActive ? "true" : "false";
+        });
+
+        group.setAttribute("data-active-tab", id);
+
+        if (heroOverlay) {
+          const activePanel = panels.find((panel) => panel.getAttribute("data-tab-panel") === id);
+          const overlayText = activePanel?.querySelector(".section-kicker")?.textContent;
+          if (overlayText) {
+            heroOverlay.textContent = overlayText;
+          }
+        }
+      };
+
+      buttons.forEach((button) => {
+        button.addEventListener("click", () => {
+          const id = button.getAttribute("data-tab-target");
+          if (id) activate(id);
+        });
+      });
+
+      if (defaultTab) activate(defaultTab);
+    });
+  }
+
+  initDownloadButton();
+  initTabGroups();
 </script>
 
 <style>
@@ -181,19 +503,40 @@ const description =
     padding: 3.5rem clamp(1.25rem, 3vw, 2.5rem) 5rem;
   }
 
-  .hero {
+  .hero,
+  .feature-grid,
+  .spotlight,
+  .theme-section {
     width: min(1280px, 100%);
+    margin-inline: auto;
+  }
+
+  .hero {
     display: grid;
-    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr);
     gap: clamp(2.5rem, 5vw, 4.5rem);
     align-items: center;
-    margin: 0 auto 4.5rem;
+    margin-bottom: 4.5rem;
   }
 
   .hero-copy {
     position: relative;
     z-index: 1;
   }
+
+  .eyebrow,
+  .hero-copy,
+  .feature-grid,
+  .spotlight,
+  .theme-section {
+    opacity: 0;
+    animation: fade-in 0.8s ease-out forwards;
+  }
+
+  .hero-copy { animation-delay: 0.08s; }
+  .feature-grid { animation-delay: 0.16s; }
+  .spotlight { animation-delay: 0.22s; }
+  .theme-section { animation-delay: 0.28s; }
 
   .eyebrow {
     display: inline-flex;
@@ -207,8 +550,6 @@ const description =
     font-size: 0.82rem;
     margin-bottom: 1.2rem;
     backdrop-filter: blur(16px);
-    opacity: 0;
-    animation: fade-in 0.7s ease-out forwards;
   }
 
   .eyebrow-dot {
@@ -221,24 +562,27 @@ const description =
 
   .tagline {
     font-weight: 600;
-    font-size: clamp(3rem, 6vw, 5.4rem);
+    font-size: clamp(3rem, 6vw, 5.15rem);
     letter-spacing: -0.055em;
     line-height: 0.98;
-    max-width: 12ch;
+    max-width: 11ch;
     margin: 0 0 1.25rem;
-    opacity: 0;
-    animation: fade-in 0.8s ease-out 0.08s forwards;
+  }
+
+  .subtagline,
+  .section-body,
+  .hero-detail-panel p,
+  .spotlight-panel p,
+  .theme-note p,
+  .feature-card p {
+    color: var(--fg-muted);
+    line-height: 1.65;
   }
 
   .subtagline {
-    font-size: clamp(1.05rem, 2vw, 1.28rem);
-    font-weight: 400;
-    color: var(--fg-muted);
-    line-height: 1.65;
+    font-size: clamp(1.05rem, 2vw, 1.24rem);
     max-width: 38rem;
     margin: 0 0 1.9rem;
-    opacity: 0;
-    animation: fade-in 0.8s ease-out 0.16s forwards;
   }
 
   .hero-actions {
@@ -246,8 +590,6 @@ const description =
     flex-wrap: wrap;
     gap: 0.9rem;
     margin-bottom: 1.2rem;
-    opacity: 0;
-    animation: fade-in 0.8s ease-out 0.24s forwards;
   }
 
   .hero-button,
@@ -272,24 +614,28 @@ const description =
   }
 
   .hero-button:hover,
-  .secondary-button:hover {
+  .secondary-button:hover,
+  .tab-chip:hover,
+  .spotlight-item:hover {
     transform: translateY(-1px);
   }
 
-  .hero-button:hover {
-    box-shadow: 0 22px 60px rgba(255, 255, 255, 0.16);
+  .secondary-button,
+  .tab-chip,
+  .spotlight-item,
+  .feature-card,
+  .spotlight-panel,
+  .theme-preview-card,
+  .theme-note,
+  .hero-detail-panel,
+  .screenshot-card {
+    backdrop-filter: blur(18px);
   }
 
   .secondary-button {
     border: 1px solid rgba(255, 255, 255, 0.1);
     background: rgba(255, 255, 255, 0.03);
     color: var(--fg);
-    backdrop-filter: blur(16px);
-  }
-
-  .secondary-button:hover {
-    border-color: rgba(255, 255, 255, 0.18);
-    background: rgba(255, 255, 255, 0.05);
   }
 
   .hero-button-icon {
@@ -299,14 +645,8 @@ const description =
     flex-shrink: 0;
   }
 
-  :global([data-platform="mac"]) .hero-button-icon--apple {
-    display: block;
-  }
-
-  :global([data-platform="win"]) .hero-button-icon--windows {
-    display: block;
-  }
-
+  :global([data-platform="mac"]) .hero-button-icon--apple,
+  :global([data-platform="win"]) .hero-button-icon--windows,
   :global([data-platform="linux"]) .hero-button-icon--linux {
     display: block;
   }
@@ -315,8 +655,6 @@ const description =
     display: flex;
     flex-direction: column;
     gap: 1rem;
-    opacity: 0;
-    animation: fade-in 0.8s ease-out 0.32s forwards;
   }
 
   .other-platforms {
@@ -326,25 +664,21 @@ const description =
     text-decoration: underline;
     text-decoration-color: rgba(113, 113, 122, 0.36);
     text-underline-offset: 3px;
-    transition: color 0.25s ease, text-decoration-color 0.25s ease;
   }
 
-  .other-platforms:hover {
-    color: var(--fg-muted);
-    text-decoration-color: var(--fg-muted);
-  }
-
-  .hero-pills {
+  .hero-pills,
+  .tab-row {
     display: flex;
     flex-wrap: wrap;
     gap: 0.65rem;
   }
 
-  .hero-pills span {
+  .hero-pills span,
+  .tab-chip {
     display: inline-flex;
     align-items: center;
     min-height: 2.25rem;
-    padding: 0.45rem 0.75rem;
+    padding: 0.45rem 0.82rem;
     border-radius: 999px;
     border: 1px solid rgba(255, 255, 255, 0.08);
     background: rgba(255, 255, 255, 0.03);
@@ -352,23 +686,121 @@ const description =
     font-size: 0.82rem;
   }
 
+  .tab-chip {
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  }
+
+  .tab-chip[data-active="true"],
+  .spotlight-item[data-active="true"] {
+    border-color: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.09);
+    color: var(--fg);
+  }
+
+  .interactive-section-head,
+  .theme-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    margin-bottom: 1.1rem;
+  }
+
+  .section-kicker,
+  .feature-eyebrow,
+  .floating-card-kicker {
+    color: var(--fg-dim);
+    font-size: 0.74rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .section-title {
+    font-size: clamp(2rem, 4vw, 3rem);
+    line-height: 1.02;
+    letter-spacing: -0.045em;
+    max-width: 12ch;
+  }
+
   .hero-visual {
     position: relative;
-    min-height: 640px;
-    opacity: 0;
-    animation: fade-in 0.9s ease-out 0.15s forwards;
+    min-height: 720px;
+  }
+
+  .hero-showcase {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .hero-detail-stack,
+  .spotlight-panels,
+  .theme-preview-wrap {
+    min-height: 0;
+  }
+
+  .hero-detail-panel,
+  .spotlight-panel,
+  .theme-note,
+  .feature-card {
+    border-radius: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02));
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.22);
+  }
+
+  .hero-detail-panel,
+  .spotlight-panel,
+  .theme-note {
+    padding: 1.25rem;
+  }
+
+  .hero-detail-panel h2,
+  .spotlight-panel h3,
+  .theme-note h3,
+  .feature-card h2 {
+    letter-spacing: -0.03em;
+  }
+
+  .hero-detail-panel h2,
+  .spotlight-panel h3 {
+    font-size: 1.35rem;
+    margin: 0.45rem 0 0.75rem;
+  }
+
+  .detail-bullets {
+    margin-top: 1rem;
+    display: grid;
+    gap: 0.7rem;
+    list-style: none;
+  }
+
+  .detail-bullets li {
+    position: relative;
+    padding-left: 1rem;
+    color: var(--fg-muted);
+    font-size: 0.94rem;
+  }
+
+  .detail-bullets li::before {
+    content: "";
+    position: absolute;
+    top: 0.5rem;
+    left: 0;
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #fb7185, #60a5fa);
   }
 
   .hero-glow {
     position: absolute;
-    inset: auto;
     filter: blur(80px);
     opacity: 0.55;
     pointer-events: none;
   }
 
   .hero-glow--pink {
-    top: 2rem;
+    top: 4rem;
     left: 1rem;
     width: 18rem;
     height: 18rem;
@@ -377,7 +809,7 @@ const description =
 
   .hero-glow--blue {
     right: -1rem;
-    bottom: 1.5rem;
+    bottom: 2rem;
     width: 18rem;
     height: 18rem;
     background: radial-gradient(circle, rgba(96, 165, 250, 0.22), transparent 72%);
@@ -385,14 +817,11 @@ const description =
 
   .screenshot-card {
     position: relative;
-    margin-left: auto;
-    width: min(100%, 720px);
     border-radius: 28px;
     border: 1px solid rgba(255, 255, 255, 0.09);
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
     box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
     overflow: hidden;
-    backdrop-filter: blur(24px);
   }
 
   .screenshot-chrome {
@@ -414,20 +843,11 @@ const description =
     width: 0.72rem;
     height: 0.72rem;
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.18);
   }
 
-  .traffic-lights span:nth-child(1) {
-    background: #fb7185;
-  }
-
-  .traffic-lights span:nth-child(2) {
-    background: #f59e0b;
-  }
-
-  .traffic-lights span:nth-child(3) {
-    background: #34d399;
-  }
+  .traffic-lights span:nth-child(1) { background: #fb7185; }
+  .traffic-lights span:nth-child(2) { background: #f59e0b; }
+  .traffic-lights span:nth-child(3) { background: #34d399; }
 
   .chrome-label {
     flex: 1;
@@ -446,7 +866,6 @@ const description =
   }
 
   .screenshot-wrap {
-    position: relative;
     padding: 1.05rem;
     background:
       radial-gradient(circle at top, rgba(255, 255, 255, 0.08), transparent 45%),
@@ -455,7 +874,6 @@ const description =
 
   .screenshot {
     width: 100%;
-    display: block;
     border-radius: 18px;
     border: 1px solid rgba(255, 255, 255, 0.08);
     box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
@@ -466,13 +884,12 @@ const description =
     display: flex;
     flex-direction: column;
     gap: 0.45rem;
-    max-width: 19rem;
+    max-width: 18.5rem;
     padding: 1rem 1.05rem;
     border-radius: 20px;
     border: 1px solid rgba(255, 255, 255, 0.1);
     background: rgba(12, 12, 14, 0.82);
     box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
-    backdrop-filter: blur(24px);
   }
 
   .floating-card strong {
@@ -480,82 +897,161 @@ const description =
     line-height: 1.2;
   }
 
-  .floating-card span,
-  .floating-card-kicker {
+  .floating-card span {
     color: var(--fg-muted);
     font-size: 0.84rem;
     line-height: 1.55;
   }
 
-  .floating-card-kicker {
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    font-size: 0.72rem;
-    color: var(--fg-dim);
-  }
-
   .floating-card--left {
-    left: -1.5rem;
-    bottom: 4rem;
+    left: -1rem;
+    bottom: 4.5rem;
   }
 
   .floating-card--right {
-    right: -1.5rem;
-    top: 5rem;
+    right: -1rem;
+    top: 6rem;
   }
 
+  [data-active-tab="chat"] .screenshot-card { box-shadow: 0 30px 80px rgba(59, 130, 246, 0.18), 0 30px 80px rgba(0, 0, 0, 0.45); }
+  [data-active-tab="diffs"] .screenshot-card { box-shadow: 0 30px 80px rgba(244, 114, 182, 0.18), 0 30px 80px rgba(0, 0, 0, 0.45); }
+  [data-active-tab="preview"] .screenshot-card { box-shadow: 0 30px 80px rgba(45, 212, 191, 0.16), 0 30px 80px rgba(0, 0, 0, 0.45); }
+  [data-active-tab="pr-review"] .screenshot-card { box-shadow: 0 30px 80px rgba(251, 191, 36, 0.16), 0 30px 80px rgba(0, 0, 0, 0.45); }
+  [data-active-tab="release"] .screenshot-card { box-shadow: 0 30px 80px rgba(168, 85, 247, 0.18), 0 30px 80px rgba(0, 0, 0, 0.45); }
+
   .feature-grid {
-    width: min(1280px, 100%);
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 1.15rem;
-    margin: 0 auto;
+    margin-bottom: 4rem;
   }
 
   .feature-card {
     padding: 1.4rem;
-    border-radius: 24px;
+  }
+
+  .spotlight,
+  .theme-section {
+    display: grid;
+    grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+    gap: 1.25rem;
+    align-items: start;
+    margin-bottom: 4rem;
+  }
+
+  .spotlight-nav {
+    display: grid;
+    gap: 0.7rem;
+    margin-top: 1.2rem;
+  }
+
+  .spotlight-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    width: 100%;
+    padding: 0.95rem 1rem;
+    border-radius: 18px;
     border: 1px solid rgba(255, 255, 255, 0.08);
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02));
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.22);
+    background: rgba(255, 255, 255, 0.03);
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
   }
 
-  .feature-eyebrow {
-    margin-bottom: 0.85rem;
+  .spotlight-item-label {
+    font-weight: 600;
+    color: var(--fg);
+  }
+
+  .spotlight-item-meta,
+  .theme-vibe {
     color: var(--fg-dim);
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+    font-size: 0.85rem;
   }
 
-  .feature-card h2 {
-    font-size: clamp(1.25rem, 2vw, 1.6rem);
-    letter-spacing: -0.03em;
-    margin-bottom: 0.75rem;
+  .theme-preview {
+    display: grid;
+    gap: 1rem;
   }
 
-  .feature-card p {
-    color: var(--fg-muted);
-    line-height: 1.7;
-    font-size: 0.98rem;
+  .theme-preview-card {
+    border-radius: 28px;
+    border: 1px solid var(--theme-border, rgba(255, 255, 255, 0.08));
+    background:
+      var(--theme-gradient, linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02))),
+      rgba(9, 9, 11, 0.95);
+    overflow: hidden;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.32);
+  }
+
+  .theme-preview-bar {
+    display: flex;
+    gap: 0.45rem;
+    padding: 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .theme-preview-bar span {
+    width: 0.7rem;
+    height: 0.7rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.22);
+  }
+
+  .theme-preview-body {
+    display: grid;
+    grid-template-columns: 140px minmax(0, 1fr);
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .theme-preview-sidebar {
+    min-height: 220px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .theme-preview-main {
+    display: grid;
+    gap: 0.85rem;
+    align-content: start;
+  }
+
+  .theme-preview-line {
+    height: 1rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .theme-preview-line--accent {
+    background: var(--theme-accent, #fff);
+    opacity: 0.9;
+  }
+
+  .theme-preview-line--short { width: 44%; }
+  .theme-preview-line--medium { width: 72%; }
+
+  .theme-note h3 {
+    font-size: 1.35rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .theme-vibe {
+    margin-bottom: 0.8rem;
   }
 
   @media (max-width: 1120px) {
-    .hero {
+    .hero,
+    .spotlight,
+    .theme-section {
       grid-template-columns: 1fr;
-    }
-
-    .tagline {
-      max-width: 11ch;
     }
 
     .hero-visual {
       min-height: auto;
-      padding-top: 1rem;
-    }
-
-    .screenshot-card {
-      margin: 0 auto;
     }
 
     .floating-card {
@@ -576,11 +1072,7 @@ const description =
 
     .tagline {
       max-width: none;
-      font-size: clamp(2.4rem, 13vw, 4rem);
-    }
-
-    .subtagline {
-      max-width: none;
+      font-size: clamp(2.45rem, 13vw, 4rem);
     }
 
     .hero-actions {
@@ -593,7 +1085,8 @@ const description =
       width: 100%;
     }
 
-    .screenshot-card {
+    .screenshot-card,
+    .theme-preview-card {
       border-radius: 24px;
     }
 
@@ -607,6 +1100,14 @@ const description =
 
     .chrome-badge {
       display: none;
+    }
+
+    .theme-preview-body {
+      grid-template-columns: 1fr;
+    }
+
+    .theme-preview-sidebar {
+      min-height: 120px;
     }
   }
 </style>

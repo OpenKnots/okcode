@@ -55,6 +55,8 @@ describe("sanitizeLocalPreviewBounds", () => {
       width: 480.4,
       height: 320.6,
       visible: true,
+      viewportWidth: 1440.4,
+      viewportHeight: 900.6,
     };
     expect(sanitizeLocalPreviewBounds(floatingBounds)).toEqual({
       x: 10,
@@ -62,6 +64,8 @@ describe("sanitizeLocalPreviewBounds", () => {
       width: 480,
       height: 321,
       visible: true,
+      viewportWidth: 1440,
+      viewportHeight: 901,
     });
 
     expect(
@@ -71,6 +75,8 @@ describe("sanitizeLocalPreviewBounds", () => {
         width: -10,
         height: 0,
         visible: true,
+        viewportWidth: Number.NaN,
+        viewportHeight: Number.NaN,
       }),
     ).toEqual({
       x: 0,
@@ -78,6 +84,8 @@ describe("sanitizeLocalPreviewBounds", () => {
       width: 0,
       height: 0,
       visible: false,
+      viewportWidth: 0,
+      viewportHeight: 0,
     });
   });
 });

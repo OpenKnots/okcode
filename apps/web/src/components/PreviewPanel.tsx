@@ -31,6 +31,8 @@ const HIDDEN_PREVIEW_BOUNDS = {
   width: 0,
   height: 0,
   visible: false,
+  viewportWidth: 0,
+  viewportHeight: 0,
 } as const;
 
 export function resolvePreviewStatusCopy(state: DesktopPreviewState): string {
@@ -147,6 +149,8 @@ export function PreviewPanel({ threadId, projectId, projectName, onClose }: Prev
         width: rect.width,
         height: rect.height,
         visible,
+        viewportWidth: window.innerWidth,
+        viewportHeight: window.innerHeight,
       };
     };
 

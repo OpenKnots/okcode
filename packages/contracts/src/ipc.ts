@@ -120,6 +120,8 @@ export interface DesktopPreviewBounds {
   width: number;
   height: number;
   visible: boolean;
+  viewportWidth: number;
+  viewportHeight: number;
 }
 
 export interface DesktopPreviewState {

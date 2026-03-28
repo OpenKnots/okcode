@@ -12,6 +12,7 @@ import {
   sanitizeDesktopPreviewBounds,
   validateDesktopPreviewUrl,
 } from "./preview";
+import { projectPreviewBoundsToContent } from "./previewBounds";
 
 const PREVIEW_WEB_PREFERENCES = {
   contextIsolation: true,
@@ -36,6 +37,8 @@ export class DesktopPreviewController {
     width: 0,
     height: 0,
     visible: false,
+    viewportWidth: 0,
+    viewportHeight: 0,
   };
   private unsubscribers: Array<() => void> = [];
   private disposingView = false;
@@ -150,6 +153,7 @@ export class DesktopPreviewController {
     const view = new WebContentsView({
       webPreferences: PREVIEW_WEB_PREFERENCES,
     });
+    view.setBorderRadius(8);
     this.view = view;
     this.window.contentView.addChildView(view);
     this.bindView(view);
@@ -280,30 +284,9 @@ export class DesktopPreviewController {
       return false;
     }
 
-    const contentBounds = this.window.getContentBounds();
-    const rawWidth = Math.round(this.bounds.width);
-    const rawHeight = Math.round(this.bounds.height);
-
-    if (
-      !this.bounds.visible ||
-      rawWidth <= 0 ||
-      rawHeight <= 0 ||
-      contentBounds.width <= 0 ||
-      contentBounds.height <= 0
-    ) {
-      this.view.setBounds({ x: 0, y: 0, width: 0, height: 0 });
-      return false;
-    }
-
-    const width = Math.min(rawWidth, contentBounds.width);
-    const height = Math.min(rawHeight, contentBounds.height);
-    const maxX = Math.max(0, contentBounds.width - width);
-    const maxY = Math.max(0, contentBounds.height - height);
-    const x = Math.max(0, Math.min(Math.round(this.bounds.x), maxX));
-    const y = Math.max(0, Math.min(Math.round(this.bounds.y), maxY));
-
-    this.view.setBounds({ x, y, width, height });
-    return width > 0 && height > 0;
+    const nextBounds = projectPreviewBoundsToContent(this.bounds, this.window.getContentBounds());
+    this.view.setBounds(nextBounds);
+    return nextBounds.width > 0 && nextBounds.height > 0;
   }
 
   private disposeView(): void {

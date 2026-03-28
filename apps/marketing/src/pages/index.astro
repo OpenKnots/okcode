@@ -395,42 +395,14 @@ const themeIdeas = [
 
 <script>
   import { fetchLatestRelease, RELEASES_URL } from "../lib/releases";
-
-  function detectPlatform() {
-    const ua = navigator.userAgent;
-    if (/Win/i.test(ua)) return { os: "win", label: "Download for Windows" };
-    if (/Mac/i.test(ua)) {
-      return {
-        os: "mac",
-        label: "Download for macOS",
-        arch: "arm64",
-      };
-    }
-    if (/Linux/i.test(ua)) return { os: "linux", label: "Download for Linux" };
-    return null;
-  }
-
-  function pickAsset(assets, platform) {
-    if (platform.os === "win") {
-      return assets.find((a) => a.name.endsWith("-x64.exe"))?.browser_download_url ?? null;
-    }
-    if (platform.os === "mac") {
-      const preferred = assets.find((a) => a.name.endsWith(`-${platform.arch}.dmg`));
-      const fallback = assets.find((a) => a.name.endsWith(".dmg"));
-      return (preferred ?? fallback)?.browser_download_url ?? null;
-    }
-    if (platform.os === "linux") {
-      return assets.find((a) => a.name.endsWith(".AppImage"))?.browser_download_url ?? null;
-    }
-    return null;
-  }
+  import { detectPlatform, pickAsset } from "../lib/download";
 
   function initDownloadButton() {
-    const btn = document.getElementById("download-btn");
+    const btn = document.getElementById("download-btn") as HTMLAnchorElement | null;
     const label = document.getElementById("download-label");
     if (!btn || !label) return;
 
-    const platform = detectPlatform();
+    const platform = detectPlatform(navigator.userAgent);
     if (!platform) return;
 
     document.documentElement.dataset.platform = platform.os;
@@ -454,11 +426,11 @@ const themeIdeas = [
     const groups = document.querySelectorAll("[data-tab-group]");
     groups.forEach((group) => {
       const defaultTab = group.getAttribute("data-tab-default");
-      const buttons = Array.from(group.querySelectorAll("[data-tab-button]"));
-      const panels = Array.from(group.querySelectorAll("[data-tab-panel]"));
+      const buttons = Array.from(group.querySelectorAll<HTMLElement>("[data-tab-button]"));
+      const panels = Array.from(group.querySelectorAll<HTMLElement>("[data-tab-panel]"));
       const heroOverlay = group.querySelector("[data-hero-overlay]");
 
-      const activate = (id) => {
+      const activate = (id: string) => {
         buttons.forEach((button) => {
           const isActive = button.getAttribute("data-tab-target") === id;
           button.setAttribute("aria-selected", isActive ? "true" : "false");

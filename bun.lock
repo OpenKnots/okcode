@@ -41,6 +41,7 @@
       "devDependencies": {
         "@astrojs/check": "^0.9.7",
         "typescript": "catalog:",
+        "vitest": "catalog:",
       },
     },
     "apps/server": {

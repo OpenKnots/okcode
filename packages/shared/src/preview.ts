@@ -90,12 +90,20 @@ export function validateHttpPreviewUrl(
 export function sanitizeLocalPreviewBounds(bounds: DesktopPreviewBounds): DesktopPreviewBounds {
   const width = Number.isFinite(bounds.width) ? Math.max(0, Math.round(bounds.width)) : 0;
   const height = Number.isFinite(bounds.height) ? Math.max(0, Math.round(bounds.height)) : 0;
+  const viewportWidth = Number.isFinite(bounds.viewportWidth)
+    ? Math.max(0, Math.round(bounds.viewportWidth))
+    : 0;
+  const viewportHeight = Number.isFinite(bounds.viewportHeight)
+    ? Math.max(0, Math.round(bounds.viewportHeight))
+    : 0;
 
   return {
     x: Number.isFinite(bounds.x) ? Math.round(bounds.x) : 0,
     y: Number.isFinite(bounds.y) ? Math.round(bounds.y) : 0,
     width,
     height,
+    viewportWidth,
+    viewportHeight,
     visible: bounds.visible && width > 0 && height > 0,
   };
 }

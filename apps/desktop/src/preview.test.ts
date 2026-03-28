@@ -68,6 +68,8 @@ describe("sanitizeDesktopPreviewBounds", () => {
         width: 480.2,
         height: 320.8,
         visible: true,
+        viewportWidth: 1440.2,
+        viewportHeight: 900.8,
       }),
     ).toEqual({
       x: 10,
@@ -75,6 +77,8 @@ describe("sanitizeDesktopPreviewBounds", () => {
       width: 480,
       height: 321,
       visible: true,
+      viewportWidth: 1440,
+      viewportHeight: 901,
     });
 
     expect(
@@ -84,6 +88,8 @@ describe("sanitizeDesktopPreviewBounds", () => {
         width: -10,
         height: 0,
         visible: true,
+        viewportWidth: Number.NaN,
+        viewportHeight: Number.NaN,
       }),
     ).toEqual({
       x: 0,
@@ -91,6 +97,8 @@ describe("sanitizeDesktopPreviewBounds", () => {
       width: 0,
       height: 0,
       visible: false,
+      viewportWidth: 0,
+      viewportHeight: 0,
     });
   });
 });

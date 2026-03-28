@@ -5,12 +5,13 @@ import { memo, useCallback } from "react";
 import { useCodeViewerStore, type CodeViewerTab } from "~/codeViewerStore";
 import { useTheme } from "~/hooks/useTheme";
 import { projectReadFileQueryOptions } from "~/lib/projectReactQuery";
-import { cn } from "~/lib/utils";
+import { cn, isMacPlatform } from "~/lib/utils";
+import { isMarkdownPreviewFilePath } from "~/markdownPreview";
 import { CodeMirrorViewer, type CodeContextSelection } from "./CodeMirrorViewer";
 import { DiffPanelLoadingState } from "./DiffPanelShell";
+import { MarkdownPreview } from "./MarkdownPreview";
 import { isElectron } from "~/env";
 import { Button } from "./ui/button";
-import { isMacPlatform } from "~/lib/utils";
 
 function CodeViewerTabStrip(props: {
   tabs: CodeViewerTab[];
@@ -100,12 +101,16 @@ const CodeViewerFileContent = memo(function CodeViewerFileContent(props: {
           File is larger than 1MB. Showing truncated content.
         </div>
       )}
-      <CodeMirrorViewer
-        contents={query.data.contents}
-        filePath={props.relativePath}
-        resolvedTheme={props.resolvedTheme}
-        onAddContext={props.onAddContext}
-      />
+      {isMarkdownPreviewFilePath(props.relativePath) ? (
+        <MarkdownPreview contents={query.data.contents} />
+      ) : (
+        <CodeMirrorViewer
+          contents={query.data.contents}
+          filePath={props.relativePath}
+          resolvedTheme={props.resolvedTheme}
+          onAddContext={props.onAddContext}
+        />
+      )}
     </div>
   );
 });

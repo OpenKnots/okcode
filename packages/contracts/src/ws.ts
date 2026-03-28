@@ -27,6 +27,30 @@ import {
   GitStatusInput,
 } from "./git";
 import {
+  GitHubUserPreview,
+  PrConflictAnalysis,
+  PrConflictApplyResult,
+  PrReviewAddThreadInput,
+  PrReviewApplyConflictResolutionInput,
+  PrReviewConfig,
+  PrReviewConfigInput,
+  PrReviewDashboardInput,
+  PrReviewDashboardResult,
+  PrReviewPatchInput,
+  PrReviewPatchResult,
+  PrReviewRepoConfigUpdatedPayload,
+  PrReviewReplyToThreadInput,
+  PrReviewResolveThreadInput,
+  PrReviewRunWorkflowStepInput,
+  PrReviewSearchUsersInput,
+  PrReviewSearchUsersResult,
+  PrReviewSyncUpdatedPayload,
+  PrReviewUserPreviewInput,
+  PrSubmitReviewInput,
+  PrSubmitReviewResult,
+  PrWorkflowStepRunResult,
+} from "./prReview";
+import {
   TerminalClearInput,
   TerminalCloseInput,
   TerminalEvent,
@@ -74,6 +98,21 @@ export const WS_METHODS = {
   gitPreparePullRequestThread: "git.preparePullRequestThread",
   gitListPullRequests: "git.listPullRequests",
 
+  // PR review methods
+  prReviewGetConfig: "prReview.getConfig",
+  prReviewGetDashboard: "prReview.getDashboard",
+  prReviewGetPatch: "prReview.getPatch",
+  prReviewAddThread: "prReview.addThread",
+  prReviewReplyToThread: "prReview.replyToThread",
+  prReviewResolveThread: "prReview.resolveThread",
+  prReviewUnresolveThread: "prReview.unresolveThread",
+  prReviewSearchUsers: "prReview.searchUsers",
+  prReviewGetUserPreview: "prReview.getUserPreview",
+  prReviewAnalyzeConflicts: "prReview.analyzeConflicts",
+  prReviewApplyConflictResolution: "prReview.applyConflictResolution",
+  prReviewRunWorkflowStep: "prReview.runWorkflowStep",
+  prReviewSubmitReview: "prReview.submitReview",
+
   // Terminal methods
   terminalOpen: "terminal.open",
   terminalWrite: "terminal.write",
@@ -92,6 +131,8 @@ export const WS_METHODS = {
 
 export const WS_CHANNELS = {
   gitActionProgress: "git.actionProgress",
+  prReviewSyncUpdated: "prReview.syncUpdated",
+  prReviewRepoConfigUpdated: "prReview.repoConfigUpdated",
   terminalEvent: "terminal.event",
   serverWelcome: "server.welcome",
   serverConfigUpdated: "server.configUpdated",
@@ -143,6 +184,21 @@ const WebSocketRequestBody = Schema.Union([
   tagRequestBody(WS_METHODS.gitPreparePullRequestThread, GitPreparePullRequestThreadInput),
   tagRequestBody(WS_METHODS.gitListPullRequests, GitListPullRequestsInput),
 
+  // PR review methods
+  tagRequestBody(WS_METHODS.prReviewGetConfig, PrReviewConfigInput),
+  tagRequestBody(WS_METHODS.prReviewGetDashboard, PrReviewDashboardInput),
+  tagRequestBody(WS_METHODS.prReviewGetPatch, PrReviewPatchInput),
+  tagRequestBody(WS_METHODS.prReviewAddThread, PrReviewAddThreadInput),
+  tagRequestBody(WS_METHODS.prReviewReplyToThread, PrReviewReplyToThreadInput),
+  tagRequestBody(WS_METHODS.prReviewResolveThread, PrReviewResolveThreadInput),
+  tagRequestBody(WS_METHODS.prReviewUnresolveThread, PrReviewResolveThreadInput),
+  tagRequestBody(WS_METHODS.prReviewSearchUsers, PrReviewSearchUsersInput),
+  tagRequestBody(WS_METHODS.prReviewGetUserPreview, PrReviewUserPreviewInput),
+  tagRequestBody(WS_METHODS.prReviewAnalyzeConflicts, PrReviewDashboardInput),
+  tagRequestBody(WS_METHODS.prReviewApplyConflictResolution, PrReviewApplyConflictResolutionInput),
+  tagRequestBody(WS_METHODS.prReviewRunWorkflowStep, PrReviewRunWorkflowStepInput),
+  tagRequestBody(WS_METHODS.prReviewSubmitReview, PrSubmitReviewInput),
+
   // Terminal methods
   tagRequestBody(WS_METHODS.terminalOpen, TerminalOpenInput),
   tagRequestBody(WS_METHODS.terminalWrite, TerminalWriteInput),
@@ -189,6 +245,8 @@ export interface WsPushPayloadByChannel {
   readonly [WS_CHANNELS.serverWelcome]: WsWelcomePayload;
   readonly [WS_CHANNELS.serverConfigUpdated]: typeof ServerConfigUpdatedPayload.Type;
   readonly [WS_CHANNELS.gitActionProgress]: typeof GitActionProgressEvent.Type;
+  readonly [WS_CHANNELS.prReviewSyncUpdated]: typeof PrReviewSyncUpdatedPayload.Type;
+  readonly [WS_CHANNELS.prReviewRepoConfigUpdated]: typeof PrReviewRepoConfigUpdatedPayload.Type;
   readonly [WS_CHANNELS.terminalEvent]: typeof TerminalEvent.Type;
   readonly [ORCHESTRATION_WS_CHANNELS.domainEvent]: OrchestrationEvent;
 }
@@ -216,6 +274,14 @@ export const WsPushGitActionProgress = makeWsPushSchema(
   WS_CHANNELS.gitActionProgress,
   GitActionProgressEvent,
 );
+export const WsPushPrReviewSyncUpdated = makeWsPushSchema(
+  WS_CHANNELS.prReviewSyncUpdated,
+  PrReviewSyncUpdatedPayload,
+);
+export const WsPushPrReviewRepoConfigUpdated = makeWsPushSchema(
+  WS_CHANNELS.prReviewRepoConfigUpdated,
+  PrReviewRepoConfigUpdatedPayload,
+);
 export const WsPushTerminalEvent = makeWsPushSchema(WS_CHANNELS.terminalEvent, TerminalEvent);
 export const WsPushOrchestrationDomainEvent = makeWsPushSchema(
   ORCHESTRATION_WS_CHANNELS.domainEvent,
@@ -224,6 +290,8 @@ export const WsPushOrchestrationDomainEvent = makeWsPushSchema(
 
 export const WsPushChannelSchema = Schema.Literals([
   WS_CHANNELS.gitActionProgress,
+  WS_CHANNELS.prReviewSyncUpdated,
+  WS_CHANNELS.prReviewRepoConfigUpdated,
   WS_CHANNELS.serverWelcome,
   WS_CHANNELS.serverConfigUpdated,
   WS_CHANNELS.terminalEvent,
@@ -235,6 +303,8 @@ export const WsPush = Schema.Union([
   WsPushServerWelcome,
   WsPushServerConfigUpdated,
   WsPushGitActionProgress,
+  WsPushPrReviewSyncUpdated,
+  WsPushPrReviewRepoConfigUpdated,
   WsPushTerminalEvent,
   WsPushOrchestrationDomainEvent,
 ]);

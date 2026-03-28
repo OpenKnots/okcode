@@ -79,6 +79,7 @@ import { expandHomePath } from "./os-jank.ts";
 import { makeServerPushBus } from "./wsServer/pushBus.ts";
 import { makeServerReadiness } from "./wsServer/readiness.ts";
 import { decodeJsonResult, formatSchemaError } from "@okcode/shared/schemaJson";
+import { PrReview } from "./prReview/Services/PrReview.ts";
 
 /**
  * Remote address from the HTTP upgrade (`request.socket`). The `ws` library often does not
@@ -255,6 +256,7 @@ export type ServerRuntimeServices =
   | ServerCoreRuntimeServices
   | GitManager
   | GitCore
+  | PrReview
   | TerminalManager
   | Keybindings
   | Open
@@ -643,6 +645,7 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
   const projectionReadModelQuery = yield* ProjectionSnapshotQuery;
   const checkpointDiffQuery = yield* CheckpointDiffQuery;
   const orchestrationReactor = yield* OrchestrationReactor;
+  const prReview = yield* PrReview;
   const { openInEditor } = yield* Open;
 
   const subscriptionsScope = yield* Scope.make("sequential");
@@ -921,6 +924,126 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
       case WS_METHODS.gitListPullRequests: {
         const body = stripRequestTag(request.body);
         return yield* gitManager.listPullRequests(body);
+      }
+
+      case WS_METHODS.prReviewGetConfig: {
+        const body = stripRequestTag(request.body);
+        yield* prReview
+          .watchRepoConfig({
+            cwd: body.cwd,
+            onChange: (payload) => {
+              void Effect.runPromise(
+                pushBus.publishAll(WS_CHANNELS.prReviewRepoConfigUpdated, payload),
+              );
+            },
+          })
+          .pipe(Effect.ignoreCause({ log: true }));
+        return yield* prReview.getConfig(body);
+      }
+
+      case WS_METHODS.prReviewGetDashboard: {
+        const body = stripRequestTag(request.body);
+        yield* prReview
+          .watchRepoConfig({
+            cwd: body.cwd,
+            onChange: (payload) => {
+              void Effect.runPromise(
+                pushBus.publishAll(WS_CHANNELS.prReviewRepoConfigUpdated, payload),
+              );
+            },
+          })
+          .pipe(Effect.ignoreCause({ log: true }));
+        return yield* prReview.getDashboard(body);
+      }
+
+      case WS_METHODS.prReviewGetPatch: {
+        const body = stripRequestTag(request.body);
+        return yield* prReview.getPatch(body);
+      }
+
+      case WS_METHODS.prReviewAddThread: {
+        const body = stripRequestTag(request.body);
+        const result = yield* prReview.addThread(body);
+        yield* pushBus.publishAll(WS_CHANNELS.prReviewSyncUpdated, {
+          cwd: body.cwd,
+          prNumber: body.prNumber,
+        });
+        return result;
+      }
+
+      case WS_METHODS.prReviewReplyToThread: {
+        const body = stripRequestTag(request.body);
+        const result = yield* prReview.replyToThread(body);
+        yield* pushBus.publishAll(WS_CHANNELS.prReviewSyncUpdated, {
+          cwd: body.cwd,
+          prNumber: body.prNumber,
+        });
+        return result;
+      }
+
+      case WS_METHODS.prReviewResolveThread: {
+        const body = stripRequestTag(request.body);
+        const result = yield* prReview.resolveThread(body);
+        yield* pushBus.publishAll(WS_CHANNELS.prReviewSyncUpdated, {
+          cwd: body.cwd,
+          prNumber: body.prNumber,
+        });
+        return result;
+      }
+
+      case WS_METHODS.prReviewUnresolveThread: {
+        const body = stripRequestTag(request.body);
+        const result = yield* prReview.unresolveThread(body);
+        yield* pushBus.publishAll(WS_CHANNELS.prReviewSyncUpdated, {
+          cwd: body.cwd,
+          prNumber: body.prNumber,
+        });
+        return result;
+      }
+
+      case WS_METHODS.prReviewSearchUsers: {
+        const body = stripRequestTag(request.body);
+        return yield* prReview.searchUsers(body);
+      }
+
+      case WS_METHODS.prReviewGetUserPreview: {
+        const body = stripRequestTag(request.body);
+        return yield* prReview.getUserPreview(body);
+      }
+
+      case WS_METHODS.prReviewAnalyzeConflicts: {
+        const body = stripRequestTag(request.body);
+        return yield* prReview.analyzeConflicts(body);
+      }
+
+      case WS_METHODS.prReviewApplyConflictResolution: {
+        const body = stripRequestTag(request.body);
+        const result = yield* prReview.applyConflictResolution(body);
+        yield* pushBus.publishAll(WS_CHANNELS.prReviewSyncUpdated, {
+          cwd: body.cwd,
+          prNumber: body.prNumber,
+        });
+        return result;
+      }
+
+      case WS_METHODS.prReviewRunWorkflowStep: {
+        const body = stripRequestTag(request.body);
+        const result = yield* prReview.runWorkflowStep(body);
+        yield* pushBus.publishAll(WS_CHANNELS.prReviewSyncUpdated, {
+          cwd: body.cwd,
+          prNumber: body.prNumber,
+        });
+        return result;
+      }
+
+      case WS_METHODS.prReviewSubmitReview: {
+        const body = stripRequestTag(request.body);
+        const result = yield* prReview.submitReview(body);
+        yield* pushBus.publishAll(WS_CHANNELS.prReviewSyncUpdated, {
+          cwd: body.cwd,
+          prNumber: body.prNumber,
+        });
+        return result;
       }
 
       case WS_METHODS.gitListBranches: {

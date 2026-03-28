@@ -31,6 +31,11 @@ import { GitManagerLive } from "./git/Layers/GitManager";
 import { GitCoreLive } from "./git/Layers/GitCore";
 import { GitHubCliLive } from "./git/Layers/GitHubCli";
 import { CodexTextGenerationLive } from "./git/Layers/CodexTextGeneration";
+import { RepoReviewConfigLive } from "./prReview/Layers/RepoReviewConfig";
+import { PrReviewProjectionLive } from "./prReview/Layers/PrReviewProjection";
+import { WorkflowEngineLive } from "./prReview/Layers/WorkflowEngine";
+import { MergeConflictResolverLive } from "./prReview/Layers/MergeConflictResolver";
+import { PrReviewLive } from "./prReview/Layers/PrReview";
 import { PtyAdapter } from "./terminal/Services/PTY";
 import { AnalyticsService } from "./telemetry/Services/AnalyticsService";
 
@@ -131,10 +136,19 @@ export function makeServerRuntimeServicesLayer() {
     Layer.provideMerge(textGenerationLayer),
   );
 
+  const prReviewLayer = PrReviewLive.pipe(
+    Layer.provideMerge(GitHubCliLive),
+    Layer.provideMerge(RepoReviewConfigLive),
+    Layer.provideMerge(PrReviewProjectionLive),
+    Layer.provideMerge(WorkflowEngineLive),
+    Layer.provideMerge(MergeConflictResolverLive.pipe(Layer.provideMerge(GitCoreLive))),
+  );
+
   return Layer.mergeAll(
     orchestrationReactorLayer,
     GitCoreLive,
     gitManagerLayer,
+    prReviewLayer,
     terminalLayer,
     KeybindingsLive,
   ).pipe(Layer.provideMerge(NodeServices.layer));

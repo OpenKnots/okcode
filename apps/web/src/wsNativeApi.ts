@@ -4,6 +4,8 @@ import {
   ORCHESTRATION_WS_METHODS,
   type ContextMenuItem,
   type NativeApi,
+  type PrReviewRepoConfigUpdatedPayload,
+  type PrReviewSyncUpdatedPayload,
   ServerConfigUpdatedPayload,
   WS_CHANNELS,
   WS_METHODS,
@@ -17,6 +19,10 @@ let instance: { api: NativeApi; transport: WsTransport } | null = null;
 const welcomeListeners = new Set<(payload: WsWelcomePayload) => void>();
 const serverConfigUpdatedListeners = new Set<(payload: ServerConfigUpdatedPayload) => void>();
 const gitActionProgressListeners = new Set<(payload: GitActionProgressEvent) => void>();
+const prReviewSyncUpdatedListeners = new Set<(payload: PrReviewSyncUpdatedPayload) => void>();
+const prReviewRepoConfigUpdatedListeners = new Set<
+  (payload: PrReviewRepoConfigUpdatedPayload) => void
+>();
 
 /**
  * Subscribe to the server welcome message. If a welcome was already received
@@ -99,6 +105,26 @@ export function createWsNativeApi(): NativeApi {
       }
     }
   });
+  transport.subscribe(WS_CHANNELS.prReviewSyncUpdated, (message) => {
+    const payload = message.data;
+    for (const listener of prReviewSyncUpdatedListeners) {
+      try {
+        listener(payload);
+      } catch {
+        // Swallow listener errors
+      }
+    }
+  });
+  transport.subscribe(WS_CHANNELS.prReviewRepoConfigUpdated, (message) => {
+    const payload = message.data;
+    for (const listener of prReviewRepoConfigUpdatedListeners) {
+      try {
+        listener(payload);
+      } catch {
+        // Swallow listener errors
+      }
+    }
+  });
 
   const api: NativeApi = {
     dialogs: {
@@ -172,6 +198,34 @@ export function createWsNativeApi(): NativeApi {
         gitActionProgressListeners.add(callback);
         return () => {
           gitActionProgressListeners.delete(callback);
+        };
+      },
+    },
+    prReview: {
+      getConfig: (input) => transport.request(WS_METHODS.prReviewGetConfig, input),
+      getDashboard: (input) => transport.request(WS_METHODS.prReviewGetDashboard, input),
+      getPatch: (input) => transport.request(WS_METHODS.prReviewGetPatch, input),
+      addThread: (input) => transport.request(WS_METHODS.prReviewAddThread, input),
+      replyToThread: (input) => transport.request(WS_METHODS.prReviewReplyToThread, input),
+      resolveThread: (input) => transport.request(WS_METHODS.prReviewResolveThread, input),
+      unresolveThread: (input) => transport.request(WS_METHODS.prReviewUnresolveThread, input),
+      searchUsers: (input) => transport.request(WS_METHODS.prReviewSearchUsers, input),
+      getUserPreview: (input) => transport.request(WS_METHODS.prReviewGetUserPreview, input),
+      analyzeConflicts: (input) => transport.request(WS_METHODS.prReviewAnalyzeConflicts, input),
+      applyConflictResolution: (input) =>
+        transport.request(WS_METHODS.prReviewApplyConflictResolution, input),
+      runWorkflowStep: (input) => transport.request(WS_METHODS.prReviewRunWorkflowStep, input),
+      submitReview: (input) => transport.request(WS_METHODS.prReviewSubmitReview, input),
+      onSyncUpdated: (callback) => {
+        prReviewSyncUpdatedListeners.add(callback);
+        return () => {
+          prReviewSyncUpdatedListeners.delete(callback);
+        };
+      },
+      onRepoConfigUpdated: (callback) => {
+        prReviewRepoConfigUpdatedListeners.add(callback);
+        return () => {
+          prReviewRepoConfigUpdatedListeners.delete(callback);
         };
       },
     },

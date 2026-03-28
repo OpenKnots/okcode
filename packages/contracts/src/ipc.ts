@@ -31,6 +31,30 @@ import type {
   ProjectWriteFileInput,
   ProjectWriteFileResult,
 } from "./project";
+import type {
+  GitHubUserPreview,
+  PrConflictAnalysis,
+  PrConflictApplyResult,
+  PrReviewApplyConflictResolutionInput,
+  PrReviewAddThreadInput,
+  PrReviewConfig,
+  PrReviewConfigInput,
+  PrReviewDashboardInput,
+  PrReviewDashboardResult,
+  PrReviewPatchInput,
+  PrReviewPatchResult,
+  PrReviewRepoConfigUpdatedPayload,
+  PrReviewReplyToThreadInput,
+  PrReviewResolveThreadInput,
+  PrReviewRunWorkflowStepInput,
+  PrReviewSearchUsersInput,
+  PrReviewSearchUsersResult,
+  PrReviewSyncUpdatedPayload,
+  PrReviewUserPreviewInput,
+  PrSubmitReviewInput,
+  PrSubmitReviewResult,
+  PrWorkflowStepRunResult,
+} from "./prReview";
 import type { ServerConfig } from "./server";
 import type {
   TerminalClearInput,
@@ -210,6 +234,27 @@ export interface NativeApi {
     status: (input: GitStatusInput) => Promise<GitStatusResult>;
     runStackedAction: (input: GitRunStackedActionInput) => Promise<GitRunStackedActionResult>;
     onActionProgress: (callback: (event: GitActionProgressEvent) => void) => () => void;
+  };
+  prReview: {
+    getConfig: (input: PrReviewConfigInput) => Promise<PrReviewConfig>;
+    getDashboard: (input: PrReviewDashboardInput) => Promise<PrReviewDashboardResult>;
+    getPatch: (input: PrReviewPatchInput) => Promise<PrReviewPatchResult>;
+    addThread: (input: PrReviewAddThreadInput) => Promise<PrReviewDashboardResult>;
+    replyToThread: (input: PrReviewReplyToThreadInput) => Promise<PrReviewDashboardResult>;
+    resolveThread: (input: PrReviewResolveThreadInput) => Promise<PrReviewDashboardResult>;
+    unresolveThread: (input: PrReviewResolveThreadInput) => Promise<PrReviewDashboardResult>;
+    searchUsers: (input: PrReviewSearchUsersInput) => Promise<PrReviewSearchUsersResult>;
+    getUserPreview: (input: PrReviewUserPreviewInput) => Promise<GitHubUserPreview>;
+    analyzeConflicts: (input: PrReviewDashboardInput) => Promise<PrConflictAnalysis>;
+    applyConflictResolution: (
+      input: PrReviewApplyConflictResolutionInput,
+    ) => Promise<PrConflictApplyResult>;
+    runWorkflowStep: (input: PrReviewRunWorkflowStepInput) => Promise<PrWorkflowStepRunResult>;
+    submitReview: (input: PrSubmitReviewInput) => Promise<PrSubmitReviewResult>;
+    onSyncUpdated: (callback: (payload: PrReviewSyncUpdatedPayload) => void) => () => void;
+    onRepoConfigUpdated: (
+      callback: (payload: PrReviewRepoConfigUpdatedPayload) => void,
+    ) => () => void;
   };
   contextMenu: {
     show: <T extends string>(

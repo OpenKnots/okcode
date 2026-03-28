@@ -59,6 +59,7 @@
         "node-pty": "^1.1.0",
         "open": "^10.1.0",
         "ws": "^8.18.0",
+        "yaml": "^2.8.1",
       },
       "devDependencies": {
         "@effect/language-service": "catalog:",

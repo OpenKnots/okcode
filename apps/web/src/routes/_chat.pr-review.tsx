@@ -1,11 +1,11 @@
 import type { GitResolvedPullRequest, GitResolvedPullRequestWithLabels } from "@okcode/contracts";
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useDebouncedValue } from "@tanstack/react-pacer";
+import { useQuery } from "@tanstack/react-query";
 import {
   ArrowRightIcon,
   CheckCircle2Icon,
   CircleDotIcon,
+  FolderGit2Icon,
   ExternalLinkIcon,
   FileCodeIcon,
   FilterIcon,
@@ -23,33 +23,43 @@ import {
   XCircleIcon,
   XIcon,
 } from "lucide-react";
-import { type ReactNode, useCallback, useMemo, useRef, useState, useEffect } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Separator } from "~/components/ui/separator";
+import {
+  Select,
+  SelectItem,
+  SelectPopup,
+  SelectTrigger,
+  SelectValue,
+} from "~/components/ui/select";
 import { SidebarInset, SidebarTrigger } from "~/components/ui/sidebar";
 import { Spinner } from "~/components/ui/spinner";
 import { ToggleGroup, Toggle as ToggleGroupItem } from "~/components/ui/toggle-group";
 import { isElectron } from "~/env";
-import {
-  gitListPullRequestsQueryOptions,
-  gitResolvePullRequestQueryOptions,
-} from "~/lib/gitReactQuery";
+import { gitListPullRequestsQueryOptions } from "~/lib/gitReactQuery";
 import { cn } from "~/lib/utils";
-import { parsePullRequestReference } from "~/pullRequestReference";
 import { useStore } from "~/store";
+import type { Project } from "~/types";
 
 // ── Types ────────────────────────────────────────────────────────────
 
 type ViewMode = "table" | "list" | "kanban";
 type ListSubMode = "grid" | "rows";
+type PullRequestState = "open" | "closed" | "merged";
+const EMPTY_PULL_REQUESTS: readonly GitResolvedPullRequestWithLabels[] = [];
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
-function useFirstProjectCwd(): string | null {
-  return useStore((store) => store.projects[0]?.cwd ?? null);
+function useProjects(): Project[] {
+  return useStore((store) => store.projects);
+}
+
+function projectLabel(project: Project): string {
+  return project.name.trim().length > 0 ? project.name : project.cwd;
 }
 
 function prStateIcon(state: string, className?: string) {
@@ -186,7 +196,7 @@ function StateBadge({
   onClick,
 }: {
   state: string;
-  count: number;
+  count?: number;
   active: boolean;
   onClick: () => void;
 }) {
@@ -204,7 +214,9 @@ function StateBadge({
     >
       {prStateIcon(state, "size-3")}
       {state}
-      <span className="ml-0.5 tabular-nums text-[10px] opacity-60">{count}</span>
+      {typeof count === "number" ? (
+        <span className="ml-0.5 tabular-nums text-[10px] opacity-60">{count}</span>
+      ) : null}
     </button>
   );
 }
@@ -282,7 +294,28 @@ function LabelFilterBar({
   onSearchChange: (query: string) => void;
 }) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 rounded-2xl border border-border bg-card px-4 py-4 shadow-xs/5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium text-foreground">Local filters</p>
+          <p className="text-xs text-muted-foreground">
+            Search and label filters apply only to the loaded pull requests below.
+          </p>
+        </div>
+        {(searchQuery.length > 0 || activeLabel) && (
+          <Button
+            size="xs"
+            variant="outline"
+            onClick={() => {
+              onSearchChange("");
+              onLabelChange(null);
+            }}
+          >
+            Clear filters
+          </Button>
+        )}
+      </div>
+
       {/* Search */}
       <div className="relative">
         <SearchIcon className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -331,14 +364,148 @@ function LabelFilterBar({
   );
 }
 
+function ScopeToolbar({
+  projects,
+  selectedProjectId,
+  onProjectChange,
+  state,
+  onStateChange,
+  viewMode,
+  onViewModeChange,
+  listSubMode,
+  onListSubModeChange,
+}: {
+  projects: readonly Project[];
+  selectedProjectId: string;
+  onProjectChange: (projectId: string) => void;
+  state: PullRequestState;
+  onStateChange: (state: PullRequestState) => void;
+  viewMode: ViewMode;
+  onViewModeChange: (mode: ViewMode) => void;
+  listSubMode: ListSubMode;
+  onListSubModeChange: (mode: ListSubMode) => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-border bg-card px-4 py-4 shadow-xs/5">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div className="grid gap-4 sm:grid-cols-2 xl:flex-1">
+          <div className="space-y-2">
+            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+              Repository in focus
+            </p>
+            <Select
+              value={selectedProjectId}
+              onValueChange={(value) => {
+                if (value) onProjectChange(value);
+              }}
+            >
+              <SelectTrigger aria-label="Repository in focus" className="w-full">
+                <FolderGit2Icon className="size-3.5 text-muted-foreground" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectPopup align="start" alignItemWithTrigger={false}>
+                {projects.map((project) => (
+                  <SelectItem hideIndicator key={project.id} value={project.id}>
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium text-foreground">
+                        {projectLabel(project)}
+                      </div>
+                      <div className="truncate text-xs text-muted-foreground">{project.cwd}</div>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectPopup>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+              GitHub scope
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {(["open", "merged", "closed"] as const).map((candidate) => (
+                <StateBadge
+                  key={candidate}
+                  state={candidate}
+                  active={state === candidate}
+                  onClick={() => onStateChange(candidate)}
+                />
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              State is applied server-side when fetching PRs for the selected repo.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex justify-start xl:justify-end">
+          <ViewModeToolbar
+            viewMode={viewMode}
+            onViewModeChange={onViewModeChange}
+            listSubMode={listSubMode}
+            onListSubModeChange={onListSubModeChange}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AppliedScopeSummary({
+  project,
+  state,
+  searchQuery,
+  activeLabel,
+}: {
+  project: Project;
+  state: PullRequestState;
+  searchQuery: string;
+  activeLabel: string | null;
+}) {
+  const scopeItems = [
+    { label: "Repo", value: projectLabel(project) },
+    { label: "State", value: state },
+    ...(searchQuery.trim().length > 0 ? [{ label: "Search", value: searchQuery.trim() }] : []),
+    ...(activeLabel ? [{ label: "Label", value: activeLabel }] : []),
+  ];
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {scopeItems.map((item) => (
+        <span
+          key={`${item.label}:${item.value}`}
+          className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/30 px-2.5 py-1 text-xs text-muted-foreground"
+        >
+          <span className="font-medium text-foreground">{item.label}</span>
+          <span className="max-w-[20rem] truncate">{item.value}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function PREmptyState({ title, description }: { title: string; description: string }) {
+  return (
+    <div className="flex items-center justify-center py-12">
+      <div className="max-w-sm text-center space-y-2">
+        <GitPullRequestIcon className="mx-auto size-6 text-muted-foreground/30" />
+        <p className="text-sm font-medium text-foreground">{title}</p>
+        <p className="text-sm text-muted-foreground">{description}</p>
+      </div>
+    </div>
+  );
+}
+
 // ── Table View ───────────────────────────────────────────────────────
 
 function PRTableView({
   pullRequests,
   onSelect,
+  emptyState,
 }: {
   pullRequests: readonly GitResolvedPullRequestWithLabels[];
   onSelect: (pr: GitResolvedPullRequestWithLabels) => void;
+  emptyState: ReactNode;
 }) {
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-card not-dark:bg-clip-padding text-card-foreground shadow-xs/5">
@@ -422,14 +589,7 @@ function PRTableView({
           </tbody>
         </table>
       </div>
-      {pullRequests.length === 0 && (
-        <div className="flex items-center justify-center py-12">
-          <div className="text-center space-y-2">
-            <GitPullRequestIcon className="mx-auto size-6 text-muted-foreground/30" />
-            <p className="text-sm text-muted-foreground">No pull requests match your filters.</p>
-          </div>
-        </div>
-      )}
+      {pullRequests.length === 0 && emptyState}
     </div>
   );
 }
@@ -439,19 +599,14 @@ function PRTableView({
 function PRListRowsView({
   pullRequests,
   onSelect,
+  emptyState,
 }: {
   pullRequests: readonly GitResolvedPullRequestWithLabels[];
   onSelect: (pr: GitResolvedPullRequestWithLabels) => void;
+  emptyState: ReactNode;
 }) {
   if (pullRequests.length === 0) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-center space-y-2">
-          <GitPullRequestIcon className="mx-auto size-6 text-muted-foreground/30" />
-          <p className="text-sm text-muted-foreground">No pull requests match your filters.</p>
-        </div>
-      </div>
-    );
+    return emptyState;
   }
 
   return (
@@ -513,19 +668,14 @@ function PRListRowsView({
 function PRListGridView({
   pullRequests,
   onSelect,
+  emptyState,
 }: {
   pullRequests: readonly GitResolvedPullRequestWithLabels[];
   onSelect: (pr: GitResolvedPullRequestWithLabels) => void;
+  emptyState: ReactNode;
 }) {
   if (pullRequests.length === 0) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-center space-y-2">
-          <GitPullRequestIcon className="mx-auto size-6 text-muted-foreground/30" />
-          <p className="text-sm text-muted-foreground">No pull requests match your filters.</p>
-        </div>
-      </div>
-    );
+    return emptyState;
   }
 
   return (
@@ -675,10 +825,16 @@ function KanbanColumn({
 function PRKanbanView({
   pullRequests,
   onSelect,
+  emptyState,
 }: {
   pullRequests: readonly GitResolvedPullRequestWithLabels[];
   onSelect: (pr: GitResolvedPullRequestWithLabels) => void;
+  emptyState: ReactNode;
 }) {
+  if (pullRequests.length === 0) {
+    return emptyState;
+  }
+
   const grouped = useMemo(() => {
     const open: GitResolvedPullRequestWithLabels[] = [];
     const merged: GitResolvedPullRequestWithLabels[] = [];
@@ -859,12 +1015,12 @@ function ReviewChecklist() {
 
 function ReviewNotes() {
   const [notes, setNotes] = useState("");
-  const [savedNotes, setSavedNotes] = useState<string[]>([]);
+  const [savedNotes, setSavedNotes] = useState<Array<{ id: string; text: string }>>([]);
 
   const handleAddNote = useCallback(() => {
     const trimmed = notes.trim();
     if (trimmed.length === 0) return;
-    setSavedNotes((prev) => [...prev, trimmed]);
+    setSavedNotes((prev) => [...prev, { id: crypto.randomUUID(), text: trimmed }]);
     setNotes("");
   }, [notes]);
 
@@ -875,8 +1031,8 @@ function ReviewNotes() {
         {savedNotes.length > 0 ? (
           <div className="border-b border-border">
             {savedNotes.map((note, index) => (
-              <div key={index} className="border-t border-border px-4 py-3 first:border-t-0">
-                <p className="text-sm text-foreground whitespace-pre-wrap">{note}</p>
+              <div key={note.id} className="border-t border-border px-4 py-3 first:border-t-0">
+                <p className="text-sm text-foreground whitespace-pre-wrap">{note.text}</p>
                 <p className="mt-1 text-[11px] text-muted-foreground">Note {index + 1}</p>
               </div>
             ))}
@@ -1073,7 +1229,15 @@ function BranchContext({ pr }: { pr: GitResolvedPullRequest }) {
   );
 }
 
-function PRReviewContent({ pr, onBack }: { pr: GitResolvedPullRequest; onBack: () => void }) {
+function PRReviewContent({
+  pr,
+  project,
+  onBack,
+}: {
+  pr: GitResolvedPullRequest;
+  project: Project;
+  onBack: () => void;
+}) {
   return (
     <div className="space-y-6">
       <button
@@ -1082,7 +1246,7 @@ function PRReviewContent({ pr, onBack }: { pr: GitResolvedPullRequest; onBack: (
         className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
       >
         <ArrowRightIcon className="size-3 rotate-180" />
-        Back to all PRs
+        Back to all PRs in {projectLabel(project)}
       </button>
       <PRHeader pr={pr} />
       <Separator />
@@ -1099,21 +1263,41 @@ function PRReviewContent({ pr, onBack }: { pr: GitResolvedPullRequest; onBack: (
 
 // ── PR List (main dashboard) ─────────────────────────────────────────
 
-function PRListDashboard({ cwd }: { cwd: string }) {
+function PRListDashboard({
+  project,
+  projects,
+  selectedProjectId,
+  onProjectChange,
+}: {
+  project: Project;
+  projects: readonly Project[];
+  selectedProjectId: string;
+  onProjectChange: (projectId: string) => void;
+}) {
   const [viewMode, setViewMode] = useState<ViewMode>("table");
   const [listSubMode, setListSubMode] = useState<ListSubMode>("rows");
+  const [stateFilter, setStateFilter] = useState<PullRequestState>("open");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeLabel, setActiveLabel] = useState<string | null>(null);
   const [selectedPr, setSelectedPr] = useState<GitResolvedPullRequestWithLabels | null>(null);
 
   const listQuery = useQuery(
     gitListPullRequestsQueryOptions({
-      cwd,
-      state: "open",
+      cwd: project.cwd,
+      state: stateFilter,
     }),
   );
 
-  const pullRequests = listQuery.data?.pullRequests ?? [];
+  const pullRequests = listQuery.data?.pullRequests ?? EMPTY_PULL_REQUESTS;
+
+  useEffect(() => {
+    setSelectedPr(null);
+  }, [project.id, stateFilter]);
+
+  useEffect(() => {
+    setSearchQuery("");
+    setActiveLabel(null);
+  }, [project.id]);
 
   // Extract unique labels
   const allLabels = useMemo(() => {
@@ -1125,7 +1309,7 @@ function PRListDashboard({ cwd }: { cwd: string }) {
         }
       }
     }
-    return Array.from(labelMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+    return Array.from(labelMap.values()).toSorted((a, b) => a.name.localeCompare(b.name));
   }, [pullRequests]);
 
   // Filter PRs
@@ -1151,31 +1335,54 @@ function PRListDashboard({ cwd }: { cwd: string }) {
     return filtered;
   }, [pullRequests, activeLabel, searchQuery]);
 
+  const hasLocalFilters = searchQuery.trim().length > 0 || activeLabel !== null;
+  const emptyState = hasLocalFilters ? (
+    <PREmptyState
+      title={`No ${stateFilter} pull requests match the current filters.`}
+      description={`The selected repository is ${projectLabel(project)}. Clear the search or label filter to see all loaded ${stateFilter} pull requests.`}
+    />
+  ) : (
+    <PREmptyState
+      title={`No ${stateFilter} pull requests found for ${projectLabel(project)}.`}
+      description="Try a different repository or switch the GitHub state filter."
+    />
+  );
+
   // If a PR is selected, show the detail view
   if (selectedPr) {
-    return <PRReviewContent pr={selectedPr} onBack={() => setSelectedPr(null)} />;
+    return <PRReviewContent pr={selectedPr} project={project} onBack={() => setSelectedPr(null)} />;
   }
 
   return (
     <div className="space-y-6">
-      {/* Title + view controls */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="space-y-2">
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">Pull Requests</h1>
           <p className="text-sm text-muted-foreground">
             {listQuery.isLoading
               ? "Loading pull requests..."
-              : `${filteredPRs.length} of ${pullRequests.length} open pull request${pullRequests.length === 1 ? "" : "s"}`}
+              : `Showing ${filteredPRs.length} of ${pullRequests.length} ${stateFilter} pull request${pullRequests.length === 1 ? "" : "s"} for ${projectLabel(project)}.`}
           </p>
         </div>
-
-        <ViewModeToolbar
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-          listSubMode={listSubMode}
-          onListSubModeChange={setListSubMode}
+        <AppliedScopeSummary
+          project={project}
+          state={stateFilter}
+          searchQuery={searchQuery}
+          activeLabel={activeLabel}
         />
       </div>
+
+      <ScopeToolbar
+        projects={projects}
+        selectedProjectId={selectedProjectId}
+        onProjectChange={onProjectChange}
+        state={stateFilter}
+        onStateChange={setStateFilter}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        listSubMode={listSubMode}
+        onListSubModeChange={setListSubMode}
+      />
 
       {/* Loading state */}
       {listQuery.isLoading && (
@@ -1204,7 +1411,6 @@ function PRListDashboard({ cwd }: { cwd: string }) {
       {/* Loaded state */}
       {!listQuery.isLoading && !listQuery.isError && (
         <>
-          {/* Filter bar */}
           <LabelFilterBar
             allLabels={allLabels}
             activeLabel={activeLabel}
@@ -1213,21 +1419,36 @@ function PRListDashboard({ cwd }: { cwd: string }) {
             onSearchChange={setSearchQuery}
           />
 
-          {/* View content */}
           {viewMode === "table" && (
-            <PRTableView pullRequests={filteredPRs} onSelect={setSelectedPr} />
+            <PRTableView
+              pullRequests={filteredPRs}
+              onSelect={setSelectedPr}
+              emptyState={emptyState}
+            />
           )}
 
           {viewMode === "list" && listSubMode === "rows" && (
-            <PRListRowsView pullRequests={filteredPRs} onSelect={setSelectedPr} />
+            <PRListRowsView
+              pullRequests={filteredPRs}
+              onSelect={setSelectedPr}
+              emptyState={emptyState}
+            />
           )}
 
           {viewMode === "list" && listSubMode === "grid" && (
-            <PRListGridView pullRequests={filteredPRs} onSelect={setSelectedPr} />
+            <PRListGridView
+              pullRequests={filteredPRs}
+              onSelect={setSelectedPr}
+              emptyState={emptyState}
+            />
           )}
 
           {viewMode === "kanban" && (
-            <PRKanbanView pullRequests={filteredPRs} onSelect={setSelectedPr} />
+            <PRKanbanView
+              pullRequests={filteredPRs}
+              onSelect={setSelectedPr}
+              emptyState={emptyState}
+            />
           )}
         </>
       )}
@@ -1238,7 +1459,23 @@ function PRListDashboard({ cwd }: { cwd: string }) {
 // ── Route view ───────────────────────────────────────────────────────
 
 function PRReviewRouteView() {
-  const cwd = useFirstProjectCwd();
+  const projects = useProjects();
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (projects.length === 0) {
+      setSelectedProjectId(null);
+      return;
+    }
+
+    setSelectedProjectId((current) =>
+      current && projects.some((project) => project.id === current) ? current : projects[0]!.id,
+    );
+  }, [projects]);
+
+  const selectedProject =
+    (selectedProjectId ? projects.find((project) => project.id === selectedProjectId) : null) ??
+    null;
 
   return (
     <SidebarInset className="h-dvh min-h-0 overflow-hidden overscroll-y-none bg-background text-foreground isolate">
@@ -1268,8 +1505,13 @@ function PRReviewRouteView() {
         {/* Content */}
         <div className="flex-1 overflow-y-auto">
           <div className={cn("mx-auto w-full px-6 py-8", "max-w-5xl")}>
-            {cwd ? (
-              <PRListDashboard cwd={cwd} />
+            {selectedProject ? (
+              <PRListDashboard
+                project={selectedProject}
+                projects={projects}
+                selectedProjectId={selectedProjectId ?? selectedProject.id}
+                onProjectChange={setSelectedProjectId}
+              />
             ) : (
               <div className="flex flex-1 items-center justify-center py-20">
                 <div className="text-center space-y-2">

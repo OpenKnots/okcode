@@ -5,12 +5,10 @@ import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { ThreadId, type TurnId } from "@okcode/contracts";
 import { CheckIcon, ChevronDownIcon, Columns2Icon, Rows3Icon, TextWrapIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { openInPreferredEditor } from "../editorPreferences";
 import { gitBranchesQueryOptions } from "~/lib/gitReactQuery";
 import { checkpointDiffQueryOptions } from "~/lib/providerReactQuery";
 import { cn } from "~/lib/utils";
-import { readNativeApi } from "../nativeApi";
-import { resolvePathLinkTarget } from "../terminal-links";
+import { useCodeViewerStore } from "../codeViewerStore";
 import { parseDiffRouteSearch, stripDiffSearchParams } from "../diffRouteSearch";
 import { useTheme } from "../hooks/useTheme";
 import { buildPatchCacheKey } from "../lib/diffRendering";
@@ -220,7 +218,7 @@ function DiffFileSection(props: {
           type="button"
           className="min-w-0 flex-1 truncate text-left font-mono text-[11px] text-foreground/90 underline-offset-2 hover:underline"
           onClick={() => onOpenInEditor(filePath)}
-          title={`Open ${filePath} in editor`}
+          title={`Open ${filePath}`}
         >
           {filePath}
         </button>
@@ -476,16 +474,13 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
     target?.scrollIntoView({ block: "nearest" });
   }, [selectedFilePath, renderableFiles]);
 
-  const openDiffFileInEditor = useCallback(
+  const openFileInCodeViewer = useCodeViewerStore((state) => state.openFile);
+  const openDiffFileInCodeViewer = useCallback(
     (filePath: string) => {
-      const api = readNativeApi();
-      if (!api) return;
-      const targetPath = activeCwd ? resolvePathLinkTarget(filePath, activeCwd) : filePath;
-      void openInPreferredEditor(api, targetPath).catch((error) => {
-        console.warn("Failed to open diff file in editor.", error);
-      });
+      if (!activeCwd) return;
+      openFileInCodeViewer(activeCwd, filePath);
     },
-    [activeCwd],
+    [activeCwd, openFileInCodeViewer],
   );
   const updateActiveReviewState = useCallback(
     (updater: (current: DiffFileReviewStateByPath) => DiffFileReviewStateByPath) => {
@@ -687,7 +682,7 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
                       fileDiff={fileDiff}
                       fileKey={themedFileKey}
                       filePath={filePath}
-                      onOpenInEditor={openDiffFileInEditor}
+                      onOpenInEditor={openDiffFileInCodeViewer}
                       onToggleAccepted={onToggleFileAccepted}
                       onToggleCollapsed={onToggleFileCollapsed}
                       resolvedTheme={resolvedTheme}

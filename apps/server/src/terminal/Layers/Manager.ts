@@ -1,5 +1,6 @@
 import { EventEmitter } from "node:events";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 import {
@@ -536,7 +537,12 @@ export class TerminalManagerRuntime extends EventEmitter<TerminalManagerEvents> 
   async open(raw: TerminalOpenInput): Promise<TerminalSessionSnapshot> {
     const input = decodeTerminalOpenInput(raw);
     return this.runWithThreadLock(input.threadId, async () => {
-      await this.assertValidCwd(input.cwd);
+      let cwd = input.cwd;
+      try {
+        await this.assertValidCwd(cwd);
+      } catch {
+        cwd = os.homedir();
+      }
 
       const sessionKey = toSessionKey(input.threadId, input.terminalId);
       const existing = this.sessions.get(sessionKey);
@@ -548,7 +554,7 @@ export class TerminalManagerRuntime extends EventEmitter<TerminalManagerEvents> 
         const session: TerminalSessionState = {
           threadId: input.threadId,
           terminalId: input.terminalId,
-          cwd: input.cwd,
+          cwd,
           status: "starting",
           pid: null,
           history,
@@ -566,7 +572,7 @@ export class TerminalManagerRuntime extends EventEmitter<TerminalManagerEvents> 
         };
         this.sessions.set(sessionKey, session);
         this.evictInactiveSessionsIfNeeded();
-        await this.startSession(session, { ...input, cols, rows }, "started");
+        await this.startSession(session, { ...input, cwd, cols, rows }, "started");
         return this.snapshot(session);
       }
 
@@ -577,9 +583,9 @@ export class TerminalManagerRuntime extends EventEmitter<TerminalManagerEvents> 
       const runtimeEnvChanged =
         JSON.stringify(currentRuntimeEnv) !== JSON.stringify(nextRuntimeEnv);
 
-      if (existing.cwd !== input.cwd || runtimeEnvChanged) {
+      if (existing.cwd !== cwd || runtimeEnvChanged) {
         this.stopProcess(existing);
-        existing.cwd = input.cwd;
+        existing.cwd = cwd;
         existing.runtimeEnv = nextRuntimeEnv;
         existing.history = "";
         existing.pendingHistoryControlSequence = "";
@@ -596,7 +602,7 @@ export class TerminalManagerRuntime extends EventEmitter<TerminalManagerEvents> 
       if (!existing.process) {
         await this.startSession(
           existing,
-          { ...input, cols: targetCols, rows: targetRows },
+          { ...input, cwd, cols: targetCols, rows: targetRows },
           "started",
         );
         return this.snapshot(existing);
@@ -661,7 +667,12 @@ export class TerminalManagerRuntime extends EventEmitter<TerminalManagerEvents> 
   async restart(raw: TerminalRestartInput): Promise<TerminalSessionSnapshot> {
     const input = decodeTerminalRestartInput(raw);
     return this.runWithThreadLock(input.threadId, async () => {
-      await this.assertValidCwd(input.cwd);
+      let cwd = input.cwd;
+      try {
+        await this.assertValidCwd(cwd);
+      } catch {
+        cwd = os.homedir();
+      }
 
       const sessionKey = toSessionKey(input.threadId, input.terminalId);
       let session = this.sessions.get(sessionKey);
@@ -671,7 +682,7 @@ export class TerminalManagerRuntime extends EventEmitter<TerminalManagerEvents> 
         session = {
           threadId: input.threadId,
           terminalId: input.terminalId,
-          cwd: input.cwd,
+          cwd,
           status: "starting",
           pid: null,
           history: "",
@@ -691,7 +702,7 @@ export class TerminalManagerRuntime extends EventEmitter<TerminalManagerEvents> 
         this.evictInactiveSessionsIfNeeded();
       } else {
         this.stopProcess(session);
-        session.cwd = input.cwd;
+        session.cwd = cwd;
         session.runtimeEnv = normalizedRuntimeEnv(input.env);
       }
 
@@ -701,7 +712,7 @@ export class TerminalManagerRuntime extends EventEmitter<TerminalManagerEvents> 
       session.history = "";
       session.pendingHistoryControlSequence = "";
       await this.persistHistory(input.threadId, input.terminalId, session.history);
-      await this.startSession(session, { ...input, cols, rows }, "restarted");
+      await this.startSession(session, { ...input, cwd, cols, rows }, "restarted");
       return this.snapshot(session);
     });
   }

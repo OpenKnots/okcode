@@ -1,0 +1,29 @@
+{
+  "name": "@okcode/mobile",
+  "version": "0.0.4",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "bun run scripts/build-mobile-shell.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "sync": "cap sync",
+    "open:ios": "cap open ios",
+    "open:android": "cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.3.0",
+    "@capacitor/app": "^8.1.0",
+    "@capacitor/browser": "^8.0.3",
+    "@capacitor/core": "^8.3.0",
+    "@capacitor/ios": "^8.3.0",
+    "capacitor-secure-storage-plugin": "^0.13.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.3.0",
+    "@okcode/contracts": "workspace:*",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

@@ -1,5 +1,6 @@
 import type { NativeApi } from "@okcode/contracts";
 
+import { hasRuntimeConnectionTarget } from "./lib/runtimeBridge";
 import { createWsNativeApi } from "./wsNativeApi";
 
 let cachedApi: NativeApi | undefined;
@@ -11,6 +12,10 @@ export function readNativeApi(): NativeApi | undefined {
   if (window.nativeApi) {
     cachedApi = window.nativeApi;
     return cachedApi;
+  }
+
+  if (!hasRuntimeConnectionTarget()) {
+    return undefined;
   }
 
   cachedApi = createWsNativeApi();

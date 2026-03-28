@@ -54,6 +54,7 @@ import { derivePendingApprovals, derivePendingUserInputs } from "../session-logi
 import { gitRemoveWorktreeMutationOptions, gitStatusQueryOptions } from "../lib/gitReactQuery";
 import { serverConfigQueryOptions } from "../lib/serverReactQuery";
 import { readNativeApi } from "../nativeApi";
+import { resolveServerHttpOrigin } from "../lib/runtimeBridge";
 import { useComposerDraftStore } from "../composerDraftStore";
 import { useHandleNewThread } from "../hooks/useHandleNewThread";
 import { selectThreadTerminalState, useTerminalStateStore } from "../terminalStateStore";
@@ -95,6 +96,7 @@ import { isNonEmpty as isNonEmptyString } from "effect/String";
 import { useTheme } from "~/hooks/useTheme";
 import {
   getVisibleThreadsForProject,
+  isActionableThreadStatus,
   resolveProjectStatusIndicator,
   resolveSidebarNewThreadEnvMode,
   resolveThreadRowClassName,
@@ -111,6 +113,8 @@ import {
   readPackageScriptInventory,
   resolvePackageManagerResolution,
 } from "~/projectScriptDefaults";
+import { useClientMode } from "~/hooks/useClientMode";
+import type { Thread } from "../types";
 
 const EMPTY_KEYBINDINGS: ResolvedKeybindingsConfig = [];
 const THREAD_PREVIEW_LIMIT = 10;
@@ -210,21 +214,7 @@ function OKWordmark() {
  * sources WsTransport uses, converting ws(s) to http(s).
  */
 function getServerHttpOrigin(): string {
-  const bridgeUrl = window.desktopBridge?.getWsUrl();
-  const envUrl = import.meta.env.VITE_WS_URL as string | undefined;
-  const wsUrl =
-    bridgeUrl && bridgeUrl.length > 0
-      ? bridgeUrl
-      : envUrl && envUrl.length > 0
-        ? envUrl
-        : `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.hostname}:${window.location.port}`;
-  // Parse to extract just the origin, dropping path/query (e.g. ?token=…)
-  const httpUrl = wsUrl.replace(/^wss:/, "https:").replace(/^ws:/, "http:");
-  try {
-    return new URL(httpUrl).origin;
-  } catch {
-    return httpUrl;
-  }
+  return resolveServerHttpOrigin();
 }
 
 const serverHttpOrigin = getServerHttpOrigin();
@@ -363,6 +353,7 @@ function SortableProjectItem({
 }
 
 export default function Sidebar() {
+  const clientMode = useClientMode();
   const projects = useStore((store) => store.projects);
   const threads = useStore((store) => store.threads);
   const markThreadUnread = useStore((store) => store.markThreadUnread);
@@ -1134,6 +1125,45 @@ export default function Sidebar() {
     () => sortProjectsForSidebar(projects, threads, appSettings.sidebarProjectSortOrder),
     [appSettings.sidebarProjectSortOrder, projects, threads],
   );
+  const attentionThreads = useMemo(() => {
+    return threads
+      .map((thread) => {
+        const status = resolveThreadStatusPill({
+          thread,
+          hasPendingApprovals: derivePendingApprovals(thread.activities).length > 0,
+          hasPendingUserInput: derivePendingUserInputs(thread.activities).length > 0,
+        });
+        if (!isActionableThreadStatus(status)) {
+          return null;
+        }
+        const project = projects.find((entry) => entry.id === thread.projectId);
+        return {
+          thread,
+          projectName: project?.name ?? "Unknown project",
+          status,
+        };
+      })
+      .filter(
+        (
+          entry,
+        ): entry is {
+          thread: Thread;
+          projectName: string;
+          status: NonNullable<ReturnType<typeof resolveThreadStatusPill>>;
+        } => entry !== null,
+      )
+      .toSorted((a, b) => {
+        const leftPriority = a.status ? (a.status.label === "Error" ? 6 : 5) : 0;
+        const rightPriority = b.status ? (b.status.label === "Error" ? 6 : 5) : 0;
+        if (leftPriority !== rightPriority) {
+          return rightPriority - leftPriority;
+        }
+        return (
+          Date.parse(b.thread.updatedAt ?? b.thread.createdAt) -
+          Date.parse(a.thread.updatedAt ?? a.thread.createdAt)
+        );
+      });
+  }, [projects, threads]);
   const isManualProjectSorting = appSettings.sidebarProjectSortOrder === "manual";
 
   function renderProjectItem(
@@ -1764,6 +1794,65 @@ export default function Sidebar() {
                 </AlertAction>
               ) : null}
             </Alert>
+          </SidebarGroup>
+        ) : null}
+        {attentionThreads.length > 0 ? (
+          <SidebarGroup className="px-2 pt-2 pb-0">
+            <div className="mb-1 flex items-center justify-between px-2">
+              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+                Needs Attention
+              </span>
+              <span className="text-[10px] text-muted-foreground/50">
+                {attentionThreads.length}
+              </span>
+            </div>
+            <SidebarMenu>
+              {attentionThreads
+                .slice(0, clientMode === "mobile" ? 6 : 4)
+                .map(({ thread, projectName, status }) => {
+                  const isActive = routeThreadId === thread.id;
+                  return (
+                    <SidebarMenuItem key={`attention:${thread.id}`} className="mt-1 first:mt-0">
+                      <SidebarMenuButton
+                        render={<button type="button" />}
+                        size="sm"
+                        isActive={isActive}
+                        className={cn(
+                          "h-auto min-h-10 translate-x-0 items-start gap-2 px-2 py-2 text-left",
+                          isActive
+                            ? "bg-accent/85 text-foreground dark:bg-accent/55"
+                            : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                        )}
+                        onClick={() => {
+                          void navigate({
+                            to: "/$threadId",
+                            params: { threadId: thread.id },
+                          });
+                        }}
+                      >
+                        <span
+                          className={cn(
+                            "mt-1 inline-flex size-2 shrink-0 rounded-full",
+                            status.dotClass,
+                            status.pulse ? "animate-pulse" : "",
+                          )}
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-xs font-medium text-foreground">
+                            {thread.title}
+                          </span>
+                          <span className="mt-0.5 block truncate text-[10px] text-muted-foreground/65">
+                            {projectName}
+                          </span>
+                        </span>
+                        <span className={cn("shrink-0 text-[10px]", status.colorClass)}>
+                          {status.label}
+                        </span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+            </SidebarMenu>
           </SidebarGroup>
         ) : null}
         <SidebarGroup className="px-2 py-2">

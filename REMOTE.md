@@ -2,6 +2,10 @@
 
 Use this when you want to open OK Code from another device (phone, tablet, another laptop).
 
+The web client supports direct browser access. The native mobile shell in `apps/mobile` uses the
+same server, but stores the auth token locally and pairs through a deep link instead of keeping the
+token in the browser URL.
+
 ## CLI ↔ Env option map
 
 The OK Code CLI accepts the following configuration options, available either as CLI flags or environment variables:
@@ -38,9 +42,21 @@ Then open on your phone:
 
 `http://<your-machine-ip>:3773`
 
+To force the mobile companion layout during dogfooding, append:
+
+`?client=mobile`
+
 Example:
 
-`http://192.168.1.42:3773`
+`http://192.168.1.42:3773?client=mobile`
+
+To pair the native mobile app, construct a deep link using the same server URL and token:
+
+`okcode://pair?server=http%3A%2F%2F192.168.1.42%3A3773&token=<token>`
+
+The app also accepts a plain server URL that includes the token as a query parameter:
+
+`http://192.168.1.42:3773?token=<token>`
 
 Notes:
 
@@ -62,4 +78,27 @@ Open from any device in your tailnet:
 
 `http://<tailnet-ip>:3773`
 
+You can also append `?client=mobile` to force the companion layout.
+
+Native-app pairing uses the same deep-link format:
+
+`okcode://pair?server=http%3A%2F%2F<tailnet-ip>%3A3773&token=<token>`
+
 You can also bind `--host 0.0.0.0` and connect through the Tailnet IP, but binding directly to the Tailnet IP limits exposure.
+
+## 3) Build the native mobile shell
+
+The mobile shell wraps the built `apps/web` companion experience with a Capacitor runtime and a
+native pairing bridge.
+
+```bash
+bun run --cwd apps/mobile build
+bun run --cwd apps/mobile sync
+```
+
+Then open the generated projects:
+
+```bash
+bun run --cwd apps/mobile open:ios
+bun run --cwd apps/mobile open:android
+```

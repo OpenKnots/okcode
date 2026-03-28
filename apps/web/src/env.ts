@@ -6,3 +6,5 @@
 export const isElectron =
   typeof window !== "undefined" &&
   (window.desktopBridge !== undefined || window.nativeApi !== undefined);
+
+export const isMobileShell = typeof window !== "undefined" && window.mobileBridge !== undefined;

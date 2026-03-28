@@ -25,6 +25,8 @@ import { providerQueryKeys } from "../lib/providerReactQuery";
 import { projectQueryKeys } from "../lib/projectReactQuery";
 import { collectActiveTerminalThreadIds } from "../lib/terminalStateCleanup";
 import { OnboardingDialog } from "../components/onboarding/OnboardingDialog";
+import { MobilePairingScreen } from "../components/mobile/MobilePairingScreen";
+import { useMobilePairingState } from "../hooks/useMobilePairingState";
 
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient;
@@ -37,6 +39,22 @@ export const Route = createRootRouteWithContext<{
 });
 
 function RootRouteView() {
+  const { isMobileShell, isLoading, pairingState } = useMobilePairingState();
+
+  if (isMobileShell && isLoading) {
+    return (
+      <div className="flex h-screen flex-col bg-background text-foreground">
+        <div className="flex flex-1 items-center justify-center">
+          <p className="text-sm text-muted-foreground">Restoring mobile pairing...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isMobileShell && !pairingState?.paired) {
+    return <MobilePairingScreen />;
+  }
+
   if (!readNativeApi()) {
     return (
       <div className="flex h-screen flex-col bg-background text-foreground">

@@ -8,6 +8,7 @@ import {
 } from "@okcode/contracts";
 import { decodeUnknownJsonResult, formatSchemaError } from "@okcode/shared/schemaJson";
 import { Result, Schema } from "effect";
+import { resolveRuntimeWsUrl } from "./lib/runtimeBridge";
 
 type PushListener<C extends WsPushChannel> = (message: WsPushMessage<C>) => void;
 
@@ -25,7 +26,7 @@ interface RequestOptions {
   readonly timeoutMs?: number | null;
 }
 
-type TransportState = "connecting" | "open" | "reconnecting" | "closed" | "disposed";
+export type TransportState = "connecting" | "open" | "reconnecting" | "closed" | "disposed";
 
 const REQUEST_TIMEOUT_MS = 60_000;
 const RECONNECT_DELAYS_MS = [500, 1_000, 2_000, 4_000, 8_000];
@@ -55,6 +56,7 @@ export class WsTransport {
   private nextId = 1;
   private readonly pending = new Map<string, PendingRequest>();
   private readonly listeners = new Map<string, Set<(message: WsPush) => void>>();
+  private readonly stateListeners = new Set<(state: TransportState) => void>();
   private readonly latestPushByChannel = new Map<string, WsPush>();
   private readonly outboundQueue: string[] = [];
   private reconnectAttempt = 0;
@@ -64,15 +66,7 @@ export class WsTransport {
   private readonly url: string;
 
   constructor(url?: string) {
-    const bridgeUrl = window.desktopBridge?.getWsUrl();
-    const envUrl = import.meta.env.VITE_WS_URL as string | undefined;
-    this.url =
-      url ??
-      (bridgeUrl && bridgeUrl.length > 0
-        ? bridgeUrl
-        : envUrl && envUrl.length > 0
-          ? envUrl
-          : `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.hostname}:${window.location.port}`);
+    this.url = resolveRuntimeWsUrl(url);
     this.connect();
   }
 
@@ -150,9 +144,17 @@ export class WsTransport {
     return this.state;
   }
 
+  subscribeState(listener: (state: TransportState) => void): () => void {
+    this.stateListeners.add(listener);
+    listener(this.state);
+    return () => {
+      this.stateListeners.delete(listener);
+    };
+  }
+
   dispose() {
     this.disposed = true;
-    this.state = "disposed";
+    this.setState("disposed");
     if (this.reconnectTimer !== null) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
@@ -174,12 +176,12 @@ export class WsTransport {
       return;
     }
 
-    this.state = this.reconnectAttempt > 0 ? "reconnecting" : "connecting";
+    this.setState(this.reconnectAttempt > 0 ? "reconnecting" : "connecting");
     const ws = new WebSocket(this.url);
 
     ws.addEventListener("open", () => {
       this.ws = ws;
-      this.state = "open";
+      this.setState("open");
       this.reconnectAttempt = 0;
       this.flushQueue();
     });
@@ -201,10 +203,10 @@ export class WsTransport {
         }
       }
       if (this.disposed) {
-        this.state = "disposed";
+        this.setState("disposed");
         return;
       }
-      this.state = "closed";
+      this.setState("closed");
       this.scheduleReconnect();
     });
 
@@ -305,5 +307,19 @@ export class WsTransport {
       this.reconnectTimer = null;
       this.connect();
     }, delay);
+  }
+
+  private setState(nextState: TransportState) {
+    if (this.state === nextState) {
+      return;
+    }
+    this.state = nextState;
+    for (const listener of this.stateListeners) {
+      try {
+        listener(nextState);
+      } catch {
+        // Swallow listener errors
+      }
+    }
   }
 }

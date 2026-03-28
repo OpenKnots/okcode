@@ -185,6 +185,8 @@ import {
   renderProviderTraitsPicker,
 } from "./chat/composerProviderRegistry";
 import { ProviderHealthBanner } from "./chat/ProviderHealthBanner";
+import { CompanionConnectionBanner } from "./chat/CompanionConnectionBanner";
+import { MobileThreadAttentionBar } from "./chat/MobileThreadAttentionBar";
 import { ThreadErrorBanner } from "./chat/ThreadErrorBanner";
 import {
   buildExpiredTerminalContextToastCopy,
@@ -204,6 +206,8 @@ import {
 } from "./ChatView.logic";
 import { useLocalStorage } from "~/hooks/useLocalStorage";
 import { usePreviewStateStore } from "~/previewStateStore";
+import { useClientMode } from "~/hooks/useClientMode";
+import { useTransportState } from "~/hooks/useTransportState";
 
 const ATTACHMENT_PREVIEW_HANDOFF_TTL_MS = 5000;
 const IMAGE_SIZE_LIMIT_LABEL = `${Math.round(PROVIDER_SEND_TURN_MAX_IMAGE_BYTES / (1024 * 1024))}MB`;
@@ -275,6 +279,8 @@ interface RunProjectScriptOptions {
 }
 
 export default function ChatView({ threadId }: ChatViewProps) {
+  const clientMode = useClientMode();
+  const transportState = useTransportState();
   const threads = useStore((store) => store.threads);
   const projects = useStore((store) => store.projects);
   const markThreadVisited = useStore((store) => store.markThreadVisited);
@@ -726,6 +732,8 @@ export default function ChatView({ threadId }: ChatViewProps) {
   const phase = derivePhase(activeThread?.session ?? null);
   const isSendBusy = sendPhase !== "idle";
   const isPreparingWorktree = sendPhase === "preparing-worktree";
+  const isTransportReady = transportState === "open";
+  const isRemoteActionBlocked = !isTransportReady;
   const isWorking = phase === "running" || isSendBusy || isConnecting || isRevertingCheckpoint;
   const nowIso = new Date(nowTick).toISOString();
   const activeWorkStartedAt = deriveActiveWorkStartedAt(
@@ -812,6 +820,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
     latestTurnSettled &&
     hasActionableProposedPlan(activeProposedPlan);
   const activePendingApproval = pendingApprovals[0] ?? null;
+  const isMobileCompanion = clientMode === "mobile";
   const isComposerApprovalState = activePendingApproval !== null;
   const hasComposerHeader =
     isComposerApprovalState ||
@@ -3082,7 +3091,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
 
   const onInterrupt = async () => {
     const api = readNativeApi();
-    if (!api || !activeThread) return;
+    if (!api || !activeThread || isRemoteActionBlocked) return;
     await api.orchestration.dispatchCommand({
       type: "thread.turn.interrupt",
       commandId: newCommandId(),
@@ -3094,7 +3103,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
   const onRespondToApproval = useCallback(
     async (requestId: ApprovalRequestId, decision: ProviderApprovalDecision) => {
       const api = readNativeApi();
-      if (!api || !activeThreadId) return;
+      if (!api || !activeThreadId || isRemoteActionBlocked) return;
 
       setRespondingRequestIds((existing) =>
         existing.includes(requestId) ? existing : [...existing, requestId],
@@ -3116,13 +3125,13 @@ export default function ChatView({ threadId }: ChatViewProps) {
         });
       setRespondingRequestIds((existing) => existing.filter((id) => id !== requestId));
     },
-    [activeThreadId, setStoreThreadError],
+    [activeThreadId, isRemoteActionBlocked, setStoreThreadError],
   );
 
   const onRespondToUserInput = useCallback(
     async (requestId: ApprovalRequestId, answers: Record<string, unknown>) => {
       const api = readNativeApi();
-      if (!api || !activeThreadId) return;
+      if (!api || !activeThreadId || isRemoteActionBlocked) return;
 
       setRespondingUserInputRequestIds((existing) =>
         existing.includes(requestId) ? existing : [...existing, requestId],
@@ -3144,7 +3153,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
         });
       setRespondingUserInputRequestIds((existing) => existing.filter((id) => id !== requestId));
     },
-    [activeThreadId, setStoreThreadError],
+    [activeThreadId, isRemoteActionBlocked, setStoreThreadError],
   );
 
   const setActivePendingUserInputQuestionIndex = useCallback(
@@ -3253,6 +3262,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
         !isServerThread ||
         isSendBusy ||
         isConnecting ||
+        isRemoteActionBlocked ||
         sendInFlightRef.current
       ) {
         return;
@@ -3356,6 +3366,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
       beginSendPhase,
       forceStickToBottom,
       isConnecting,
+      isRemoteActionBlocked,
       isSendBusy,
       isServerThread,
       persistThreadSettingsForNextTurn,
@@ -3382,6 +3393,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
       !isServerThread ||
       isSendBusy ||
       isConnecting ||
+      isRemoteActionBlocked ||
       sendInFlightRef.current
     ) {
       return;
@@ -3485,6 +3497,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
     activeThread,
     beginSendPhase,
     isConnecting,
+    isRemoteActionBlocked,
     isSendBusy,
     isServerThread,
     navigate,
@@ -4001,6 +4014,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
           previewDock={previewDock}
           gitCwd={gitCwd}
           diffOpen={diffOpen}
+          clientMode={clientMode}
           onRunProjectScript={(script) => {
             void runProjectScript(script);
           }}
@@ -4017,6 +4031,11 @@ export default function ChatView({ threadId }: ChatViewProps) {
       </header>
 
       {/* Error banner */}
+      {isMobileCompanion ? (
+        <div className="mx-auto flex w-full max-w-7xl px-3 pt-3 sm:px-5">
+          <CompanionConnectionBanner state={transportState} />
+        </div>
+      ) : null}
       <ProviderHealthBanner status={activeProviderStatus} />
       <ThreadErrorBanner
         error={activeThread.error}
@@ -4065,6 +4084,20 @@ export default function ChatView({ threadId }: ChatViewProps) {
 
           {/* Chat column */}
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            {isMobileCompanion ? (
+              <div className="mx-auto w-full max-w-7xl px-3 pt-3 sm:px-5">
+                <MobileThreadAttentionBar
+                  activePendingApproval={activePendingApproval}
+                  activePendingUserInput={activePendingUserInput}
+                  hasPlanReady={showPlanFollowUpPrompt && activeProposedPlan !== null}
+                  providerStatus={activeProviderStatus}
+                  onReview={() => {
+                    scrollMessagesToBottom("smooth");
+                    focusComposer();
+                  }}
+                />
+              </div>
+            ) : null}
             {/* Messages Wrapper */}
             <div className="relative flex min-h-0 flex-1 flex-col">
               {/* Messages */}
@@ -4320,7 +4353,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
                                   ? "Ask for follow-up changes or attach images"
                                   : "Ask anything, @tag files/folders, or use / to show available commands"
                         }
-                        disabled={isConnecting || isComposerApprovalState}
+                        disabled={isConnecting || isComposerApprovalState || isRemoteActionBlocked}
                       />
                     </div>
 
@@ -4562,6 +4595,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
                                 disabled={
                                   isSendBusy ||
                                   isConnecting ||
+                                  isRemoteActionBlocked ||
                                   !composerSendState.hasSendableContent
                                 }
                                 aria-label="Queue message"
@@ -4591,9 +4625,13 @@ export default function ChatView({ threadId }: ChatViewProps) {
                                   type="submit"
                                   size="sm"
                                   className="h-9 rounded-full px-4 sm:h-8"
-                                  disabled={isSendBusy || isConnecting}
+                                  disabled={isSendBusy || isConnecting || isRemoteActionBlocked}
                                 >
-                                  {isConnecting || isSendBusy ? "Sending..." : "Refine"}
+                                  {isConnecting || isSendBusy
+                                    ? "Sending..."
+                                    : isRemoteActionBlocked
+                                      ? "Offline"
+                                      : "Refine"}
                                 </Button>
                               ) : (
                                 <div className="flex items-center">
@@ -4601,9 +4639,13 @@ export default function ChatView({ threadId }: ChatViewProps) {
                                     type="submit"
                                     size="sm"
                                     className="h-9 rounded-l-full rounded-r-none px-4 sm:h-8"
-                                    disabled={isSendBusy || isConnecting}
+                                    disabled={isSendBusy || isConnecting || isRemoteActionBlocked}
                                   >
-                                    {isConnecting || isSendBusy ? "Sending..." : "Implement"}
+                                    {isConnecting || isSendBusy
+                                      ? "Sending..."
+                                      : isRemoteActionBlocked
+                                        ? "Offline"
+                                        : "Implement"}
                                   </Button>
                                   <Menu>
                                     <MenuTrigger
@@ -4613,7 +4655,9 @@ export default function ChatView({ threadId }: ChatViewProps) {
                                           variant="default"
                                           className="h-9 rounded-l-none rounded-r-full border-l-white/12 px-2 sm:h-8"
                                           aria-label="Implementation actions"
-                                          disabled={isSendBusy || isConnecting}
+                                          disabled={
+                                            isSendBusy || isConnecting || isRemoteActionBlocked
+                                          }
                                         />
                                       }
                                     >
@@ -4621,7 +4665,9 @@ export default function ChatView({ threadId }: ChatViewProps) {
                                     </MenuTrigger>
                                     <MenuPopup align="end" side="top">
                                       <MenuItem
-                                        disabled={isSendBusy || isConnecting}
+                                        disabled={
+                                          isSendBusy || isConnecting || isRemoteActionBlocked
+                                        }
                                         onClick={() => void onImplementPlanInNewThread()}
                                       >
                                         Implement in a new thread
@@ -4637,16 +4683,19 @@ export default function ChatView({ threadId }: ChatViewProps) {
                                 disabled={
                                   isSendBusy ||
                                   isConnecting ||
+                                  isRemoteActionBlocked ||
                                   !composerSendState.hasSendableContent
                                 }
                                 aria-label={
                                   isConnecting
                                     ? "Connecting"
-                                    : isPreparingWorktree
-                                      ? "Preparing worktree"
-                                      : isSendBusy
-                                        ? "Sending"
-                                        : "Send message"
+                                    : isRemoteActionBlocked
+                                      ? "Disconnected"
+                                      : isPreparingWorktree
+                                        ? "Preparing worktree"
+                                        : isSendBusy
+                                          ? "Sending"
+                                          : "Send message"
                                 }
                               >
                                 {isConnecting || isSendBusy ? (

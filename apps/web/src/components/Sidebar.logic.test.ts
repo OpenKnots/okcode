@@ -8,6 +8,7 @@ import {
   resolveSidebarNewThreadEnvMode,
   resolveThreadRowClassName,
   resolveThreadStatusPill,
+  isActionableThreadStatus,
   shouldClearThreadSelectionOnMouseDown,
   sortProjectsForSidebar,
   sortThreadsForSidebar,
@@ -38,6 +39,7 @@ describe("hasUnseenCompletion", () => {
   it("returns true when a thread completed after its last visit", () => {
     expect(
       hasUnseenCompletion({
+        error: null,
         interactionMode: "chat",
         latestTurn: makeLatestTurn(),
         lastVisitedAt: "2026-03-09T10:04:00.000Z",
@@ -98,6 +100,7 @@ describe("resolveSidebarNewThreadEnvMode", () => {
 describe("resolveThreadStatusPill", () => {
   const baseThread = {
     interactionMode: "plan" as const,
+    error: null,
     latestTurn: null,
     lastVisitedAt: undefined,
     proposedPlans: [],
@@ -118,6 +121,19 @@ describe("resolveThreadStatusPill", () => {
         hasPendingUserInput: true,
       }),
     ).toMatchObject({ label: "Pending Approval", pulse: false });
+  });
+
+  it("shows error before all other statuses", () => {
+    expect(
+      resolveThreadStatusPill({
+        thread: {
+          ...baseThread,
+          error: "Socket disconnected",
+        },
+        hasPendingApprovals: true,
+        hasPendingUserInput: true,
+      }),
+    ).toMatchObject({ label: "Error", pulse: false });
   });
 
   it("shows awaiting input when plan mode is blocked on user answers", () => {
@@ -216,6 +232,39 @@ describe("resolveThreadStatusPill", () => {
         hasPendingUserInput: false,
       }),
     ).toMatchObject({ label: "Completed", pulse: false });
+  });
+});
+
+describe("isActionableThreadStatus", () => {
+  it("treats blocking and follow-up states as actionable", () => {
+    expect(
+      isActionableThreadStatus({
+        label: "Pending Approval",
+        colorClass: "",
+        dotClass: "",
+        pulse: false,
+      }),
+    ).toBe(true);
+    expect(
+      isActionableThreadStatus({
+        label: "Plan Ready",
+        colorClass: "",
+        dotClass: "",
+        pulse: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("does not treat background activity as actionable", () => {
+    expect(
+      isActionableThreadStatus({
+        label: "Working",
+        colorClass: "",
+        dotClass: "",
+        pulse: true,
+      }),
+    ).toBe(false);
+    expect(isActionableThreadStatus(null)).toBe(false);
   });
 });
 

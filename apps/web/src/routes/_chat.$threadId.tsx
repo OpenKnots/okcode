@@ -27,6 +27,7 @@ import {
 import { useCodeViewerStore } from "../codeViewerStore";
 import { useMutuallyExclusivePanels } from "../mutuallyExclusivePanels";
 import { useMediaQuery } from "../hooks/useMediaQuery";
+import { useClientMode } from "../hooks/useClientMode";
 import { useStore } from "../store";
 import { Sheet, SheetPopup } from "../components/ui/sheet";
 import { Sidebar, SidebarInset, SidebarProvider, SidebarRail } from "~/components/ui/sidebar";
@@ -62,6 +63,32 @@ const DiffPanelSheet = (props: {
         showCloseButton={false}
         keepMounted
         className="w-[min(88vw,820px)] max-w-[820px] p-0"
+      >
+        {props.children}
+      </SheetPopup>
+    </Sheet>
+  );
+};
+
+const CodeViewerSheet = (props: {
+  children: ReactNode;
+  codeViewerOpen: boolean;
+  onCloseCodeViewer: () => void;
+}) => {
+  return (
+    <Sheet
+      open={props.codeViewerOpen}
+      onOpenChange={(open) => {
+        if (!open) {
+          props.onCloseCodeViewer();
+        }
+      }}
+    >
+      <SheetPopup
+        side="right"
+        showCloseButton={false}
+        keepMounted
+        className="w-[min(92vw,860px)] max-w-[860px] p-0"
       >
         {props.children}
       </SheetPopup>
@@ -247,7 +274,10 @@ function ChatThreadRouteView() {
   );
   const routeThreadExists = threadExists || draftThreadExists;
   const diffOpen = search.diff === "1";
-  const shouldUseDiffSheet = useMediaQuery(DIFF_INLINE_LAYOUT_MEDIA_QUERY);
+  const clientMode = useClientMode();
+  const shouldUseDiffSheet =
+    clientMode === "mobile" || useMediaQuery(DIFF_INLINE_LAYOUT_MEDIA_QUERY);
+  const shouldUseCodeViewerSheet = clientMode === "mobile";
 
   // Code viewer state from Zustand store
   const codeViewerOpen = useCodeViewerStore((state) => state.isOpen);
@@ -339,11 +369,17 @@ function ChatThreadRouteView() {
       <SidebarInset className="relative h-dvh min-h-0 overflow-hidden overscroll-y-none bg-background text-foreground">
         <ChatView key={threadId} threadId={threadId} />
       </SidebarInset>
-      <CodeViewerInlineSidebar
-        codeViewerOpen={codeViewerOpen}
-        onCloseCodeViewer={closeCodeViewer}
-        renderContent={shouldRenderCodeViewerContent}
-      />
+      {shouldUseCodeViewerSheet ? (
+        <CodeViewerSheet codeViewerOpen={codeViewerOpen} onCloseCodeViewer={closeCodeViewer}>
+          {shouldRenderCodeViewerContent ? <LazyCodeViewerPanel /> : null}
+        </CodeViewerSheet>
+      ) : (
+        <CodeViewerInlineSidebar
+          codeViewerOpen={codeViewerOpen}
+          onCloseCodeViewer={closeCodeViewer}
+          renderContent={shouldRenderCodeViewerContent}
+        />
+      )}
       <DiffPanelSheet diffOpen={diffOpen} onCloseDiff={closeDiff}>
         {shouldRenderDiffContent ? <LazyDiffPanel mode="sheet" /> : null}
       </DiffPanelSheet>

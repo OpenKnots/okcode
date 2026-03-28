@@ -19,6 +19,7 @@ import ProjectScriptsControl, { type NewProjectScriptInput } from "../ProjectScr
 import { Toggle } from "../ui/toggle";
 import { SidebarTrigger } from "../ui/sidebar";
 import { OpenInPicker } from "./OpenInPicker";
+import type { ClientMode } from "~/lib/clientMode";
 
 import type { PreviewDock } from "~/previewStateStore";
 
@@ -41,6 +42,7 @@ interface ChatHeaderProps {
   previewDock: PreviewDock;
   gitCwd: string | null;
   diffOpen: boolean;
+  clientMode: ClientMode;
   onRunProjectScript: (script: ProjectScript) => void;
   onAddProjectScript: (input: NewProjectScriptInput) => Promise<void>;
   onUpdateProjectScript: (scriptId: string, input: NewProjectScriptInput) => Promise<void>;
@@ -72,6 +74,7 @@ export const ChatHeader = memo(function ChatHeader({
   previewDock,
   gitCwd,
   diffOpen,
+  clientMode,
   onRunProjectScript,
   onAddProjectScript,
   onUpdateProjectScript,
@@ -83,6 +86,8 @@ export const ChatHeader = memo(function ChatHeader({
   onTogglePreviewLayout,
   onToggleCodeViewer,
 }: ChatHeaderProps) {
+  const isMobileCompanion = clientMode === "mobile";
+
   return (
     <div className="flex min-w-0 flex-1 items-center gap-2">
       <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden sm:gap-3">
@@ -105,7 +110,7 @@ export const ChatHeader = memo(function ChatHeader({
         )}
       </div>
       <div className="@container/header-actions flex min-w-0 flex-1 items-center justify-end gap-2 @sm/header-actions:gap-3">
-        {activeProjectScripts && (
+        {!isMobileCompanion && activeProjectScripts && (
           <ProjectScriptsControl
             projectCwd={activeProjectCwd ?? ""}
             scripts={activeProjectScripts}
@@ -119,32 +124,36 @@ export const ChatHeader = memo(function ChatHeader({
           />
         )}
         {activeProjectName && <OpenInPicker onToggleCodeViewer={onToggleCodeViewer} />}
-        {activeProjectName && <GitActionsControl gitCwd={gitCwd} activeThreadId={activeThreadId} />}
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Toggle
-                className="shrink-0"
-                pressed={terminalOpen}
-                onPressedChange={onToggleTerminal}
-                aria-label="Toggle terminal drawer"
-                variant="outline"
-                size="xs"
-                disabled={!terminalAvailable}
-              >
-                <TerminalSquareIcon className="size-3" />
-              </Toggle>
-            }
-          />
-          <TooltipPopup side="bottom">
-            {!terminalAvailable
-              ? "Terminal is unavailable until this thread has an active project."
-              : terminalToggleShortcutLabel
-                ? `Toggle terminal drawer (${terminalToggleShortcutLabel})`
-                : "Toggle terminal drawer"}
-          </TooltipPopup>
-        </Tooltip>
-        {previewOpen && previewAvailable ? (
+        {!isMobileCompanion && activeProjectName && (
+          <GitActionsControl gitCwd={gitCwd} activeThreadId={activeThreadId} />
+        )}
+        {!isMobileCompanion && (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Toggle
+                  className="shrink-0"
+                  pressed={terminalOpen}
+                  onPressedChange={onToggleTerminal}
+                  aria-label="Toggle terminal drawer"
+                  variant="outline"
+                  size="xs"
+                  disabled={!terminalAvailable}
+                >
+                  <TerminalSquareIcon className="size-3" />
+                </Toggle>
+              }
+            />
+            <TooltipPopup side="bottom">
+              {!terminalAvailable
+                ? "Terminal is unavailable until this thread has an active project."
+                : terminalToggleShortcutLabel
+                  ? `Toggle terminal drawer (${terminalToggleShortcutLabel})`
+                  : "Toggle terminal drawer"}
+            </TooltipPopup>
+          </Tooltip>
+        )}
+        {!isMobileCompanion && previewOpen && previewAvailable ? (
           <Tooltip>
             <TooltipTrigger
               render={
@@ -171,30 +180,32 @@ export const ChatHeader = memo(function ChatHeader({
             </TooltipPopup>
           </Tooltip>
         ) : null}
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Toggle
-                className="shrink-0"
-                pressed={previewOpen}
-                onPressedChange={onTogglePreview}
-                aria-label="Toggle preview panel"
-                variant="outline"
-                size="xs"
-                disabled={!previewAvailable}
-              >
-                <MonitorIcon className="size-3" />
-              </Toggle>
-            }
-          />
-          <TooltipPopup side="bottom">
-            {!previewAvailable
-              ? "Preview is available in the desktop app when this thread has an active project."
-              : previewOpen
-                ? "Hide preview panel"
-                : "Show preview panel"}
-          </TooltipPopup>
-        </Tooltip>
+        {!isMobileCompanion && (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Toggle
+                  className="shrink-0"
+                  pressed={previewOpen}
+                  onPressedChange={onTogglePreview}
+                  aria-label="Toggle preview panel"
+                  variant="outline"
+                  size="xs"
+                  disabled={!previewAvailable}
+                >
+                  <MonitorIcon className="size-3" />
+                </Toggle>
+              }
+            />
+            <TooltipPopup side="bottom">
+              {!previewAvailable
+                ? "Preview is available in the desktop app when this thread has an active project."
+                : previewOpen
+                  ? "Hide preview panel"
+                  : "Show preview panel"}
+            </TooltipPopup>
+          </Tooltip>
+        )}
         <Tooltip>
           <TooltipTrigger
             render={

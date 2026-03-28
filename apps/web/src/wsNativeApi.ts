@@ -13,7 +13,7 @@ import {
 } from "@okcode/contracts";
 
 import { showContextMenuFallback } from "./contextMenuFallback";
-import { WsTransport } from "./wsTransport";
+import { type TransportState, WsTransport } from "./wsTransport";
 
 let instance: { api: NativeApi; transport: WsTransport } | null = null;
 const welcomeListeners = new Set<(payload: WsWelcomePayload) => void>();
@@ -23,6 +23,7 @@ const prReviewSyncUpdatedListeners = new Set<(payload: PrReviewSyncUpdatedPayloa
 const prReviewRepoConfigUpdatedListeners = new Set<
   (payload: PrReviewRepoConfigUpdatedPayload) => void
 >();
+const transportStateListeners = new Set<(state: TransportState) => void>();
 
 /**
  * Subscribe to the server welcome message. If a welcome was already received
@@ -70,10 +71,36 @@ export function onServerConfigUpdated(
   };
 }
 
+export function onTransportStateChange(listener: (state: TransportState) => void): () => void {
+  transportStateListeners.add(listener);
+
+  const latestState = instance?.transport.getState();
+  if (latestState) {
+    try {
+      listener(latestState);
+    } catch {
+      // Swallow listener errors
+    }
+  }
+
+  return () => {
+    transportStateListeners.delete(listener);
+  };
+}
+
 export function createWsNativeApi(): NativeApi {
   if (instance) return instance.api;
 
   const transport = new WsTransport();
+  transport.subscribeState((state) => {
+    for (const listener of transportStateListeners) {
+      try {
+        listener(state);
+      } catch {
+        // Swallow listener errors
+      }
+    }
+  });
 
   transport.subscribe(WS_CHANNELS.serverWelcome, (message) => {
     const payload = message.data;
@@ -168,6 +195,14 @@ export function createWsNativeApi(): NativeApi {
       openExternal: async (url) => {
         if (window.desktopBridge) {
           const opened = await window.desktopBridge.openExternal(url);
+          if (!opened) {
+            throw new Error("Unable to open link.");
+          }
+          return;
+        }
+
+        if (window.mobileBridge) {
+          const opened = await window.mobileBridge.openExternal(url);
           if (!opened) {
             throw new Error("Unable to open link.");
           }

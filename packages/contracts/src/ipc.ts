@@ -194,6 +194,22 @@ export interface DesktopBridge {
   };
 }
 
+export interface MobilePairingState {
+  paired: boolean;
+  serverUrl: string | null;
+  tokenPresent: boolean;
+  lastError: string | null;
+}
+
+export interface MobileBridge {
+  getWsUrl: () => string | null;
+  getPairingState: () => Promise<MobilePairingState>;
+  applyPairingUrl: (input: string) => Promise<MobilePairingState>;
+  clearPairing: () => Promise<MobilePairingState>;
+  openExternal: (url: string) => Promise<boolean>;
+  onPairingState: (listener: (state: MobilePairingState) => void) => () => void;
+}
+
 export interface NativeApi {
   dialogs: {
     pickFolder: () => Promise<string | null>;

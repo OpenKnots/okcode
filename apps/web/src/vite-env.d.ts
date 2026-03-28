@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-import type { NativeApi, DesktopBridge } from "@okcode/contracts";
+import type { NativeApi, DesktopBridge, MobileBridge } from "@okcode/contracts";
 
 interface ImportMetaEnv {
   readonly APP_VERSION: string;
@@ -14,5 +14,6 @@ declare global {
   interface Window {
     nativeApi?: NativeApi;
     desktopBridge?: DesktopBridge;
+    mobileBridge?: MobileBridge;
   }
 }

@@ -13,6 +13,7 @@ import { useThreadSelectionStore } from "../threadSelectionStore";
 import { resolveSidebarNewThreadEnvMode } from "~/components/Sidebar.logic";
 import { useAppSettings } from "~/appSettings";
 import { Sidebar, SidebarProvider, SidebarRail } from "~/components/ui/sidebar";
+import { useClientMode } from "~/hooks/useClientMode";
 
 const EMPTY_KEYBINDINGS: ResolvedKeybindingsConfig = [];
 const THREAD_SIDEBAR_WIDTH_STORAGE_KEY = "chat_thread_sidebar_width";
@@ -98,6 +99,7 @@ function ChatRouteLayout() {
   const { settings } = useAppSettings();
   const sidebarBorderOpacity =
     settings.sidebarOpacity >= 1 ? 1 : Math.max(settings.sidebarOpacity, 0.18);
+  const clientMode = useClientMode();
 
   useEffect(() => {
     const onMenuAction = window.desktopBridge?.onMenuAction;
@@ -123,7 +125,7 @@ function ChatRouteLayout() {
   }, [settings.windowOpacity]);
 
   return (
-    <SidebarProvider defaultOpen>
+    <SidebarProvider defaultOpen={clientMode !== "mobile"}>
       <ChatRouteGlobalShortcuts />
       <Sidebar
         side="left"

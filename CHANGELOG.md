@@ -11,6 +11,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - CLI npm package name is `okcodes`. Install with `npm install -g okcodes`; the `okcode` binary name is unchanged.
 
+## [0.0.6] - 2026-03-28
+
+See [docs/releases/v0.0.6.md](docs/releases/v0.0.6.md) for full notes and [docs/releases/v0.0.6/assets.md](docs/releases/v0.0.6/assets.md) for release asset inventory.
+
+### Added
+
+- Add PR-specific actions to the git menu.
+- Add preview navigation, favorites, and encrypted environment persistence.
+- Add workspace search filters and CamelCase ranking.
+- Add YouTube player drawer with playlist slots.
+
+### Changed
+
+- Rework the OK Code landing page and simplify workspace search.
+- Redesign the plan sidebar and follow-up banner.
+- Restructure the PR review workspace layout.
+- Improve merge conflict guidance and error UX.
+- Require mac signing/notarization secrets during release builds.
+
+### Fixed
+
+- Harden git status fallback handling.
+- Fix right-panel exclusivity with preview open.
+- Resolve the encrypted env var merge-conflict path for current mainline.
+
+### Removed
+
+- Remove alpha branding from production surfaces.
+- Remove unsupported Spotify volume slider.
+
 ## [0.0.5] - 2026-03-28
 
 See [docs/releases/v0.0.5.md](docs/releases/v0.0.5.md) for full notes and [docs/releases/v0.0.5/assets.md](docs/releases/v0.0.5/assets.md) for release asset inventory.
@@ -122,3 +152,4 @@ First public version tag. See [docs/releases/v0.0.1.md](docs/releases/v0.0.1.md)
 [0.0.2]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.2
 [0.0.1]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.1
 [0.0.5]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.5
+[0.0.6]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.6

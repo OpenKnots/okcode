@@ -125,7 +125,9 @@ export const ChatHeader = memo(function ChatHeader({
             onImportScripts={onImportProjectScripts}
           />
         )}
-        {activeProjectName && hasCodeViewerTabs && <OpenInPicker onToggleCodeViewer={onToggleCodeViewer} />}
+        {activeProjectName && hasCodeViewerTabs && (
+          <OpenInPicker onToggleCodeViewer={onToggleCodeViewer} />
+        )}
         {!isMobileCompanion && activeProjectName && (
           <GitActionsControl gitCwd={gitCwd} activeThreadId={activeThreadId} />
         )}

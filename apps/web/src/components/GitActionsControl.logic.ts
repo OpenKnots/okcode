@@ -446,5 +446,24 @@ export function resolveDefaultBranchActionDialogCopy(input: {
   };
 }
 
+export function buildHookFailureAgentPrompt(failure: GitActionFailure): string {
+  const sections: string[] = [
+    "A git commit hook failed and blocked my commit. Please analyze the errors and fix them so I can retry.",
+  ];
+  if (failure.command) {
+    sections.push(`**Command that failed:**\n\`\`\`\n${failure.command}\n\`\`\``);
+  }
+  if (failure.detail) {
+    sections.push(`**Error summary:**\n${failure.detail}`);
+  }
+  if (failure.rawMessage) {
+    sections.push(`**Full hook output:**\n\`\`\`\n${failure.rawMessage}\n\`\`\``);
+  }
+  sections.push(
+    "Please:\n1. Analyze each error in the hook output\n2. Fix the affected files\n3. Let me know when the fixes are ready so I can retry the commit",
+  );
+  return sections.join("\n\n");
+}
+
 // Re-export from shared for backwards compatibility in this module's exports
 export { resolveAutoFeatureBranchName } from "@okcode/shared/git";

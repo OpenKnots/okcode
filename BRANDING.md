@@ -10,8 +10,8 @@
 | Property                  | Value                                  |
 | ------------------------- | -------------------------------------- |
 | **App Name**              | OK Code                                |
-| **Stage Label**           | Alpha (production) / Dev (development) |
-| **Display Name**          | OK Code (Alpha)                        |
+| **Stage Label**           | Dev (development only)                 |
+| **Display Name**          | OK Code                                |
 | **Version**               | 0.0.1                                  |
 | **Tagline**               | `[TBD]`                                |
 | **One-liner Description** | `[TBD]`                                |

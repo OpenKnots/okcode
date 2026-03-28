@@ -277,7 +277,7 @@ This document tracked conversions from T3Code to OKCode. **Status: completed** (
 
 ## Legacy & follow-ups (intentional)
 
-- **Desktop migration:** `apps/desktop/src/main.ts` still recognizes legacy Electron userData folder names (`T3 Code (Dev)` / `T3 Code (Alpha)`), legacy `t3code` app data path, and `t3codeCommitHash` in `package.json` alongside `okcodeCommitHash`.
+- **Desktop migration:** `apps/desktop/src/main.ts` still recognizes legacy Electron userData folder names (`T3 Code (Dev)` / `T3 Code (Alpha)`) via `LEGACY_USER_DATA_DIR_NAME`, legacy `t3code` app data path, and `t3codeCommitHash` in `package.json` alongside `okcodeCommitHash`.
 - **Third-party test URLs:** Some server tests still use `github.com/pingdotgg/codething-mvp/...` as generic PR URL fixtures (not the old product repo).
 - **Short `t3-` temp prefixes:** A few tests/scripts still use `t3-` as a `mkdtemp` prefix (e.g. orchestration, provider tests). Renaming to `okcode-` is optional noise reduction, not required for the rebrand.
 

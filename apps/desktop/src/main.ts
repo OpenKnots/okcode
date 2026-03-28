@@ -73,7 +73,7 @@ const STATE_DIR = Path.join(BASE_DIR, "userdata");
 const DESKTOP_SCHEME = "okcode";
 const ROOT_DIR = Path.resolve(__dirname, "../../..");
 const isDevelopment = Boolean(process.env.VITE_DEV_SERVER_URL);
-const APP_DISPLAY_NAME = isDevelopment ? "OK Code (Dev)" : "OK Code (Alpha)";
+const APP_DISPLAY_NAME = isDevelopment ? "OK Code (Dev)" : "OK Code";
 const APP_USER_MODEL_ID = "com.okcode.okcode";
 const USER_DATA_DIR_NAME = isDevelopment ? "okcode-dev" : "okcode";
 const LEGACY_USER_DATA_DIR_NAME = isDevelopment ? "T3 Code (Dev)" : "T3 Code (Alpha)";
@@ -679,7 +679,7 @@ function resolveIconPath(ext: "ico" | "icns" | "png"): string | null {
  *
  * Electron derives the default userData path from `productName` in
  * package.json, which currently produces directories with spaces and
- * parentheses (e.g. `~/.config/OK Code (Alpha)` on Linux). This is
+ * parentheses (e.g. `~/.config/OK Code (Dev)` on Linux). This is
  * unfriendly for shell usage and violates Linux naming conventions.
  *
  * We override it to a clean lowercase name (`okcode`). If a legacy
@@ -887,7 +887,7 @@ function configureAutoUpdater(): void {
 
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = false;
-  // Keep alpha branding, but force all installs onto the stable update track.
+  // Force all installs onto the stable update track.
   autoUpdater.channel = DESKTOP_UPDATE_CHANNEL;
   autoUpdater.allowPrerelease = DESKTOP_UPDATE_ALLOW_PRERELEASE;
   autoUpdater.allowDowngrade = false;

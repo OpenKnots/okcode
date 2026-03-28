@@ -17,7 +17,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const isDevelopment = Boolean(process.env.VITE_DEV_SERVER_URL);
-const APP_DISPLAY_NAME = isDevelopment ? "OK Code (Dev)" : "OK Code (Alpha)";
+const APP_DISPLAY_NAME = isDevelopment ? "OK Code (Dev)" : "OK Code";
 const APP_BUNDLE_ID = "com.okcode.okcode";
 const LAUNCHER_VERSION = 1;
 

@@ -224,14 +224,29 @@ const publishCmd = Command.make(
             if (config.provenance) args.push("--provenance");
             if (config.dryRun) args.push("--dry-run");
 
+            const publishCommand = ChildProcess.make("npm", [...args], {
+              cwd: serverDir,
+              stdout: config.verbose ? "inherit" : "ignore",
+              stderr: "inherit",
+              // Windows needs shell mode to resolve .cmd shims.
+              shell: process.platform === "win32",
+            });
+
             yield* Effect.log(`[cli] Running: npm ${args.join(" ")}`);
-            yield* runCommand(
-              ChildProcess.make("npm", [...args], {
-                cwd: serverDir,
-                stdout: config.verbose ? "inherit" : "ignore",
-                stderr: "inherit",
-                // Windows needs shell mode to resolve .cmd shims.
-                shell: process.platform === "win32",
+            yield* runCommand(publishCommand).pipe(
+              Effect.catchTag("CliError", (error) => {
+                if (config.dryRun) {
+                  return Effect.fail(error);
+                }
+
+                return Effect.gen(function* () {
+                  yield* Effect.logWarning(
+                    "[cli] npm publish failed; retrying once in 3 seconds in case this was a transient registry/TLS issue.",
+                  );
+                  yield* Effect.sleep("3 seconds");
+                  yield* Effect.log(`[cli] Retrying: npm ${args.join(" ")}`);
+                  yield* runCommand(publishCommand);
+                });
               }),
             );
           }),

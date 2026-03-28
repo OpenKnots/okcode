@@ -1,7 +1,7 @@
 {
   "name": "@okcode/monorepo",
   "version": "0.0.0",
-  "private": true,
+  "private": false,
   "workspaces": {
     "packages": [
       "apps/*",

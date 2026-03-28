@@ -3,7 +3,7 @@ import { type FormEvent, useEffect, useLayoutEffect, useRef, useState } from "re
 import {
   CircleAlertIcon,
   ExternalLinkIcon,
-  GlobeIcon,
+  EllipsisIcon,
   LoaderCircleIcon,
   RefreshCwIcon,
   XIcon,
@@ -16,6 +16,7 @@ import { usePreviewStateStore } from "~/previewStateStore";
 
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+import { Menu, MenuItem, MenuPopup, MenuTrigger } from "./ui/menu";
 
 const CLOSED_PREVIEW_STATE: DesktopPreviewState = {
   status: "closed",
@@ -244,46 +245,59 @@ export function PreviewPanel({ threadId, projectId, projectName, onClose }: Prev
 
   return (
     <div className="flex h-full min-w-0 flex-col bg-background">
-      <div className="flex items-center gap-2 border-b border-border px-3 py-3">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <GlobeIcon className="size-4 shrink-0 text-muted-foreground/70" />
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-foreground">Preview</p>
-            <p className="truncate text-xs text-muted-foreground/70">{projectName}</p>
-          </div>
+      <div className="flex items-center justify-between gap-2 border-b border-border/60 px-3 py-2">
+        <p
+          className="truncate text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground/75"
+          title={projectName}
+        >
+          Preview
+        </p>
+        <div className="flex items-center gap-1">
+          <Menu>
+            <MenuTrigger
+              render={
+                <Button
+                  type="button"
+                  size="icon-xs"
+                  variant="ghost"
+                  className="text-muted-foreground/55 hover:text-foreground"
+                  aria-label="Preview actions"
+                />
+              }
+            >
+              <EllipsisIcon aria-hidden="true" className="size-3.5" />
+            </MenuTrigger>
+            <MenuPopup align="end">
+              <MenuItem
+                onClick={() => {
+                  setInputError(null);
+                  void previewBridge?.reload();
+                }}
+                disabled={!showEmbeddedSurface}
+              >
+                <RefreshCwIcon aria-hidden="true" className="size-4" />
+                Reload
+              </MenuItem>
+              <MenuItem
+                onClick={onOpenExternal}
+                disabled={!previewState.url && storedUrl.trim().length === 0}
+              >
+                <ExternalLinkIcon aria-hidden="true" className="size-4" />
+                Open in browser
+              </MenuItem>
+            </MenuPopup>
+          </Menu>
+          <Button
+            type="button"
+            size="icon-xs"
+            variant="ghost"
+            className="text-muted-foreground/55 hover:text-foreground"
+            aria-label="Close preview"
+            onClick={onClosePreview}
+          >
+            <XIcon className="size-3.5" />
+          </Button>
         </div>
-        <Button
-          type="button"
-          size="icon-xs"
-          variant="ghost"
-          aria-label="Reload preview"
-          onClick={() => {
-            setInputError(null);
-            void previewBridge?.reload();
-          }}
-          disabled={!showEmbeddedSurface}
-        >
-          <RefreshCwIcon className="size-3.5" />
-        </Button>
-        <Button
-          type="button"
-          size="icon-xs"
-          variant="ghost"
-          aria-label="Open preview externally"
-          onClick={onOpenExternal}
-          disabled={!previewState.url && storedUrl.trim().length === 0}
-        >
-          <ExternalLinkIcon className="size-3.5" />
-        </Button>
-        <Button
-          type="button"
-          size="icon-xs"
-          variant="ghost"
-          aria-label="Close preview"
-          onClick={onClosePreview}
-        >
-          <XIcon className="size-3.5" />
-        </Button>
       </div>
 
       <form className="border-b border-border px-3 py-3" onSubmit={onSubmit}>

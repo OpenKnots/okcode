@@ -1,4 +1,5 @@
 import fs, { existsSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -1279,30 +1280,27 @@ it.layer(TestLayer)("git integration", (it) => {
 
     it.effect("returns an empty status for a missing workspace path", () =>
       Effect.gen(function* () {
-        const tmp = yield* makeTmpDir();
+        // Use a non-scoped temp dir since this test intentionally deletes it;
+        // a scoped directory would cause ENOENT during scope cleanup.
+        const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "git-test-"));
         yield* initRepoWithCommit(tmp);
         const core = yield* GitCore;
 
         expect(existsSync(tmp)).toBe(true);
-        yield* Effect.sync(() => fs.rmSync(tmp, { recursive: true, force: true }));
+        fs.rmSync(tmp, { recursive: true, force: true });
 
         const details = yield* core.statusDetails(tmp);
-        expect(details).toEqual(
-          expect.objectContaining({
-            branch: null,
-            hasWorkingTreeChanges: false,
-            hasConflicts: false,
-            conflictedFiles: [],
-            hasUpstream: false,
-            aheadCount: 0,
-            behindCount: 0,
-            upstreamRef: null,
-            pr: null,
-          }),
-        );
-        expect(details.workingTree.files).toEqual([]);
-        expect(details.workingTree.insertions).toBe(0);
-        expect(details.workingTree.deletions).toBe(0);
+        expect(details).toEqual({
+          branch: null,
+          hasWorkingTreeChanges: false,
+          hasConflicts: false,
+          conflictedFiles: [],
+          hasUpstream: false,
+          aheadCount: 0,
+          behindCount: 0,
+          upstreamRef: null,
+          workingTree: { files: [], insertions: 0, deletions: 0 },
+        });
       }),
     );
 

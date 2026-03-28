@@ -20,6 +20,7 @@ See the full schema for more details: [`packages/contracts/src/keybindings.ts`](
 ```json
 [
   { "key": "mod+j", "command": "terminal.toggle" },
+  { "key": "ctrl+`", "command": "terminal.toggle" },
   { "key": "mod+d", "command": "terminal.split", "when": "terminalFocus" },
   { "key": "mod+n", "command": "terminal.new", "when": "terminalFocus" },
   { "key": "mod+w", "command": "terminal.close", "when": "terminalFocus" },

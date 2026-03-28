@@ -3,6 +3,7 @@ import {
   ArrowUpDownIcon,
   ChevronRightIcon,
   FolderIcon,
+  GitMergeIcon,
   GitPullRequestIcon,
   PlusIcon,
   RocketIcon,
@@ -382,7 +383,8 @@ export default function Sidebar() {
   );
   const navigate = useNavigate();
   const pathname = useLocation({ select: (loc) => loc.pathname });
-  const isOnSubPage = pathname === "/settings" || pathname === "/pr-review";
+  const isOnSubPage =
+    pathname === "/settings" || pathname === "/pr-review" || pathname === "/merge-conflicts";
   const { settings: appSettings, updateSettings } = useAppSettings();
   const { resolvedTheme } = useTheme();
   const { handleNewThread } = useHandleNewThread();
@@ -1959,6 +1961,16 @@ export default function Sidebar() {
                 >
                   <GitPullRequestIcon className="size-3.5" />
                   <span className="text-xs">PR Review</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  size="sm"
+                  className="gap-2 px-2 py-1.5 text-muted-foreground/70 hover:bg-accent hover:text-foreground"
+                  onClick={() => void navigate({ to: "/merge-conflicts" })}
+                >
+                  <GitMergeIcon className="size-3.5" />
+                  <span className="text-xs">Merge Conflicts</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>

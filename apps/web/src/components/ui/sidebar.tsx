@@ -239,7 +239,8 @@ function Sidebar({
   const chromeVars = React.useMemo(() => resolveSidebarChromeVars(style), [style]);
   const isInsetVariant = variant === "floating" || variant === "inset";
   const floatingSurfaceStyle = React.useMemo(
-    () => (variant === "floating" ? getSidebarSurfaceStyle({ shadow: true }) : getSidebarSurfaceStyle()),
+    () =>
+      variant === "floating" ? getSidebarSurfaceStyle({ shadow: true }) : getSidebarSurfaceStyle(),
     [variant],
   );
 

@@ -1,18 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { GitPullRequestIcon } from "lucide-react";
+import { GitMergeIcon } from "lucide-react";
 
-import { PrReviewShell } from "~/components/pr-review/PrReviewShell";
+import { MergeConflictShell } from "~/components/merge-conflicts/MergeConflictShell";
 import { ProjectSubpageShell } from "~/components/review/ProjectSubpageShell";
 
-function PrReviewRouteView() {
+function MergeConflictsRouteView() {
   return (
     <ProjectSubpageShell
-      emptyMessage="Open a project to review pull requests."
-      icon={GitPullRequestIcon}
-      title="PR Review"
+      emptyMessage="Open a project to resolve merge conflicts."
+      icon={GitMergeIcon}
+      title="Merge Conflicts"
     >
       {({ onProjectChange, project, projects, selectedProjectId }) => (
-        <PrReviewShell
+        <MergeConflictShell
           onProjectChange={onProjectChange}
           project={project}
           projects={projects}
@@ -23,6 +23,6 @@ function PrReviewRouteView() {
   );
 }
 
-export const Route = createFileRoute("/_chat/pr-review")({
-  component: PrReviewRouteView,
+export const Route = createFileRoute("/_chat/merge-conflicts")({
+  component: MergeConflictsRouteView,
 });

@@ -57,6 +57,13 @@ import type {
 } from "./prReview";
 import type { ServerConfig } from "./server";
 import type {
+  GlobalEnvironmentVariablesResult,
+  ProjectEnvironmentVariablesInput,
+  ProjectEnvironmentVariablesResult,
+  SaveGlobalEnvironmentVariablesInput,
+  SaveProjectEnvironmentVariablesInput,
+} from "./environment";
+import type {
   TerminalClearInput,
   TerminalCloseInput,
   TerminalEvent,
@@ -282,6 +289,16 @@ export interface NativeApi {
   };
   server: {
     getConfig: () => Promise<ServerConfig>;
+    getGlobalEnvironmentVariables: () => Promise<GlobalEnvironmentVariablesResult>;
+    saveGlobalEnvironmentVariables: (
+      input: SaveGlobalEnvironmentVariablesInput,
+    ) => Promise<GlobalEnvironmentVariablesResult>;
+    getProjectEnvironmentVariables: (
+      input: ProjectEnvironmentVariablesInput,
+    ) => Promise<ProjectEnvironmentVariablesResult>;
+    saveProjectEnvironmentVariables: (
+      input: SaveProjectEnvironmentVariablesInput,
+    ) => Promise<ProjectEnvironmentVariablesResult>;
     upsertKeybinding: (input: ServerUpsertKeybindingInput) => Promise<ServerUpsertKeybindingResult>;
   };
   orchestration: {

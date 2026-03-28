@@ -1,5 +1,6 @@
 import { Schema } from "effect";
 import { TrimmedNonEmptyString } from "./baseSchemas";
+import { RuntimeEnvironmentVariables } from "./environment";
 import { ProviderModelOptions } from "./model";
 import {
   ApprovalRequestId,
@@ -57,6 +58,7 @@ export const ProviderSessionStartInput = Schema.Struct({
   approvalPolicy: Schema.optional(ProviderApprovalPolicy),
   sandboxMode: Schema.optional(ProviderSandboxMode),
   providerOptions: Schema.optional(ProviderStartOptions),
+  env: Schema.optional(RuntimeEnvironmentVariables),
   runtimeMode: RuntimeMode,
 });
 export type ProviderSessionStartInput = typeof ProviderSessionStartInput.Type;

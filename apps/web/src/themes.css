@@ -5,7 +5,7 @@
 
 /* ─── Iridescent Void ─── futuristic, expensive, slightly alien ─── */
 
-.theme-iridescent-void {
+:root.theme-iridescent-void {
   color-scheme: light;
   --background: #f4f2f7;
   --foreground: #1e1b2e;
@@ -34,7 +34,7 @@
   --warning-foreground: #ad7a18;
 }
 
-.theme-iridescent-void.dark {
+:root.theme-iridescent-void.dark {
   color-scheme: dark;
   --background: #000000;
   --foreground: #e8e4f0;
@@ -65,7 +65,7 @@
 
 /* ─── Solar Witch ─── magical, cozy, ritualistic ─── */
 
-.theme-solar-witch {
+:root.theme-solar-witch {
   color-scheme: light;
   --background: #faf5ee;
   --foreground: #2d2118;
@@ -94,7 +94,7 @@
   --warning-foreground: #ad7a18;
 }
 
-.theme-solar-witch.dark {
+:root.theme-solar-witch.dark {
   color-scheme: dark;
   --background: #120e0a;
   --foreground: #f0e6d6;
@@ -125,7 +125,7 @@
 
 /* ─── Deep Sea Terminal ─── submerged, dreamy, calm ─── */
 
-.theme-deep-sea-terminal {
+:root.theme-deep-sea-terminal {
   color-scheme: light;
   --background: #f0f7f6;
   --foreground: #132d2a;
@@ -154,7 +154,7 @@
   --warning-foreground: #ad7a18;
 }
 
-.theme-deep-sea-terminal.dark {
+:root.theme-deep-sea-terminal.dark {
   color-scheme: dark;
   --background: #060e14;
   --foreground: #d0eae6;
@@ -185,7 +185,7 @@
 
 /* ─── Cathedral Circuit ─── sacred machine, techno-gothic ─── */
 
-.theme-cathedral-circuit {
+:root.theme-cathedral-circuit {
   color-scheme: light;
   --background: #f2f0ed;
   --foreground: #1c1a18;
@@ -214,7 +214,7 @@
   --warning-foreground: #a87308;
 }
 
-.theme-cathedral-circuit.dark {
+:root.theme-cathedral-circuit.dark {
   color-scheme: dark;
   --background: #121214;
   --foreground: #dcd8d2;
@@ -245,7 +245,7 @@
 
 /* ─── Neon Bento ─── cute, modern, surprisingly usable ─── */
 
-.theme-neon-bento {
+:root.theme-neon-bento {
   color-scheme: light;
   --background: #fefcfa;
   --foreground: #1f1a17;
@@ -274,7 +274,7 @@
   --warning-foreground: #ad7a18;
 }
 
-.theme-neon-bento.dark {
+:root.theme-neon-bento.dark {
   color-scheme: dark;
   --background: #1a1618;
   --foreground: #f0e8e2;

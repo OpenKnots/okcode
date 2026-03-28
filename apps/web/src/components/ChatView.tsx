@@ -91,6 +91,7 @@ import PlanSidebar from "./PlanSidebar";
 import ThreadTerminalDrawer from "./ThreadTerminalDrawer";
 import { SpotifyPlayerDrawer } from "./SpotifyPlayer";
 import {
+  AtSignIcon,
   BotIcon,
   ChevronDownIcon,
   ChevronLeftIcon,
@@ -345,6 +346,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
   const promptRef = useRef(prompt);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [isDragOverComposer, setIsDragOverComposer] = useState(false);
+  const [dragOverType, setDragOverType] = useState<"files" | "tree-path">("files");
   const [expandedImage, setExpandedImage] = useState<ExpandedImagePreview | null>(null);
   const [optimisticUserMessages, setOptimisticUserMessages] = useState<ChatMessage[]>([]);
   const optimisticUserMessagesRef = useRef(optimisticUserMessages);
@@ -2444,17 +2446,25 @@ export default function ChatView({ threadId }: ChatViewProps) {
     addComposerImages(imageFiles);
   };
 
+  const isAcceptedDragType = (dataTransfer: DataTransfer) =>
+    dataTransfer.types.includes("Files") ||
+    dataTransfer.types.includes("application/x-okcode-tree-path");
+
+  const isDragTreePath = (dataTransfer: DataTransfer) =>
+    dataTransfer.types.includes("application/x-okcode-tree-path");
+
   const onComposerDragEnter = (event: React.DragEvent<HTMLDivElement>) => {
-    if (!event.dataTransfer.types.includes("Files")) {
+    if (!isAcceptedDragType(event.dataTransfer)) {
       return;
     }
     event.preventDefault();
     dragDepthRef.current += 1;
+    setDragOverType(isDragTreePath(event.dataTransfer) ? "tree-path" : "files");
     setIsDragOverComposer(true);
   };
 
   const onComposerDragOver = (event: React.DragEvent<HTMLDivElement>) => {
-    if (!event.dataTransfer.types.includes("Files")) {
+    if (!isAcceptedDragType(event.dataTransfer)) {
       return;
     }
     event.preventDefault();
@@ -2463,7 +2473,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
   };
 
   const onComposerDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
-    if (!event.dataTransfer.types.includes("Files")) {
+    if (!isAcceptedDragType(event.dataTransfer)) {
       return;
     }
     event.preventDefault();
@@ -2478,12 +2488,27 @@ export default function ChatView({ threadId }: ChatViewProps) {
   };
 
   const onComposerDrop = (event: React.DragEvent<HTMLDivElement>) => {
-    if (!event.dataTransfer.types.includes("Files")) {
+    if (!isAcceptedDragType(event.dataTransfer)) {
       return;
     }
     event.preventDefault();
     dragDepthRef.current = 0;
     setIsDragOverComposer(false);
+
+    // Handle file tree path drops — insert as @mention context
+    if (isDragTreePath(event.dataTransfer)) {
+      const treePath = event.dataTransfer.getData("application/x-okcode-tree-path");
+      if (treePath) {
+        const snapshot = readComposerSnapshot();
+        const mention = `@${treePath} `;
+        // Insert at the current cursor position
+        applyPromptReplacement(snapshot.cursor, snapshot.cursor, mention);
+      }
+      focusComposer();
+      return;
+    }
+
+    // Handle image file drops
     const files = Array.from(event.dataTransfer.files);
     addComposerImages(files);
     focusComposer();
@@ -4007,8 +4032,17 @@ export default function ChatView({ threadId }: ChatViewProps) {
                   {isDragOverComposer && (
                     <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-[22px] border-2 border-dashed border-primary/60 bg-primary/5">
                       <div className="flex items-center gap-2 rounded-lg bg-background/90 px-4 py-2 text-sm font-medium text-primary shadow-sm">
-                        <ImagePlusIcon className="size-4" />
-                        Drop images to attach
+                        {dragOverType === "tree-path" ? (
+                          <>
+                            <AtSignIcon className="size-4" />
+                            Drop to add as context
+                          </>
+                        ) : (
+                          <>
+                            <ImagePlusIcon className="size-4" />
+                            Drop images to attach
+                          </>
+                        )}
                       </div>
                     </div>
                   )}

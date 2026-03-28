@@ -409,7 +409,7 @@ const themeIdeas = [
     label.textContent = platform.label;
 
     fetchLatestRelease()
-      .then((release) => {
+      .then((release: any) => {
         const url = pickAsset(release.assets ?? [], platform);
         if (url) {
           btn.href = url;
@@ -434,13 +434,13 @@ const themeIdeas = [
         buttons.forEach((button) => {
           const isActive = button.getAttribute("data-tab-target") === id;
           button.setAttribute("aria-selected", isActive ? "true" : "false");
-          button.dataset.active = isActive ? "true" : "false";
+          (button as HTMLElement).dataset.active = isActive ? "true" : "false";
         });
 
         panels.forEach((panel) => {
           const isActive = panel.getAttribute("data-tab-panel") === id;
-          panel.hidden = !isActive;
-          panel.dataset.active = isActive ? "true" : "false";
+          (panel as HTMLElement).hidden = !isActive;
+          (panel as HTMLElement).dataset.active = isActive ? "true" : "false";
         });
 
         group.setAttribute("data-active-tab", id);

@@ -483,7 +483,7 @@ label:has(> select#reasoning-effort) select {
   }
 
   ::selection {
-    background: hsl(var(--primary) / 0.26);
+    background: hsl(var(--primary) / 0.55);
     color: hsl(var(--foreground));
   }
 

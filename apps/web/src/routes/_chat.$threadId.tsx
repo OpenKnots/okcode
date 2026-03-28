@@ -25,6 +25,7 @@ import {
   stripDiffSearchParams,
 } from "../diffRouteSearch";
 import { useCodeViewerStore } from "../codeViewerStore";
+import { usePreviewStateStore } from "../previewStateStore";
 import { useMutuallyExclusivePanels } from "../mutuallyExclusivePanels";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import { useClientMode } from "../hooks/useClientMode";
@@ -283,6 +284,10 @@ function ChatThreadRouteView() {
   const codeViewerOpen = useCodeViewerStore((state) => state.isOpen);
   const closeCodeViewerStore = useCodeViewerStore((state) => state.close);
 
+  // Preview state from Zustand store
+  const previewOpen = usePreviewStateStore((state) => state.openByThreadId[threadId] === true);
+  const setPreviewOpen = usePreviewStateStore((state) => state.setThreadOpen);
+
   // TanStack Router keeps active route components mounted across param-only navigations
   // unless remountDeps are configured, so this stays warm across thread switches.
   const [hasOpenedDiff, setHasOpenedDiff] = useState(diffOpen);
@@ -310,8 +315,19 @@ function ChatThreadRouteView() {
     closeCodeViewerStore();
   }, [closeCodeViewerStore]);
 
+  const closePreview = useCallback(() => {
+    setPreviewOpen(threadId, false);
+  }, [setPreviewOpen, threadId]);
+
   // Enforce mutual exclusivity: only one right-side panel open at a time.
-  useMutuallyExclusivePanels(diffOpen, codeViewerOpen, closeDiff, closeCodeViewer);
+  useMutuallyExclusivePanels(
+    diffOpen,
+    codeViewerOpen,
+    previewOpen,
+    closeDiff,
+    closeCodeViewer,
+    closePreview,
+  );
 
   useEffect(() => {
     if (diffOpen) {

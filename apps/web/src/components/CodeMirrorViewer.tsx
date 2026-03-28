@@ -60,7 +60,7 @@ const baseExtensions: Extension[] = [
       backgroundColor: "transparent",
     },
     ".cm-selectionBackground": {
-      backgroundColor: "color-mix(in srgb, var(--primary) 25%, transparent) !important",
+      backgroundColor: "color-mix(in srgb, var(--primary) 55%, transparent) !important",
     },
   }),
 ];

@@ -318,6 +318,17 @@ jobs:
     needs: [preflight, release]
     runs-on: ubuntu-24.04
     steps:
+      - name: Validate release app secrets
+        shell: bash
+        env:
+          RELEASE_APP_ID: ${{ secrets.RELEASE_APP_ID }}
+          RELEASE_APP_PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          [[ -n "$RELEASE_APP_ID" ]] || { echo "Missing secret RELEASE_APP_ID"; exit 1; }
+          [[ "$RELEASE_APP_ID" =~ ^[0-9]+$ ]] || { echo "RELEASE_APP_ID must be a numeric GitHub App ID"; exit 1; }
+          [[ -n "$RELEASE_APP_PRIVATE_KEY" ]] || { echo "Missing secret RELEASE_APP_PRIVATE_KEY"; exit 1; }
+
       - id: app_token
         name: Mint release app token
         uses: actions/create-github-app-token@v2

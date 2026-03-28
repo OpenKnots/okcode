@@ -7,16 +7,16 @@
       "outputs": ["dist-electron/**"],
     },
     "dev": {
-      "dependsOn": ["okcode#build"],
+      "dependsOn": ["okcodes#build"],
       "persistent": true,
     },
     "start": {
-      "dependsOn": ["build", "@okcode/web#build", "okcode#build"],
+      "dependsOn": ["build", "@okcode/web#build", "okcodes#build"],
       "cache": false,
       "persistent": true,
     },
     "smoke-test": {
-      "dependsOn": ["build", "@okcode/web#build", "okcode#build"],
+      "dependsOn": ["build", "@okcode/web#build", "okcodes#build"],
       "cache": false,
       "outputs": [],
     },

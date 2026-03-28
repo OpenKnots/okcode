@@ -1,6 +1,5 @@
-import { memo, useState, useCallback, useRef, useEffect } from "react";
+import { memo, useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { type TimestampFormat } from "../appSettings";
-import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { ScrollArea } from "./ui/scroll-area";
 import ChatMarkdown from "./ChatMarkdown";
@@ -15,7 +14,6 @@ import {
 import { cn } from "~/lib/utils";
 import type { ActivePlanState } from "../session-logic";
 import type { LatestProposedPlanState } from "../session-logic";
-import { formatTimestamp } from "../timestampFormat";
 import {
   proposedPlanTitle,
   buildProposedPlanMarkdownFilename,
@@ -38,21 +36,21 @@ const PLAN_SIDEBAR_MAX_WIDTH = 800;
 function stepStatusIcon(status: string): React.ReactNode {
   if (status === "completed") {
     return (
-      <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-500">
+      <span className="flex size-4 shrink-0 items-center justify-center text-emerald-500">
         <CheckIcon className="size-3" />
       </span>
     );
   }
   if (status === "inProgress") {
     return (
-      <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-blue-500/15 text-blue-400">
+      <span className="flex size-4 shrink-0 items-center justify-center text-blue-400">
         <LoaderIcon className="size-3 animate-spin" />
       </span>
     );
   }
   return (
-    <span className="flex size-5 shrink-0 items-center justify-center rounded-full border border-border/60 bg-muted/30">
-      <span className="size-1.5 rounded-full bg-muted-foreground/30" />
+    <span className="flex size-4 shrink-0 items-center justify-center">
+      <span className="size-1.5 rounded-full bg-muted-foreground/25" />
     </span>
   );
 }
@@ -64,6 +62,14 @@ interface PlanSidebarProps {
   workspaceRoot: string | undefined;
   timestampFormat: TimestampFormat;
   onClose: () => void;
+}
+
+function usePlanProgress(steps: ActivePlanState["steps"] | undefined) {
+  return useMemo(() => {
+    if (!steps || steps.length === 0) return null;
+    const completed = steps.filter((s) => s.status === "completed").length;
+    return { completed, total: steps.length };
+  }, [steps]);
 }
 
 function clampWidth(width: number): number {
@@ -166,17 +172,25 @@ const PlanSidebar = memo(function PlanSidebar({
   activeProposedPlan,
   markdownCwd,
   workspaceRoot,
-  timestampFormat,
   onClose,
 }: PlanSidebarProps) {
-  const [proposedPlanExpanded, setProposedPlanExpanded] = useState(false);
+  const hasActiveSteps = (activePlan?.steps.length ?? 0) > 0;
+  const [proposedPlanExpanded, setProposedPlanExpanded] = useState(!hasActiveSteps);
   const [isSavingToWorkspace, setIsSavingToWorkspace] = useState(false);
   const { copyToClipboard, isCopied } = useCopyToClipboard();
   const { width, railProps } = useResizablePlanSidebar();
+  const progress = usePlanProgress(activePlan?.steps);
 
   const planMarkdown = activeProposedPlan?.planMarkdown ?? null;
   const displayedPlanMarkdown = planMarkdown ? stripDisplayedPlanMarkdown(planMarkdown) : null;
   const planTitle = planMarkdown ? proposedPlanTitle(planMarkdown) : null;
+
+  // Auto-expand the full plan when there are no active execution steps
+  useEffect(() => {
+    if (!hasActiveSteps && planMarkdown) {
+      setProposedPlanExpanded(true);
+    }
+  }, [hasActiveSteps, planMarkdown]);
 
   const handleCopyPlan = useCallback(() => {
     if (!planMarkdown) return;
@@ -234,59 +248,66 @@ const PlanSidebar = memo(function PlanSidebar({
         {...railProps}
       />
       {/* Header */}
-      <div className="flex h-12 shrink-0 items-center justify-between border-b border-border/60 px-3">
-        <div className="flex items-center gap-2">
-          <Badge
-            variant="secondary"
-            className="rounded-md bg-blue-500/10 px-1.5 py-0 text-[10px] font-semibold tracking-wide text-blue-400 uppercase"
-          >
-            Plan
-          </Badge>
-          {activePlan ? (
-            <span className="text-[11px] text-muted-foreground/60">
-              {formatTimestamp(activePlan.createdAt, timestampFormat)}
-            </span>
-          ) : null}
-        </div>
-        <div className="flex items-center gap-1">
-          {planMarkdown ? (
-            <Menu>
-              <MenuTrigger
-                render={
-                  <Button
-                    size="icon-xs"
-                    variant="ghost"
-                    className="text-muted-foreground/50 hover:text-foreground/70"
-                    aria-label="Plan actions"
-                  />
-                }
-              >
-                <EllipsisIcon className="size-3.5" />
-              </MenuTrigger>
-              <MenuPopup align="end">
-                <MenuItem onClick={handleCopyPlan}>
-                  {isCopied ? "Copied!" : "Copy to clipboard"}
-                </MenuItem>
-                <MenuItem onClick={handleDownload}>Download as markdown</MenuItem>
-                <MenuItem
-                  onClick={handleSaveToWorkspace}
-                  disabled={!workspaceRoot || isSavingToWorkspace}
+      <div className="flex shrink-0 flex-col border-b border-border/60 px-3">
+        <div className="flex h-12 items-center justify-between">
+          <p className="min-w-0 flex-1 truncate text-sm font-medium text-foreground/90">
+            {planTitle ?? "Plan"}
+          </p>
+          <div className="flex shrink-0 items-center gap-1">
+            {planMarkdown ? (
+              <Menu>
+                <MenuTrigger
+                  render={
+                    <Button
+                      size="icon-xs"
+                      variant="ghost"
+                      className="text-muted-foreground/50 hover:text-foreground/70"
+                      aria-label="Plan actions"
+                    />
+                  }
                 >
-                  Save to workspace
-                </MenuItem>
-              </MenuPopup>
-            </Menu>
-          ) : null}
-          <Button
-            size="icon-xs"
-            variant="ghost"
-            onClick={onClose}
-            aria-label="Close plan sidebar"
-            className="text-muted-foreground/50 hover:text-foreground/70"
-          >
-            <PanelRightCloseIcon className="size-3.5" />
-          </Button>
+                  <EllipsisIcon className="size-3.5" />
+                </MenuTrigger>
+                <MenuPopup align="end">
+                  <MenuItem onClick={handleCopyPlan}>
+                    {isCopied ? "Copied!" : "Copy to clipboard"}
+                  </MenuItem>
+                  <MenuItem onClick={handleDownload}>Download as markdown</MenuItem>
+                  <MenuItem
+                    onClick={handleSaveToWorkspace}
+                    disabled={!workspaceRoot || isSavingToWorkspace}
+                  >
+                    Save to workspace
+                  </MenuItem>
+                </MenuPopup>
+              </Menu>
+            ) : null}
+            <Button
+              size="icon-xs"
+              variant="ghost"
+              onClick={onClose}
+              aria-label="Close plan sidebar"
+              className="text-muted-foreground/50 hover:text-foreground/70"
+            >
+              <PanelRightCloseIcon className="size-3.5" />
+            </Button>
+          </div>
         </div>
+        {progress ? (
+          <div className="flex items-center gap-2.5 pb-2.5">
+            <div className="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-muted/50">
+              <div
+                className="h-full rounded-full bg-emerald-500/70 transition-all duration-500 ease-out"
+                style={{
+                  width: `${Math.round((progress.completed / progress.total) * 100)}%`,
+                }}
+              />
+            </div>
+            <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground/50">
+              {progress.completed}/{progress.total}
+            </span>
+          </div>
+        ) : null}
       </div>
 
       {/* Content */}
@@ -301,28 +322,21 @@ const PlanSidebar = memo(function PlanSidebar({
 
           {/* Plan Steps */}
           {activePlan && activePlan.steps.length > 0 ? (
-            <div className="space-y-1">
-              <p className="mb-2 text-[10px] font-semibold tracking-widest text-muted-foreground/40 uppercase">
-                Steps
-              </p>
+            <div className="space-y-0.5">
               {activePlan.steps.map((step) => (
                 <div
                   key={`${step.status}:${step.step}`}
-                  className={cn(
-                    "flex items-start gap-2.5 rounded-lg px-2.5 py-2 transition-colors duration-200",
-                    step.status === "inProgress" && "bg-blue-500/5",
-                    step.status === "completed" && "bg-emerald-500/5",
-                  )}
+                  className="flex items-start gap-2 px-1 py-1.5"
                 >
                   <div className="mt-0.5">{stepStatusIcon(step.status)}</div>
                   <p
                     className={cn(
                       "text-[13px] leading-snug",
                       step.status === "completed"
-                        ? "text-muted-foreground/50 line-through decoration-muted-foreground/20"
+                        ? "text-muted-foreground/40 line-through decoration-muted-foreground/20"
                         : step.status === "inProgress"
                           ? "text-foreground/90"
-                          : "text-muted-foreground/70",
+                          : "text-muted-foreground/60",
                     )}
                   >
                     {step.step}

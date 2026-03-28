@@ -185,6 +185,17 @@ export function shouldHandleTerminalSelectionMouseUp(
   return selectionGestureActive && button === 0;
 }
 
+export function dispatchTerminalShortcutSelection(
+  selection: TerminalContextSelection,
+  callbacks: {
+    onAddTerminalContext: (selection: TerminalContextSelection) => void;
+    onSendTerminalContext?: ((selection: TerminalContextSelection) => void) | undefined;
+  },
+): void {
+  const handler = callbacks.onSendTerminalContext ?? callbacks.onAddTerminalContext;
+  handler(selection);
+}
+
 interface TerminalViewportProps {
   threadId: ThreadId;
   terminalId: string;
@@ -193,6 +204,7 @@ interface TerminalViewportProps {
   runtimeEnv?: Record<string, string>;
   onSessionExited: () => void;
   onAddTerminalContext: (selection: TerminalContextSelection) => void;
+  onSendTerminalContext?: ((selection: TerminalContextSelection) => void) | undefined;
   onPreviewUrl?: ((url: string) => void) | undefined;
   focusRequestId: number;
   autoFocus: boolean;
@@ -208,6 +220,7 @@ function TerminalViewport({
   runtimeEnv,
   onSessionExited,
   onAddTerminalContext,
+  onSendTerminalContext,
   onPreviewUrl,
   focusRequestId,
   autoFocus,
@@ -219,6 +232,7 @@ function TerminalViewport({
   const fitAddonRef = useRef<FitAddon | null>(null);
   const onSessionExitedRef = useRef(onSessionExited);
   const onAddTerminalContextRef = useRef(onAddTerminalContext);
+  const onSendTerminalContextRef = useRef(onSendTerminalContext);
   const onPreviewUrlRef = useRef(onPreviewUrl);
   const terminalLabelRef = useRef(terminalLabel);
   const hasHandledExitRef = useRef(false);
@@ -241,6 +255,10 @@ function TerminalViewport({
   useEffect(() => {
     onAddTerminalContextRef.current = onAddTerminalContext;
   }, [onAddTerminalContext]);
+
+  useEffect(() => {
+    onSendTerminalContextRef.current = onSendTerminalContext;
+  }, [onSendTerminalContext]);
 
   useEffect(() => {
     onPreviewUrlRef.current = onPreviewUrl;
@@ -366,7 +384,10 @@ function TerminalViewport({
         event.stopPropagation();
         const action = readSelectionAction();
         if (action) {
-          onAddTerminalContextRef.current(action.selection);
+          dispatchTerminalShortcutSelection(action.selection, {
+            onAddTerminalContext: onAddTerminalContextRef.current,
+            onSendTerminalContext: onSendTerminalContextRef.current,
+          });
           terminalRef.current?.clearSelection();
           terminalRef.current?.focus();
         }
@@ -783,6 +804,7 @@ interface ThreadTerminalDrawerProps {
   onCloseTerminal: (terminalId: string) => void;
   onHeightChange: (height: number) => void;
   onAddTerminalContext: (selection: TerminalContextSelection) => void;
+  onSendTerminalContext?: ((selection: TerminalContextSelection) => void) | undefined;
   onPreviewUrl?: ((url: string) => void) | undefined;
 }
 
@@ -834,6 +856,7 @@ export default function ThreadTerminalDrawer({
   onCloseTerminal,
   onHeightChange,
   onAddTerminalContext,
+  onSendTerminalContext,
   onPreviewUrl,
 }: ThreadTerminalDrawerProps) {
   const [drawerHeight, setDrawerHeight] = useState(() => clampDrawerHeight(height));
@@ -1136,6 +1159,7 @@ export default function ThreadTerminalDrawer({
                         {...(runtimeEnv ? { runtimeEnv } : {})}
                         onSessionExited={() => onCloseTerminal(terminalId)}
                         onAddTerminalContext={onAddTerminalContext}
+                        onSendTerminalContext={onSendTerminalContext}
                         onPreviewUrl={onPreviewUrl}
                         focusRequestId={focusRequestId}
                         autoFocus={terminalId === resolvedActiveTerminalId}

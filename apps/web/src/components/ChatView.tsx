@@ -2687,6 +2687,24 @@ export default function ChatView({ threadId }: ChatViewProps) {
     [activeThread, isConnecting, isRevertingCheckpoint, isSendBusy, phase, setThreadError],
   );
 
+  const readLiveComposerDraftSnapshot = useCallback(() => {
+    const latestDraft = activeThread
+      ? useComposerDraftStore.getState().draftsByThreadId[activeThread.id]
+      : null;
+    const nextPrompt = latestDraft?.prompt ?? promptRef.current;
+    const nextImages = latestDraft?.images ?? composerImagesRef.current;
+    const nextTerminalContexts =
+      latestDraft?.terminalContexts ?? composerTerminalContextsRef.current;
+    promptRef.current = nextPrompt;
+    composerImagesRef.current = nextImages;
+    composerTerminalContextsRef.current = nextTerminalContexts;
+    return {
+      prompt: nextPrompt,
+      images: nextImages,
+      terminalContexts: nextTerminalContexts,
+    };
+  }, [activeThread]);
+
   const onSend = async (e?: { preventDefault: () => void }) => {
     e?.preventDefault();
     const api = readNativeApi();
@@ -2695,7 +2713,10 @@ export default function ChatView({ threadId }: ChatViewProps) {
       onAdvanceActivePendingUserInput();
       return;
     }
-    const promptForSend = promptRef.current;
+    const liveComposerDraft = readLiveComposerDraftSnapshot();
+    const promptForSend = liveComposerDraft.prompt;
+    const composerImagesForSend = liveComposerDraft.images;
+    const composerTerminalContextsForSend = liveComposerDraft.terminalContexts;
     const {
       trimmedPrompt: trimmed,
       sendableTerminalContexts: sendableComposerTerminalContexts,
@@ -2703,8 +2724,8 @@ export default function ChatView({ threadId }: ChatViewProps) {
       hasSendableContent,
     } = deriveComposerSendState({
       prompt: promptForSend,
-      imageCount: composerImages.length,
-      terminalContexts: composerTerminalContexts,
+      imageCount: composerImagesForSend.length,
+      terminalContexts: composerTerminalContextsForSend,
     });
     if (showPlanFollowUpPrompt && activeProposedPlan) {
       const followUp = resolvePlanFollowUpSubmission({
@@ -2723,7 +2744,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
       return;
     }
     const standaloneSlashCommand =
-      composerImages.length === 0 && sendableComposerTerminalContexts.length === 0
+      composerImagesForSend.length === 0 && sendableComposerTerminalContexts.length === 0
         ? parseStandaloneComposerSlashCommand(trimmed)
         : null;
     if (standaloneSlashCommand) {
@@ -2752,7 +2773,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
 
     // ── Queue message if a turn is already running ────────────────────
     if (phase === "running") {
-      const composerImagesSnapshot = [...composerImages];
+      const composerImagesSnapshot = [...composerImagesForSend];
       const messageTextForSend = appendTerminalContextsToPrompt(
         promptForSend,
         sendableComposerTerminalContexts,
@@ -2838,7 +2859,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
     sendInFlightRef.current = true;
     beginSendPhase(baseBranchForWorktree ? "preparing-worktree" : "sending-turn");
 
-    const composerImagesSnapshot = [...composerImages];
+    const composerImagesSnapshot = [...composerImagesForSend];
     const composerTerminalContextsSnapshot = [...sendableComposerTerminalContexts];
     const messageTextForSend = appendTerminalContextsToPrompt(
       promptForSend,
@@ -3078,6 +3099,21 @@ export default function ChatView({ threadId }: ChatViewProps) {
     if (!turnStartSucceeded) {
       resetSendPhase();
     }
+  };
+
+  const sendSelectedTerminalContext = (selection: TerminalContextSelection) => {
+    if (!activeThread) {
+      return;
+    }
+    addComposerDraftTerminalContexts(activeThread.id, [
+      {
+        id: randomUUID(),
+        threadId: activeThread.id,
+        createdAt: new Date().toISOString(),
+        ...selection,
+      },
+    ]);
+    void onSend();
   };
 
   const onInterrupt = async () => {
@@ -4803,6 +4839,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
             onCloseTerminal={closeTerminal}
             onHeightChange={setTerminalHeight}
             onAddTerminalContext={addTerminalContextToDraft}
+            onSendTerminalContext={sendSelectedTerminalContext}
             onPreviewUrl={onPreviewUrl}
           />
         );

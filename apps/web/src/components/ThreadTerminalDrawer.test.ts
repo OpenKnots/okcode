@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  dispatchTerminalShortcutSelection,
   resolveTerminalSelectionActionPosition,
   shouldHandleTerminalSelectionMouseUp,
   terminalSelectionActionDelayForClickCount,
@@ -71,5 +72,50 @@ describe("resolveTerminalSelectionActionPosition", () => {
     expect(shouldHandleTerminalSelectionMouseUp(true, 0)).toBe(true);
     expect(shouldHandleTerminalSelectionMouseUp(false, 0)).toBe(false);
     expect(shouldHandleTerminalSelectionMouseUp(true, 1)).toBe(false);
+  });
+
+  it("routes shortcut selections to direct send when available", () => {
+    const addSelections: string[] = [];
+    const sendSelections: string[] = [];
+    dispatchTerminalShortcutSelection(
+      {
+        terminalId: "default",
+        terminalLabel: "Terminal 1",
+        lineStart: 12,
+        lineEnd: 14,
+        text: "git diff",
+      },
+      {
+        onAddTerminalContext: (selection) => {
+          addSelections.push(selection.text);
+        },
+        onSendTerminalContext: (selection) => {
+          sendSelections.push(selection.text);
+        },
+      },
+    );
+
+    expect(sendSelections).toEqual(["git diff"]);
+    expect(addSelections).toEqual([]);
+  });
+
+  it("falls back to add-to-chat when no direct-send handler exists", () => {
+    const addSelections: string[] = [];
+    dispatchTerminalShortcutSelection(
+      {
+        terminalId: "default",
+        terminalLabel: "Terminal 1",
+        lineStart: 7,
+        lineEnd: 7,
+        text: "bun lint",
+      },
+      {
+        onAddTerminalContext: (selection) => {
+          addSelections.push(selection.text);
+        },
+      },
+    );
+
+    expect(addSelections).toEqual(["bun lint"]);
   });
 });

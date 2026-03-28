@@ -161,7 +161,7 @@ export const ProposedPlanCard = memo(function ProposedPlanCard({
 
       <Dialog
         open={isSaveDialogOpen}
-        onOpenChange={(open) => {
+        onOpenChange={(open: boolean) => {
           if (!isSavingToWorkspace) {
             setIsSaveDialogOpen(open);
           }

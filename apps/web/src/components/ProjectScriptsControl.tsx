@@ -443,13 +443,13 @@ export default function ProjectScriptsControl({
       )}
 
       <Dialog
-        onOpenChange={(open) => {
+        onOpenChange={(open: boolean) => {
           setDialogOpen(open);
           if (!open) {
             setIconPickerOpen(false);
           }
         }}
-        onOpenChangeComplete={(open) => {
+        onOpenChangeComplete={(open: boolean) => {
           if (open) return;
           setEditingScriptId(null);
           setName("");
@@ -557,7 +557,7 @@ export default function ProjectScriptsControl({
             {isEditing && (
               <Button
                 type="button"
-                variant="destructive-outline"
+                variant="outline"
                 className="mr-auto"
                 onClick={() => setDeleteConfirmOpen(true)}
               >

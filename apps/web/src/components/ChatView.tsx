@@ -4517,7 +4517,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
                           {pendingUserInputs.length === 0 && (
                             <Button
                               variant="ghost"
-                              size="icon-sm"
+                              size="icon-xs"
                               type="button"
                               className="text-muted-foreground/70 hover:text-foreground/80"
                               onClick={openFilePicker}
@@ -4861,7 +4861,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
 
       <Dialog
         open={pendingProjectScriptRun !== null}
-        onOpenChange={(open) => {
+        onOpenChange={(open: boolean) => {
           if (!open) {
             setPendingProjectScriptRun(null);
           }

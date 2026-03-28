@@ -52,7 +52,7 @@ export function OnboardingDialog() {
   return (
     <Dialog
       open={open}
-      onOpenChange={(nextOpen) => {
+      onOpenChange={(nextOpen: boolean) => {
         if (!nextOpen) skip();
       }}
     >

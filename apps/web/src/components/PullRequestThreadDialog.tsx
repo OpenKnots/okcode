@@ -172,7 +172,7 @@ export function PullRequestThreadDialog({
   return (
     <Dialog
       open={open}
-      onOpenChange={(nextOpen) => {
+      onOpenChange={(nextOpen: boolean) => {
         if (!preparePullRequestThreadMutation.isPending) {
           onOpenChange(nextOpen);
         }

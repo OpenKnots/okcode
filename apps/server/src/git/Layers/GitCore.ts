@@ -1060,6 +1060,7 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
 
     const statusDetails: GitCoreShape["statusDetails"] = (cwd) =>
       Effect.gen(function* () {
+        const statusArgs = ["status", "--porcelain=2", "--branch"] as const;
         const cwdStat = yield* fileSystem.stat(cwd).pipe(Effect.catch(() => Effect.succeed(null)));
         if (!cwdStat || cwdStat.type !== "Directory") {
           return EMPTY_STATUS_DETAILS;
@@ -1070,7 +1071,7 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
         const status = yield* executeGit(
           "GitCore.statusDetails.status",
           cwd,
-          ["status", "--porcelain=2", "--branch"],
+          [...statusArgs],
           { allowNonZeroExit: true },
         );
         if (status.code !== 0) {
@@ -1081,7 +1082,7 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
           return yield* createGitCommandError(
             "GitCore.statusDetails.status",
             cwd,
-            ["status", "--porcelain=2", "--branch"],
+            [...statusArgs],
             stderr.length > 0 ? stderr : `git status failed with code ${status.code}.`,
           );
         }

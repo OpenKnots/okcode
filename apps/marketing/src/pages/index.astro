@@ -410,7 +410,7 @@ const themeIdeas = [
     return null;
   }
 
-  function pickAsset(assets, platform) {
+  function pickAsset(assets: {name: string; browser_download_url: string}[], platform: {os: string; label: string; arch?: string}) {
     if (platform.os === "win") {
       return assets.find((a) => a.name.endsWith("-x64.exe"))?.browser_download_url ?? null;
     }
@@ -426,7 +426,7 @@ const themeIdeas = [
   }
 
   function initDownloadButton() {
-    const btn = document.getElementById("download-btn");
+    const btn = document.getElementById("download-btn") as HTMLAnchorElement | null;
     const label = document.getElementById("download-label");
     if (!btn || !label) return;
 
@@ -437,7 +437,7 @@ const themeIdeas = [
     label.textContent = platform.label;
 
     fetchLatestRelease()
-      .then((release) => {
+      .then((release: any) => {
         const url = pickAsset(release.assets ?? [], platform);
         if (url) {
           btn.href = url;
@@ -458,17 +458,17 @@ const themeIdeas = [
       const panels = Array.from(group.querySelectorAll("[data-tab-panel]"));
       const heroOverlay = group.querySelector("[data-hero-overlay]");
 
-      const activate = (id) => {
+      const activate = (id: string) => {
         buttons.forEach((button) => {
           const isActive = button.getAttribute("data-tab-target") === id;
           button.setAttribute("aria-selected", isActive ? "true" : "false");
-          button.dataset.active = isActive ? "true" : "false";
+          (button as HTMLElement).dataset.active = isActive ? "true" : "false";
         });
 
         panels.forEach((panel) => {
           const isActive = panel.getAttribute("data-tab-panel") === id;
-          panel.hidden = !isActive;
-          panel.dataset.active = isActive ? "true" : "false";
+          (panel as HTMLElement).hidden = !isActive;
+          (panel as HTMLElement).dataset.active = isActive ? "true" : "false";
         });
 
         group.setAttribute("data-active-tab", id);

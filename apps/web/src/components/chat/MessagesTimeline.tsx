@@ -35,6 +35,7 @@ import {
   ZapIcon,
 } from "lucide-react";
 import { Button } from "../ui/button";
+import { Badge } from "../ui/badge";
 import { clamp } from "effect/Number";
 import { estimateTimelineMessageHeight } from "../timelineHeight";
 import { buildExpandedImagePreview, ExpandedImagePreview } from "./ExpandedImagePreview";
@@ -43,6 +44,7 @@ import { ChangedFilesTree } from "./ChangedFilesTree";
 import { DiffStatLabel, hasNonZeroStat } from "./DiffStatLabel";
 import { MessageCopyButton } from "./MessageCopyButton";
 import { computeMessageDurationStart, normalizeCompactToolLabel } from "./MessagesTimeline.logic";
+import type { ChatShortcutGuide } from "~/lib/chatShortcutGuidance";
 import { TerminalContextInlineChip } from "./TerminalContextInlineChip";
 import {
   deriveDisplayedUserMessageState,
@@ -82,6 +84,8 @@ interface MessagesTimelineProps {
   resolvedTheme: "light" | "dark";
   timestampFormat: TimestampFormat;
   workspaceRoot: string | undefined;
+  shortcutGuides: ChatShortcutGuide[];
+  onOpenSettings: () => void;
 }
 
 export const MessagesTimeline = memo(function MessagesTimeline({
@@ -106,6 +110,8 @@ export const MessagesTimeline = memo(function MessagesTimeline({
   resolvedTheme,
   timestampFormat,
   workspaceRoot,
+  shortcutGuides,
+  onOpenSettings,
 }: MessagesTimelineProps) {
   const timelineRootRef = useRef<HTMLDivElement | null>(null);
   const [timelineWidthPx, setTimelineWidthPx] = useState<number | null>(null);
@@ -600,11 +606,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
 
   if (!hasMessages && !isWorking) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <p className="text-sm text-muted-foreground/30">
-          Send a message to start the conversation.
-        </p>
-      </div>
+      <EmptyTimelineGuidance shortcutGuides={shortcutGuides} onOpenSettings={onOpenSettings} />
     );
   }
 
@@ -641,6 +643,87 @@ export const MessagesTimeline = memo(function MessagesTimeline({
     </div>
   );
 });
+
+function EmptyTimelineGuidance({
+  shortcutGuides,
+  onOpenSettings,
+}: {
+  shortcutGuides: ChatShortcutGuide[];
+  onOpenSettings: () => void;
+}) {
+  const [guideIndex, setGuideIndex] = useState(0);
+  const guideCount = shortcutGuides.length;
+  const currentGuide = guideCount > 0 ? shortcutGuides[guideIndex % guideCount] : undefined;
+
+  useEffect(() => {
+    setGuideIndex(0);
+  }, [shortcutGuides]);
+
+  useEffect(() => {
+    if (shortcutGuides.length <= 1) return;
+
+    const interval = window.setInterval(() => {
+      setGuideIndex((currentIndex) => (currentIndex + 1) % shortcutGuides.length);
+    }, 12_000);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [shortcutGuides.length]);
+
+  return (
+    <div className="flex h-full items-center justify-center px-4 py-10 sm:px-6">
+      <div className="mx-auto flex w-full max-w-2xl flex-col items-center text-center">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground/55">
+          Hotkey tip
+        </p>
+        <div className="mt-4 space-y-4">
+          <div className="space-y-2">
+            <h3 className="text-2xl font-medium tracking-tight text-foreground sm:text-3xl">
+              {currentGuide?.title ?? "Start with a shortcut"}
+            </h3>
+            <p className="mx-auto max-w-xl text-sm leading-6 text-muted-foreground sm:text-[15px]">
+              {currentGuide?.description ??
+                "A few useful bindings will appear here while the thread is empty."}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap justify-center gap-2">
+            {currentGuide?.shortcutLabels.length ? (
+              currentGuide.shortcutLabels.map((label) => (
+                <Badge
+                  key={`${currentGuide.id}:${label}`}
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full border-border/70 bg-background/70 px-2.5 text-foreground"
+                >
+                  {label}
+                </Badge>
+              ))
+            ) : (
+              <Badge
+                variant="outline"
+                size="sm"
+                className="rounded-full border-border/70 bg-background/70 px-2.5 text-foreground"
+              >
+                No shortcut assigned
+              </Badge>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <p className="text-xs leading-5 text-muted-foreground/70">
+              Edit shortcuts from Settings whenever you want to change the defaults.
+            </p>
+            <Button type="button" variant="outline" size="sm" onClick={onOpenSettings}>
+              Manage hotkeys
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 type TimelineEntry = ReturnType<typeof deriveTimelineEntries>[number];
 type TimelineMessage = Extract<TimelineEntry, { kind: "message" }>["message"];

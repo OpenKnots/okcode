@@ -327,7 +327,10 @@ const WorkspaceFileTreeDirectory = memo(function WorkspaceFileTreeDirectory(prop
     );
   }
 
-  if ((query.data?.entries.length ?? 0) === 0) {
+  const entries = query.data?.entries ?? [];
+  const truncated = query.data?.truncated ?? false;
+
+  if (entries.length === 0) {
     if (props.directoryPath) {
       return null;
     }
@@ -336,7 +339,7 @@ const WorkspaceFileTreeDirectory = memo(function WorkspaceFileTreeDirectory(prop
 
   return (
     <div className="space-y-0.5">
-      {query.data?.entries.map((entry) => {
+      {entries.map((entry) => {
         if (entry.kind === "directory") {
           const isExpanded = props.expandedDirectories[entry.path] ?? false;
           return (
@@ -372,7 +375,7 @@ const WorkspaceFileTreeDirectory = memo(function WorkspaceFileTreeDirectory(prop
           />
         );
       })}
-      {props.depth === 0 && query.data?.truncated ? (
+      {props.depth === 0 && truncated ? (
         <div className="px-2 py-1 text-[10px] text-muted-foreground/55">
           Workspace tree may be truncated for very large repos.
         </div>

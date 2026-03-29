@@ -483,8 +483,8 @@ label:has(> select#reasoning-effort) select {
   }
 
   ::selection {
-    background: hsl(var(--primary) / 0.55);
-    color: hsl(var(--foreground));
+    background: color-mix(in srgb, var(--primary) 55%, transparent);
+    color: var(--foreground);
   }
 
   * {

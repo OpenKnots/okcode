@@ -74,6 +74,7 @@ export const AppSettingsSchema = Schema.Struct({
   timestampFormat: TimestampFormat.pipe(withDefaults(() => DEFAULT_TIMESTAMP_FORMAT)),
   windowOpacity: Schema.Number.pipe(withDefaults(() => 1)),
   sidebarOpacity: Schema.Number.pipe(withDefaults(() => 1)),
+  sidebarHideFiles: Schema.Boolean.pipe(withDefaults(() => false)),
   customCodexModels: Schema.Array(Schema.String).pipe(withDefaults(() => [])),
   customClaudeModels: Schema.Array(Schema.String).pipe(withDefaults(() => [])),
   textGenerationModel: Schema.optional(TrimmedNonEmptyString),

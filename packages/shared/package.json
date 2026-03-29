@@ -39,6 +39,10 @@
     "./environment": {
       "types": "./src/environment.ts",
       "import": "./src/environment.ts"
+    },
+    "./skill": {
+      "types": "./src/skill.ts",
+      "import": "./src/skill.ts"
     }
   },
   "scripts": {

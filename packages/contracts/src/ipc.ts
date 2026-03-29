@@ -75,6 +75,17 @@ import type {
 } from "./terminal";
 import type { ServerUpsertKeybindingInput, ServerUpsertKeybindingResult } from "./server";
 import type {
+  SkillListInput,
+  SkillListResult,
+  SkillReadInput,
+  SkillReadResult,
+  SkillCreateInput,
+  SkillCreateResult,
+  SkillDeleteInput,
+  SkillSearchInput,
+  SkillSearchResult,
+} from "./skill";
+import type {
   ClientOrchestrationCommand,
   OrchestrationGetFullThreadDiffInput,
   OrchestrationGetFullThreadDiffResult,
@@ -306,6 +317,13 @@ export interface NativeApi {
     onRepoConfigUpdated: (
       callback: (payload: PrReviewRepoConfigUpdatedPayload) => void,
     ) => () => void;
+  };
+  skills: {
+    list: (input?: SkillListInput) => Promise<SkillListResult>;
+    read: (input: SkillReadInput) => Promise<SkillReadResult>;
+    create: (input: SkillCreateInput) => Promise<SkillCreateResult>;
+    delete: (input: SkillDeleteInput) => Promise<void>;
+    search: (input: SkillSearchInput) => Promise<SkillSearchResult>;
   };
   contextMenu: {
     show: <T extends string>(

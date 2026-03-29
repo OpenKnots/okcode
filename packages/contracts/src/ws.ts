@@ -14,6 +14,7 @@ import {
 import {
   GitActionProgressEvent,
   GitCheckoutInput,
+  GitCloneRepositoryInput,
   GitCreateBranchInput,
   GitPreparePullRequestThreadInput,
   GitCreateWorktreeInput,
@@ -99,6 +100,7 @@ export const WS_METHODS = {
   gitCreateBranch: "git.createBranch",
   gitCheckout: "git.checkout",
   gitInit: "git.init",
+  gitCloneRepository: "git.cloneRepository",
   gitResolvePullRequest: "git.resolvePullRequest",
   gitPreparePullRequestThread: "git.preparePullRequestThread",
   gitListPullRequests: "git.listPullRequests",
@@ -189,6 +191,7 @@ const WebSocketRequestBody = Schema.Union([
   tagRequestBody(WS_METHODS.gitCreateBranch, GitCreateBranchInput),
   tagRequestBody(WS_METHODS.gitCheckout, GitCheckoutInput),
   tagRequestBody(WS_METHODS.gitInit, GitInitInput),
+  tagRequestBody(WS_METHODS.gitCloneRepository, GitCloneRepositoryInput),
   tagRequestBody(WS_METHODS.gitResolvePullRequest, GitPullRequestRefInput),
   tagRequestBody(WS_METHODS.gitPreparePullRequestThread, GitPreparePullRequestThreadInput),
   tagRequestBody(WS_METHODS.gitListPullRequests, GitListPullRequestsInput),

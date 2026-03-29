@@ -231,6 +231,31 @@ export function gitRemoveWorktreeMutationOptions(input: { queryClient: QueryClie
   });
 }
 
+export function gitCloneRepositoryMutationOptions(input: { queryClient: QueryClient }) {
+  return mutationOptions({
+    mutationKey: ["git", "mutation", "clone-repository"] as const,
+    mutationFn: async ({
+      url,
+      targetDir,
+      branch,
+    }: {
+      url: string;
+      targetDir: string;
+      branch?: string;
+    }) => {
+      const api = ensureNativeApi();
+      return api.git.cloneRepository({
+        url,
+        targetDir,
+        ...(branch ? { branch } : {}),
+      });
+    },
+    onSettled: async () => {
+      await invalidateGitQueries(input.queryClient);
+    },
+  });
+}
+
 export function gitPreparePullRequestThreadMutationOptions(input: {
   cwd: string | null;
   queryClient: QueryClient;

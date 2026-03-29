@@ -1127,6 +1127,11 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
         return yield* git.initRepo(body);
       }
 
+      case WS_METHODS.gitCloneRepository: {
+        const body = stripRequestTag(request.body);
+        return yield* git.cloneRepository(body);
+      }
+
       case WS_METHODS.terminalOpen: {
         const body = stripRequestTag(request.body);
         const snapshot = yield* projectionReadModelQuery.getSnapshot();

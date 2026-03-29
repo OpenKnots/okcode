@@ -10,7 +10,6 @@ import {
   PlusIcon,
   RocketIcon,
   SettingsIcon,
-  SquarePenIcon,
   TerminalIcon,
   TriangleAlertIcon,
 } from "lucide-react";
@@ -83,7 +82,6 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarHeader,
-  SidebarMenuAction,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -1304,7 +1302,7 @@ export default function Sidebar() {
                       el.select();
                     }
                   }}
-                  className="min-w-0 flex-1 truncate text-xs bg-transparent outline-none border border-ring rounded px-0.5"
+                  className="min-w-0 flex-1 truncate text-xs bg-accent/30 outline-none rounded px-1 py-px ring-1 ring-ring/40 transition-[box-shadow] duration-150 focus:ring-ring/70"
                   value={renamingTitle}
                   onChange={(e) => setRenamingTitle(e.target.value)}
                   onKeyDown={(e) => {
@@ -1407,37 +1405,6 @@ export default function Sidebar() {
               {project.name}
             </span>
           </SidebarMenuButton>
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <SidebarMenuAction
-                  render={
-                    <button
-                      type="button"
-                      aria-label={`Create new thread in ${project.name}`}
-                      data-testid="new-thread-button"
-                    />
-                  }
-                  showOnHover
-                  className="top-1 right-1 size-5 rounded-md p-0 text-muted-foreground/70 hover:bg-secondary hover:text-foreground"
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    void handleNewThread(project.id, {
-                      envMode: resolveSidebarNewThreadEnvMode({
-                        defaultEnvMode: appSettings.defaultThreadEnvMode,
-                      }),
-                    });
-                  }}
-                >
-                  <SquarePenIcon className="size-3.5" />
-                </SidebarMenuAction>
-              }
-            />
-            <TooltipPopup side="top">
-              {newThreadShortcutLabel ? `New thread (${newThreadShortcutLabel})` : "New thread"}
-            </TooltipPopup>
-          </Tooltip>
         </div>
 
         <CollapsibleContent>
@@ -1474,6 +1441,40 @@ export default function Sidebar() {
                   }}
                 >
                   <span>Show less</span>
+                </SidebarMenuSubButton>
+              </SidebarMenuSubItem>
+            )}
+
+            {project.expanded && (
+              <SidebarMenuSubItem className="w-full">
+                <SidebarMenuSubButton
+                  render={
+                    <button
+                      type="button"
+                      aria-label={`Create new thread in ${project.name}`}
+                      data-testid="new-thread-button"
+                      title={
+                        newThreadShortcutLabel
+                          ? `New thread (${newThreadShortcutLabel})`
+                          : "New thread"
+                      }
+                    />
+                  }
+                  data-thread-selection-safe
+                  size="sm"
+                  className="h-6 w-full translate-x-0 justify-start gap-1.5 px-2 text-left text-[11px] text-muted-foreground/35 transition-colors duration-150 hover:bg-accent/50 hover:text-muted-foreground/65"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    void handleNewThread(project.id, {
+                      envMode: resolveSidebarNewThreadEnvMode({
+                        defaultEnvMode: appSettings.defaultThreadEnvMode,
+                      }),
+                    });
+                  }}
+                >
+                  <PlusIcon className="size-3 shrink-0" />
+                  <span>New thread</span>
                 </SidebarMenuSubButton>
               </SidebarMenuSubItem>
             )}
@@ -1930,7 +1931,7 @@ export default function Sidebar() {
             <div className="mb-2 px-1">
               <button
                 type="button"
-                className="mb-1.5 flex w-full items-center justify-center gap-2 rounded-md border border-border bg-secondary py-1.5 text-xs text-foreground/80 transition-colors duration-150 hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+                className="mb-1.5 flex w-full items-center justify-center gap-2 rounded-md border border-border bg-secondary py-1.5 text-xs text-foreground/80 transition-[background-color,border-color,color] duration-150 ease-out hover:border-border/80 hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
                 onClick={() => void handlePickFolder()}
                 disabled={isPickingFolder || isAddingProject}
               >
@@ -1952,10 +1953,10 @@ export default function Sidebar() {
               <div className="flex gap-1.5">
                 <input
                   ref={addProjectInputRef}
-                  className={`min-w-0 flex-1 rounded-md border bg-secondary px-2 py-1 font-mono text-xs text-foreground placeholder:text-muted-foreground/40 focus:outline-none ${
+                  className={`min-w-0 flex-1 rounded-md border bg-secondary px-2 py-1 font-mono text-xs text-foreground placeholder:text-muted-foreground/40 outline-none transition-[border-color,box-shadow] duration-150 ease-out ${
                     addProjectError
-                      ? "border-red-500/70 focus:border-red-500"
-                      : "border-border focus:border-ring"
+                      ? "border-red-500/70 focus:border-red-500 focus:ring-1 focus:ring-red-500/20"
+                      : "border-border focus:border-ring focus:ring-1 focus:ring-ring/20"
                   } ${!manualProjectPathEntry ? "cursor-pointer" : ""}`}
                   readOnly={!manualProjectPathEntry}
                   placeholder={

@@ -224,3 +224,25 @@ export function computeActiveStepIndex(
   const index = steps.findIndex((step) => step.status !== "done");
   return index === -1 ? steps.length : index;
 }
+
+export interface PreparedWorkspace {
+  branch: string;
+  cwd: string;
+  mode: "local" | "worktree";
+  worktreePath: string | null;
+}
+
+export function workspaceModeLabel(workspace: PreparedWorkspace | null): string {
+  if (!workspace) return "Repo scan";
+  return workspace.mode === "worktree" ? "Dedicated worktree" : "Prepared in repo";
+}
+
+export function pullRequestStateBadgeClassName(state: GitResolvedPullRequest["state"]): string {
+  switch (state) {
+    case "open":
+      return "border-emerald-500/30 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300";
+    case "merged":
+    case "closed":
+      return "border-border bg-muted/70 text-foreground";
+  }
+}

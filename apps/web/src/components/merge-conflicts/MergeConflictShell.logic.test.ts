@@ -7,6 +7,8 @@ import {
   groupConflictCandidatesByFile,
   humanizeConflictError,
   pickRecommendedConflictCandidate,
+  pullRequestStateBadgeClassName,
+  workspaceModeLabel,
 } from "./MergeConflictShell.logic";
 
 describe("pickRecommendedConflictCandidate", () => {
@@ -209,5 +211,56 @@ describe("buildConflictFeedbackPreview", () => {
         workspaceLabel: "Dedicated worktree",
       }),
     ).toContain("Operator note: Keep the API signature from the incoming branch.");
+  });
+});
+
+describe("workspaceModeLabel", () => {
+  it('returns "Repo scan" when no workspace is prepared', () => {
+    expect(workspaceModeLabel(null)).toBe("Repo scan");
+  });
+
+  it('returns "Prepared in repo" for local mode', () => {
+    expect(
+      workspaceModeLabel({
+        branch: "feature/auth",
+        cwd: "/Users/val/project",
+        mode: "local",
+        worktreePath: null,
+      }),
+    ).toBe("Prepared in repo");
+  });
+
+  it('returns "Dedicated worktree" for worktree mode', () => {
+    expect(
+      workspaceModeLabel({
+        branch: "feature/auth",
+        cwd: "/Users/val/.git/worktrees/auth",
+        mode: "worktree",
+        worktreePath: "/Users/val/.git/worktrees/auth",
+      }),
+    ).toBe("Dedicated worktree");
+  });
+});
+
+describe("pullRequestStateBadgeClassName", () => {
+  it("returns emerald styling for open PRs", () => {
+    const result = pullRequestStateBadgeClassName("open");
+    expect(result).toContain("emerald");
+    expect(result).not.toContain("muted");
+  });
+
+  it("returns muted styling for merged PRs", () => {
+    const result = pullRequestStateBadgeClassName("merged");
+    expect(result).toContain("muted");
+    expect(result).not.toContain("emerald");
+  });
+
+  it("returns muted styling for closed PRs", () => {
+    const result = pullRequestStateBadgeClassName("closed");
+    expect(result).toContain("muted");
+  });
+
+  it("returns identical styling for merged and closed states", () => {
+    expect(pullRequestStateBadgeClassName("merged")).toBe(pullRequestStateBadgeClassName("closed"));
   });
 });

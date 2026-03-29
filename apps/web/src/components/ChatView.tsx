@@ -87,6 +87,7 @@ import { useTheme } from "../hooks/useTheme";
 import { useTurnDiffSummaries } from "../hooks/useTurnDiffSummaries";
 import BranchToolbar from "./BranchToolbar";
 import { resolveShortcutCommand, shortcutLabelForCommand } from "../keybindings";
+import { buildChatShortcutGuides } from "~/lib/chatShortcutGuidance";
 import PlanSidebar from "./PlanSidebar";
 import ThreadTerminalDrawer from "./ThreadTerminalDrawer";
 import { YouTubePlayerDrawer } from "./YouTubePlayer";
@@ -1227,6 +1228,11 @@ export default function ChatView({ threadId }: ChatViewProps) {
   const diffPanelShortcutLabel = useMemo(
     () => shortcutLabelForCommand(keybindings, "diff.toggle"),
     [keybindings],
+  );
+  const platform = typeof navigator !== "undefined" ? navigator.platform : "";
+  const chatShortcutGuides = useMemo(
+    () => buildChatShortcutGuides(keybindings, platform),
+    [keybindings, platform],
   );
   const onToggleDiff = useCallback(() => {
     void navigate({
@@ -4173,6 +4179,8 @@ export default function ChatView({ threadId }: ChatViewProps) {
                   resolvedTheme={resolvedTheme}
                   timestampFormat={timestampFormat}
                   workspaceRoot={activeProject?.cwd ?? undefined}
+                  shortcutGuides={chatShortcutGuides}
+                  onOpenSettings={() => void navigate({ to: "/settings" })}
                 />
               </div>
 

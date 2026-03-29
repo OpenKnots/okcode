@@ -2,6 +2,8 @@ import { MessageId } from "@okcode/contracts";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
+import { buildChatShortcutGuides } from "~/lib/chatShortcutGuidance";
+
 function matchMedia() {
   return {
     matches: false,
@@ -41,6 +43,8 @@ beforeAll(() => {
     return 0;
   });
 });
+
+const EMPTY_SHORTCUT_GUIDES = buildChatShortcutGuides([], "Win32");
 
 describe("MessagesTimeline", () => {
   it("renders inline terminal labels with the composer chip UI", async () => {
@@ -89,6 +93,8 @@ describe("MessagesTimeline", () => {
         resolvedTheme="light"
         timestampFormat="locale"
         workspaceRoot={undefined}
+        shortcutGuides={EMPTY_SHORTCUT_GUIDES}
+        onOpenSettings={() => {}}
       />,
     );
 
@@ -134,10 +140,47 @@ describe("MessagesTimeline", () => {
         resolvedTheme="light"
         timestampFormat="locale"
         workspaceRoot={undefined}
+        shortcutGuides={EMPTY_SHORTCUT_GUIDES}
+        onOpenSettings={() => {}}
       />,
     );
 
     expect(markup).toContain("Context compacted");
     expect(markup).toContain("Work log");
+  });
+
+  it("renders shortcut guidance when the timeline is empty", async () => {
+    const { MessagesTimeline } = await import("./MessagesTimeline");
+    const markup = renderToStaticMarkup(
+      <MessagesTimeline
+        hasMessages={false}
+        isWorking={false}
+        activeTurnInProgress={false}
+        activeTurnStartedAt={null}
+        scrollContainer={null}
+        timelineEntries={[]}
+        completionDividerBeforeEntryId={null}
+        completionSummary={null}
+        turnDiffSummaryByAssistantMessageId={new Map()}
+        nowIso="2026-03-17T19:12:30.000Z"
+        expandedWorkGroups={{}}
+        onToggleWorkGroup={() => {}}
+        onOpenTurnDiff={() => {}}
+        revertTurnCountByUserMessageId={new Map()}
+        onRevertUserMessage={() => {}}
+        isRevertingCheckpoint={false}
+        onImageExpand={() => {}}
+        markdownCwd={undefined}
+        resolvedTheme="light"
+        timestampFormat="locale"
+        workspaceRoot={undefined}
+        shortcutGuides={EMPTY_SHORTCUT_GUIDES}
+        onOpenSettings={() => {}}
+      />,
+    );
+
+    expect(markup).toContain("Hotkey tip");
+    expect(markup).toContain("Manage hotkeys");
+    expect(markup).toContain("No shortcut assigned");
   });
 });

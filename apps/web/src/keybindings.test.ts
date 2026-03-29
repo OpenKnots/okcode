@@ -19,6 +19,7 @@ import {
   isTerminalToggleShortcut,
   resolveShortcutCommand,
   shortcutLabelForCommand,
+  shortcutLabelsForCommand,
   terminalNavigationShortcutData,
   type ShortcutEventLike,
 } from "./keybindings";
@@ -270,6 +271,16 @@ describe("shortcutLabelForCommand", () => {
       shortcutLabelForCommand(DEFAULT_BINDINGS, "editor.openFavorite", "Linux"),
       "Ctrl+O",
     );
+  });
+
+  it("returns every binding label in declaration order", () => {
+    assert.deepStrictEqual(shortcutLabelsForCommand(DEFAULT_BINDINGS, "terminal.toggle", "Linux"), [
+      "Ctrl+J",
+      "Ctrl+`",
+    ]);
+    assert.deepStrictEqual(shortcutLabelsForCommand(DEFAULT_BINDINGS, "chat.newLocal", "Linux"), [
+      "Ctrl+Shift+N",
+    ]);
   });
 });
 

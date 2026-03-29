@@ -99,7 +99,7 @@ export const MarkdownPreview = memo(function MarkdownPreview({ contents }: Markd
             "--cm-callout-bg": "var(--secondary)",
             "--cm-radius": "12px",
             "--cm-font":
-              '"DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
+              'var(--font-ui, "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif)',
             "--cm-mono":
               '"SF Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace',
           } as CSSProperties

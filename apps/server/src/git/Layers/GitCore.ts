@@ -1,3 +1,5 @@
+import { realpathSync } from "node:fs";
+
 import {
   Cache,
   Data,
@@ -33,6 +35,14 @@ import { ServerConfig } from "../../config.ts";
 import { decodeJsonResult } from "@okcode/shared/schemaJson";
 import { ProjectionSnapshotQuery } from "../../orchestration/Services/ProjectionSnapshotQuery.ts";
 import { resolveRuntimeEnvironment } from "../../runtimeEnvironment.ts";
+
+function safeRealpath(value: string): string {
+  try {
+    return realpathSync(value);
+  } catch {
+    return value;
+  }
+}
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_MAX_OUTPUT_BYTES = 1_000_000;
@@ -1850,6 +1860,37 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
         ),
       );
 
+    const cloneRepository: GitCoreShape["cloneRepository"] = (input) =>
+      Effect.gen(function* () {
+        // Extract repo name from URL for the target directory name
+        const urlPath = input.url.replace(/\.git$/, "");
+        const repoName = urlPath.split("/").pop() ?? "repo";
+        const clonePath = path.join(input.targetDir, repoName);
+
+        const args = ["clone", input.url, clonePath];
+        if (input.branch) {
+          args.push("--branch", input.branch);
+        }
+
+        yield* executeGit("GitCore.cloneRepository", input.targetDir, args, {
+          timeoutMs: 5 * 60_000, // 5 minutes for large repos
+          fallbackErrorMessage: "git clone failed",
+        });
+
+        // Read the current branch from the cloned repo
+        const branchOutput = yield* runGitStdout("GitCore.cloneRepository.branch", clonePath, [
+          "rev-parse",
+          "--abbrev-ref",
+          "HEAD",
+        ]);
+        const branch = branchOutput.trim() || "main";
+
+        // Resolve to real path in case of symlinks
+        const resolvedPath = safeRealpath(clonePath);
+
+        return { path: resolvedPath, branch };
+      });
+
     return {
       execute,
       status,
@@ -1872,6 +1913,7 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
       checkoutBranch,
       initRepo,
       listLocalBranchNames,
+      cloneRepository,
     } satisfies GitCoreShape;
   });
 

@@ -34,7 +34,7 @@ import { SidebarInset } from "../components/ui/sidebar";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../components/ui/tooltip";
 import { resolveAndPersistPreferredEditor } from "../editorPreferences";
 import { isElectron } from "../env";
-import { useTheme, COLOR_THEMES } from "../hooks/useTheme";
+import { useTheme, COLOR_THEMES, FONT_FAMILIES } from "../hooks/useTheme";
 import {
   environmentVariablesQueryKeys,
   globalEnvironmentVariablesQueryOptions,
@@ -209,7 +209,7 @@ function getErrorMessage(error: unknown): string {
 }
 
 function SettingsRouteView() {
-  const { theme, setTheme, colorTheme, setColorTheme } = useTheme();
+  const { theme, setTheme, colorTheme, setColorTheme, fontFamily, setFontFamily } = useTheme();
   const { settings, defaults, updateSettings, resetSettings } = useAppSettings();
   const serverConfigQuery = useQuery(serverConfigQueryOptions());
   const queryClient = useQueryClient();
@@ -300,6 +300,7 @@ function SettingsRouteView() {
   const changedSettingLabels = [
     ...(theme !== "system" ? ["Theme"] : []),
     ...(colorTheme !== "default" ? ["Color theme"] : []),
+    ...(fontFamily !== "inter" ? ["Font"] : []),
     ...(settings.timestampFormat !== defaults.timestampFormat ? ["Time format"] : []),
     ...(settings.diffWordWrap !== defaults.diffWordWrap ? ["Diff line wrapping"] : []),
     ...(settings.enableAssistantStreaming !== defaults.enableAssistantStreaming
@@ -445,6 +446,7 @@ function SettingsRouteView() {
 
     setTheme("system");
     setColorTheme("default");
+    setFontFamily("inter");
     resetSettings();
     setOpenInstallProviders({
       codex: false,
@@ -564,6 +566,39 @@ function SettingsRouteView() {
                       {COLOR_THEMES.map((t) => (
                         <SelectItem hideIndicator key={t.id} value={t.id}>
                           {t.label}
+                        </SelectItem>
+                      ))}
+                    </SelectPopup>
+                  </Select>
+                }
+              />
+
+              <SettingsRow
+                title="Font"
+                description="Choose the typeface for the interface."
+                resetAction={
+                  fontFamily !== "inter" ? (
+                    <SettingResetButton label="font" onClick={() => setFontFamily("inter")} />
+                  ) : null
+                }
+                control={
+                  <Select
+                    value={fontFamily}
+                    onValueChange={(value) => {
+                      const match = FONT_FAMILIES.find((f) => f.id === value);
+                      if (!match) return;
+                      setFontFamily(match.id);
+                    }}
+                  >
+                    <SelectTrigger className="w-full sm:w-40" aria-label="Font family">
+                      <SelectValue>
+                        {FONT_FAMILIES.find((f) => f.id === fontFamily)?.label ?? "Inter"}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectPopup align="end" alignItemWithTrigger={false}>
+                      {FONT_FAMILIES.map((f) => (
+                        <SelectItem hideIndicator key={f.id} value={f.id}>
+                          {f.label}
                         </SelectItem>
                       ))}
                     </SelectPopup>

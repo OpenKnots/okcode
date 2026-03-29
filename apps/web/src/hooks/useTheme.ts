@@ -5,25 +5,39 @@ type ColorTheme =
   | "default"
   | "iridescent-void"
   | "solar-witch"
-  | "cursor-dark"
+  | "midnight-clarity"
+  | "carbon"
+  | "vapor"
   | "cathedral-circuit";
+
+type FontFamily = "dm-sans" | "inter" | "plus-jakarta-sans";
 
 type ThemeSnapshot = {
   theme: Theme;
   systemDark: boolean;
   colorTheme: ColorTheme;
+  fontFamily: FontFamily;
 };
 
 export const COLOR_THEMES: { id: ColorTheme; label: string }[] = [
   { id: "default", label: "Default" },
   { id: "iridescent-void", label: "Iridescent Void" },
   { id: "solar-witch", label: "Solar Witch" },
-  { id: "cursor-dark", label: "Cursor Dark" },
+  { id: "midnight-clarity", label: "Midnight Clarity" },
+  { id: "carbon", label: "Carbon" },
+  { id: "vapor", label: "Vapor" },
   { id: "cathedral-circuit", label: "Cathedral Circuit" },
+];
+
+export const FONT_FAMILIES: { id: FontFamily; label: string }[] = [
+  { id: "inter", label: "Inter" },
+  { id: "dm-sans", label: "DM Sans" },
+  { id: "plus-jakarta-sans", label: "Plus Jakarta Sans" },
 ];
 
 const STORAGE_KEY = "okcode:theme";
 const COLOR_THEME_STORAGE_KEY = "okcode:color-theme";
+const FONT_FAMILY_STORAGE_KEY = "okcode:font-family";
 const MEDIA_QUERY = "(prefers-color-scheme: dark)";
 
 let listeners: Array<() => void> = [];
@@ -49,12 +63,34 @@ function getStoredColorTheme(): ColorTheme {
     raw === "default" ||
     raw === "iridescent-void" ||
     raw === "solar-witch" ||
-    raw === "cursor-dark" ||
+    raw === "midnight-clarity" ||
+    raw === "carbon" ||
+    raw === "vapor" ||
     raw === "cathedral-circuit"
   ) {
     return raw;
   }
   return "default";
+}
+
+function getStoredFontFamily(): FontFamily {
+  const raw = localStorage.getItem(FONT_FAMILY_STORAGE_KEY);
+  if (raw === "dm-sans" || raw === "inter" || raw === "plus-jakarta-sans") {
+    return raw;
+  }
+  return "inter";
+}
+
+const FONT_FAMILY_MAP: Record<FontFamily, string> = {
+  inter: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
+  "dm-sans": '"DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
+  "plus-jakarta-sans":
+    '"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
+};
+
+function applyFont(fontFamily?: FontFamily) {
+  const font = fontFamily ?? getStoredFontFamily();
+  document.documentElement.style.setProperty("--font-ui", FONT_FAMILY_MAP[font]);
 }
 
 function applyTheme(theme: Theme, suppressTransitions = false) {
@@ -77,6 +113,9 @@ function applyTheme(theme: Theme, suppressTransitions = false) {
   if (colorTheme !== "default") {
     document.documentElement.classList.add(`theme-${colorTheme}`);
   }
+
+  // Apply font family
+  applyFont();
 
   syncDesktopTheme(theme);
   if (suppressTransitions) {
@@ -110,17 +149,19 @@ function getSnapshot(): ThemeSnapshot {
   const theme = getStored();
   const systemDark = theme === "system" ? getSystemDark() : false;
   const colorTheme = getStoredColorTheme();
+  const fontFamily = getStoredFontFamily();
 
   if (
     lastSnapshot &&
     lastSnapshot.theme === theme &&
     lastSnapshot.systemDark === systemDark &&
-    lastSnapshot.colorTheme === colorTheme
+    lastSnapshot.colorTheme === colorTheme &&
+    lastSnapshot.fontFamily === fontFamily
   ) {
     return lastSnapshot;
   }
 
-  lastSnapshot = { theme, systemDark, colorTheme };
+  lastSnapshot = { theme, systemDark, colorTheme, fontFamily };
   return lastSnapshot;
 }
 
@@ -137,7 +178,11 @@ function subscribe(listener: () => void): () => void {
 
   // Listen for storage changes from other tabs
   const handleStorage = (e: StorageEvent) => {
-    if (e.key === STORAGE_KEY || e.key === COLOR_THEME_STORAGE_KEY) {
+    if (
+      e.key === STORAGE_KEY ||
+      e.key === COLOR_THEME_STORAGE_KEY ||
+      e.key === FONT_FAMILY_STORAGE_KEY
+    ) {
       applyTheme(getStored(), true);
       emitChange();
     }
@@ -155,6 +200,7 @@ export function useTheme() {
   const snapshot = useSyncExternalStore(subscribe, getSnapshot);
   const theme = snapshot.theme;
   const colorTheme = snapshot.colorTheme;
+  const fontFamily = snapshot.fontFamily;
 
   const resolvedTheme: "light" | "dark" =
     theme === "system" ? (snapshot.systemDark ? "dark" : "light") : theme;
@@ -171,10 +217,24 @@ export function useTheme() {
     emitChange();
   }, []);
 
+  const setFontFamily = useCallback((next: FontFamily) => {
+    localStorage.setItem(FONT_FAMILY_STORAGE_KEY, next);
+    applyFont(next);
+    emitChange();
+  }, []);
+
   // Keep DOM in sync on mount/change
   useEffect(() => {
     applyTheme(theme);
   }, [theme]);
 
-  return { theme, setTheme, resolvedTheme, colorTheme, setColorTheme } as const;
+  return {
+    theme,
+    setTheme,
+    resolvedTheme,
+    colorTheme,
+    setColorTheme,
+    fontFamily,
+    setFontFamily,
+  } as const;
 }

@@ -2,6 +2,8 @@ import {
   ArrowLeftIcon,
   ArrowUpDownIcon,
   ChevronRightIcon,
+  EyeIcon,
+  EyeOffIcon,
   FolderIcon,
   GitMergeIcon,
   GitPullRequestIcon,
@@ -47,7 +49,7 @@ import {
   useAppSettings,
 } from "../appSettings";
 import { isElectron } from "../env";
-import { APP_STAGE_LABEL, APP_VERSION } from "../branding";
+import { APP_VERSION } from "../branding";
 import { cn, isLinuxPlatform, isMacPlatform, newCommandId, newProjectId } from "../lib/utils";
 import { useStore } from "../store";
 import { shortcutLabelForCommand } from "../keybindings";
@@ -1362,7 +1364,7 @@ export default function Sidebar() {
           <SidebarMenuButton
             ref={isManualProjectSorting ? dragHandleProps?.setActivatorNodeRef : undefined}
             size="sm"
-            className={`gap-2 px-2 py-2 text-left hover:bg-accent group-hover/project-header:bg-accent group-hover/project-header:text-sidebar-accent-foreground ${
+            className={`gap-2 rounded-lg border border-transparent px-2.5 py-2.5 text-left bg-accent/40 hover:bg-accent/70 group-hover/project-header:bg-accent/70 group-hover/project-header:text-sidebar-accent-foreground dark:bg-accent/30 dark:hover:bg-accent/50 dark:group-hover/project-header:bg-accent/50 ${
               isManualProjectSorting ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
             }`}
             {...(isManualProjectSorting && dragHandleProps ? dragHandleProps.attributes : {})}
@@ -1401,7 +1403,7 @@ export default function Sidebar() {
               />
             )}
             <ProjectFavicon cwd={project.cwd} />
-            <span className="flex-1 truncate text-xs font-semibold tracking-[0.01em] text-foreground">
+            <span className="flex-1 truncate text-[13px] font-semibold tracking-[0.01em] text-foreground">
               {project.name}
             </span>
           </SidebarMenuButton>
@@ -1441,7 +1443,7 @@ export default function Sidebar() {
         <CollapsibleContent>
           <SidebarMenuSub
             ref={attachThreadListAutoAnimateRef}
-            className="mx-1 my-0 w-full translate-x-0 gap-0.5 px-1.5 py-0"
+            className="relative mx-1.5 my-1 w-auto translate-x-0 gap-0.5 rounded-lg border border-border/40 bg-background/50 px-1 py-1 dark:border-border/30 dark:bg-background/30"
           >
             {renderedThreads.map((thread) => renderThreadRow(thread))}
 
@@ -1477,8 +1479,8 @@ export default function Sidebar() {
             )}
           </SidebarMenuSub>
 
-          {project.expanded && activeProjectThread ? (
-            <div className="mx-2 mt-2 border-sidebar-border/50 border-t pt-2">
+          {project.expanded && activeProjectThread && !appSettings.sidebarHideFiles ? (
+            <div className="mx-1.5 mt-1 rounded-lg border border-border/40 bg-background/50 p-2 dark:border-border/30 dark:bg-background/30">
               <button
                 type="button"
                 className="mb-1.5 flex w-full items-center gap-1.5 px-2 text-[10px] uppercase tracking-[0.14em] text-muted-foreground/58 hover:text-muted-foreground/80"
@@ -1728,9 +1730,6 @@ export default function Sidebar() {
               <span className="truncate text-sm font-medium tracking-tight text-muted-foreground">
                 Code
               </span>
-              <span className="rounded-full bg-muted/50 px-1.5 py-0.5 text-[8px] font-medium uppercase tracking-[0.18em] text-muted-foreground/60">
-                {APP_STAGE_LABEL}
-              </span>
             </div>
           }
         />
@@ -1863,6 +1862,35 @@ export default function Sidebar() {
               Projects
             </span>
             <div className="flex items-center gap-1">
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <button
+                      type="button"
+                      aria-label={appSettings.sidebarHideFiles ? "Show files" : "Hide files"}
+                      aria-pressed={appSettings.sidebarHideFiles}
+                      className={cn(
+                        "inline-flex size-5 cursor-pointer items-center justify-center rounded-md transition-colors hover:bg-accent hover:text-foreground",
+                        appSettings.sidebarHideFiles
+                          ? "text-muted-foreground/40"
+                          : "text-muted-foreground/60",
+                      )}
+                      onClick={() =>
+                        updateSettings({ sidebarHideFiles: !appSettings.sidebarHideFiles })
+                      }
+                    />
+                  }
+                >
+                  {appSettings.sidebarHideFiles ? (
+                    <EyeOffIcon className="size-3.5" />
+                  ) : (
+                    <EyeIcon className="size-3.5" />
+                  )}
+                </TooltipTrigger>
+                <TooltipPopup side="top">
+                  {appSettings.sidebarHideFiles ? "Show files" : "Hide files"}
+                </TooltipPopup>
+              </Tooltip>
               <ProjectSortMenu
                 projectSortOrder={appSettings.sidebarProjectSortOrder}
                 threadSortOrder={appSettings.sidebarThreadSortOrder}
@@ -2006,9 +2034,9 @@ export default function Sidebar() {
               </SidebarMenu>
             </DndContext>
           ) : (
-            <SidebarMenu ref={attachProjectListAutoAnimateRef}>
+            <SidebarMenu ref={attachProjectListAutoAnimateRef} className="gap-2">
               {sortedProjects.map((project) => (
-                <SidebarMenuItem key={project.id} className="rounded-md mt-1.5 first:mt-0">
+                <SidebarMenuItem key={project.id} className="rounded-lg">
                   {renderProjectItem(project, null)}
                 </SidebarMenuItem>
               ))}

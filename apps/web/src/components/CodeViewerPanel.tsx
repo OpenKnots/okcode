@@ -86,10 +86,24 @@ const CodeViewerFileContent = memo(function CodeViewerFileContent(props: {
     );
   }
 
-  if (!query.data?.contents && query.data?.contents !== "") {
+  if (!query.data?.contents && query.data?.contents !== "" && !query.data?.imageDataUrl) {
     return (
       <div className="flex flex-1 items-center justify-center px-5 text-center text-xs text-muted-foreground/70">
         No content available.
+      </div>
+    );
+  }
+
+  // Render image files
+  if (query.data?.imageDataUrl) {
+    return (
+      <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto p-4">
+        <img
+          src={query.data.imageDataUrl}
+          alt={props.relativePath}
+          className="max-h-full max-w-full object-contain"
+          draggable={false}
+        />
       </div>
     );
   }

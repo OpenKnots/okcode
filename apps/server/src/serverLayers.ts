@@ -28,6 +28,7 @@ import { EnvironmentVariablesLive } from "./persistence/Services/EnvironmentVari
 
 import { TerminalManagerLive } from "./terminal/Layers/Manager";
 import { KeybindingsLive } from "./keybindings";
+import { SkillServiceLive } from "./skills/SkillService";
 import { GitManagerLive } from "./git/Layers/GitManager";
 import { GitCoreLive } from "./git/Layers/GitCore";
 import { GitHubCliLive } from "./git/Layers/GitHubCli";
@@ -159,5 +160,6 @@ export function makeServerRuntimeServicesLayer() {
     prReviewLayer,
     terminalLayer,
     KeybindingsLive,
+    SkillServiceLive,
   ).pipe(Layer.provideMerge(NodeServices.layer));
 }

@@ -83,6 +83,7 @@ import { decodeJsonResult, formatSchemaError } from "@okcode/shared/schemaJson";
 import { PrReview } from "./prReview/Services/PrReview.ts";
 import { GitActionExecutionError } from "./git/Errors.ts";
 import { EnvironmentVariables } from "./persistence/Services/EnvironmentVariables.ts";
+import { SkillService } from "./skills/SkillService.ts";
 import { resolveRuntimeEnvironment } from "./runtimeEnvironment.ts";
 
 /**
@@ -263,6 +264,7 @@ export type ServerRuntimeServices =
   | PrReview
   | TerminalManager
   | Keybindings
+  | SkillService
   | Open
   | AnalyticsService
   | EnvironmentVariables;
@@ -653,6 +655,7 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
   const prReview = yield* PrReview;
   const { openInEditor } = yield* Open;
   const environmentVariables = yield* EnvironmentVariables;
+  const skillService = yield* SkillService;
 
   const subscriptionsScope = yield* Scope.make("sequential");
   yield* Effect.addFinalizer(() => Scope.close(subscriptionsScope, Exit.void));
@@ -1220,6 +1223,31 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
         }
         const pickedPath = yield* Effect.sync(() => pickFolderNative());
         return { path: pickedPath };
+      }
+
+      case WS_METHODS.skillList: {
+        const body = stripRequestTag(request.body);
+        return yield* skillService.list(body);
+      }
+
+      case WS_METHODS.skillRead: {
+        const body = stripRequestTag(request.body);
+        return yield* skillService.read(body);
+      }
+
+      case WS_METHODS.skillCreate: {
+        const body = stripRequestTag(request.body);
+        return yield* skillService.create(body);
+      }
+
+      case WS_METHODS.skillDelete: {
+        const body = stripRequestTag(request.body);
+        return yield* skillService.delete(body);
+      }
+
+      case WS_METHODS.skillSearch: {
+        const body = stripRequestTag(request.body);
+        return yield* skillService.search(body);
       }
 
       default: {

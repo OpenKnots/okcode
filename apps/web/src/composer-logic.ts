@@ -1,8 +1,8 @@
 import { splitPromptIntoComposerSegments } from "./composer-editor-mentions";
 import { INLINE_TERMINAL_CONTEXT_PLACEHOLDER } from "./lib/terminalContext";
 
-export type ComposerTriggerKind = "path" | "slash-command" | "slash-model";
-export type ComposerSlashCommand = "model" | "plan" | "chat" | "code";
+export type ComposerTriggerKind = "path" | "slash-command" | "slash-model" | "slash-skill";
+export type ComposerSlashCommand = "model" | "plan" | "chat" | "code" | "skill";
 
 export interface ComposerTrigger {
   kind: ComposerTriggerKind;
@@ -11,7 +11,7 @@ export interface ComposerTrigger {
   rangeEnd: number;
 }
 
-const SLASH_COMMANDS: readonly ComposerSlashCommand[] = ["model", "plan", "chat", "code"];
+const SLASH_COMMANDS: readonly ComposerSlashCommand[] = ["model", "plan", "chat", "code", "skill"];
 const isInlineTokenSegment = (
   segment: { type: "text"; text: string } | { type: "mention" } | { type: "terminal-context" },
 ): boolean => segment.type !== "text";
@@ -201,9 +201,26 @@ export function detectComposerTrigger(text: string, cursorInput: number): Compos
           rangeEnd: cursor,
         };
       }
+      if (commandQuery.toLowerCase() === "skill") {
+        return {
+          kind: "slash-skill",
+          query: "",
+          rangeStart: lineStart,
+          rangeEnd: cursor,
+        };
+      }
       if (SLASH_COMMANDS.some((command) => command.startsWith(commandQuery.toLowerCase()))) {
         return {
           kind: "slash-command",
+          query: commandQuery,
+          rangeStart: lineStart,
+          rangeEnd: cursor,
+        };
+      }
+      // Check if this matches a dynamic skill name pattern (e.g., /my-custom-skill)
+      if (/^[a-z0-9-]+$/.test(commandQuery.toLowerCase()) && commandQuery.length > 0) {
+        return {
+          kind: "slash-skill",
           query: commandQuery,
           rangeStart: lineStart,
           rangeEnd: cursor,
@@ -217,6 +234,17 @@ export function detectComposerTrigger(text: string, cursorInput: number): Compos
       return {
         kind: "slash-model",
         query: (modelMatch[1] ?? "").trim(),
+        rangeStart: lineStart,
+        rangeEnd: cursor,
+      };
+    }
+
+    // Handle /skill <subcommand> pattern
+    const skillMatch = /^\/skill(?:\s+(.*))?$/.exec(linePrefix);
+    if (skillMatch) {
+      return {
+        kind: "slash-skill",
+        query: (skillMatch[1] ?? "").trim(),
         rangeStart: lineStart,
         rangeEnd: cursor,
       };
@@ -240,13 +268,14 @@ export function detectComposerTrigger(text: string, cursorInput: number): Compos
 export function parseStandaloneComposerSlashCommand(
   text: string,
 ): Exclude<ComposerSlashCommand, "model"> | null {
-  const match = /^\/(plan|chat|code|default)\s*$/i.exec(text.trim());
+  const match = /^\/(plan|chat|code|default|skill)\s*$/i.exec(text.trim());
   if (!match) {
     return null;
   }
   const command = match[1]?.toLowerCase();
   if (command === "plan") return "plan";
   if (command === "code") return "code";
+  if (command === "skill") return "skill";
   // `/default` is a legacy alias for chat mode
   return "chat";
 }

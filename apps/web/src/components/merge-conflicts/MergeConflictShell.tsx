@@ -53,13 +53,8 @@ import {
 } from "~/components/ui/empty";
 import { Input } from "~/components/ui/input";
 import { ScrollArea } from "~/components/ui/scroll-area";
-import {
-  Select,
-  SelectItem,
-  SelectPopup,
-  SelectTrigger,
-  SelectValue,
-} from "~/components/ui/select";
+import { Select, SelectButton, SelectItem, SelectPopup } from "~/components/ui/select";
+import { Tooltip, TooltipTrigger, TooltipPopup } from "~/components/ui/tooltip";
 import {
   Sheet,
   SheetDescription,
@@ -80,8 +75,12 @@ import {
   groupConflictCandidatesByFile,
   humanizeConflictError,
   type MergeConflictFeedbackDisposition,
+  type PreparedWorkspace,
   pickRecommendedConflictCandidate,
+  pullRequestStateBadgeClassName,
+  workspaceModeLabel,
 } from "./MergeConflictShell.logic";
+import { ExpandableSummary } from "./ExpandableSummary";
 
 const FEEDBACK_DISPOSITION_SCHEMA = Schema.Literals(["accept", "review", "escalate", "blocked"]);
 const FEEDBACK_DRAFT_SCHEMA = Schema.Struct({
@@ -106,23 +105,6 @@ const FEEDBACK_DISPOSITION_OPTIONS: ReadonlyArray<{
   { value: "blocked", label: "Blocked" },
 ] as const;
 
-interface PreparedWorkspace {
-  branch: string;
-  cwd: string;
-  mode: "local" | "worktree";
-  worktreePath: string | null;
-}
-
-function pullRequestStateBadgeClassName(state: GitResolvedPullRequest["state"]) {
-  switch (state) {
-    case "open":
-      return "border-emerald-500/30 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300";
-    case "merged":
-    case "closed":
-      return "border-border bg-muted/70 text-foreground";
-  }
-}
-
 function tonePanelClassName(tone: "neutral" | "success" | "warning") {
   switch (tone) {
     case "success":
@@ -145,11 +127,6 @@ function stepStatusClassName(status: "done" | "active" | "todo" | "blocked") {
     case "todo":
       return "border-border bg-background text-muted-foreground";
   }
-}
-
-function workspaceModeLabel(workspace: PreparedWorkspace | null): string {
-  if (!workspace) return "Repo scan";
-  return workspace.mode === "worktree" ? "Dedicated worktree" : "Prepared in repo";
 }
 
 async function openPathInEditor(targetPath: string) {
@@ -198,7 +175,14 @@ function ConflictCandidateButton({
           {candidate.confidence}
         </Badge>
       </div>
-      <p className="mt-3 text-sm text-muted-foreground">{candidate.description}</p>
+      <ExpandableSummary
+        className="mt-3"
+        text={candidate.description}
+        title={candidate.title}
+        subtitle={`${candidate.path} · ${candidate.confidence} confidence`}
+      >
+        <p className="text-sm text-muted-foreground">{candidate.description}</p>
+      </ExpandableSummary>
     </button>
   );
 }
@@ -679,37 +663,49 @@ export function MergeConflictShell({
             <ScrollArea className="h-full">
               <div className="space-y-4 px-4 py-4">
                 <SectionHeading
-                  detail="Resolve conflicts from a GitHub PR link, then let OK Code guide the safest next action."
                   eyebrow="Intake"
                   title="Conflict source"
+                  action={
+                    <Tooltip>
+                      <TooltipTrigger
+                        aria-label="About conflict resolution"
+                        className="text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+                      >
+                        <InfoIcon className="size-3.5" />
+                      </TooltipTrigger>
+                      <TooltipPopup side="right" className="max-w-56">
+                        Resolve conflicts from a GitHub PR link, then let OK Code guide the safest
+                        next action.
+                      </TooltipPopup>
+                    </Tooltip>
+                  }
                 />
 
                 <div className="rounded-2xl border border-border/70 bg-background/92 p-4">
-                  <label className="block space-y-2">
+                  <label className="block space-y-1.5">
                     <span className="text-xs font-medium text-foreground">Repository</span>
                     <Select
                       value={selectedProjectId ?? project.id}
                       onValueChange={(value) => onProjectChange(String(value))}
                     >
-                      <SelectTrigger aria-label="Conflict project" size="sm">
-                        <SelectValue placeholder="Select project" />
-                      </SelectTrigger>
+                      <SelectButton aria-label="Conflict project" size="sm">
+                        {projectLabel(project)}
+                      </SelectButton>
                       <SelectPopup>
                         {projects.map((entry) => (
                           <SelectItem hideIndicator key={entry.id} value={entry.id}>
-                            {projectLabel(entry)}
+                            <div>
+                              <p className="truncate text-sm">{projectLabel(entry)}</p>
+                              <p className="truncate text-xs text-muted-foreground">{entry.cwd}</p>
+                            </div>
                           </SelectItem>
                         ))}
                       </SelectPopup>
                     </Select>
+                    <p className="mt-1 truncate text-[11px] text-muted-foreground">{project.cwd}</p>
                   </label>
 
-                  <div className="mt-4 rounded-2xl border border-border/70 bg-muted/24 p-3">
-                    <p className="font-medium text-sm text-foreground">{projectLabel(project)}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">{project.cwd}</p>
-                  </div>
-
-                  <label className="mt-4 block space-y-2">
+                  <label className="mt-3 block space-y-1.5">
                     <span className="text-xs font-medium text-foreground">Pull request link</span>
                     <Input
                       placeholder="https://github.com/owner/repo/pull/42"
@@ -814,30 +810,28 @@ export function MergeConflictShell({
                     })()
                   : null}
 
-                <div className="rounded-2xl border border-border/70 bg-background/92 p-4">
-                  <SectionHeading
-                    detail="The active workspace is what OK Code inspects for local conflict markers and applies candidate patches against."
-                    eyebrow="Workspace"
-                    title="Current execution target"
-                  />
-                  <div className="mt-4 space-y-3 text-sm">
-                    <div className="rounded-2xl border border-border/70 bg-muted/24 p-3">
-                      <p className="font-medium text-foreground">
+                <div className="rounded-2xl border border-border/70 bg-background/92 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                        Workspace
+                      </p>
+                      <p className="mt-0.5 truncate text-sm font-medium text-foreground">
                         {workspaceModeLabel(preparedWorkspace)}
                       </p>
-                      <p className="mt-1 break-all text-muted-foreground">{activeWorkspaceCwd}</p>
                     </div>
                     {preparedWorkspace ? (
-                      <div className="rounded-2xl border border-border/70 bg-muted/24 p-3">
-                        <p className="font-medium text-foreground">Prepared branch</p>
-                        <p className="mt-1 text-muted-foreground">{preparedWorkspace.branch}</p>
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        Using a repo-level scan until you prepare a dedicated conflict workspace.
-                      </p>
-                    )}
+                      <Badge className="shrink-0 text-xs">{preparedWorkspace.branch}</Badge>
+                    ) : null}
                   </div>
+                  <p className="mt-1 break-all text-xs text-muted-foreground">
+                    {activeWorkspaceCwd}
+                  </p>
+                  {!preparedWorkspace ? (
+                    <p className="mt-1.5 text-xs text-muted-foreground/70">
+                      Repo-level scan until a workspace is prepared.
+                    </p>
+                  ) : null}
                 </div>
               </div>
             </ScrollArea>
@@ -932,9 +926,13 @@ export function MergeConflictShell({
                       ) : (
                         <InfoIcon className="mt-0.5 size-4 shrink-0" />
                       )}
-                      <div className="space-y-1">
+                      <div className="min-w-0 flex-1 space-y-1">
                         <p className="font-medium text-sm">{recommendation.title}</p>
-                        <p className="text-sm opacity-85">{recommendation.detail}</p>
+                        <ExpandableSummary
+                          text={recommendation.detail}
+                          title={recommendation.title}
+                          subtitle="AI-generated conflict guidance"
+                        />
                       </div>
                     </div>
                   </div>
@@ -950,13 +948,19 @@ export function MergeConflictShell({
                     <div className="rounded-3xl border border-emerald-500/25 bg-emerald-500/8 p-5">
                       <div className="flex items-start gap-3">
                         <CheckCircle2Icon className="mt-0.5 size-5 shrink-0 text-emerald-700 dark:text-emerald-300" />
-                        <div className="space-y-2">
+                        <div className="min-w-0 flex-1 space-y-2">
                           <p className="font-medium text-sm text-emerald-900 dark:text-emerald-100">
                             No merge conflicts are blocking this pull request.
                           </p>
-                          <p className="text-sm text-emerald-900/80 dark:text-emerald-100/80">
-                            {conflictQuery.data.summary}
-                          </p>
+                          <ExpandableSummary
+                            text={conflictQuery.data.summary}
+                            title="Conflict analysis"
+                            subtitle="No merge conflicts detected"
+                          >
+                            <p className="text-sm text-emerald-900/80 dark:text-emerald-100/80">
+                              {conflictQuery.data.summary}
+                            </p>
+                          </ExpandableSummary>
                         </div>
                       </div>
                     </div>
@@ -1135,18 +1139,30 @@ export function MergeConflictShell({
                                       </div>
                                     </div>
 
-                                    <div className="rounded-3xl border border-border/70 bg-background/92 p-4">
-                                      <p className="font-medium text-sm text-foreground">
-                                        Agent note
-                                      </p>
-                                      <p className="mt-3 text-sm text-muted-foreground">
-                                        {selectedCandidate
-                                          ? selectedCandidate.confidence === "safe"
-                                            ? "This candidate is deterministic. Review the resulting diff after apply, but it is the lowest-risk path OK Code could infer."
-                                            : "This candidate is only a starting point. Keep the handoff note explicit and verify the merged intent before you commit."
-                                          : "No candidate is selected. OK Code will not mutate the workspace until you review a concrete patch."}
-                                      </p>
-                                    </div>
+                                    {(() => {
+                                      const agentNote = selectedCandidate
+                                        ? selectedCandidate.confidence === "safe"
+                                          ? "This candidate is deterministic. Review the resulting diff after apply, but it is the lowest-risk path OK Code could infer."
+                                          : "This candidate is only a starting point. Keep the handoff note explicit and verify the merged intent before you commit."
+                                        : "No candidate is selected. OK Code will not mutate the workspace until you review a concrete patch.";
+                                      return (
+                                        <div className="rounded-3xl border border-border/70 bg-background/92 p-4">
+                                          <p className="font-medium text-sm text-foreground">
+                                            Agent note
+                                          </p>
+                                          <ExpandableSummary
+                                            className="mt-3"
+                                            text={agentNote}
+                                            title="Agent note"
+                                            subtitle="Workspace context from OK Code"
+                                          >
+                                            <p className="text-sm text-muted-foreground">
+                                              {agentNote}
+                                            </p>
+                                          </ExpandableSummary>
+                                        </div>
+                                      );
+                                    })()}
                                   </div>
                                 </CollapsiblePanel>
                               </Collapsible>

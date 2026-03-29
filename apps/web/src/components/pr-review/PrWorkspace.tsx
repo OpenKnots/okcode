@@ -16,13 +16,13 @@ import { cn } from "~/lib/utils";
 import { ensureNativeApi } from "~/nativeApi";
 import { Button } from "~/components/ui/button";
 import { joinPath, projectLabel } from "~/components/review/reviewUtils";
+import { useCodeViewerStore } from "~/codeViewerStore";
 import type { Project } from "~/types";
 import { PrFileCommentComposer } from "./PrFileCommentComposer";
 import { PrFileTabStrip, type FileViewMode } from "./PrFileTabStrip";
 import {
   PR_REVIEW_DIFF_UNSAFE_CSS,
   buildFileDiffRenderKey,
-  openPathInEditor,
   parseRenderablePatch,
   resolveFileDiffPath,
   shortCommentPreview,
@@ -52,6 +52,7 @@ export function PrWorkspace({
   onCreateThread: (input: { path: string; line: number; body: string }) => Promise<void>;
 }) {
   const { resolvedTheme } = useTheme();
+  const openFileInCodeViewer = useCodeViewerStore((state) => state.openFile);
   const [fileViewMode, setFileViewMode] = useLocalStorage(
     "okcode:pr-review:file-view-mode",
     "single",
@@ -227,7 +228,7 @@ export function PrWorkspace({
                     ) : null}
                     <Button
                       onClick={() => {
-                        void openPathInEditor(joinPath(project.cwd, filePath));
+                        openFileInCodeViewer(project.cwd, filePath);
                       }}
                       size="xs"
                       variant="outline"

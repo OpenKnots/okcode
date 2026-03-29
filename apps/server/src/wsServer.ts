@@ -844,7 +844,17 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
           relativePath: body.relativePath,
           path,
         });
-        const MAX_READ_SIZE = 1_048_576; // 1MB
+        const MAX_READ_SIZE_TEXT = 1_048_576; // 1MB
+        const MAX_READ_SIZE_IMAGE = 10_485_760; // 10MB
+        const IMAGE_EXTENSIONS_SET = new Set([
+          ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp",
+          ".ico", ".tiff", ".tif", ".avif", ".svg",
+        ]);
+        const fileExt = target.relativePath
+          .substring(target.relativePath.lastIndexOf("."))
+          .toLowerCase();
+        const isImageExt = IMAGE_EXTENSIONS_SET.has(fileExt);
+        const MAX_READ_SIZE = isImageExt ? MAX_READ_SIZE_IMAGE : MAX_READ_SIZE_TEXT;
         const fileStat = yield* fileSystem.stat(target.absolutePath).pipe(
           Effect.mapError(
             (cause) =>
@@ -861,7 +871,7 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
         const sizeBytes = Number(fileStat.size);
         if (sizeBytes > MAX_READ_SIZE) {
           return yield* new RouteRequestError({
-            message: `File is too large to display (${(sizeBytes / 1024 / 1024).toFixed(1)}MB). Maximum supported size is 1MB.`,
+            message: `File is too large to display (${(sizeBytes / 1024 / 1024).toFixed(1)}MB). Maximum supported size is ${(MAX_READ_SIZE / 1024 / 1024).toFixed(0)}MB.`,
           });
         }
         // Read raw bytes to detect binary files
@@ -875,12 +885,47 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
         );
         // Check for null bytes in the first 8KB to detect binary files
         const checkLength = Math.min(rawBytes.length, 8192);
+        let isBinary = false;
         for (let i = 0; i < checkLength; i++) {
           if (rawBytes[i] === 0) {
-            return yield* new RouteRequestError({
-              message: `File appears to be binary and cannot be displayed: ${target.relativePath}`,
-            });
+            isBinary = true;
+            break;
           }
+        }
+        if (isBinary) {
+          // Check if the file is an image by extension
+          const IMAGE_EXTENSIONS: Record<string, string> = {
+            ".png": "image/png",
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".gif": "image/gif",
+            ".bmp": "image/bmp",
+            ".webp": "image/webp",
+            ".ico": "image/x-icon",
+            ".tiff": "image/tiff",
+            ".tif": "image/tiff",
+            ".avif": "image/avif",
+            ".svg": "image/svg+xml",
+          };
+          const ext = target.relativePath
+            .substring(target.relativePath.lastIndexOf("."))
+            .toLowerCase();
+          const mimeType = IMAGE_EXTENSIONS[ext];
+          if (mimeType) {
+            // Return image as base64 data URL
+            const base64 = Buffer.from(rawBytes).toString("base64");
+            const imageDataUrl = `data:${mimeType};base64,${base64}`;
+            return {
+              relativePath: target.relativePath,
+              contents: "",
+              sizeBytes,
+              truncated: false,
+              imageDataUrl,
+            };
+          }
+          return yield* new RouteRequestError({
+            message: `File appears to be binary and cannot be displayed: ${target.relativePath}`,
+          });
         }
         const contents = new TextDecoder().decode(rawBytes);
         return {

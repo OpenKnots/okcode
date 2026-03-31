@@ -211,6 +211,34 @@ export function PrReviewShell({
     };
   }, []);
 
+  // Keyboard shortcuts: [ toggles left rail, ] toggles right inspector
+  const handlePanelKeyDown = useEffectEvent((event: KeyboardEvent) => {
+    const target = event.target as HTMLElement;
+    if (
+      target.tagName === "INPUT" ||
+      target.tagName === "TEXTAREA" ||
+      target.isContentEditable
+    ) {
+      return;
+    }
+    if (event.key === "[" && !event.ctrlKey && !event.metaKey) {
+      event.preventDefault();
+      setLeftRailCollapsed(!leftRailCollapsed);
+    }
+    if (event.key === "]" && !event.ctrlKey && !event.metaKey) {
+      event.preventDefault();
+      if (isInspectorSheet) return;
+      const next = !inspectorCollapsed;
+      if (!next) userExplicitlyOpenedInspector.current = true;
+      setInspectorCollapsed(next);
+    }
+  });
+
+  useEffect(() => {
+    document.addEventListener("keydown", handlePanelKeyDown);
+    return () => document.removeEventListener("keydown", handlePanelKeyDown);
+  }, []);
+
   const addThreadMutation = useMutation({
     mutationFn: async (input: { path: string; line: number; body: string }) => {
       if (!selectedPrNumber) throw new Error("Select a pull request first.");
@@ -387,7 +415,7 @@ export function PrReviewShell({
         />
 
         {/* Center — diff workspace (takes remaining space) */}
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {isInspectorSheet ? (
             <div className="flex h-10 items-center justify-end border-b border-border/70 px-4">
               <Button onClick={() => setInspectorOpen(true)} size="sm" variant="outline">

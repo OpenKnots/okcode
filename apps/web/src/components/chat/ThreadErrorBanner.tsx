@@ -1,6 +1,7 @@
 import { memo } from "react";
-import { Alert, AlertAction, AlertDescription } from "../ui/alert";
+import { Alert, AlertAction, AlertDescription, AlertTitle } from "../ui/alert";
 import { CircleAlertIcon, XIcon } from "lucide-react";
+import { humanizeThreadError } from "./threadError";
 
 export const ThreadErrorBanner = memo(function ThreadErrorBanner({
   error,
@@ -10,12 +11,26 @@ export const ThreadErrorBanner = memo(function ThreadErrorBanner({
   onDismiss?: () => void;
 }) {
   if (!error) return null;
+  const presentation = humanizeThreadError(error);
   return (
     <div className="pt-3 mx-auto max-w-7xl">
       <Alert variant="error">
         <CircleAlertIcon />
-        <AlertDescription className="line-clamp-3" title={error}>
-          {error}
+        {presentation.title ? <AlertTitle>{presentation.title}</AlertTitle> : null}
+        <AlertDescription>
+          <p className="line-clamp-3" title={presentation.description}>
+            {presentation.description}
+          </p>
+          {presentation.technicalDetails ? (
+            <details className="text-xs text-muted-foreground">
+              <summary className="cursor-pointer select-none text-muted-foreground/80 hover:text-foreground">
+                Technical details
+              </summary>
+              <pre className="mt-2 whitespace-pre-wrap break-words text-muted-foreground/80">
+                {presentation.technicalDetails}
+              </pre>
+            </details>
+          ) : null}
         </AlertDescription>
         {onDismiss && (
           <AlertAction>

@@ -76,6 +76,7 @@ export type GitBranch = typeof GitBranch.Type;
 const GitWorktree = Schema.Struct({
   path: TrimmedNonEmptyStringSchema,
   branch: TrimmedNonEmptyStringSchema,
+  baseBranch: TrimmedNonEmptyStringSchema,
 });
 const GitResolvedPullRequest = Schema.Struct({
   number: PositiveInt,

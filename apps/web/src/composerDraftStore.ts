@@ -145,6 +145,7 @@ export interface DraftThreadState {
   interactionMode: ProviderInteractionMode;
   branch: string | null;
   worktreePath: string | null;
+  worktreeBaseBranch?: string | null;
   envMode: DraftThreadEnvMode;
 }
 

@@ -295,6 +295,7 @@ export function syncServerReadModel(state: AppState, readModel: OrchestrationRea
         lastVisitedAt: existing?.lastVisitedAt ?? thread.updatedAt,
         branch: thread.branch,
         worktreePath: thread.worktreePath,
+        worktreeBaseBranch: existing?.worktreeBaseBranch ?? null,
         turnDiffSummaries: thread.checkpoints.map((checkpoint) => ({
           turnId: checkpoint.turnId,
           completedAt: checkpoint.completedAt,
@@ -406,8 +407,21 @@ export function setThreadBranch(
       ...t,
       branch,
       worktreePath,
+      worktreeBaseBranch: null,
       ...(cwdChanged ? { session: null } : {}),
     };
+  });
+  return threads === state.threads ? state : { ...state, threads };
+}
+
+export function setThreadWorktreeBaseBranch(
+  state: AppState,
+  threadId: ThreadId,
+  worktreeBaseBranch: string | null,
+): AppState {
+  const threads = updateThread(state.threads, threadId, (t) => {
+    if (t.worktreeBaseBranch === worktreeBaseBranch) return t;
+    return { ...t, worktreeBaseBranch };
   });
   return threads === state.threads ? state : { ...state, threads };
 }
@@ -423,6 +437,7 @@ interface AppStore extends AppState {
   reorderProjects: (draggedProjectId: Project["id"], targetProjectId: Project["id"]) => void;
   setError: (threadId: ThreadId, error: string | null) => void;
   setThreadBranch: (threadId: ThreadId, branch: string | null, worktreePath: string | null) => void;
+  setThreadWorktreeBaseBranch: (threadId: ThreadId, worktreeBaseBranch: string | null) => void;
 }
 
 export const useStore = create<AppStore>((set) => ({
@@ -439,6 +454,8 @@ export const useStore = create<AppStore>((set) => ({
   setError: (threadId, error) => set((state) => setError(state, threadId, error)),
   setThreadBranch: (threadId, branch, worktreePath) =>
     set((state) => setThreadBranch(state, threadId, branch, worktreePath)),
+  setThreadWorktreeBaseBranch: (threadId, worktreeBaseBranch) =>
+    set((state) => setThreadWorktreeBaseBranch(state, threadId, worktreeBaseBranch)),
 }));
 
 // Persist state changes with debouncing to avoid localStorage thrashing

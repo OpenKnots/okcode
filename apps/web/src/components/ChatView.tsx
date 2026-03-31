@@ -189,6 +189,7 @@ import { CompanionConnectionBanner } from "./chat/CompanionConnectionBanner";
 import { MobileThreadAttentionBar } from "./chat/MobileThreadAttentionBar";
 import { ThreadErrorBanner } from "./chat/ThreadErrorBanner";
 import {
+  buildAutoSelectedWorktreeBaseBranchToastCopy,
   buildExpiredTerminalContextToastCopy,
   buildLocalDraftThread,
   buildTemporaryWorktreeBranchName,
@@ -288,6 +289,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
   const syncServerReadModel = useStore((store) => store.syncServerReadModel);
   const setStoreThreadError = useStore((store) => store.setError);
   const setStoreThreadBranch = useStore((store) => store.setThreadBranch);
+  const setStoreThreadWorktreeBaseBranch = useStore((store) => store.setThreadWorktreeBaseBranch);
   const { settings } = useAppSettings();
   const setStickyComposerModel = useComposerDraftStore((store) => store.setStickyModel);
   const timestampFormat = settings.timestampFormat;
@@ -2946,6 +2948,18 @@ export default function ChatView({ threadId }: ChatViewProps) {
           branch: baseBranchForWorktree,
           newBranch,
         });
+        if (result.worktree.baseBranch !== baseBranchForWorktree) {
+          const toastCopy = buildAutoSelectedWorktreeBaseBranchToastCopy({
+            requestedBranch: baseBranchForWorktree,
+            selectedBranch: result.worktree.baseBranch,
+          });
+          toastManager.add({
+            type: "warning",
+            title: toastCopy.title,
+            description: toastCopy.description,
+          });
+        }
+        setStoreThreadWorktreeBaseBranch(threadIdForSend, result.worktree.baseBranch);
         nextThreadBranch = result.worktree.branch;
         nextThreadWorktreePath = result.worktree.path;
         if (isServerThread) {

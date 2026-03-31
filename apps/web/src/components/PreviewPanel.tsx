@@ -5,22 +5,37 @@ import {
   ChevronRightIcon,
   ExternalLinkIcon,
   GlobeIcon,
+  LaptopIcon,
   LoaderCircleIcon,
+  MaximizeIcon,
+  MonitorIcon,
   PlusIcon,
   RefreshCwIcon,
+  SmartphoneIcon,
   StarIcon,
+  TabletIcon,
   WrenchIcon,
   XIcon,
 } from "lucide-react";
 
 import { validateHttpPreviewUrl } from "@okcode/shared/preview";
 import { readDesktopPreviewBridge } from "~/desktopPreview";
+import { type BrowserPresetId, BROWSER_PRESETS, getBrowserPreset } from "~/lib/browserPresets";
 import { cn } from "~/lib/utils";
 import { readNativeApi } from "~/nativeApi";
 import { usePreviewStateStore } from "~/previewStateStore";
 
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+import {
+  Menu,
+  MenuGroupLabel,
+  MenuPopup,
+  MenuRadioGroup,
+  MenuRadioItem,
+  MenuSeparator,
+  MenuTrigger,
+} from "./ui/menu";
 
 const EMPTY_TABS_STATE: PreviewTabsState = {
   tabs: [],
@@ -37,6 +52,17 @@ const HIDDEN_PREVIEW_BOUNDS = {
   viewportWidth: 0,
   viewportHeight: 0,
 } as const;
+
+const PRESET_ICONS: Record<BrowserPresetId, typeof SmartphoneIcon> = {
+  mobile: SmartphoneIcon,
+  tablet: TabletIcon,
+  laptop: LaptopIcon,
+  desktop: MonitorIcon,
+  ultrawide: MonitorIcon,
+};
+
+/** Sentinel value used by the radio group to represent "no preset" (responsive). */
+const RESPONSIVE_VALUE = "__responsive__";
 
 function getActiveTab(state: PreviewTabsState): PreviewTabState | null {
   if (!state.activeTabId) return null;
@@ -66,6 +92,10 @@ export function PreviewPanel({ threadId, onClose }: PreviewPanelProps) {
   const setGlobalOpen = usePreviewStateStore((state) => state.setGlobalOpen);
   const favoriteUrls = usePreviewStateStore((state) => state.favoriteUrls);
   const toggleFavoriteUrl = usePreviewStateStore((state) => state.toggleFavoriteUrl);
+  const presetId = usePreviewStateStore((state) => state.presetByThreadId[threadId] ?? null);
+  const setThreadPreset = usePreviewStateStore((state) => state.setThreadPreset);
+  const activePreset = presetId ? getBrowserPreset(presetId) : null;
+  const PresetIcon = presetId ? PRESET_ICONS[presetId] : null;
 
   const [tabsState, setTabsState] = useState<PreviewTabsState>(EMPTY_TABS_STATE);
   const [inputUrl, setInputUrl] = useState("");
@@ -299,6 +329,61 @@ export function PreviewPanel({ threadId, onClose }: PreviewPanelProps) {
           </form>
         </div>
         <div className="flex items-center gap-1">
+          <Menu>
+            <MenuTrigger
+              className={cn(
+                "inline-flex h-6 cursor-default items-center gap-1 rounded-md px-1.5 text-[11px] transition-colors",
+                presetId
+                  ? "bg-accent/60 text-foreground"
+                  : "text-muted-foreground/55 hover:bg-accent/40 hover:text-foreground",
+              )}
+              aria-label="Viewport preset"
+            >
+              {PresetIcon ? (
+                <PresetIcon className="size-3" />
+              ) : (
+                <MaximizeIcon className="size-3" />
+              )}
+              <span className="max-sm:hidden">
+                {activePreset ? activePreset.label : "Responsive"}
+              </span>
+            </MenuTrigger>
+            <MenuPopup side="bottom" align="end" sideOffset={6}>
+              <MenuGroupLabel>Viewport</MenuGroupLabel>
+              <MenuRadioGroup
+                value={presetId ?? RESPONSIVE_VALUE}
+                onValueChange={(value) => {
+                  setThreadPreset(
+                    threadId,
+                    value === RESPONSIVE_VALUE ? null : (value as BrowserPresetId),
+                  );
+                }}
+              >
+                <MenuRadioItem value={RESPONSIVE_VALUE}>
+                  <span className="flex items-center gap-2">
+                    <MaximizeIcon className="size-3.5 opacity-60" />
+                    Responsive
+                  </span>
+                </MenuRadioItem>
+                <MenuSeparator />
+                {BROWSER_PRESETS.map((preset) => {
+                  const Icon = PRESET_ICONS[preset.id];
+                  return (
+                    <MenuRadioItem key={preset.id} value={preset.id}>
+                      <span className="flex items-center gap-2">
+                        <Icon className="size-3.5 opacity-60" />
+                        <span>{preset.label}</span>
+                        <span className="ml-auto text-[10px] tabular-nums text-muted-foreground/60">
+                          {preset.width}&times;{preset.height}
+                        </span>
+                      </span>
+                    </MenuRadioItem>
+                  );
+                })}
+              </MenuRadioGroup>
+            </MenuPopup>
+          </Menu>
+
           <Button
             type="button"
             size="icon-xs"
@@ -418,10 +503,28 @@ export function PreviewPanel({ threadId, onClose }: PreviewPanelProps) {
       )}
 
       {/* Content area */}
-      <div className="flex min-h-0 flex-1 flex-col p-3">
+      <div
+        className={cn(
+          "flex min-h-0 flex-1 p-3",
+          activePreset ? "items-center justify-center" : "flex-col",
+        )}
+      >
         <div
           ref={surfaceRef}
-          className="relative min-h-0 flex-1 overflow-hidden rounded-lg border border-border/70 bg-card/20"
+          className={cn(
+            "relative overflow-hidden rounded-lg border border-border/70 bg-card/20",
+            !activePreset && "min-h-0 flex-1",
+          )}
+          style={
+            activePreset
+              ? {
+                  width: activePreset.width,
+                  height: activePreset.height,
+                  maxWidth: "100%",
+                  maxHeight: "100%",
+                }
+              : undefined
+          }
         >
           {!showEmbeddedSurface ? (
             <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground/70">

@@ -38,6 +38,19 @@ const HIDDEN_PREVIEW_BOUNDS = {
   viewportHeight: 0,
 } as const;
 
+/**
+ * Selector that matches any popup positioner element portaled to the body.
+ * When any of these are present, the native BrowserView overlay should be
+ * hidden so it doesn't render on top of dropdown menus / popovers.
+ */
+const POPUP_POSITIONER_SELECTOR = [
+  '[data-slot="menu-positioner"]',
+  '[data-slot="popover-positioner"]',
+  '[data-slot="select-positioner"]',
+  '[data-slot="combobox-positioner"]',
+  '[data-slot="autocomplete-positioner"]',
+].join(",");
+
 function getActiveTab(state: PreviewTabsState): PreviewTabState | null {
   if (!state.activeTabId) return null;
   return state.tabs.find((t) => t.tabId === state.activeTabId) ?? null;
@@ -117,11 +130,15 @@ export function PreviewPanel({ threadId, onClose }: PreviewPanelProps) {
       if (!element) return HIDDEN_PREVIEW_BOUNDS;
 
       const rect = element.getBoundingClientRect();
+      // Hide the native BrowserView when any popup/dropdown is open so it
+      // doesn't render on top of menus (native overlays ignore CSS z-index).
+      const hasOpenPopup = document.querySelector(POPUP_POSITIONER_SELECTOR) !== null;
       const visible =
         tabsState.tabs.length > 0 &&
         document.visibilityState === "visible" &&
         rect.width > 0 &&
-        rect.height > 0;
+        rect.height > 0 &&
+        !hasOpenPopup;
       return {
         x: rect.left,
         y: rect.top,
@@ -164,6 +181,11 @@ export function PreviewPanel({ threadId, onClose }: PreviewPanelProps) {
       lastBoundsKey = "";
     };
 
+    // Watch for popup positioners being added/removed from the DOM so we
+    // can immediately hide/show the native BrowserView overlay.
+    const popupObserver = new MutationObserver(invalidateBounds);
+    popupObserver.observe(document.body, { childList: true, subtree: false });
+
     window.addEventListener("resize", invalidateBounds);
     window.addEventListener("scroll", invalidateBounds, true);
     document.addEventListener("visibilitychange", invalidateBounds);
@@ -176,6 +198,7 @@ export function PreviewPanel({ threadId, onClose }: PreviewPanelProps) {
       destroyed = true;
       if (frameId !== 0) window.cancelAnimationFrame(frameId);
       resizeObserver?.disconnect();
+      popupObserver.disconnect();
       window.removeEventListener("resize", invalidateBounds);
       window.removeEventListener("scroll", invalidateBounds, true);
       document.removeEventListener("visibilitychange", invalidateBounds);

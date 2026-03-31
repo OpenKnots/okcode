@@ -1,12 +1,6 @@
-import type {
-  NativeApi,
-  PrConflictAnalysis,
-  PrReviewConfig,
-  PrReviewThread,
-} from "@okcode/contracts";
+import type { NativeApi, PrConflictAnalysis, PrReviewConfig } from "@okcode/contracts";
 import { useState } from "react";
 import { MessageSquareIcon, ShieldCheckIcon, SparklesIcon, UsersIcon } from "lucide-react";
-import { cn } from "~/lib/utils";
 import { Button } from "~/components/ui/button";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { Toggle, ToggleGroup } from "~/components/ui/toggle-group";

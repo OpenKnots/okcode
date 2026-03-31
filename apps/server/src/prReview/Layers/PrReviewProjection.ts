@@ -8,10 +8,10 @@ type WorkflowStateRecord = {
   readonly [stepId: string]: import("@okcode/contracts").PrWorkflowStepRunResult;
 };
 
+const keyFor = (cwd: string, prNumber: number) => `${cwd}::${prNumber}`;
+
 const makePrReviewProjection = Effect.gen(function* () {
   const stateRef = yield* Ref.make(new Map<string, WorkflowStateRecord>());
-
-  const keyFor = (cwd: string, prNumber: number) => `${cwd}::${prNumber}`;
 
   const service: PrReviewProjectionShape = {
     listWorkflowStatuses: ({ cwd, prNumber }) =>

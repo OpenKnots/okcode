@@ -57,7 +57,7 @@ const PlanChecklist = memo(function PlanChecklist({
       <div className="rounded-xl border border-border/50 bg-background/40">
         {items.map((item, index) => (
           <PlanChecklistRow
-            key={`checklist-item-${index}-${item.text.slice(0, 32)}`}
+            key={item.text}
             item={item}
             index={index}
             isLast={index === items.length - 1}

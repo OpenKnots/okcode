@@ -1,4 +1,4 @@
-import { FileDiff, type FileDiffMetadata, Virtualizer } from "@pierre/diffs/react";
+import { FileDiff, Virtualizer } from "@pierre/diffs/react";
 import type { NativeApi, PrReviewThread } from "@okcode/contracts";
 import { useMemo } from "react";
 import { Schema } from "effect";
@@ -15,11 +15,10 @@ import { resolveDiffThemeName } from "~/lib/diffRendering";
 import { cn } from "~/lib/utils";
 import { ensureNativeApi } from "~/nativeApi";
 import { Button } from "~/components/ui/button";
-import { joinPath, projectLabel } from "~/components/review/reviewUtils";
 import { useCodeViewerStore } from "~/codeViewerStore";
 import type { Project } from "~/types";
 import { PrFileCommentComposer } from "./PrFileCommentComposer";
-import { PrFileTabStrip, type FileViewMode } from "./PrFileTabStrip";
+import { PrFileTabStrip } from "./PrFileTabStrip";
 import {
   PR_REVIEW_DIFF_UNSAFE_CSS,
   buildFileDiffRenderKey,

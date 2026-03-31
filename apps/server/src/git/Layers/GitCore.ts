@@ -33,8 +33,6 @@ import {
 } from "../Services/GitCore.ts";
 import { ServerConfig } from "../../config.ts";
 import { decodeJsonResult } from "@okcode/shared/schemaJson";
-import { ProjectionSnapshotQuery } from "../../orchestration/Services/ProjectionSnapshotQuery.ts";
-import { resolveRuntimeEnvironment } from "../../runtimeEnvironment.ts";
 
 function safeRealpath(value: string): string {
   try {

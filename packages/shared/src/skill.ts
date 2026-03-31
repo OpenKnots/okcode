@@ -277,7 +277,7 @@ export function listSkills(projectRoot?: string): SkillEntry[] {
   const nameSet = new Set(projectEntries.map((e) => e.name));
   const merged = [...projectEntries, ...globalEntries.filter((e) => !nameSet.has(e.name))];
 
-  return merged.sort((a, b) => a.name.localeCompare(b.name));
+  return merged.toSorted((a, b) => a.name.localeCompare(b.name));
 }
 
 /**
@@ -367,7 +367,7 @@ export function searchSkills(query: string, projectRoot?: string): SkillEntry[] 
       return { skill, score };
     })
     .filter(({ score }) => score > 0)
-    .sort((a, b) => b.score - a.score)
+    .toSorted((a, b) => b.score - a.score)
     .map(({ skill }) => skill);
 }
 

@@ -186,8 +186,7 @@ export function parseYouTubeUrl(input: string): { type: "video" | "playlist"; id
 }
 
 export function buildYouTubeEmbedUrl(type: "video" | "playlist", id: string): string {
-  const origin =
-    typeof window !== "undefined" ? window.location.origin : "";
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
   const params = new URLSearchParams({
     autoplay: "1",
     enablejsapi: "1",

@@ -26,19 +26,6 @@ interface TabEntry {
   state: PreviewTabState;
 }
 
-function createClosedTabState(tabId: PreviewTabId): PreviewTabState {
-  return {
-    tabId,
-    status: "closed",
-    url: null,
-    title: null,
-    error: null,
-    canGoBack: false,
-    canGoForward: false,
-    devToolsOpen: false,
-  };
-}
-
 export class DesktopPreviewController {
   private tabs: Map<PreviewTabId, TabEntry> = new Map();
   private activeTabId: PreviewTabId | null = null;
@@ -67,16 +54,6 @@ export class DesktopPreviewController {
     if (!validatedUrl.ok) {
       // Still create the tab but in error state
       const tabId = randomUUID();
-      const tabState: PreviewTabState = {
-        tabId,
-        status: "error",
-        url: null,
-        title: null,
-        error: validatedUrl.error,
-        canGoBack: false,
-        canGoForward: false,
-        devToolsOpen: false,
-      };
       // Don't actually create a view for invalid URLs
       return { tabId, state: this.buildTabsState() };
     }

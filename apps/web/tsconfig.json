@@ -12,6 +12,7 @@
       {
         "name": "@effect/language-service",
         "namespaceImportPackages": ["@effect/platform-node"],
+        "allowedDuplicatedPackages": ["effect"],
         "diagnosticSeverity": {
           "importFromBarrel": "error",
           "anyUnknownInErrorContext": "warning",

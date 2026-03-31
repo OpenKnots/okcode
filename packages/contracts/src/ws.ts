@@ -28,28 +28,19 @@ import {
   GitStatusInput,
 } from "./git";
 import {
-  GitHubUserPreview,
-  PrConflictAnalysis,
-  PrConflictApplyResult,
   PrReviewAddThreadInput,
   PrReviewApplyConflictResolutionInput,
-  PrReviewConfig,
   PrReviewConfigInput,
   PrReviewDashboardInput,
-  PrReviewDashboardResult,
   PrReviewPatchInput,
-  PrReviewPatchResult,
   PrReviewRepoConfigUpdatedPayload,
   PrReviewReplyToThreadInput,
   PrReviewResolveThreadInput,
   PrReviewRunWorkflowStepInput,
   PrReviewSearchUsersInput,
-  PrReviewSearchUsersResult,
   PrReviewSyncUpdatedPayload,
   PrReviewUserPreviewInput,
   PrSubmitReviewInput,
-  PrSubmitReviewResult,
-  PrWorkflowStepRunResult,
 } from "./prReview";
 import {
   TerminalClearInput,

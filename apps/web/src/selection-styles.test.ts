@@ -16,6 +16,8 @@ function readSrc(relativePath: string): string {
   return readFileSync(resolve(__dirname, relativePath), "utf-8");
 }
 
+const gamma = (c: number) => (c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055);
+
 // ═══════════════════════════════════════════════════════════════════════════
 //  oklch → sRGB conversion (used for WCAG contrast checks)
 // ═══════════════════════════════════════════════════════════════════════════
@@ -40,8 +42,6 @@ function oklchToRgb(L: number, C: number, h: number): [number, number, number] {
   rLin = Math.max(0, Math.min(1, rLin));
   gLin = Math.max(0, Math.min(1, gLin));
   bLin = Math.max(0, Math.min(1, bLin));
-
-  const gamma = (c: number) => (c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055);
 
   return [
     Math.round(gamma(rLin) * 255),
@@ -71,7 +71,7 @@ function luminance(r: number, g: number, b: number): number {
   const [rs, gs, bs] = [r, g, b].map((c) => {
     const s = c / 255;
     return s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
-  });
+  }) as [number, number, number];
   return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
 }
 
@@ -267,7 +267,7 @@ describe("themed scrollbar styling", () => {
     expect(thumbMatches.length).toBeGreaterThanOrEqual(2);
 
     for (const m of thumbMatches) {
-      const body = m[1];
+      const body = m[1] ?? "";
       if (body.includes("background:")) {
         // Forced-colors overrides legitimately use system keywords
         // (ButtonText, Canvas) instead of color-mix — skip those.

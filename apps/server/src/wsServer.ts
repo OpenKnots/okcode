@@ -850,8 +850,17 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
         const MAX_READ_SIZE_TEXT = 1_048_576; // 1MB
         const MAX_READ_SIZE_IMAGE = 10_485_760; // 10MB
         const IMAGE_EXTENSIONS_SET = new Set([
-          ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp",
-          ".ico", ".tiff", ".tif", ".avif", ".svg",
+          ".png",
+          ".jpg",
+          ".jpeg",
+          ".gif",
+          ".bmp",
+          ".webp",
+          ".ico",
+          ".tiff",
+          ".tif",
+          ".avif",
+          ".svg",
         ]);
         const fileExt = target.relativePath
           .substring(target.relativePath.lastIndexOf("."))

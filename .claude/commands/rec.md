@@ -5,6 +5,7 @@ argument-hint: <option>
 Respond with ONLY the exact text for the matching option below. No extra commentary.
 
 Options:
+
 - `lgtm` → "LGTM — approved."
 - `ack` → "Acknowledged."
 - `done` → "Done."

@@ -39,7 +39,7 @@
  *   node scripts/prepare-release.ts 0.0.4 --full-matrix
  */
 
-import { execFileSync, execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createInterface } from "node:readline";
 import { dirname, resolve } from "node:path";
@@ -119,11 +119,6 @@ function gitCommitsSince(rootDir: string, sinceRef: string | undefined): string[
 function isOnMain(rootDir: string): boolean {
   const branch = run("git", ["rev-parse", "--abbrev-ref", "HEAD"], { cwd: rootDir, silent: true });
   return branch === "main";
-}
-
-function isClean(rootDir: string): boolean {
-  const status = run("git", ["status", "--porcelain"], { cwd: rootDir, silent: true });
-  return status === "";
 }
 
 // ---------------------------------------------------------------------------
@@ -315,12 +310,7 @@ SHA-256 checksums are not committed here; verify downloads via GitHub's release 
 // File mutation helpers
 // ---------------------------------------------------------------------------
 
-function updateChangelog(
-  rootDir: string,
-  version: string,
-  section: string,
-  prevTag: string | undefined,
-): void {
+function updateChangelog(rootDir: string, version: string, section: string): void {
   const changelogPath = resolve(rootDir, "CHANGELOG.md");
   let content = readFileSync(changelogPath, "utf8");
 
@@ -337,7 +327,6 @@ function updateChangelog(
   content = content.slice(0, insertAt) + "\n" + section + "\n" + content.slice(insertAt);
 
   // Add the version comparison link at the bottom
-  const compareBase = prevTag ? prevTag : `v${version}`;
   const versionLink = `[${version}]: ${REPO_URL}/releases/tag/v${version}`;
   // Insert before the first existing version link, or at the end
   const firstLinkIndex = content.lastIndexOf("\n[");
@@ -606,7 +595,7 @@ async function main(): Promise<void> {
     console.log("--- end preview ---");
     console.log("");
   } else {
-    updateChangelog(rootDir, version, changelogSection, prevTag);
+    updateChangelog(rootDir, version, changelogSection);
     log("OK", "Updated: CHANGELOG.md");
   }
 

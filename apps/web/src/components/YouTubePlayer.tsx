@@ -403,7 +403,7 @@ export function YouTubePlayerDrawer() {
             width="100%"
             height="80"
             allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-            sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-presentation"
+            sandbox="allow-scripts allow-popups allow-forms allow-presentation"
             loading="lazy"
             className="rounded-xl border-0"
           />

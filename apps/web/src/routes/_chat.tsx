@@ -69,13 +69,7 @@ function ChatRouteGlobalShortcuts() {
       const modKey = isMac ? event.metaKey : event.ctrlKey;
       const key = event.key.toLowerCase();
 
-      if (
-        key === "k" &&
-        modKey &&
-        !event.altKey &&
-        !event.shiftKey &&
-        !isTerminalFocused()
-      ) {
+      if (key === "k" && modKey && !event.altKey && !event.shiftKey && !isTerminalFocused()) {
         event.preventDefault();
         event.stopPropagation();
         togglePalette();
@@ -102,7 +96,7 @@ function ChatRouteGlobalShortcuts() {
             // Navigate to the most recent thread in that project
             const projectThreads = storeThreads
               .filter((t) => t.projectId === project.id)
-              .sort((a, b) =>
+              .toSorted((a, b) =>
                 (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt),
               );
             const latestThread = projectThreads[0];
@@ -116,13 +110,7 @@ function ChatRouteGlobalShortcuts() {
       }
 
       // ── Quick thread switch: Cmd+P opens thread search ─────────
-      if (
-        key === "p" &&
-        modKey &&
-        !event.altKey &&
-        !event.shiftKey &&
-        !isTerminalFocused()
-      ) {
+      if (key === "p" && modKey && !event.altKey && !event.shiftKey && !isTerminalFocused()) {
         event.preventDefault();
         event.stopPropagation();
         openPalette("threads");

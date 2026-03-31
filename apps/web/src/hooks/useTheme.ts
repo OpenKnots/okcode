@@ -1,12 +1,5 @@
 import { useCallback, useEffect, useSyncExternalStore } from "react";
-import {
-  applyCustomTheme,
-  applyFontOverride,
-  applyRadiusOverride,
-  getStoredCustomTheme,
-  initCustomTheme,
-  removeCustomTheme,
-} from "../lib/customTheme";
+import { initCustomTheme } from "../lib/customTheme";
 
 type Theme = "light" | "dark" | "system";
 type ColorTheme =
@@ -16,7 +9,8 @@ type ColorTheme =
   | "midnight-clarity"
   | "carbon"
   | "vapor"
-  | "cathedral-circuit";
+  | "cathedral-circuit"
+  | "custom";
 
 type FontFamily = "dm-sans" | "inter" | "plus-jakarta-sans";
 
@@ -75,7 +69,8 @@ function getStoredColorTheme(): ColorTheme {
     raw === "midnight-clarity" ||
     raw === "carbon" ||
     raw === "vapor" ||
-    raw === "cathedral-circuit"
+    raw === "cathedral-circuit" ||
+    raw === "custom"
   ) {
     return raw;
   }

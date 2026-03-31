@@ -555,5 +555,5 @@ const runtimeProgram = Command.run(devRunnerCli, { version: "0.0.0" }).pipe(
 ) as Effect.Effect<void, never, never>;
 
 if (import.meta.main) {
-  NodeRuntime.runMain(runtimeProgram);
+  NodeRuntime.runMain(runtimeProgram as never);
 }

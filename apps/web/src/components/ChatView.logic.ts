@@ -36,6 +36,7 @@ export function buildLocalDraftThread(
     lastVisitedAt: draftThread.createdAt,
     branch: draftThread.branch,
     worktreePath: draftThread.worktreePath,
+    worktreeBaseBranch: null,
     turnDiffSummaries: [],
     activities: [],
     proposedPlans: [],
@@ -167,5 +168,18 @@ export function buildExpiredTerminalContextToastCopy(
   return {
     title: `${noun} omitted from message`,
     description: "Re-add it if you want that terminal output included.",
+  };
+}
+
+export function buildAutoSelectedWorktreeBaseBranchToastCopy(input: {
+  requestedBranch: string;
+  selectedBranch: string;
+}): {
+  title: string;
+  description: string;
+} {
+  return {
+    title: `Using ${input.selectedBranch} instead of ${input.requestedBranch}`,
+    description: `The requested base branch ${input.requestedBranch} was unavailable, so OK Code created this worktree from ${input.selectedBranch}.`,
   };
 }

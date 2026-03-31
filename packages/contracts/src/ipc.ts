@@ -1,6 +1,8 @@
 import type {
   GitCheckoutInput,
   GitActionProgressEvent,
+  GitCloneRepositoryInput,
+  GitCloneRepositoryResult,
   GitCreateBranchInput,
   GitPreparePullRequestThreadInput,
   GitPreparePullRequestThreadResult,
@@ -279,6 +281,8 @@ export interface NativeApi {
     openExternal: (url: string) => Promise<void>;
   };
   git: {
+    // Clone
+    cloneRepository: (input: GitCloneRepositoryInput) => Promise<GitCloneRepositoryResult>;
     // Existing branch/worktree API
     listBranches: (input: GitListBranchesInput) => Promise<GitListBranchesResult>;
     createWorktree: (input: GitCreateWorktreeInput) => Promise<GitCreateWorktreeResult>;

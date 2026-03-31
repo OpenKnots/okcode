@@ -355,9 +355,20 @@ export const MessagesTimeline = memo(function MessagesTimeline({
                 </div>
               )}
               <div className="space-y-0.5">
-                {visibleEntries.map((workEntry) => (
-                  <SimpleWorkEntryRow key={`work-row:${workEntry.id}`} workEntry={workEntry} />
-                ))}
+                {groupConsecutiveWorkEntries(visibleEntries).map((subGroup) =>
+                  subGroup.entries.length === 1 ? (
+                    <SimpleWorkEntryRow
+                      key={`work-row:${subGroup.entries[0]!.id}`}
+                      workEntry={subGroup.entries[0]!}
+                    />
+                  ) : (
+                    <CollapsedWorkEntryGroup
+                      key={`work-group:${subGroup.entries[0]!.id}`}
+                      heading={subGroup.heading}
+                      entries={subGroup.entries}
+                    />
+                  ),
+                )}
               </div>
             </div>
           );
@@ -898,6 +909,25 @@ function toolWorkEntryHeading(workEntry: TimelineWorkEntry): string {
   return capitalizePhrase(normalizeCompactToolLabel(workEntry.toolTitle));
 }
 
+type ConsecutiveWorkGroup = {
+  heading: string;
+  entries: TimelineWorkEntry[];
+};
+
+function groupConsecutiveWorkEntries(entries: TimelineWorkEntry[]): ConsecutiveWorkGroup[] {
+  const groups: ConsecutiveWorkGroup[] = [];
+  for (const entry of entries) {
+    const heading = toolWorkEntryHeading(entry);
+    const lastGroup = groups[groups.length - 1];
+    if (lastGroup && lastGroup.heading === heading) {
+      lastGroup.entries.push(entry);
+    } else {
+      groups.push({ heading, entries: [entry] });
+    }
+  }
+  return groups;
+}
+
 const SimpleWorkEntryRow = memo(function SimpleWorkEntryRow(props: {
   workEntry: TimelineWorkEntry;
 }) {
@@ -950,6 +980,61 @@ const SimpleWorkEntryRow = memo(function SimpleWorkEntryRow(props: {
               +{(workEntry.changedFiles?.length ?? 0) - 4}
             </span>
           )}
+        </div>
+      )}
+    </div>
+  );
+});
+
+const CollapsedWorkEntryGroup = memo(function CollapsedWorkEntryGroup(props: {
+  heading: string;
+  entries: TimelineWorkEntry[];
+}) {
+  const { heading, entries } = props;
+  const [isExpanded, setIsExpanded] = useState(false);
+  const firstEntry = entries[0]!;
+  const EntryIcon = workEntryIcon(firstEntry);
+  const iconConfig = workToneIcon(firstEntry.tone);
+
+  return (
+    <div className="rounded-lg px-1 py-1">
+      <button
+        type="button"
+        className="flex w-full items-center gap-2"
+        onClick={() => setIsExpanded((prev) => !prev)}
+      >
+        <span
+          className={cn("flex size-5 shrink-0 items-center justify-center", iconConfig.className)}
+        >
+          <EntryIcon className="size-3" />
+        </span>
+        <p className="min-w-0 flex-1 truncate text-left text-[11px] leading-5">
+          <span className={cn("text-foreground/80", workToneClass(firstEntry.tone))}>
+            {heading}
+          </span>
+          <span className="ml-1 text-muted-foreground/50">×{entries.length}</span>
+        </p>
+        <ChevronRightIcon
+          className={cn(
+            "size-3 shrink-0 text-muted-foreground/35 transition-transform duration-150",
+            isExpanded && "rotate-90",
+          )}
+        />
+      </button>
+      {isExpanded && (
+        <div className="ml-7 mt-0.5 space-y-0 border-l border-border/30 pl-2">
+          {entries.map((entry) => {
+            const preview = workEntryPreview(entry);
+            return (
+              <p
+                key={`subentry:${entry.id}`}
+                className="truncate py-0.5 text-[10px] leading-4 text-muted-foreground/55"
+                title={preview ?? undefined}
+              >
+                {preview ?? heading}
+              </p>
+            );
+          })}
         </div>
       )}
     </div>

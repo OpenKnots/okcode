@@ -1,4 +1,12 @@
 import { useCallback, useEffect, useSyncExternalStore } from "react";
+import {
+  applyCustomTheme,
+  applyFontOverride,
+  applyRadiusOverride,
+  getStoredCustomTheme,
+  initCustomTheme,
+  removeCustomTheme,
+} from "../lib/customTheme";
 
 type Theme = "light" | "dark" | "system";
 type ColorTheme =
@@ -27,6 +35,7 @@ export const COLOR_THEMES: { id: ColorTheme; label: string }[] = [
   { id: "carbon", label: "Carbon" },
   { id: "vapor", label: "Vapor" },
   { id: "cathedral-circuit", label: "Cathedral Circuit" },
+  { id: "custom", label: "Custom" },
 ];
 
 export const FONT_FAMILIES: { id: FontFamily; label: string }[] = [
@@ -142,6 +151,9 @@ function syncDesktopTheme(theme: Theme) {
   });
 }
 
+// Initialize custom theme + overrides on module load
+initCustomTheme();
+
 // Apply immediately on module load to prevent flash
 applyTheme(getStored());
 
@@ -238,3 +250,5 @@ export function useTheme() {
     setFontFamily,
   } as const;
 }
+
+export type { Theme, ColorTheme };

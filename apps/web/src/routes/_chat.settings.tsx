@@ -1,6 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDownIcon, PlusIcon, RotateCcwIcon, Undo2Icon, XIcon } from "lucide-react";
+import {
+  ChevronDownIcon,
+  ImportIcon,
+  PlusIcon,
+  RotateCcwIcon,
+  Undo2Icon,
+  XIcon,
+} from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import {
   type ProjectId,
@@ -34,7 +41,21 @@ import { SidebarInset } from "../components/ui/sidebar";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../components/ui/tooltip";
 import { resolveAndPersistPreferredEditor } from "../editorPreferences";
 import { isElectron } from "../env";
+import { CustomThemeDialog } from "../components/CustomThemeDialog";
 import { useTheme, COLOR_THEMES } from "../hooks/useTheme";
+import type { CustomThemeData } from "../lib/customTheme";
+import {
+  applyCustomTheme,
+  clearFontOverride,
+  clearRadiusOverride,
+  clearStoredCustomTheme,
+  getStoredCustomTheme,
+  getStoredFontOverride,
+  getStoredRadiusOverride,
+  removeCustomTheme,
+  setStoredFontOverride,
+  setStoredRadiusOverride,
+} from "../lib/customTheme";
 import {
   environmentVariablesQueryKeys,
   globalEnvironmentVariablesQueryOptions,
@@ -235,6 +256,13 @@ function SettingsRouteView() {
     Partial<Record<ProviderKind, string | null>>
   >({});
   const [showAllCustomModels, setShowAllCustomModels] = useState(false);
+  const [customThemeDialogOpen, setCustomThemeDialogOpen] = useState(false);
+  const [radiusOverride, setRadiusOverrideState] = useState<number | null>(() =>
+    getStoredRadiusOverride(),
+  );
+  const [fontOverride, setFontOverrideState] = useState<string>(
+    () => getStoredFontOverride() ?? "",
+  );
   const globalEnvironmentVariablesQuery = useQuery(globalEnvironmentVariablesQueryOptions());
   const activeProjectId = selectedProjectId ?? projects[0]?.id ?? null;
   const selectedProject = projects.find((project) => project.id === activeProjectId) ?? null;
@@ -317,6 +345,8 @@ function SettingsRouteView() {
       ? ["Custom models"]
       : []),
     ...(isInstallSettingsDirty ? ["Provider installs"] : []),
+    ...(radiusOverride !== null ? ["Border radius"] : []),
+    ...(fontOverride ? ["Font family"] : []),
   ];
 
   const openKeybindingsFile = useCallback(() => {
@@ -456,6 +486,14 @@ function SettingsRouteView() {
       claudeAgent: "",
     });
     setCustomModelErrorByProvider({});
+
+    // Reset custom theme + overrides
+    clearStoredCustomTheme();
+    removeCustomTheme();
+    clearRadiusOverride();
+    setRadiusOverrideState(null);
+    clearFontOverride();
+    setFontOverrideState("");
   }
 
   return (
@@ -542,33 +580,144 @@ function SettingsRouteView() {
                   colorTheme !== "default" ? (
                     <SettingResetButton
                       label="color theme"
-                      onClick={() => setColorTheme("default")}
+                      onClick={() => {
+                        setColorTheme("default");
+                        clearStoredCustomTheme();
+                        removeCustomTheme();
+                      }}
                     />
                   ) : null
                 }
                 control={
-                  <Select
-                    value={colorTheme}
-                    onValueChange={(value) => {
-                      const match = COLOR_THEMES.find((t) => t.id === value);
-                      if (!match) return;
-                      setColorTheme(match.id);
-                    }}
-                  >
-                    <SelectTrigger className="w-full sm:w-40" aria-label="Color theme">
-                      <SelectValue>
-                        {COLOR_THEMES.find((t) => t.id === colorTheme)?.label ?? "Default"}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectPopup align="end" alignItemWithTrigger={false}>
-                      {COLOR_THEMES.map((t) => (
-                        <SelectItem hideIndicator key={t.id} value={t.id}>
-                          {t.label}
-                        </SelectItem>
-                      ))}
-                    </SelectPopup>
-                  </Select>
+                  <div className="flex items-center gap-2">
+                    <Select
+                      value={colorTheme}
+                      onValueChange={(value) => {
+                        if (value === "custom") {
+                          // If no custom theme is stored, open the import dialog
+                          const existing = getStoredCustomTheme();
+                          if (!existing) {
+                            setCustomThemeDialogOpen(true);
+                            return;
+                          }
+                        }
+                        const match = COLOR_THEMES.find((t) => t.id === value);
+                        if (!match) return;
+                        setColorTheme(match.id);
+                      }}
+                    >
+                      <SelectTrigger className="w-full sm:w-40" aria-label="Color theme">
+                        <SelectValue>
+                          {COLOR_THEMES.find((t) => t.id === colorTheme)?.label ?? "Default"}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectPopup align="end" alignItemWithTrigger={false}>
+                        {COLOR_THEMES.filter(
+                          (t) => t.id !== "custom" || getStoredCustomTheme(),
+                        ).map((t) => (
+                          <SelectItem hideIndicator key={t.id} value={t.id}>
+                            {t.label}
+                          </SelectItem>
+                        ))}
+                      </SelectPopup>
+                    </Select>
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            onClick={() => setCustomThemeDialogOpen(true)}
+                            aria-label="Import custom theme"
+                          >
+                            <ImportIcon className="size-3.5" />
+                          </Button>
+                        }
+                      />
+                      <TooltipPopup side="top">Import from tweakcn.com</TooltipPopup>
+                    </Tooltip>
+                  </div>
                 }
+              />
+
+              <SettingsRow
+                title="Border radius"
+                description="Adjust the corner roundness of UI elements."
+                resetAction={
+                  radiusOverride !== null ? (
+                    <SettingResetButton
+                      label="border radius"
+                      onClick={() => {
+                        clearRadiusOverride();
+                        setRadiusOverrideState(null);
+                      }}
+                    />
+                  ) : null
+                }
+                control={
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="range"
+                      min={0}
+                      max={1.5}
+                      step={0.0625}
+                      value={radiusOverride ?? 0.625}
+                      onChange={(e) => {
+                        const value = Number.parseFloat(e.target.value);
+                        setRadiusOverrideState(value);
+                        setStoredRadiusOverride(value);
+                      }}
+                      className="h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-muted accent-foreground sm:w-28"
+                      aria-label="Border radius"
+                    />
+                    <span className="w-12 text-right text-xs tabular-nums text-muted-foreground">
+                      {(radiusOverride ?? 0.625).toFixed(2)}rem
+                    </span>
+                  </div>
+                }
+              />
+
+              <SettingsRow
+                title="Font family"
+                description="Override the UI font. Use any Google Font name."
+                resetAction={
+                  fontOverride ? (
+                    <SettingResetButton
+                      label="font family"
+                      onClick={() => {
+                        clearFontOverride();
+                        setFontOverrideState("");
+                      }}
+                    />
+                  ) : null
+                }
+                control={
+                  <Input
+                    className="w-full sm:w-48"
+                    value={fontOverride}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setFontOverrideState(value);
+                      if (value.trim()) {
+                        setStoredFontOverride(value);
+                      } else {
+                        clearFontOverride();
+                      }
+                    }}
+                    placeholder="e.g. Inter, sans-serif"
+                    spellCheck={false}
+                    aria-label="Font family override"
+                  />
+                }
+              />
+
+              <CustomThemeDialog
+                open={customThemeDialogOpen}
+                onOpenChange={setCustomThemeDialogOpen}
+                onApply={(theme: CustomThemeData) => {
+                  applyCustomTheme(theme);
+                  setColorTheme("custom");
+                }}
               />
 
               <SettingsRow

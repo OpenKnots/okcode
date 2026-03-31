@@ -1,4 +1,12 @@
 import { useCallback, useEffect, useSyncExternalStore } from "react";
+import {
+  applyCustomTheme,
+  applyFontOverride,
+  applyRadiusOverride,
+  getStoredCustomTheme,
+  initCustomTheme,
+  removeCustomTheme,
+} from "../lib/customTheme";
 
 type Theme = "light" | "dark" | "system";
 type ColorTheme =
@@ -6,7 +14,8 @@ type ColorTheme =
   | "iridescent-void"
   | "solar-witch"
   | "cursor-dark"
-  | "cathedral-circuit";
+  | "cathedral-circuit"
+  | "custom";
 
 type ThemeSnapshot = {
   theme: Theme;
@@ -20,6 +29,7 @@ export const COLOR_THEMES: { id: ColorTheme; label: string }[] = [
   { id: "solar-witch", label: "Solar Witch" },
   { id: "cursor-dark", label: "Cursor Dark" },
   { id: "cathedral-circuit", label: "Cathedral Circuit" },
+  { id: "custom", label: "Custom" },
 ];
 
 const STORAGE_KEY = "okcode:theme";
@@ -50,7 +60,8 @@ function getStoredColorTheme(): ColorTheme {
     raw === "iridescent-void" ||
     raw === "solar-witch" ||
     raw === "cursor-dark" ||
-    raw === "cathedral-circuit"
+    raw === "cathedral-circuit" ||
+    raw === "custom"
   ) {
     return raw;
   }
@@ -78,6 +89,20 @@ function applyTheme(theme: Theme, suppressTransitions = false) {
     document.documentElement.classList.add(`theme-${colorTheme}`);
   }
 
+  // Handle custom theme style injection
+  if (colorTheme === "custom") {
+    const customTheme = getStoredCustomTheme();
+    if (customTheme) {
+      applyCustomTheme(customTheme);
+    }
+  } else {
+    removeCustomTheme();
+  }
+
+  // Always reapply overrides (radius, font) since they work on top of any theme
+  applyRadiusOverride();
+  applyFontOverride();
+
   syncDesktopTheme(theme);
   if (suppressTransitions) {
     // Force a reflow so the no-transitions class takes effect before removal
@@ -102,6 +127,9 @@ function syncDesktopTheme(theme: Theme) {
     }
   });
 }
+
+// Initialize custom theme + overrides on module load
+initCustomTheme();
 
 // Apply immediately on module load to prevent flash
 applyTheme(getStored());
@@ -178,3 +206,5 @@ export function useTheme() {
 
   return { theme, setTheme, resolvedTheme, colorTheme, setColorTheme } as const;
 }
+
+export type { Theme, ColorTheme };

@@ -1,4 +1,5 @@
 import {
+  ArchiveIcon,
   ArrowLeftIcon,
   ArrowUpDownIcon,
   ChevronRightIcon,
@@ -812,6 +813,41 @@ export default function Sidebar() {
     ],
   );
 
+  const archiveThread = useCallback(
+    async (threadId: ThreadId): Promise<void> => {
+      const api = readNativeApi();
+      if (!api) return;
+      await api.orchestration.dispatchCommand({
+        type: "thread.archive",
+        commandId: newCommandId(),
+        threadId,
+      });
+      if (routeThreadId === threadId) {
+        const fallbackThreadId =
+          threads.find((entry) => entry.id !== threadId && entry.archivedAt === null)?.id ?? null;
+        if (fallbackThreadId) {
+          void navigate({ to: "/$threadId", params: { threadId: fallbackThreadId }, replace: true });
+        } else {
+          void navigate({ to: "/", replace: true });
+        }
+      }
+    },
+    [navigate, routeThreadId, threads],
+  );
+
+  const unarchiveThread = useCallback(
+    async (threadId: ThreadId): Promise<void> => {
+      const api = readNativeApi();
+      if (!api) return;
+      await api.orchestration.dispatchCommand({
+        type: "thread.unarchive",
+        commandId: newCommandId(),
+        threadId,
+      });
+    },
+    [],
+  );
+
   const { copyToClipboard: copyThreadIdToClipboard } = useCopyToClipboard<{ threadId: ThreadId }>({
     onCopy: (ctx) => {
       toastManager.add({
@@ -852,12 +888,16 @@ export default function Sidebar() {
       if (!thread) return;
       const threadWorkspacePath =
         thread.worktreePath ?? projectCwdById.get(thread.projectId) ?? null;
+      const isArchived = thread.archivedAt !== null;
       const clicked = await api.contextMenu.show(
         [
           { id: "rename", label: "Rename thread" },
           { id: "mark-unread", label: "Mark unread" },
           { id: "copy-path", label: "Copy Path" },
           { id: "copy-thread-id", label: "Copy Thread ID" },
+          isArchived
+            ? { id: "unarchive", label: "Unarchive" }
+            : { id: "archive", label: "Archive" },
           { id: "delete", label: "Delete", destructive: true },
         ],
         position,
@@ -890,6 +930,14 @@ export default function Sidebar() {
         copyThreadIdToClipboard(threadId, { threadId });
         return;
       }
+      if (clicked === "archive") {
+        await archiveThread(threadId);
+        return;
+      }
+      if (clicked === "unarchive") {
+        await unarchiveThread(threadId);
+        return;
+      }
       if (clicked !== "delete") return;
       if (appSettings.confirmThreadDelete) {
         const confirmed = await api.dialogs.confirm(
@@ -906,6 +954,8 @@ export default function Sidebar() {
     },
     [
       appSettings.confirmThreadDelete,
+      archiveThread,
+      unarchiveThread,
       copyPathToClipboard,
       copyThreadIdToClipboard,
       deleteThread,
@@ -1135,6 +1185,7 @@ export default function Sidebar() {
   );
   const attentionThreads = useMemo(() => {
     return threads
+      .filter((thread) => thread.archivedAt === null)
       .map((thread) => {
         const status = resolveThreadStatusPill({
           thread,
@@ -1179,7 +1230,11 @@ export default function Sidebar() {
     dragHandleProps: SortableProjectHandleProps | null,
   ) {
     const projectThreads = sortThreadsForSidebar(
-      threads.filter((thread) => thread.projectId === project.id),
+      threads.filter(
+        (thread) =>
+          thread.projectId === project.id &&
+          (appSettings.showArchivedThreads || thread.archivedAt === null),
+      ),
       appSettings.sidebarThreadSortOrder,
     );
     const projectStatus = resolveProjectStatusIndicator(
@@ -1532,7 +1587,11 @@ export default function Sidebar() {
       // When expanding a project with exactly one thread, navigate directly to it.
       const project = projects.find((p) => p.id === projectId);
       if (project && !project.expanded) {
-        const projectThreads = threads.filter((t) => t.projectId === projectId);
+        const projectThreads = threads.filter(
+          (t) =>
+            t.projectId === projectId &&
+            (appSettings.showArchivedThreads || t.archivedAt === null),
+        );
         if (projectThreads.length === 1) {
           toggleProject(projectId);
           void navigate({
@@ -1544,7 +1603,15 @@ export default function Sidebar() {
       }
       toggleProject(projectId);
     },
-    [clearSelection, navigate, projects, selectedThreadIds.size, threads, toggleProject],
+    [
+      appSettings.showArchivedThreads,
+      clearSelection,
+      navigate,
+      projects,
+      selectedThreadIds.size,
+      threads,
+      toggleProject,
+    ],
   );
 
   const handleProjectTitleKeyDown = useCallback(
@@ -1557,7 +1624,11 @@ export default function Sidebar() {
       // When expanding a project with exactly one thread, navigate directly to it.
       const project = projects.find((p) => p.id === projectId);
       if (project && !project.expanded) {
-        const projectThreads = threads.filter((t) => t.projectId === projectId);
+        const projectThreads = threads.filter(
+          (t) =>
+            t.projectId === projectId &&
+            (appSettings.showArchivedThreads || t.archivedAt === null),
+        );
         if (projectThreads.length === 1) {
           toggleProject(projectId);
           void navigate({
@@ -1569,7 +1640,7 @@ export default function Sidebar() {
       }
       toggleProject(projectId);
     },
-    [navigate, projects, threads, toggleProject],
+    [appSettings.showArchivedThreads, navigate, projects, threads, toggleProject],
   );
 
   useEffect(() => {
@@ -1925,6 +1996,37 @@ export default function Sidebar() {
                 </TooltipTrigger>
                 <TooltipPopup side="top">
                   {appSettings.sidebarHideFiles ? "Show files" : "Hide files"}
+                </TooltipPopup>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <button
+                      type="button"
+                      aria-label={
+                        appSettings.showArchivedThreads
+                          ? "Hide archived threads"
+                          : "Show archived threads"
+                      }
+                      aria-pressed={appSettings.showArchivedThreads}
+                      className={cn(
+                        "inline-flex size-5 cursor-pointer items-center justify-center rounded-md transition-colors hover:bg-accent hover:text-foreground",
+                        appSettings.showArchivedThreads
+                          ? "text-foreground"
+                          : "text-muted-foreground/60",
+                      )}
+                      onClick={() =>
+                        updateSettings({ showArchivedThreads: !appSettings.showArchivedThreads })
+                      }
+                    />
+                  }
+                >
+                  <ArchiveIcon className="size-3.5" />
+                </TooltipTrigger>
+                <TooltipPopup side="top">
+                  {appSettings.showArchivedThreads
+                    ? "Hide archived threads"
+                    : "Show archived threads"}
                 </TooltipPopup>
               </Tooltip>
               <ProjectSortMenu

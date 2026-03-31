@@ -110,6 +110,7 @@ export interface Thread {
   worktreeBaseBranch?: string | null;
   turnDiffSummaries: TurnDiffSummary[];
   activities: OrchestrationThreadActivity[];
+  archivedAt: string | null;
 }
 
 export interface ThreadSession {

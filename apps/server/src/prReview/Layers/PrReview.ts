@@ -1,6 +1,5 @@
 import { Effect, Layer } from "effect";
 import type {
-  GitHubUserPreview,
   PrConflictAnalysis,
   PrReviewAddThreadInput,
   PrReviewComment,
@@ -9,17 +8,13 @@ import type {
   PrReviewDashboardResult,
   PrReviewFile,
   PrReviewPatchInput,
-  PrReviewPatchResult,
   PrReviewParticipant,
   PrReviewReplyToThreadInput,
   PrReviewResolveThreadInput,
   PrReviewSearchUsersInput,
-  PrReviewSearchUsersResult,
   PrReviewSummary,
   PrReviewUserPreviewInput,
   PrSubmitReviewInput,
-  PrSubmitReviewResult,
-  PrWorkflowStepResolution,
   PrWorkflowStepRunResult,
 } from "@okcode/contracts";
 import { GitHubCli } from "../../git/Services/GitHubCli.ts";
@@ -356,11 +351,7 @@ function normalizeDashboardResponse(
             startSide: asString(record.startDiffSide),
             isResolved: Boolean(record.isResolved),
             isOutdated: Boolean(record.isOutdated),
-            state: Boolean(record.isResolved)
-              ? "resolved"
-              : Boolean(record.isOutdated)
-                ? "outdated"
-                : "open",
+            state: record.isResolved ? "resolved" : record.isOutdated ? "outdated" : "open",
             comments,
           } as PrReviewDashboardResult["threads"][number];
         })
@@ -643,7 +634,7 @@ const makePrReview = Effect.gen(function* () {
         const dashboard = yield* refreshDashboard({ cwd: input.cwd, prNumber: input.prNumber });
         const thread = dashboard.threads.find((entry) => entry.id === input.threadId);
         const targetCommentId = [...(thread?.comments ?? [])]
-          .reverse()
+          .toReversed()
           .find((comment) => comment.databaseId !== null)?.databaseId;
         if (!thread || targetCommentId === undefined || targetCommentId === null) {
           return yield* new PrReviewError({

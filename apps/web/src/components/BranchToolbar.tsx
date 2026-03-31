@@ -11,8 +11,10 @@ import {
   resolveDraftEnvModeAfterBranchChange,
   resolveEffectiveEnvMode,
 } from "./BranchToolbar.logic";
+import { Badge } from "./ui/badge";
 import { BranchToolbarBranchSelector } from "./BranchToolbarBranchSelector";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "./ui/select";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
 
 const envModeItems = [
   { value: "local", label: "Local" },
@@ -46,6 +48,8 @@ export default function BranchToolbar({
   const activeThreadId = serverThread?.id ?? (draftThread ? threadId : undefined);
   const activeThreadBranch = serverThread?.branch ?? draftThread?.branch ?? null;
   const activeWorktreePath = serverThread?.worktreePath ?? draftThread?.worktreePath ?? null;
+  const activeWorktreeBaseBranch =
+    serverThread?.worktreeBaseBranch ?? draftThread?.worktreeBaseBranch ?? null;
   const branchCwd = activeWorktreePath ?? activeProject?.cwd ?? null;
   const hasServerThread = serverThread !== undefined;
   const effectiveEnvMode = resolveEffectiveEnvMode({
@@ -109,7 +113,7 @@ export default function BranchToolbar({
   if (!activeThreadId || !activeProject) return null;
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-5 pb-3 pt-1">
+    <div className="mx-auto flex w-full max-w-7xl items-end justify-between px-5 pb-3 pt-1">
       {envLocked || activeWorktreePath ? (
         <span className="inline-flex items-center gap-1 border border-transparent px-[calc(--spacing(3)-1px)] text-sm font-medium text-muted-foreground/70 sm:text-xs">
           {activeWorktreePath ? (
@@ -155,17 +159,37 @@ export default function BranchToolbar({
         </Select>
       )}
 
-      <BranchToolbarBranchSelector
-        activeProjectCwd={activeProject.cwd}
-        activeThreadBranch={activeThreadBranch}
-        activeWorktreePath={activeWorktreePath}
-        branchCwd={branchCwd}
-        effectiveEnvMode={effectiveEnvMode}
-        envLocked={envLocked}
-        onSetThreadBranch={setThreadBranch}
-        {...(onCheckoutPullRequestRequest ? { onCheckoutPullRequestRequest } : {})}
-        {...(onComposerFocusRequest ? { onComposerFocusRequest } : {})}
-      />
+      <div className="flex flex-col items-end gap-1">
+        <BranchToolbarBranchSelector
+          activeProjectCwd={activeProject.cwd}
+          activeThreadBranch={activeThreadBranch}
+          activeWorktreePath={activeWorktreePath}
+          branchCwd={branchCwd}
+          effectiveEnvMode={effectiveEnvMode}
+          envLocked={envLocked}
+          onSetThreadBranch={setThreadBranch}
+          {...(onCheckoutPullRequestRequest ? { onCheckoutPullRequestRequest } : {})}
+          {...(onComposerFocusRequest ? { onComposerFocusRequest } : {})}
+        />
+        {activeWorktreePath && activeWorktreeBaseBranch ? (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Badge
+                  variant="outline"
+                  size="sm"
+                  className="max-w-56 truncate px-2 text-[11px] text-muted-foreground"
+                >
+                  Base: {activeWorktreeBaseBranch}
+                </Badge>
+              }
+            />
+            <TooltipPopup side="bottom" align="end">
+              OK Code created this worktree from {activeWorktreeBaseBranch}.
+            </TooltipPopup>
+          </Tooltip>
+        ) : null}
+      </div>
     </div>
   );
 }

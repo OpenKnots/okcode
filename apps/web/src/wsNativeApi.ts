@@ -215,6 +215,8 @@ export function createWsNativeApi(): NativeApi {
       },
     },
     git: {
+      cloneRepository: (input) =>
+        transport.request(WS_METHODS.gitCloneRepository, input, { timeoutMs: null }),
       pull: (input) => transport.request(WS_METHODS.gitPull, input),
       status: (input) => transport.request(WS_METHODS.gitStatus, input),
       runStackedAction: (input) =>
@@ -263,6 +265,13 @@ export function createWsNativeApi(): NativeApi {
           prReviewRepoConfigUpdatedListeners.delete(callback);
         };
       },
+    },
+    skills: {
+      list: (input) => transport.request(WS_METHODS.skillList, input ?? {}),
+      read: (input) => transport.request(WS_METHODS.skillRead, input),
+      create: (input) => transport.request(WS_METHODS.skillCreate, input),
+      delete: (input) => transport.request(WS_METHODS.skillDelete, input),
+      search: (input) => transport.request(WS_METHODS.skillSearch, input),
     },
     contextMenu: {
       show: async <T extends string>(

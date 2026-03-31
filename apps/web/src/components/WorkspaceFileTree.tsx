@@ -5,6 +5,7 @@ import {
   FolderClosedIcon,
   FolderIcon,
   SearchIcon,
+  SlidersHorizontalIcon,
   TriangleAlertIcon,
 } from "lucide-react";
 import { memo, useCallback, useDeferredValue, useState } from "react";
@@ -18,6 +19,7 @@ import { cn } from "~/lib/utils";
 import { readNativeApi } from "~/nativeApi";
 import { resolvePathLinkTarget } from "~/terminal-links";
 import { VscodeEntryIcon } from "./chat/VscodeEntryIcon";
+import { Collapsible, CollapsibleContent } from "./ui/collapsible";
 import { Input } from "./ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "./ui/input-group";
 import { toastManager } from "./ui/toast";
@@ -34,6 +36,7 @@ export const WorkspaceFileTree = memo(function WorkspaceFileTree(props: {
   const [searchQuery, setSearchQuery] = useState("");
   const [includePattern, setIncludePattern] = useState("");
   const [excludePattern, setExcludePattern] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const deferredIncludePattern = useDeferredValue(includePattern);
   const deferredExcludePattern = useDeferredValue(excludePattern);
@@ -46,6 +49,9 @@ export const WorkspaceFileTree = memo(function WorkspaceFileTree(props: {
   }, []);
 
   const openFileInViewer = useCodeViewerStore((state) => state.openFile);
+  const filtersHaveContent = includePattern.trim().length > 0 || excludePattern.trim().length > 0;
+  const filtersVisible = filtersOpen || filtersHaveContent;
+
   const searchActive =
     deferredSearchQuery.trim().length > 0 ||
     deferredIncludePattern.trim().length > 0 ||
@@ -104,6 +110,7 @@ export const WorkspaceFileTree = memo(function WorkspaceFileTree(props: {
     setSearchQuery("");
     setIncludePattern("");
     setExcludePattern("");
+    setFiltersOpen(false);
   }, []);
 
   return (
@@ -121,28 +128,48 @@ export const WorkspaceFileTree = memo(function WorkspaceFileTree(props: {
             spellCheck={false}
             aria-label="Search files"
           />
+          <InputGroupAddon align="inline-end">
+            <button
+              type="button"
+              onClick={() => setFiltersOpen((prev) => !prev)}
+              aria-label="Toggle file filters"
+              aria-expanded={filtersVisible}
+              className={cn(
+                "flex size-6 items-center justify-center rounded-md transition-colors hover:bg-accent/60",
+                filtersHaveContent && "text-foreground",
+              )}
+            >
+              <SlidersHorizontalIcon
+                className={cn(
+                  "size-3.5",
+                  filtersHaveContent ? "text-foreground" : "text-muted-foreground/65",
+                )}
+              />
+            </button>
+          </InputGroupAddon>
         </InputGroup>
-        <div className="grid gap-1.5">
-          <Input
-            size="sm"
-            value={includePattern}
-            onChange={(event) => setIncludePattern(event.target.value)}
-            placeholder="Include: src/**, *.{ts,tsx}"
-            spellCheck={false}
-            aria-label="Files to include"
-          />
-          <Input
-            size="sm"
-            value={excludePattern}
-            onChange={(event) => setExcludePattern(event.target.value)}
-            placeholder="Exclude: dist/**, *.snap"
-            spellCheck={false}
-            aria-label="Files to exclude"
-          />
-        </div>
-        <p className="text-[10px] text-muted-foreground/55">
-          CamelCase, path-ordered, and glob-restricted search.
-        </p>
+        <Collapsible open={filtersVisible}>
+          <CollapsibleContent>
+            <div className="grid gap-1.5 pt-1.5">
+              <Input
+                size="sm"
+                value={includePattern}
+                onChange={(event) => setIncludePattern(event.target.value)}
+                placeholder="Include: src/**, *.{ts,tsx}"
+                spellCheck={false}
+                aria-label="Files to include"
+              />
+              <Input
+                size="sm"
+                value={excludePattern}
+                onChange={(event) => setExcludePattern(event.target.value)}
+                placeholder="Exclude: dist/**, *.snap"
+                spellCheck={false}
+                aria-label="Files to exclude"
+              />
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
       </div>
 
       {searchActive ? (
@@ -298,7 +325,10 @@ const WorkspaceFileTreeDirectory = memo(function WorkspaceFileTreeDirectory(prop
     );
   }
 
-  if ((query.data?.entries.length ?? 0) === 0) {
+  const entries = query.data?.entries ?? [];
+  const truncated = query.data?.truncated ?? false;
+
+  if (entries.length === 0) {
     if (props.directoryPath) {
       return null;
     }
@@ -307,7 +337,7 @@ const WorkspaceFileTreeDirectory = memo(function WorkspaceFileTreeDirectory(prop
 
   return (
     <div className="space-y-0.5">
-      {query.data?.entries.map((entry) => {
+      {entries.map((entry) => {
         if (entry.kind === "directory") {
           const isExpanded = props.expandedDirectories[entry.path] ?? false;
           return (
@@ -343,7 +373,7 @@ const WorkspaceFileTreeDirectory = memo(function WorkspaceFileTreeDirectory(prop
           />
         );
       })}
-      {props.depth === 0 && query.data?.truncated ? (
+      {props.depth === 0 && truncated ? (
         <div className="px-2 py-1 text-[10px] text-muted-foreground/55">
           Workspace tree may be truncated for very large repos.
         </div>

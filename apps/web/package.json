@@ -1,12 +1,12 @@
 {
   "name": "@okcode/web",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "prepare": "node -e \"process.exit(process.env.CI ? 0 : 1)\" || effect-language-service patch",
+    "prepare": "node -e \"process.exit(process.env.CI ? 0 : 1)\" || node ../../scripts/patch-effect-language-service.ts",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",

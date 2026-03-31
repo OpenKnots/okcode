@@ -186,8 +186,18 @@ export function parseYouTubeUrl(input: string): { type: "video" | "playlist"; id
 }
 
 export function buildYouTubeEmbedUrl(type: "video" | "playlist", id: string): string {
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const params = new URLSearchParams({
+    autoplay: "1",
+    enablejsapi: "1",
+    origin,
+    rel: "0",
+    modestbranding: "1",
+  });
+
   if (type === "playlist") {
-    return `https://www.youtube.com/embed/videoseries?list=${id}&autoplay=1`;
+    params.set("list", id);
+    return `https://www.youtube-nocookie.com/embed/videoseries?${params.toString()}`;
   }
-  return `https://www.youtube.com/embed/${id}?autoplay=1`;
+  return `https://www.youtube-nocookie.com/embed/${id}?${params.toString()}`;
 }

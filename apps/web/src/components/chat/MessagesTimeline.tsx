@@ -35,6 +35,7 @@ import {
   ZapIcon,
 } from "lucide-react";
 import { Button } from "../ui/button";
+import { Badge } from "../ui/badge";
 import { clamp } from "effect/Number";
 import { estimateTimelineMessageHeight } from "../timelineHeight";
 import { buildExpandedImagePreview, ExpandedImagePreview } from "./ExpandedImagePreview";
@@ -43,6 +44,7 @@ import { ChangedFilesTree } from "./ChangedFilesTree";
 import { DiffStatLabel, hasNonZeroStat } from "./DiffStatLabel";
 import { MessageCopyButton } from "./MessageCopyButton";
 import { computeMessageDurationStart, normalizeCompactToolLabel } from "./MessagesTimeline.logic";
+import type { ChatShortcutGuide } from "~/lib/chatShortcutGuidance";
 import { TerminalContextInlineChip } from "./TerminalContextInlineChip";
 import {
   deriveDisplayedUserMessageState,
@@ -82,6 +84,8 @@ interface MessagesTimelineProps {
   resolvedTheme: "light" | "dark";
   timestampFormat: TimestampFormat;
   workspaceRoot: string | undefined;
+  shortcutGuides: ChatShortcutGuide[];
+  onOpenSettings: () => void;
 }
 
 export const MessagesTimeline = memo(function MessagesTimeline({
@@ -106,6 +110,8 @@ export const MessagesTimeline = memo(function MessagesTimeline({
   resolvedTheme,
   timestampFormat,
   workspaceRoot,
+  shortcutGuides,
+  onOpenSettings,
 }: MessagesTimelineProps) {
   const timelineRootRef = useRef<HTMLDivElement | null>(null);
   const [timelineWidthPx, setTimelineWidthPx] = useState<number | null>(null);
@@ -355,9 +361,20 @@ export const MessagesTimeline = memo(function MessagesTimeline({
                 </div>
               )}
               <div className="space-y-0.5">
-                {visibleEntries.map((workEntry) => (
-                  <SimpleWorkEntryRow key={`work-row:${workEntry.id}`} workEntry={workEntry} />
-                ))}
+                {groupConsecutiveWorkEntries(visibleEntries).map((subGroup) =>
+                  subGroup.entries.length === 1 ? (
+                    <SimpleWorkEntryRow
+                      key={`work-row:${subGroup.entries[0]!.id}`}
+                      workEntry={subGroup.entries[0]!}
+                    />
+                  ) : (
+                    <CollapsedWorkEntryGroup
+                      key={`work-group:${subGroup.entries[0]!.id}`}
+                      heading={subGroup.heading}
+                      entries={subGroup.entries}
+                    />
+                  ),
+                )}
               </div>
             </div>
           );
@@ -600,11 +617,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
 
   if (!hasMessages && !isWorking) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <p className="text-sm text-muted-foreground/30">
-          Send a message to start the conversation.
-        </p>
-      </div>
+      <EmptyTimelineGuidance shortcutGuides={shortcutGuides} onOpenSettings={onOpenSettings} />
     );
   }
 
@@ -641,6 +654,87 @@ export const MessagesTimeline = memo(function MessagesTimeline({
     </div>
   );
 });
+
+function EmptyTimelineGuidance({
+  shortcutGuides,
+  onOpenSettings,
+}: {
+  shortcutGuides: ChatShortcutGuide[];
+  onOpenSettings: () => void;
+}) {
+  const [guideIndex, setGuideIndex] = useState(0);
+  const guideCount = shortcutGuides.length;
+  const currentGuide = guideCount > 0 ? shortcutGuides[guideIndex % guideCount] : undefined;
+
+  useEffect(() => {
+    setGuideIndex(0);
+  }, [shortcutGuides]);
+
+  useEffect(() => {
+    if (shortcutGuides.length <= 1) return;
+
+    const interval = window.setInterval(() => {
+      setGuideIndex((currentIndex) => (currentIndex + 1) % shortcutGuides.length);
+    }, 12_000);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [shortcutGuides.length]);
+
+  return (
+    <div className="flex h-full items-center justify-center px-4 py-10 sm:px-6">
+      <div className="mx-auto flex w-full max-w-2xl flex-col items-center text-center">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground/55">
+          Hotkey tip
+        </p>
+        <div className="mt-4 space-y-4">
+          <div className="space-y-2">
+            <h3 className="text-2xl font-medium tracking-tight text-foreground sm:text-3xl">
+              {currentGuide?.title ?? "Start with a shortcut"}
+            </h3>
+            <p className="mx-auto max-w-xl text-sm leading-6 text-muted-foreground sm:text-[15px]">
+              {currentGuide?.description ??
+                "A few useful bindings will appear here while the thread is empty."}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap justify-center gap-2">
+            {currentGuide?.shortcutLabels.length ? (
+              currentGuide.shortcutLabels.map((label) => (
+                <Badge
+                  key={`${currentGuide.id}:${label}`}
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full border-border/70 bg-background/70 px-2.5 text-foreground"
+                >
+                  {label}
+                </Badge>
+              ))
+            ) : (
+              <Badge
+                variant="outline"
+                size="sm"
+                className="rounded-full border-border/70 bg-background/70 px-2.5 text-foreground"
+              >
+                No shortcut assigned
+              </Badge>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <p className="text-xs leading-5 text-muted-foreground/70">
+              Edit shortcuts from Settings whenever you want to change the defaults.
+            </p>
+            <Button type="button" variant="outline" size="sm" onClick={onOpenSettings}>
+              Manage hotkeys
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 type TimelineEntry = ReturnType<typeof deriveTimelineEntries>[number];
 type TimelineMessage = Extract<TimelineEntry, { kind: "message" }>["message"];
@@ -898,6 +992,25 @@ function toolWorkEntryHeading(workEntry: TimelineWorkEntry): string {
   return capitalizePhrase(normalizeCompactToolLabel(workEntry.toolTitle));
 }
 
+type ConsecutiveWorkGroup = {
+  heading: string;
+  entries: TimelineWorkEntry[];
+};
+
+function groupConsecutiveWorkEntries(entries: TimelineWorkEntry[]): ConsecutiveWorkGroup[] {
+  const groups: ConsecutiveWorkGroup[] = [];
+  for (const entry of entries) {
+    const heading = toolWorkEntryHeading(entry);
+    const lastGroup = groups[groups.length - 1];
+    if (lastGroup && lastGroup.heading === heading) {
+      lastGroup.entries.push(entry);
+    } else {
+      groups.push({ heading, entries: [entry] });
+    }
+  }
+  return groups;
+}
+
 const SimpleWorkEntryRow = memo(function SimpleWorkEntryRow(props: {
   workEntry: TimelineWorkEntry;
 }) {
@@ -950,6 +1063,61 @@ const SimpleWorkEntryRow = memo(function SimpleWorkEntryRow(props: {
               +{(workEntry.changedFiles?.length ?? 0) - 4}
             </span>
           )}
+        </div>
+      )}
+    </div>
+  );
+});
+
+const CollapsedWorkEntryGroup = memo(function CollapsedWorkEntryGroup(props: {
+  heading: string;
+  entries: TimelineWorkEntry[];
+}) {
+  const { heading, entries } = props;
+  const [isExpanded, setIsExpanded] = useState(false);
+  const firstEntry = entries[0]!;
+  const EntryIcon = workEntryIcon(firstEntry);
+  const iconConfig = workToneIcon(firstEntry.tone);
+
+  return (
+    <div className="rounded-lg px-1 py-1">
+      <button
+        type="button"
+        className="flex w-full items-center gap-2"
+        onClick={() => setIsExpanded((prev) => !prev)}
+      >
+        <span
+          className={cn("flex size-5 shrink-0 items-center justify-center", iconConfig.className)}
+        >
+          <EntryIcon className="size-3" />
+        </span>
+        <p className="min-w-0 flex-1 truncate text-left text-[11px] leading-5">
+          <span className={cn("text-foreground/80", workToneClass(firstEntry.tone))}>
+            {heading}
+          </span>
+          <span className="ml-1 text-muted-foreground/50">×{entries.length}</span>
+        </p>
+        <ChevronRightIcon
+          className={cn(
+            "size-3 shrink-0 text-muted-foreground/35 transition-transform duration-150",
+            isExpanded && "rotate-90",
+          )}
+        />
+      </button>
+      {isExpanded && (
+        <div className="ml-7 mt-0.5 space-y-0 border-l border-border/30 pl-2">
+          {entries.map((entry) => {
+            const preview = workEntryPreview(entry);
+            return (
+              <p
+                key={`subentry:${entry.id}`}
+                className="truncate py-0.5 text-[10px] leading-4 text-muted-foreground/55"
+                title={preview ?? undefined}
+              >
+                {preview ?? heading}
+              </p>
+            );
+          })}
         </div>
       )}
     </div>

@@ -76,6 +76,7 @@ export type GitBranch = typeof GitBranch.Type;
 const GitWorktree = Schema.Struct({
   path: TrimmedNonEmptyStringSchema,
   branch: TrimmedNonEmptyStringSchema,
+  baseBranch: TrimmedNonEmptyStringSchema,
 });
 const GitResolvedPullRequest = Schema.Struct({
   number: PositiveInt,
@@ -190,6 +191,24 @@ export const GitInitInput = Schema.Struct({
   cwd: TrimmedNonEmptyStringSchema,
 });
 export type GitInitInput = typeof GitInitInput.Type;
+
+export const GitCloneRepositoryInput = Schema.Struct({
+  /** HTTPS clone URL (e.g. `https://github.com/owner/repo.git`) */
+  url: TrimmedNonEmptyStringSchema,
+  /** Absolute path to the parent directory where the repo will be cloned */
+  targetDir: TrimmedNonEmptyStringSchema,
+  /** Optional branch to checkout after cloning */
+  branch: Schema.optional(TrimmedNonEmptyStringSchema),
+});
+export type GitCloneRepositoryInput = typeof GitCloneRepositoryInput.Type;
+
+export const GitCloneRepositoryResult = Schema.Struct({
+  /** Absolute path to the cloned repository */
+  path: TrimmedNonEmptyStringSchema,
+  /** The checked-out branch after cloning */
+  branch: TrimmedNonEmptyStringSchema,
+});
+export type GitCloneRepositoryResult = typeof GitCloneRepositoryResult.Type;
 
 // RPC Results
 

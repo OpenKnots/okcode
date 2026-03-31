@@ -14,6 +14,7 @@ import {
 import {
   GitActionProgressEvent,
   GitCheckoutInput,
+  GitCloneRepositoryInput,
   GitCreateBranchInput,
   GitPreparePullRequestThreadInput,
   GitCreateWorktreeInput,
@@ -27,28 +28,19 @@ import {
   GitStatusInput,
 } from "./git";
 import {
-  GitHubUserPreview,
-  PrConflictAnalysis,
-  PrConflictApplyResult,
   PrReviewAddThreadInput,
   PrReviewApplyConflictResolutionInput,
-  PrReviewConfig,
   PrReviewConfigInput,
   PrReviewDashboardInput,
-  PrReviewDashboardResult,
   PrReviewPatchInput,
-  PrReviewPatchResult,
   PrReviewRepoConfigUpdatedPayload,
   PrReviewReplyToThreadInput,
   PrReviewResolveThreadInput,
   PrReviewRunWorkflowStepInput,
   PrReviewSearchUsersInput,
-  PrReviewSearchUsersResult,
   PrReviewSyncUpdatedPayload,
   PrReviewUserPreviewInput,
   PrSubmitReviewInput,
-  PrSubmitReviewResult,
-  PrWorkflowStepRunResult,
 } from "./prReview";
 import {
   TerminalClearInput,
@@ -73,6 +65,13 @@ import {
 } from "./project";
 import { OpenInEditorInput } from "./editor";
 import { ServerConfigUpdatedPayload } from "./server";
+import {
+  SkillListInput,
+  SkillReadInput,
+  SkillCreateInput,
+  SkillDeleteInput,
+  SkillSearchInput,
+} from "./skill";
 
 // ── WebSocket RPC Method Names ───────────────────────────────────────
 
@@ -99,6 +98,7 @@ export const WS_METHODS = {
   gitCreateBranch: "git.createBranch",
   gitCheckout: "git.checkout",
   gitInit: "git.init",
+  gitCloneRepository: "git.cloneRepository",
   gitResolvePullRequest: "git.resolvePullRequest",
   gitPreparePullRequestThread: "git.preparePullRequestThread",
   gitListPullRequests: "git.listPullRequests",
@@ -125,6 +125,13 @@ export const WS_METHODS = {
   terminalClear: "terminal.clear",
   terminalRestart: "terminal.restart",
   terminalClose: "terminal.close",
+
+  // Skill methods
+  skillList: "skill.list",
+  skillRead: "skill.read",
+  skillCreate: "skill.create",
+  skillDelete: "skill.delete",
+  skillSearch: "skill.search",
 
   // Server meta
   serverGetConfig: "server.getConfig",
@@ -189,6 +196,7 @@ const WebSocketRequestBody = Schema.Union([
   tagRequestBody(WS_METHODS.gitCreateBranch, GitCreateBranchInput),
   tagRequestBody(WS_METHODS.gitCheckout, GitCheckoutInput),
   tagRequestBody(WS_METHODS.gitInit, GitInitInput),
+  tagRequestBody(WS_METHODS.gitCloneRepository, GitCloneRepositoryInput),
   tagRequestBody(WS_METHODS.gitResolvePullRequest, GitPullRequestRefInput),
   tagRequestBody(WS_METHODS.gitPreparePullRequestThread, GitPreparePullRequestThreadInput),
   tagRequestBody(WS_METHODS.gitListPullRequests, GitListPullRequestsInput),
@@ -215,6 +223,13 @@ const WebSocketRequestBody = Schema.Union([
   tagRequestBody(WS_METHODS.terminalClear, TerminalClearInput),
   tagRequestBody(WS_METHODS.terminalRestart, TerminalRestartInput),
   tagRequestBody(WS_METHODS.terminalClose, TerminalCloseInput),
+
+  // Skill methods
+  tagRequestBody(WS_METHODS.skillList, SkillListInput),
+  tagRequestBody(WS_METHODS.skillRead, SkillReadInput),
+  tagRequestBody(WS_METHODS.skillCreate, SkillCreateInput),
+  tagRequestBody(WS_METHODS.skillDelete, SkillDeleteInput),
+  tagRequestBody(WS_METHODS.skillSearch, SkillSearchInput),
 
   // Server meta
   tagRequestBody(WS_METHODS.serverGetConfig, Schema.Struct({})),

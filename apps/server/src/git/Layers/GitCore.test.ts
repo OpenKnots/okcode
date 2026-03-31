@@ -111,6 +111,24 @@ function initRepoWithCommit(
   });
 }
 
+function initRepoWithCommitOnBranch(
+  cwd: string,
+  initialBranch: string,
+): Effect.Effect<
+  void,
+  GitCommandError | PlatformError.PlatformError,
+  FileSystem.FileSystem | GitCore
+> {
+  return Effect.gen(function* () {
+    yield* git(cwd, ["init", `--initial-branch=${initialBranch}`]);
+    yield* git(cwd, ["config", "user.email", "test@test.com"]);
+    yield* git(cwd, ["config", "user.name", "Test"]);
+    yield* writeTextFile(path.join(cwd, "README.md"), "# test\n");
+    yield* git(cwd, ["add", "."]);
+    yield* git(cwd, ["commit", "-m", "initial commit"]);
+  });
+}
+
 function commitWithDate(
   cwd: string,
   fileName: string,
@@ -883,6 +901,55 @@ it.layer(TestLayer)("git integration", (it) => {
   // ── createGitWorktree + removeGitWorktree ──
 
   describe("createGitWorktree", () => {
+    it.effect("auto-detects the current branch when the requested base branch is missing", () =>
+      Effect.gen(function* () {
+        const tmp = yield* makeTmpDir();
+        yield* initRepoWithCommitOnBranch(tmp, "master");
+        const core = yield* GitCore;
+
+        const wtPath = path.join(tmp, "worktree-missing-base");
+        const result = yield* core.createWorktree({
+          cwd: tmp,
+          branch: "main",
+          newBranch: "wt-missing-base",
+          path: wtPath,
+        });
+
+        expect(result.worktree.path).toBe(wtPath);
+        expect(result.worktree.branch).toBe("wt-missing-base");
+        expect(result.worktree.baseBranch).toBe("master");
+        expect(existsSync(wtPath)).toBe(true);
+        expect(existsSync(path.join(wtPath, "README.md"))).toBe(true);
+        expect(yield* git(wtPath, ["branch", "--show-current"])).toBe("wt-missing-base");
+
+        yield* core.removeWorktree({ cwd: tmp, path: wtPath });
+      }),
+    );
+
+    it.effect("rejects an unborn base branch with a helpful solution", () =>
+      Effect.gen(function* () {
+        const tmp = yield* makeTmpDir();
+        const core = yield* GitCore;
+        yield* core.initRepo({ cwd: tmp });
+
+        const wtPath = path.join(tmp, "worktree-unborn-base");
+        const error = yield* Effect.flip(
+          core.createWorktree({
+            cwd: tmp,
+            branch: "main",
+            newBranch: "wt-unborn-base",
+            path: wtPath,
+          }),
+        );
+
+        expect(error).toBeInstanceOf(GitCommandError);
+        expect(error.message).toContain("Base branch 'main' does not resolve to a commit yet.");
+        expect(error.message).toContain(
+          "Create the first commit or switch to Local mode before starting a worktree thread.",
+        );
+      }),
+    );
+
     it.effect("creates a worktree with a new branch from the base branch", () =>
       Effect.gen(function* () {
         const tmp = yield* makeTmpDir();

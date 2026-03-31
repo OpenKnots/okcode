@@ -62,7 +62,7 @@ export const ChatHeader = memo(function ChatHeader({
   activeProjectName,
   activeProjectCwd,
   isGitRepo,
-  openInCwd,
+  openInCwd: _openInCwd,
   activeProjectScripts,
   preferredScriptId,
   keybindings,

@@ -1,12 +1,15 @@
 import type { ThreadId } from "@okcode/contracts";
 import { create } from "zustand";
 
+import type { BrowserPresetId } from "./lib/browserPresets";
+
 export type PreviewDock = "left" | "right" | "top" | "bottom";
 
 interface PersistedPreviewUiState {
   globalOpen: boolean;
   dockByThreadId: Record<string, PreviewDock>;
   sizeByThreadId: Record<string, number>;
+  presetByThreadId: Record<string, BrowserPresetId>;
   favoriteUrls: string[];
 }
 
@@ -16,6 +19,7 @@ interface PreviewStateStore extends PersistedPreviewUiState {
   setThreadDock: (threadId: ThreadId, dock: PreviewDock) => void;
   toggleThreadLayout: (threadId: ThreadId) => void;
   setThreadSize: (threadId: ThreadId, size: number) => void;
+  setThreadPreset: (threadId: ThreadId, preset: BrowserPresetId | null) => void;
   addFavoriteUrl: (url: string) => void;
   removeFavoriteUrl: (url: string) => void;
   toggleFavoriteUrl: (url: string) => void;
@@ -23,11 +27,18 @@ interface PreviewStateStore extends PersistedPreviewUiState {
 
 const PREVIEW_STATE_STORAGE_KEY = "okcode:desktop-preview:v3";
 
+const VALID_PRESETS = new Set<string>(["mobile", "tablet", "laptop", "desktop", "ultrawide"]);
+
+function isValidPresetId(value: unknown): value is BrowserPresetId {
+  return typeof value === "string" && VALID_PRESETS.has(value);
+}
+
 function createEmptyPersistedPreviewUiState(): PersistedPreviewUiState {
   return {
     globalOpen: false,
     dockByThreadId: {},
     sizeByThreadId: {},
+    presetByThreadId: {},
     favoriteUrls: [],
   };
 }
@@ -77,6 +88,15 @@ function readPersistedPreviewUiState(): PersistedPreviewUiState {
               }),
             )
           : {},
+      presetByThreadId:
+        parsed.presetByThreadId && typeof parsed.presetByThreadId === "object"
+          ? Object.fromEntries(
+              Object.entries(parsed.presetByThreadId).filter(
+                (entry): entry is [string, BrowserPresetId] =>
+                  typeof entry[0] === "string" && isValidPresetId(entry[1]),
+              ),
+            )
+          : {},
       favoriteUrls: Array.isArray(parsed.favoriteUrls)
         ? parsed.favoriteUrls.filter(
             (u): u is string => typeof u === "string" && u.trim().length > 0,
@@ -100,6 +120,7 @@ function persistPreviewUiState(state: PersistedPreviewUiState): void {
         globalOpen: state.globalOpen,
         dockByThreadId: state.dockByThreadId,
         sizeByThreadId: state.sizeByThreadId,
+        presetByThreadId: state.presetByThreadId,
         favoriteUrls: state.favoriteUrls,
       } satisfies PersistedPreviewUiState),
     );
@@ -113,6 +134,7 @@ function snapshotState(state: PreviewStateStore): PersistedPreviewUiState {
     globalOpen: state.globalOpen,
     dockByThreadId: state.dockByThreadId,
     sizeByThreadId: state.sizeByThreadId,
+    presetByThreadId: state.presetByThreadId,
     favoriteUrls: state.favoriteUrls,
   };
 }
@@ -177,6 +199,22 @@ export const usePreviewStateStore = create<PreviewStateStore>((set, get) => ({
         sizeByThreadId: nextSizeByThreadId,
       });
       return { sizeByThreadId: nextSizeByThreadId };
+    });
+  },
+
+  setThreadPreset: (threadId, preset) => {
+    set((state) => {
+      const nextPresetByThreadId = { ...state.presetByThreadId };
+      if (preset === null) {
+        delete nextPresetByThreadId[threadId];
+      } else {
+        nextPresetByThreadId[threadId] = preset;
+      }
+      persistPreviewUiState({
+        ...snapshotState(state),
+        presetByThreadId: nextPresetByThreadId,
+      });
+      return { presetByThreadId: nextPresetByThreadId };
     });
   },
 

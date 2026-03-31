@@ -44,7 +44,6 @@ import { PrInspectorPanel } from "./PrInspectorPanel";
 import { PrMentionComposer } from "./PrMentionComposer";
 import {
   type PullRequestState,
-  type InspectorTab,
   TEXT_DRAFT_SCHEMA,
   requiredChecksState,
   openPathInEditor,
@@ -147,9 +146,6 @@ export function PrReviewShell({
     });
   }, [deferredSearchQuery, pullRequestsQuery.data?.pullRequests]);
 
-  const selectedPullRequest =
-    filteredPullRequests.find((pullRequest) => pullRequest.number === selectedPrNumber) ?? null;
-
   useEffect(() => {
     const nextDefault =
       filteredPullRequests.find((pullRequest) => pullRequest.number === selectedPrNumber) ??
@@ -209,6 +205,30 @@ export function PrReviewShell({
       unsubscribeSync();
       unsubscribeConfig();
     };
+  }, []);
+
+  // Keyboard shortcuts: [ toggles left rail, ] toggles right inspector
+  const handlePanelKeyDown = useEffectEvent((event: KeyboardEvent) => {
+    const target = event.target as HTMLElement;
+    if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) {
+      return;
+    }
+    if (event.key === "[" && !event.ctrlKey && !event.metaKey) {
+      event.preventDefault();
+      setLeftRailCollapsed(!leftRailCollapsed);
+    }
+    if (event.key === "]" && !event.ctrlKey && !event.metaKey) {
+      event.preventDefault();
+      if (isInspectorSheet) return;
+      const next = !inspectorCollapsed;
+      if (!next) userExplicitlyOpenedInspector.current = true;
+      setInspectorCollapsed(next);
+    }
+  });
+
+  useEffect(() => {
+    document.addEventListener("keydown", handlePanelKeyDown);
+    return () => document.removeEventListener("keydown", handlePanelKeyDown);
   }, []);
 
   const addThreadMutation = useMutation({
@@ -387,7 +407,7 @@ export function PrReviewShell({
         />
 
         {/* Center — diff workspace (takes remaining space) */}
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {isInspectorSheet ? (
             <div className="flex h-10 items-center justify-end border-b border-border/70 px-4">
               <Button onClick={() => setInspectorOpen(true)} size="sm" variant="outline">
@@ -415,14 +435,14 @@ export function PrReviewShell({
             selectedFilePath={selectedFilePath}
             selectedThreadId={selectedThreadId}
           />
-        </div>
+        </main>
 
         {/* Right inspector — collapsible (desktop xl+ only) */}
         {!isInspectorSheet ? (
           <PrInspectorPanel
             collapsed={inspectorCollapsed}
             hasBlockedWorkflow={blockingWorkflowStepsComputed.length > 0}
-            onExpandToTab={(tab) => {
+            onExpandToTab={(_tab) => {
               userExplicitlyOpenedInspector.current = true;
               setInspectorCollapsed(false);
             }}

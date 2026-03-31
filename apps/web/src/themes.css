@@ -123,64 +123,184 @@
   --warning-foreground: #f1a10d;
 }
 
-/* ─── Cursor Dark ─── sleek, focused, professional ─── */
+/* ─── Midnight Clarity ─── clean, intelligent, trustworthy (OpenAI-inspired) ─── */
 
-:root.theme-cursor-dark {
+:root.theme-midnight-clarity {
   color-scheme: light;
-  --background: #f5f5f5;
-  --foreground: #1e1e2e;
-  --card: #eeeeee;
-  --card-foreground: #1e1e2e;
-  --popover: #eeeeee;
-  --popover-foreground: #1e1e2e;
-  --primary: oklch(0.55 0.18 260);
+  --background: #ffffff;
+  --foreground: #0d0d0d;
+  --card: #f7f7f8;
+  --card-foreground: #0d0d0d;
+  --popover: #f7f7f8;
+  --popover-foreground: #0d0d0d;
+  --primary: oklch(0.59 0.14 168);
   --primary-foreground: #ffffff;
-  --secondary: rgba(60, 60, 100, 0.06);
-  --secondary-foreground: #1e1e2e;
-  --muted: rgba(60, 60, 100, 0.06);
-  --muted-foreground: #6c6c80;
-  --accent: rgba(60, 60, 100, 0.08);
-  --accent-foreground: #1e1e2e;
+  --secondary: rgba(0, 0, 0, 0.04);
+  --secondary-foreground: #0d0d0d;
+  --muted: rgba(0, 0, 0, 0.04);
+  --muted-foreground: #6e6e80;
+  --accent: rgba(0, 0, 0, 0.05);
+  --accent-foreground: #0d0d0d;
+  --destructive: #ef4444;
+  --destructive-foreground: #dc2626;
+  --border: rgba(0, 0, 0, 0.08);
+  --input: rgba(0, 0, 0, 0.1);
+  --ring: oklch(0.59 0.14 168);
+  --info: #0ea5e9;
+  --info-foreground: #0284c7;
+  --success: #10a37f;
+  --success-foreground: #0d8a6a;
+  --warning: #f59e0b;
+  --warning-foreground: #b45309;
+}
+
+:root.theme-midnight-clarity.dark {
+  color-scheme: dark;
+  --background: #212121;
+  --foreground: #ececec;
+  --card: #2f2f2f;
+  --card-foreground: #ececec;
+  --popover: #2f2f2f;
+  --popover-foreground: #ececec;
+  --primary: oklch(0.72 0.14 168);
+  --primary-foreground: #0d0d0d;
+  --secondary: rgba(255, 255, 255, 0.05);
+  --secondary-foreground: #ececec;
+  --muted: rgba(255, 255, 255, 0.05);
+  --muted-foreground: #9a9a9a;
+  --accent: rgba(255, 255, 255, 0.06);
+  --accent-foreground: #ececec;
+  --destructive: #f87171;
+  --destructive-foreground: #fca5a5;
+  --border: rgba(255, 255, 255, 0.08);
+  --input: rgba(255, 255, 255, 0.1);
+  --ring: oklch(0.72 0.14 168);
+  --info: #38bdf8;
+  --info-foreground: #7dd3fc;
+  --success: #34d399;
+  --success-foreground: #6ee7b7;
+  --warning: #fbbf24;
+  --warning-foreground: #fcd34d;
+}
+
+/* ─── Carbon ─── stark, modern, performance-focused (Vercel-inspired) ─── */
+
+:root.theme-carbon {
+  color-scheme: light;
+  --background: #ffffff;
+  --foreground: #000000;
+  --card: #fafafa;
+  --card-foreground: #000000;
+  --popover: #ffffff;
+  --popover-foreground: #000000;
+  --primary: oklch(0.55 0.2 255);
+  --primary-foreground: #ffffff;
+  --secondary: rgba(0, 0, 0, 0.04);
+  --secondary-foreground: #000000;
+  --muted: rgba(0, 0, 0, 0.04);
+  --muted-foreground: #666666;
+  --accent: rgba(0, 0, 0, 0.05);
+  --accent-foreground: #000000;
+  --destructive: #ee0000;
+  --destructive-foreground: #cc0000;
+  --border: #eaeaea;
+  --input: #eaeaea;
+  --ring: oklch(0.55 0.2 255);
+  --info: #0070f3;
+  --info-foreground: #0060d0;
+  --success: #0070f3;
+  --success-foreground: #0060d0;
+  --warning: #f5a623;
+  --warning-foreground: #ab7a1a;
+}
+
+:root.theme-carbon.dark {
+  color-scheme: dark;
+  --background: #000000;
+  --foreground: #ededed;
+  --card: #111111;
+  --card-foreground: #ededed;
+  --popover: #111111;
+  --popover-foreground: #ededed;
+  --primary: oklch(0.65 0.2 255);
+  --primary-foreground: #000000;
+  --secondary: rgba(255, 255, 255, 0.05);
+  --secondary-foreground: #ededed;
+  --muted: rgba(255, 255, 255, 0.05);
+  --muted-foreground: #888888;
+  --accent: rgba(255, 255, 255, 0.06);
+  --accent-foreground: #ededed;
+  --destructive: #ff4444;
+  --destructive-foreground: #ff6666;
+  --border: #333333;
+  --input: #333333;
+  --ring: oklch(0.65 0.2 255);
+  --info: #0070f3;
+  --info-foreground: #3291ff;
+  --success: #0070f3;
+  --success-foreground: #3291ff;
+  --warning: #f5a623;
+  --warning-foreground: #f7b955;
+}
+
+/* ─── Vapor ─── refined, fluid, purposeful (Linear-inspired) ─── */
+
+:root.theme-vapor {
+  color-scheme: light;
+  --background: #f9f8fc;
+  --foreground: #1c1c25;
+  --card: #f1eff8;
+  --card-foreground: #1c1c25;
+  --popover: #f1eff8;
+  --popover-foreground: #1c1c25;
+  --primary: oklch(0.53 0.17 277);
+  --primary-foreground: #ffffff;
+  --secondary: rgba(94, 106, 210, 0.06);
+  --secondary-foreground: #1c1c25;
+  --muted: rgba(94, 106, 210, 0.06);
+  --muted-foreground: #6e6d80;
+  --accent: rgba(94, 106, 210, 0.08);
+  --accent-foreground: #1c1c25;
   --destructive: #e5484d;
   --destructive-foreground: #cd2b31;
-  --border: rgba(60, 60, 100, 0.1);
-  --input: rgba(60, 60, 100, 0.12);
-  --ring: oklch(0.55 0.18 260);
-  --info: #4f7be8;
-  --info-foreground: #3d65c4;
-  --success: #30a46c;
-  --success-foreground: #18794e;
+  --border: rgba(94, 106, 210, 0.1);
+  --input: rgba(94, 106, 210, 0.12);
+  --ring: oklch(0.53 0.17 277);
+  --info: #5e6ad2;
+  --info-foreground: #4c58b8;
+  --success: #45be82;
+  --success-foreground: #2d9a63;
   --warning: #e5a836;
   --warning-foreground: #ad7a18;
 }
 
-:root.theme-cursor-dark.dark {
+:root.theme-vapor.dark {
   color-scheme: dark;
-  --background: #181818;
-  --foreground: #cccccc;
-  --card: #1e1e1e;
-  --card-foreground: #cccccc;
-  --popover: #1e1e1e;
-  --popover-foreground: #cccccc;
-  --primary: oklch(0.68 0.16 260);
+  --background: #111119;
+  --foreground: #e2e0ea;
+  --card: #191924;
+  --card-foreground: #e2e0ea;
+  --popover: #191924;
+  --popover-foreground: #e2e0ea;
+  --primary: oklch(0.65 0.18 277);
   --primary-foreground: #ffffff;
-  --secondary: rgba(140, 140, 200, 0.06);
-  --secondary-foreground: #cccccc;
-  --muted: rgba(140, 140, 200, 0.06);
-  --muted-foreground: #808080;
-  --accent: rgba(140, 140, 200, 0.08);
-  --accent-foreground: #cccccc;
-  --destructive: #f14c4c;
-  --destructive-foreground: #f88;
-  --border: rgba(140, 140, 200, 0.08);
-  --input: rgba(140, 140, 200, 0.1);
-  --ring: oklch(0.68 0.16 260);
-  --info: #6b9eff;
-  --info-foreground: #8cb4ff;
-  --success: #3dd68c;
-  --success-foreground: #4cc38a;
-  --warning: #ffb224;
-  --warning-foreground: #f1a10d;
+  --secondary: rgba(140, 150, 230, 0.06);
+  --secondary-foreground: #e2e0ea;
+  --muted: rgba(140, 150, 230, 0.06);
+  --muted-foreground: #8a889e;
+  --accent: rgba(140, 150, 230, 0.08);
+  --accent-foreground: #e2e0ea;
+  --destructive: #ff6369;
+  --destructive-foreground: #ff9592;
+  --border: rgba(140, 150, 230, 0.08);
+  --input: rgba(140, 150, 230, 0.1);
+  --ring: oklch(0.65 0.18 277);
+  --info: #8b92e8;
+  --info-foreground: #a8aef0;
+  --success: #50d07a;
+  --success-foreground: #5ee090;
+  --warning: #f5c542;
+  --warning-foreground: #e8b830;
 }
 
 /* ─── Cathedral Circuit ─── sacred machine, techno-gothic ─── */

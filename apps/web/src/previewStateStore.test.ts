@@ -29,6 +29,7 @@ describe("previewStateStore", () => {
       globalOpen: false,
       dockByThreadId: {},
       sizeByThreadId: {},
+      presetByThreadId: {},
       favoriteUrls: [],
     });
     storage.clear();

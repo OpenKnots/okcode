@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { NetService } from "@okcode/shared/Net";
-import { Config, Data, Effect, Hash, Layer, Logger, Option, Path, Schema } from "effect";
+import { Config, Data, Effect, Hash, Logger, Option, Path, Schema } from "effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { ChildProcess } from "effect/unstable/process";
 
@@ -549,16 +549,10 @@ const devRunnerCli = Command.make("dev-runner", {
   Command.withHandler((input) => runDevRunnerWithInput(input)),
 );
 
-const cliRuntimeLayer = Layer.mergeAll(
-  Logger.layer([Logger.consolePretty()]),
-  NodeServices.layer,
-  NetService.layer,
-);
-
 const runtimeProgram = Command.run(devRunnerCli, { version: "0.0.0" }).pipe(
   Effect.scoped,
-  Effect.provide(cliRuntimeLayer),
-);
+  Effect.provide([Logger.layer([Logger.consolePretty()]), NodeServices.layer, NetService.layer]),
+) as Effect.Effect<void, never, never>;
 
 if (import.meta.main) {
   NodeRuntime.runMain(runtimeProgram);

@@ -1171,7 +1171,7 @@ function registerIpcHandlers(): void {
   });
 
   ipcMain.removeHandler(SET_SIDEBAR_OPACITY_CHANNEL);
-  ipcMain.handle(SET_SIDEBAR_OPACITY_CHANNEL, async (_event, rawOpacity: unknown) => {
+  ipcMain.handle(SET_SIDEBAR_OPACITY_CHANNEL, async (_event, _rawOpacity: unknown) => {
     // Sidebar opacity is handled purely on the renderer side via CSS.
     // This channel exists so the bridge contract is satisfied; the renderer
     // applies the value through a CSS custom-property.

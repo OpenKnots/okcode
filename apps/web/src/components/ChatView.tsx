@@ -32,6 +32,7 @@ import { useDebouncedValue } from "@tanstack/react-pacer";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { gitBranchesQueryOptions, gitCreateWorktreeMutationOptions } from "~/lib/gitReactQuery";
 import { projectSearchEntriesQueryOptions } from "~/lib/projectReactQuery";
+import { skillListQueryOptions } from "~/lib/skillReactQuery";
 import { serverConfigQueryOptions, serverQueryKeys } from "~/lib/serverReactQuery";
 import { isElectron } from "../env";
 import { parseDiffRouteSearch, stripDiffSearchParams } from "../diffRouteSearch";
@@ -87,6 +88,7 @@ import { useTheme } from "../hooks/useTheme";
 import { useTurnDiffSummaries } from "../hooks/useTurnDiffSummaries";
 import BranchToolbar from "./BranchToolbar";
 import { resolveShortcutCommand, shortcutLabelForCommand } from "../keybindings";
+import { buildChatShortcutGuides } from "~/lib/chatShortcutGuidance";
 import PlanSidebar from "./PlanSidebar";
 import ThreadTerminalDrawer from "./ThreadTerminalDrawer";
 import { YouTubePlayerDrawer } from "./YouTubePlayer";
@@ -189,6 +191,7 @@ import { CompanionConnectionBanner } from "./chat/CompanionConnectionBanner";
 import { MobileThreadAttentionBar } from "./chat/MobileThreadAttentionBar";
 import { ThreadErrorBanner } from "./chat/ThreadErrorBanner";
 import {
+  buildAutoSelectedWorktreeBaseBranchToastCopy,
   buildExpiredTerminalContextToastCopy,
   buildLocalDraftThread,
   buildTemporaryWorktreeBranchName,
@@ -215,6 +218,62 @@ const IMAGE_SIZE_LIMIT_LABEL = `${Math.round(PROVIDER_SEND_TURN_MAX_IMAGE_BYTES 
 const IMAGE_ONLY_BOOTSTRAP_PROMPT =
   "[User attached one or more images without additional text. Respond using the conversation context and the attached image(s).]";
 const EMPTY_ACTIVITIES: OrchestrationThreadActivity[] = [];
+const isAcceptedDragType = (dataTransfer: DataTransfer) =>
+  dataTransfer.types.includes("Files") ||
+  dataTransfer.types.includes("application/x-okcode-tree-path");
+
+const isDragTreePath = (dataTransfer: DataTransfer) =>
+  dataTransfer.types.includes("application/x-okcode-tree-path");
+const SKILL_SUBCOMMAND_ITEMS: Extract<ComposerCommandItem, { type: "skill-subcommand" }>[] = [
+  {
+    id: "skill-sub:create",
+    type: "skill-subcommand" as const,
+    subcommand: "create",
+    label: "/skill create",
+    description: "Create a new skill with scaffold template",
+    usage: "/skill create <name>",
+  },
+  {
+    id: "skill-sub:list",
+    type: "skill-subcommand" as const,
+    subcommand: "list",
+    label: "/skill list",
+    description: "List all installed skills",
+    usage: "/skill list",
+  },
+  {
+    id: "skill-sub:search",
+    type: "skill-subcommand" as const,
+    subcommand: "search",
+    label: "/skill search",
+    description: "Search installed skills by keyword",
+    usage: "/skill search <query>",
+  },
+  {
+    id: "skill-sub:read",
+    type: "skill-subcommand" as const,
+    subcommand: "read",
+    label: "/skill read",
+    description: "View the full content of a skill",
+    usage: "/skill read <name>",
+  },
+  {
+    id: "skill-sub:delete",
+    type: "skill-subcommand" as const,
+    subcommand: "delete",
+    label: "/skill delete",
+    description: "Remove an installed skill",
+    usage: "/skill delete <name>",
+  },
+  {
+    id: "skill-sub:import",
+    type: "skill-subcommand" as const,
+    subcommand: "import",
+    label: "/skill import",
+    description: "Import a skill from a local path",
+    usage: "/skill import <path>",
+  },
+];
 const EMPTY_KEYBINDINGS: ResolvedKeybindingsConfig = [];
 const EMPTY_PROJECT_ENTRIES: ProjectEntry[] = [];
 const EMPTY_PROVIDER_STATUSES: ServerProviderStatus[] = [];
@@ -288,6 +347,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
   const syncServerReadModel = useStore((store) => store.syncServerReadModel);
   const setStoreThreadError = useStore((store) => store.setError);
   const setStoreThreadBranch = useStore((store) => store.setThreadBranch);
+  const setStoreThreadWorktreeBaseBranch = useStore((store) => store.setThreadWorktreeBaseBranch);
   const { settings } = useAppSettings();
   const setStickyComposerModel = useComposerDraftStore((store) => store.setStickyModel);
   const timestampFormat = settings.timestampFormat;
@@ -1104,6 +1164,13 @@ export default function ChatView({ threadId }: ChatViewProps) {
     }),
   );
   const workspaceEntries = workspaceEntriesQuery.data?.entries ?? EMPTY_PROJECT_ENTRIES;
+  const skillsQuery = useQuery(
+    skillListQueryOptions({
+      cwd: gitCwd,
+      enabled: composerTriggerKind === "slash-skill" || composerTriggerKind === "slash-command",
+    }),
+  );
+  const installedSkills = useMemo(() => skillsQuery.data?.skills ?? [], [skillsQuery.data?.skills]);
   const composerMenuItems = useMemo<ComposerCommandItem[]>(() => {
     if (!composerTrigger) return [];
     if (composerTrigger.kind === "path") {
@@ -1115,6 +1182,49 @@ export default function ChatView({ threadId }: ChatViewProps) {
         label: basenameOfPath(entry.path),
         description: entry.parentPath ?? "",
       }));
+    }
+
+    if (composerTrigger.kind === "slash-skill") {
+      const query = composerTrigger.query.trim().toLowerCase();
+
+      // If query is empty, show skill management subcommands + installed skills
+      if (!query) {
+        const subcommandItems: ComposerCommandItem[] = SKILL_SUBCOMMAND_ITEMS;
+        const skillItems: ComposerCommandItem[] = installedSkills.map((skill) => ({
+          id: `skill:${skill.scope}:${skill.name}`,
+          type: "skill" as const,
+          skillName: skill.name,
+          scope: skill.scope as "global" | "project",
+          label: `/${skill.name}`,
+          description: skill.description,
+          tags: skill.tags,
+        }));
+        return [...subcommandItems, ...skillItems];
+      }
+
+      // Filter subcommands and skills by query
+      const subcommandItems: ComposerCommandItem[] = SKILL_SUBCOMMAND_ITEMS.filter(
+        (item) => item.subcommand.includes(query) || item.label.includes(query),
+      );
+
+      const skillItems: ComposerCommandItem[] = installedSkills
+        .filter(
+          (skill) =>
+            skill.name.includes(query) ||
+            skill.description.toLowerCase().includes(query) ||
+            skill.tags.some((tag) => tag.toLowerCase().includes(query)),
+        )
+        .map((skill) => ({
+          id: `skill:${skill.scope}:${skill.name}`,
+          type: "skill" as const,
+          skillName: skill.name,
+          scope: skill.scope as "global" | "project",
+          label: `/${skill.name}`,
+          description: skill.description,
+          tags: skill.tags,
+        }));
+
+      return [...subcommandItems, ...skillItems];
     }
 
     if (composerTrigger.kind === "slash-command") {
@@ -1147,14 +1257,39 @@ export default function ChatView({ threadId }: ChatViewProps) {
           label: "/code",
           description: "Switch this thread into code mode",
         },
+        {
+          id: "slash:skill",
+          type: "slash-command",
+          command: "skill",
+          label: "/skill",
+          description: "Manage skills and plugins",
+        },
       ] satisfies ReadonlyArray<Extract<ComposerCommandItem, { type: "slash-command" }>>;
+
+      const skillItems: ComposerCommandItem[] = installedSkills.map((skill) => ({
+        id: `skill:${skill.scope}:${skill.name}`,
+        type: "skill" as const,
+        skillName: skill.name,
+        scope: skill.scope as "global" | "project",
+        label: `/${skill.name}`,
+        description: skill.description,
+        tags: skill.tags,
+      }));
+
       const query = composerTrigger.query.trim().toLowerCase();
+      const allItems: ComposerCommandItem[] = [...slashCommandItems, ...skillItems];
       if (!query) {
-        return [...slashCommandItems];
+        return allItems;
       }
-      return slashCommandItems.filter(
-        (item) => item.command.includes(query) || item.label.slice(1).includes(query),
-      );
+      return allItems.filter((item) => {
+        if (item.type === "slash-command") {
+          return item.command.includes(query) || item.label.slice(1).includes(query);
+        }
+        if (item.type === "skill") {
+          return item.skillName.includes(query) || item.description.toLowerCase().includes(query);
+        }
+        return false;
+      });
     }
 
     return searchableModelOptions
@@ -1173,7 +1308,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
         label: name,
         description: `${providerLabel} · ${slug}`,
       }));
-  }, [composerTrigger, searchableModelOptions, workspaceEntries]);
+  }, [composerTrigger, searchableModelOptions, workspaceEntries, installedSkills]);
   const composerMenuOpen = Boolean(composerTrigger);
   const activeComposerMenuItem = useMemo(
     () =>
@@ -1227,6 +1362,11 @@ export default function ChatView({ threadId }: ChatViewProps) {
   const diffPanelShortcutLabel = useMemo(
     () => shortcutLabelForCommand(keybindings, "diff.toggle"),
     [keybindings],
+  );
+  const platform = typeof navigator !== "undefined" ? navigator.platform : "";
+  const chatShortcutGuides = useMemo(
+    () => buildChatShortcutGuides(keybindings, platform),
+    [keybindings, platform],
   );
   const onToggleDiff = useCallback(() => {
     void navigate({
@@ -2575,13 +2715,6 @@ export default function ChatView({ threadId }: ChatViewProps) {
     addComposerImages(imageFiles);
   };
 
-  const isAcceptedDragType = (dataTransfer: DataTransfer) =>
-    dataTransfer.types.includes("Files") ||
-    dataTransfer.types.includes("application/x-okcode-tree-path");
-
-  const isDragTreePath = (dataTransfer: DataTransfer) =>
-    dataTransfer.types.includes("application/x-okcode-tree-path");
-
   const onComposerDragEnter = (event: React.DragEvent<HTMLDivElement>) => {
     if (!isAcceptedDragType(event.dataTransfer)) {
       return;
@@ -2758,7 +2891,9 @@ export default function ChatView({ threadId }: ChatViewProps) {
         ? parseStandaloneComposerSlashCommand(trimmed)
         : null;
     if (standaloneSlashCommand) {
-      handleInteractionModeChange(standaloneSlashCommand);
+      if (standaloneSlashCommand !== "skill") {
+        handleInteractionModeChange(standaloneSlashCommand);
+      }
       promptRef.current = "";
       clearComposerDraftContent(activeThread.id);
       setComposerHighlightedItemId(null);
@@ -2946,6 +3081,18 @@ export default function ChatView({ threadId }: ChatViewProps) {
           branch: baseBranchForWorktree,
           newBranch,
         });
+        if (result.worktree.baseBranch !== baseBranchForWorktree) {
+          const toastCopy = buildAutoSelectedWorktreeBaseBranchToastCopy({
+            requestedBranch: baseBranchForWorktree,
+            selectedBranch: result.worktree.baseBranch,
+          });
+          toastManager.add({
+            type: "warning",
+            title: toastCopy.title,
+            description: toastCopy.description,
+          });
+        }
+        setStoreThreadWorktreeBaseBranch(threadIdForSend, result.worktree.baseBranch);
         nextThreadBranch = result.worktree.branch;
         nextThreadWorktreePath = result.worktree.path;
         if (isServerThread) {
@@ -3731,12 +3878,66 @@ export default function ChatView({ threadId }: ChatViewProps) {
           }
           return;
         }
+        if (item.command === "skill") {
+          const replacement = "/skill ";
+          const replacementRangeEnd = extendReplacementRangeForTrailingSpace(
+            snapshot.value,
+            trigger.rangeEnd,
+            replacement,
+          );
+          const applied = applyPromptReplacement(
+            trigger.rangeStart,
+            replacementRangeEnd,
+            replacement,
+            { expectedText: snapshot.value.slice(trigger.rangeStart, replacementRangeEnd) },
+          );
+          if (applied) {
+            setComposerHighlightedItemId(null);
+          }
+          return;
+        }
         void handleInteractionModeChange(
           item.command === "plan" ? "plan" : item.command === "code" ? "code" : "chat",
         );
         const applied = applyPromptReplacement(trigger.rangeStart, trigger.rangeEnd, "", {
           expectedText: snapshot.value.slice(trigger.rangeStart, trigger.rangeEnd),
         });
+        if (applied) {
+          setComposerHighlightedItemId(null);
+        }
+        return;
+      }
+      if (item.type === "skill") {
+        const replacement = `/${item.skillName} `;
+        const replacementRangeEnd = extendReplacementRangeForTrailingSpace(
+          snapshot.value,
+          trigger.rangeEnd,
+          replacement,
+        );
+        const applied = applyPromptReplacement(
+          trigger.rangeStart,
+          replacementRangeEnd,
+          replacement,
+          { expectedText: snapshot.value.slice(trigger.rangeStart, replacementRangeEnd) },
+        );
+        if (applied) {
+          setComposerHighlightedItemId(null);
+        }
+        return;
+      }
+      if (item.type === "skill-subcommand") {
+        const replacement = `/skill ${item.subcommand} `;
+        const replacementRangeEnd = extendReplacementRangeForTrailingSpace(
+          snapshot.value,
+          trigger.rangeEnd,
+          replacement,
+        );
+        const applied = applyPromptReplacement(
+          trigger.rangeStart,
+          replacementRangeEnd,
+          replacement,
+          { expectedText: snapshot.value.slice(trigger.rangeStart, replacementRangeEnd) },
+        );
         if (applied) {
           setComposerHighlightedItemId(null);
         }
@@ -3779,10 +3980,12 @@ export default function ChatView({ threadId }: ChatViewProps) {
     [composerHighlightedItemId, composerMenuItems],
   );
   const isComposerMenuLoading =
-    composerTriggerKind === "path" &&
-    ((pathTriggerQuery.length > 0 && composerPathQueryDebouncer.state.isPending) ||
-      workspaceEntriesQuery.isLoading ||
-      workspaceEntriesQuery.isFetching);
+    (composerTriggerKind === "path" &&
+      ((pathTriggerQuery.length > 0 && composerPathQueryDebouncer.state.isPending) ||
+        workspaceEntriesQuery.isLoading ||
+        workspaceEntriesQuery.isFetching)) ||
+    ((composerTriggerKind === "slash-skill" || composerTriggerKind === "slash-command") &&
+      skillsQuery.isLoading);
 
   const onPromptChange = useCallback(
     (
@@ -4173,6 +4376,8 @@ export default function ChatView({ threadId }: ChatViewProps) {
                   resolvedTheme={resolvedTheme}
                   timestampFormat={timestampFormat}
                   workspaceRoot={activeProject?.cwd ?? undefined}
+                  shortcutGuides={chatShortcutGuides}
+                  onOpenSettings={() => void navigate({ to: "/settings" })}
                 />
               </div>
 

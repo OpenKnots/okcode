@@ -1,3 +1,5 @@
+import { realpathSync } from "node:fs";
+
 import {
   Cache,
   Data,
@@ -31,8 +33,14 @@ import {
 } from "../Services/GitCore.ts";
 import { ServerConfig } from "../../config.ts";
 import { decodeJsonResult } from "@okcode/shared/schemaJson";
-import { ProjectionSnapshotQuery } from "../../orchestration/Services/ProjectionSnapshotQuery.ts";
-import { resolveRuntimeEnvironment } from "../../runtimeEnvironment.ts";
+
+function safeRealpath(value: string): string {
+  try {
+    return realpathSync(value);
+  } catch {
+    return value;
+  }
+}
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_MAX_OUTPUT_BYTES = 1_000_000;
@@ -276,6 +284,45 @@ function createGitCommandError(
     detail,
     ...(cause !== undefined ? { cause } : {}),
   });
+}
+
+function buildCreateWorktreeBaseBranchDetail(input: {
+  branch: string;
+  branches: ReadonlyArray<{ name: string }>;
+  isRepo: boolean;
+}): string {
+  const branchDetail = `Base branch '${input.branch}' does not resolve to a commit yet.`;
+  if (!input.isRepo) {
+    return `${branchDetail} This directory is not a git repository. Open a git repository or switch to Local mode before starting a worktree thread.`;
+  }
+
+  const availableBranches = input.branches.map((branch) => branch.name).slice(0, 5);
+  if (availableBranches.length === 0) {
+    return `${branchDetail} This repository has no committed branches yet. Create the first commit or switch to Local mode before starting a worktree thread.`;
+  }
+
+  return `${branchDetail} Available branches: ${availableBranches.join(", ")}. Create the first commit or select a different branch before starting a worktree thread.`;
+}
+
+function resolveCreateWorktreeFallbackBranch(input: {
+  branches: ReadonlyArray<{
+    current: boolean;
+    isDefault: boolean;
+    isRemote: boolean;
+    name: string;
+  }>;
+}): string | null {
+  const localBranches = input.branches.filter((branch) => !branch.isRemote);
+  if (localBranches.length === 0) {
+    return null;
+  }
+
+  return (
+    localBranches.find((branch) => branch.current)?.name ??
+    localBranches.find((branch) => branch.isDefault)?.name ??
+    localBranches[0]?.name ??
+    null
+  );
 }
 
 function quoteGitCommand(args: ReadonlyArray<string>): string {
@@ -1638,10 +1685,64 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
         const sanitizedBranch = targetBranch.replace(/\//g, "-");
         const repoName = path.basename(input.cwd);
         const worktreePath = input.path ?? path.join(worktreesDir, repoName, sanitizedBranch);
-        const args = input.newBranch
-          ? ["worktree", "add", "-b", input.newBranch, worktreePath, input.branch]
-          : ["worktree", "add", worktreePath, input.branch];
+        let baseBranch = input.branch;
 
+        const baseRefCheck = yield* executeGit(
+          "GitCore.createWorktree.baseRefCheck",
+          input.cwd,
+          ["rev-parse", "--verify", "--quiet", `${input.branch}^{commit}`],
+          {
+            allowNonZeroExit: true,
+            timeoutMs: 5_000,
+          },
+        );
+        if (baseRefCheck.code !== 0) {
+          const branchesResult = yield* Effect.result(listBranches({ cwd: input.cwd }));
+          if (branchesResult._tag === "Success") {
+            const fallbackBranch = resolveCreateWorktreeFallbackBranch({
+              branches: branchesResult.success.branches.map((branch) => ({
+                current: branch.current,
+                isDefault: branch.isDefault,
+                isRemote: Boolean(branch.isRemote),
+                name: branch.name,
+              })),
+            });
+            if (fallbackBranch && fallbackBranch !== input.branch) {
+              baseBranch = fallbackBranch;
+            } else {
+              const detail = buildCreateWorktreeBaseBranchDetail({
+                branch: input.branch,
+                branches: branchesResult.success.branches.map((branch) => ({
+                  name: branch.name,
+                })),
+                isRepo: branchesResult.success.isRepo,
+              });
+              const args = input.newBranch
+                ? ["worktree", "add", "-b", input.newBranch, worktreePath, input.branch]
+                : ["worktree", "add", worktreePath, input.branch];
+              return yield* createGitCommandError(
+                "GitCore.createWorktree",
+                input.cwd,
+                args,
+                detail,
+              );
+            }
+          } else {
+            const args = input.newBranch
+              ? ["worktree", "add", "-b", input.newBranch, worktreePath, input.branch]
+              : ["worktree", "add", worktreePath, input.branch];
+            return yield* createGitCommandError(
+              "GitCore.createWorktree",
+              input.cwd,
+              args,
+              `Base branch '${input.branch}' does not resolve to a commit yet. Create the first commit or switch to Local mode before starting a worktree thread.`,
+            );
+          }
+        }
+
+        const args = input.newBranch
+          ? ["worktree", "add", "-b", input.newBranch, worktreePath, baseBranch]
+          : ["worktree", "add", worktreePath, baseBranch];
         yield* executeGit("GitCore.createWorktree", input.cwd, args, {
           fallbackErrorMessage: "git worktree add failed",
         });
@@ -1650,6 +1751,7 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
           worktree: {
             path: worktreePath,
             branch: targetBranch,
+            baseBranch,
           },
         };
       });
@@ -1850,6 +1952,37 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
         ),
       );
 
+    const cloneRepository: GitCoreShape["cloneRepository"] = (input) =>
+      Effect.gen(function* () {
+        // Extract repo name from URL for the target directory name
+        const urlPath = input.url.replace(/\.git$/, "");
+        const repoName = urlPath.split("/").pop() ?? "repo";
+        const clonePath = path.join(input.targetDir, repoName);
+
+        const args = ["clone", input.url, clonePath];
+        if (input.branch) {
+          args.push("--branch", input.branch);
+        }
+
+        yield* executeGit("GitCore.cloneRepository", input.targetDir, args, {
+          timeoutMs: 5 * 60_000, // 5 minutes for large repos
+          fallbackErrorMessage: "git clone failed",
+        });
+
+        // Read the current branch from the cloned repo
+        const branchOutput = yield* runGitStdout("GitCore.cloneRepository.branch", clonePath, [
+          "rev-parse",
+          "--abbrev-ref",
+          "HEAD",
+        ]);
+        const branch = branchOutput.trim() || "main";
+
+        // Resolve to real path in case of symlinks
+        const resolvedPath = safeRealpath(clonePath);
+
+        return { path: resolvedPath, branch };
+      });
+
     return {
       execute,
       status,
@@ -1872,6 +2005,7 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
       checkoutBranch,
       initRepo,
       listLocalBranchNames,
+      cloneRepository,
     } satisfies GitCoreShape;
   });
 

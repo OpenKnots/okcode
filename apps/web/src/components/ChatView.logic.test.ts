@@ -1,7 +1,11 @@
 import { ThreadId } from "@okcode/contracts";
 import { describe, expect, it } from "vitest";
 
-import { buildExpiredTerminalContextToastCopy, deriveComposerSendState } from "./ChatView.logic";
+import {
+  buildAutoSelectedWorktreeBaseBranchToastCopy,
+  buildExpiredTerminalContextToastCopy,
+  deriveComposerSendState,
+} from "./ChatView.logic";
 
 describe("deriveComposerSendState", () => {
   it("treats expired terminal pills as non-sendable content", () => {
@@ -64,6 +68,21 @@ describe("buildExpiredTerminalContextToastCopy", () => {
     expect(buildExpiredTerminalContextToastCopy(2, "omitted")).toEqual({
       title: "Expired terminal contexts omitted from message",
       description: "Re-add it if you want that terminal output included.",
+    });
+  });
+});
+
+describe("buildAutoSelectedWorktreeBaseBranchToastCopy", () => {
+  it("explains the branch fallback clearly", () => {
+    expect(
+      buildAutoSelectedWorktreeBaseBranchToastCopy({
+        requestedBranch: "main",
+        selectedBranch: "master",
+      }),
+    ).toEqual({
+      title: "Using master instead of main",
+      description:
+        "The requested base branch main was unavailable, so OK Code created this worktree from master.",
     });
   });
 });

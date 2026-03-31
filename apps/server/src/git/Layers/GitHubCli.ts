@@ -1,6 +1,5 @@
 import { Effect, Layer, Schema } from "effect";
 import { PositiveInt, TrimmedNonEmptyString } from "@okcode/contracts";
-import { mergeNodeProcessEnv } from "@okcode/shared/environment";
 
 import { runProcess } from "../../processRunner";
 import { GitHubCliError } from "../Errors.ts";
@@ -10,8 +9,6 @@ import {
   type GitHubCliShape,
   type GitHubPullRequestSummary,
 } from "../Services/GitHubCli.ts";
-import { ProjectionSnapshotQuery } from "../../orchestration/Services/ProjectionSnapshotQuery.ts";
-import { resolveRuntimeEnvironment } from "../../runtimeEnvironment.ts";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 

@@ -158,12 +158,27 @@ export function shortcutLabelForCommand(
   command: KeybindingCommand,
   platform = navigator.platform,
 ): string | null {
-  for (let index = keybindings.length - 1; index >= 0; index -= 1) {
-    const binding = keybindings[index];
+  const labels = shortcutLabelsForCommand(keybindings, command, platform);
+  return labels[labels.length - 1] ?? null;
+}
+
+export function shortcutLabelsForCommand(
+  keybindings: ResolvedKeybindingsConfig,
+  command: KeybindingCommand,
+  platform = navigator.platform,
+): string[] {
+  const labels: string[] = [];
+  const seenLabels = new Set<string>();
+
+  for (const binding of keybindings) {
     if (!binding || binding.command !== command) continue;
-    return formatShortcutLabel(binding.shortcut, platform);
+    const label = formatShortcutLabel(binding.shortcut, platform);
+    if (seenLabels.has(label)) continue;
+    seenLabels.add(label);
+    labels.push(label);
   }
-  return null;
+
+  return labels;
 }
 
 export function isTerminalToggleShortcut(

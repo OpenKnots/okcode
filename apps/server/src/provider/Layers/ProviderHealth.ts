@@ -16,7 +16,6 @@ import type {
 } from "@okcode/contracts";
 import { Array, Effect, Fiber, FileSystem, Layer, Option, Path, Result, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
-import { mergeNodeProcessEnv } from "@okcode/shared/environment";
 
 import {
   formatCodexCliUpgradeMessage,

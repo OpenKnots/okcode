@@ -1,7 +1,7 @@
 import { type ProjectEntry, type ModelSlug, type ProviderKind } from "@okcode/contracts";
 import { memo } from "react";
 import { type ComposerSlashCommand, type ComposerTriggerKind } from "../../composer-logic";
-import { BotIcon } from "lucide-react";
+import { BotIcon, PuzzleIcon, TerminalSquareIcon } from "lucide-react";
 import { cn } from "~/lib/utils";
 import { Badge } from "../ui/badge";
 import { Command, CommandItem, CommandList } from "../ui/command";
@@ -30,6 +30,23 @@ export type ComposerCommandItem =
       model: ModelSlug;
       label: string;
       description: string;
+    }
+  | {
+      id: string;
+      type: "skill";
+      skillName: string;
+      scope: "global" | "project";
+      label: string;
+      description: string;
+      tags: readonly string[];
+    }
+  | {
+      id: string;
+      type: "skill-subcommand";
+      subcommand: string;
+      label: string;
+      description: string;
+      usage: string;
     };
 
 export const ComposerCommandMenu = memo(function ComposerCommandMenu(props: {
@@ -65,10 +82,14 @@ export const ComposerCommandMenu = memo(function ComposerCommandMenu(props: {
         {props.items.length === 0 && (
           <p className="px-3 py-2 text-muted-foreground/70 text-xs">
             {props.isLoading
-              ? "Searching workspace files..."
+              ? props.triggerKind === "slash-skill"
+                ? "Loading skills..."
+                : "Searching workspace files..."
               : props.triggerKind === "path"
                 ? "No matching files or folders."
-                : "No matching command."}
+                : props.triggerKind === "slash-skill"
+                  ? "No matching skills."
+                  : "No matching command."}
           </p>
         )}
       </div>
@@ -111,10 +132,30 @@ const ComposerCommandMenuItem = memo(function ComposerCommandMenuItem(props: {
           model
         </Badge>
       ) : null}
+      {props.item.type === "skill" ? (
+        <div className="flex items-center gap-1">
+          <PuzzleIcon className="size-4 text-muted-foreground/80" />
+          <Badge variant="outline" className="px-1 py-0 text-[9px] leading-tight">
+            {props.item.scope}
+          </Badge>
+        </div>
+      ) : null}
+      {props.item.type === "skill-subcommand" ? (
+        <TerminalSquareIcon className="size-4 text-muted-foreground/80" />
+      ) : null}
       <span className="flex min-w-0 items-center gap-1.5 truncate">
         <span className="truncate">{props.item.label}</span>
       </span>
       <span className="truncate text-muted-foreground/70 text-xs">{props.item.description}</span>
+      {props.item.type === "skill" && props.item.tags.length > 0 ? (
+        <span className="ml-auto flex gap-1">
+          {props.item.tags.slice(0, 2).map((tag) => (
+            <Badge key={tag} variant="secondary" className="px-1 py-0 text-[9px]">
+              {tag}
+            </Badge>
+          ))}
+        </span>
+      ) : null}
     </CommandItem>
   );
 });

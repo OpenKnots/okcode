@@ -1,6 +1,6 @@
 {
   "name": "okcodes",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -18,7 +18,7 @@
     "dev": "bun run src/index.ts",
     "build": "node scripts/cli.ts build",
     "start": "node dist/index.mjs",
-    "prepare": "node -e \"process.exit(process.env.CI ? 0 : 1)\" || effect-language-service patch",
+    "prepare": "node -e \"process.exit(process.env.CI ? 0 : 1)\" || node ../../scripts/patch-effect-language-service.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },

@@ -1,11 +1,10 @@
-import type { NativeApi, PrReviewParticipant, PrReviewThread } from "@okcode/contracts";
+import type { PrReviewParticipant, PrReviewThread } from "@okcode/contracts";
 import { useState } from "react";
 import { ExternalLinkIcon, MessageSquareIcon } from "lucide-react";
 import { useLocalStorage } from "~/hooks/useLocalStorage";
 import { cn } from "~/lib/utils";
 import { ensureNativeApi } from "~/nativeApi";
 import { Button } from "~/components/ui/button";
-import { ScrollArea } from "~/components/ui/scroll-area";
 import { PrUserHoverCard } from "./PrUserHoverCard";
 import { PrCommentBody } from "./PrCommentBody";
 import { PrMentionComposer } from "./PrMentionComposer";

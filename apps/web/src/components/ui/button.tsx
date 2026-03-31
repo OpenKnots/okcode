@@ -9,9 +9,9 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-linear-to-b from-primary to-[hsl(223_82%_62%)] text-primary-foreground shadow-[0_18px_45px_-20px_hsl(var(--primary)/0.85)] hover:brightness-110 hover:shadow-[0_22px_55px_-22px_hsl(var(--primary)/0.95)]",
+          "bg-linear-to-b from-primary to-[hsl(223_82%_62%)] text-primary-foreground shadow-[0_18px_45px_-20px_color-mix(in_srgb,var(--primary)_85%,transparent)] hover:brightness-110 hover:shadow-[0_22px_55px_-22px_color-mix(in_srgb,var(--primary)_95%,transparent)]",
         destructive:
-          "bg-linear-to-b from-destructive to-[hsl(352_72%_52%)] text-destructive-foreground shadow-[0_18px_45px_-20px_hsl(var(--destructive)/0.7)] hover:brightness-105 hover:shadow-[0_22px_55px_-22px_hsl(var(--destructive)/0.8)]",
+          "bg-linear-to-b from-destructive to-[hsl(352_72%_52%)] text-destructive-foreground shadow-[0_18px_45px_-20px_color-mix(in_srgb,var(--destructive)_70%,transparent)] hover:brightness-105 hover:shadow-[0_22px_55px_-22px_color-mix(in_srgb,var(--destructive)_80%,transparent)]",
         "destructive-outline":
           "border border-destructive/35 bg-destructive/6 text-destructive shadow-[inset_0_1px_0_hsl(0_0%_100%/0.04)] hover:border-destructive/45 hover:bg-destructive/10 hover:text-destructive",
         outline:

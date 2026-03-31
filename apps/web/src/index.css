@@ -477,8 +477,7 @@ label:has(> select#reasoning-effort) select {
   body {
     background:
       radial-gradient(circle at top, hsl(217 96% 71% / 0.08), transparent 28%),
-      radial-gradient(circle at 80% 0%, hsl(228 88% 68% / 0.06), transparent 24%),
-      hsl(var(--background));
+      radial-gradient(circle at 80% 0%, hsl(228 88% 68% / 0.06), transparent 24%), var(--background);
     background-attachment: fixed;
   }
 
@@ -488,7 +487,7 @@ label:has(> select#reasoning-effort) select {
   }
 
   * {
-    scrollbar-color: hsl(var(--primary) / 0.42) transparent;
+    scrollbar-color: color-mix(in srgb, var(--primary) 42%, transparent) transparent;
   }
 
   *::-webkit-scrollbar {
@@ -502,14 +501,48 @@ label:has(> select#reasoning-effort) select {
 
   *::-webkit-scrollbar-thumb {
     border-radius: 999px;
-    background: hsl(var(--primary) / 0.25);
+    background: color-mix(in srgb, var(--primary) 25%, transparent);
     border: 2px solid transparent;
     background-clip: padding-box;
   }
 
   *::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--primary) / 0.38);
+    background: color-mix(in srgb, var(--primary) 38%, transparent);
     border: 2px solid transparent;
     background-clip: padding-box;
+  }
+}
+
+/* ─── Accessibility ─── */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (forced-colors: active) {
+  ::selection {
+    background: Highlight;
+    color: HighlightText;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: ButtonText;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: Canvas;
+  }
+}
+
+@media (prefers-contrast: more) {
+  ::selection {
+    background: color-mix(in srgb, var(--primary) 88%, transparent);
   }
 }

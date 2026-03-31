@@ -15,7 +15,7 @@ import { resolveDiffThemeName } from "~/lib/diffRendering";
 import { cn } from "~/lib/utils";
 import { ensureNativeApi } from "~/nativeApi";
 import { Button } from "~/components/ui/button";
-import { useCodeViewerStore } from "~/codeViewerStore";
+import { useFileViewNavigation } from "~/hooks/useFileViewNavigation";
 import type { Project } from "~/types";
 import { PrFileCommentComposer } from "./PrFileCommentComposer";
 import { PrFileTabStrip } from "./PrFileTabStrip";
@@ -51,7 +51,7 @@ export function PrWorkspace({
   onCreateThread: (input: { path: string; line: number; body: string }) => Promise<void>;
 }) {
   const { resolvedTheme } = useTheme();
-  const openFileInCodeViewer = useCodeViewerStore((state) => state.openFile);
+  const openFileInCodeViewer = useFileViewNavigation();
   const [fileViewMode, setFileViewMode] = useLocalStorage(
     "okcode:pr-review:file-view-mode",
     "single",

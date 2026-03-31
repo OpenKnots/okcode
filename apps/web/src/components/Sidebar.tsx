@@ -1480,7 +1480,7 @@ export default function Sidebar() {
             )}
           </SidebarMenuSub>
 
-          {project.expanded && activeProjectThread && !appSettings.sidebarHideFiles ? (
+          {project.expanded && !appSettings.sidebarHideFiles ? (
             <div className="mx-1.5 mt-1 rounded-lg border border-border/40 bg-background/50 p-2 dark:border-border/30 dark:bg-background/30">
               <button
                 type="button"

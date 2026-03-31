@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "baseUrl": ".",
     "target": "ES2023",
     "module": "ESNext",
     "moduleResolution": "Bundler",
@@ -12,6 +13,10 @@
     "skipLibCheck": true,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "paths": {
+      "effect": ["./node_modules/effect"],
+      "effect/*": ["./node_modules/effect/*"]
+    }
   }
 }

@@ -92,6 +92,13 @@ function commandScore(command: PaletteCommand, query: string): number {
   return best;
 }
 
+function sortByCommandScore(
+  commands: ReadonlyArray<PaletteCommand>,
+  query: string,
+): PaletteCommand[] {
+  return commands.toSorted((a, b) => commandScore(b, query) - commandScore(a, query));
+}
+
 // ── Command palette component ───────────────────────────────────────
 
 export function CommandPalette() {
@@ -344,9 +351,10 @@ function CommandsView() {
   // Filter commands by query
   const filtered = useMemo(() => {
     if (query.length === 0) return commands;
-    return commands
-      .filter((cmd) => commandMatchesQuery(cmd, query))
-      .toSorted((a, b) => commandScore(b, query) - commandScore(a, query));
+    return sortByCommandScore(
+      commands.filter((cmd) => commandMatchesQuery(cmd, query)),
+      query,
+    );
   }, [commands, query]);
 
   // Group filtered commands
@@ -492,7 +500,7 @@ function ProjectsView() {
         ? projects.filter((p) => fuzzyMatch(query, p.name) || fuzzyMatch(query, p.cwd))
         : projects;
 
-    return [...filtered].toSorted((a, b) => {
+    return filtered.toSorted((a, b) => {
       const aIndex = mruProjectIds.indexOf(a.id);
       const bIndex = mruProjectIds.indexOf(b.id);
       if (aIndex >= 0 && bIndex >= 0) return aIndex - bIndex;

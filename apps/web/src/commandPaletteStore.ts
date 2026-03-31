@@ -57,11 +57,9 @@ export const useCommandPaletteStore = create<CommandPaletteStore>((set) => ({
   mruThreadIds: [],
 
   // Actions
-  openPalette: (mode = "commands") =>
-    set({ open: true, mode, scopedProjectId: null }),
+  openPalette: (mode = "commands") => set({ open: true, mode, scopedProjectId: null }),
 
-  closePalette: () =>
-    set({ open: false, mode: "commands", scopedProjectId: null }),
+  closePalette: () => set({ open: false, mode: "commands", scopedProjectId: null }),
 
   togglePalette: () =>
     set((state) =>
@@ -70,8 +68,7 @@ export const useCommandPaletteStore = create<CommandPaletteStore>((set) => ({
         : { open: true, mode: "commands", scopedProjectId: null },
     ),
 
-  setMode: (mode, scopedProjectId = null) =>
-    set({ mode, scopedProjectId }),
+  setMode: (mode, scopedProjectId = null) => set({ mode, scopedProjectId }),
 
   pushMruProject: (projectId) =>
     set((state) => ({

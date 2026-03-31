@@ -182,7 +182,7 @@ async function readOrCreateSecretKey(secretKeyPath: string): Promise<Buffer> {
         const existing = await fs.readFile(secretKeyPath, "utf8");
         const decoded = Buffer.from(existing.trim(), "base64");
         if (decoded.byteLength !== SECRET_KEY_BYTES) {
-          throw new Error("Invalid vault key length.");
+          throw new Error("Invalid vault key length.", { cause: writeError });
         }
         return decoded;
       }

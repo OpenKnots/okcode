@@ -93,19 +93,22 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
       }
 
       const archiveEvents: Omit<OrchestrationEvent, "sequence">[] = projectsToArchive.map(
-        (project) => ({
-          ...withEventBase({
-            aggregateKind: "project" as const,
-            aggregateId: project.id,
-            occurredAt: command.createdAt,
-            commandId: command.commandId,
-          }),
-          type: "project.deleted" as const,
-          payload: {
-            projectId: project.id,
-            deletedAt: command.createdAt,
-          },
-        }),
+        (project) =>
+          Object.assign(
+            withEventBase({
+              aggregateKind: "project" as const,
+              aggregateId: project.id,
+              occurredAt: command.createdAt,
+              commandId: command.commandId,
+            }),
+            {
+              type: "project.deleted" as const,
+              payload: {
+                projectId: project.id,
+                deletedAt: command.createdAt,
+              },
+            },
+          ),
       );
       return [...archiveEvents, projectCreatedEvent];
     }
@@ -198,20 +201,22 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
         return threadCreatedEvent;
       }
 
-      const archiveEvents: Omit<OrchestrationEvent, "sequence">[] = threadsToArchive.map(
-        (thread) => ({
-          ...withEventBase({
+      const archiveEvents: Omit<OrchestrationEvent, "sequence">[] = threadsToArchive.map((thread) =>
+        Object.assign(
+          withEventBase({
             aggregateKind: "thread" as const,
             aggregateId: thread.id,
             occurredAt: command.createdAt,
             commandId: command.commandId,
           }),
-          type: "thread.deleted" as const,
-          payload: {
-            threadId: thread.id,
-            deletedAt: command.createdAt,
+          {
+            type: "thread.deleted" as const,
+            payload: {
+              threadId: thread.id,
+              deletedAt: command.createdAt,
+            },
           },
-        }),
+        ),
       );
       return [...archiveEvents, threadCreatedEvent];
     }

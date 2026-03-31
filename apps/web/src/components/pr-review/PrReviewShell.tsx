@@ -44,7 +44,6 @@ import { PrInspectorPanel } from "./PrInspectorPanel";
 import { PrMentionComposer } from "./PrMentionComposer";
 import {
   type PullRequestState,
-  type InspectorTab,
   TEXT_DRAFT_SCHEMA,
   requiredChecksState,
   openPathInEditor,
@@ -147,9 +146,6 @@ export function PrReviewShell({
     });
   }, [deferredSearchQuery, pullRequestsQuery.data?.pullRequests]);
 
-  const selectedPullRequest =
-    filteredPullRequests.find((pullRequest) => pullRequest.number === selectedPrNumber) ?? null;
-
   useEffect(() => {
     const nextDefault =
       filteredPullRequests.find((pullRequest) => pullRequest.number === selectedPrNumber) ??
@@ -214,11 +210,7 @@ export function PrReviewShell({
   // Keyboard shortcuts: [ toggles left rail, ] toggles right inspector
   const handlePanelKeyDown = useEffectEvent((event: KeyboardEvent) => {
     const target = event.target as HTMLElement;
-    if (
-      target.tagName === "INPUT" ||
-      target.tagName === "TEXTAREA" ||
-      target.isContentEditable
-    ) {
+    if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) {
       return;
     }
     if (event.key === "[" && !event.ctrlKey && !event.metaKey) {
@@ -443,14 +435,14 @@ export function PrReviewShell({
             selectedFilePath={selectedFilePath}
             selectedThreadId={selectedThreadId}
           />
-        </div>
+        </main>
 
         {/* Right inspector — collapsible (desktop xl+ only) */}
         {!isInspectorSheet ? (
           <PrInspectorPanel
             collapsed={inspectorCollapsed}
             hasBlockedWorkflow={blockingWorkflowStepsComputed.length > 0}
-            onExpandToTab={(tab) => {
+            onExpandToTab={(_tab) => {
               userExplicitlyOpenedInspector.current = true;
               setInspectorCollapsed(false);
             }}

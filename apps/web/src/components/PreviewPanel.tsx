@@ -339,11 +339,7 @@ export function PreviewPanel({ threadId, onClose }: PreviewPanelProps) {
               )}
               aria-label="Viewport preset"
             >
-              {PresetIcon ? (
-                <PresetIcon className="size-3" />
-              ) : (
-                <MaximizeIcon className="size-3" />
-              )}
+              {PresetIcon ? <PresetIcon className="size-3" /> : <MaximizeIcon className="size-3" />}
               <span className="max-sm:hidden">
                 {activePreset ? activePreset.label : "Responsive"}
               </span>

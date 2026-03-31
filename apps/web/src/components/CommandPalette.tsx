@@ -203,7 +203,7 @@ function CommandsView() {
     // ── Project quick-switch (inline, first 5) ──
     for (const project of projects.slice(0, 5)) {
       const projectThreads = threads.filter((t) => t.projectId === project.id);
-      const latestThread = projectThreads.sort((a, b) =>
+      const latestThread = projectThreads.toSorted((a, b) =>
         (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt),
       )[0];
       cmds.push({
@@ -346,7 +346,7 @@ function CommandsView() {
     if (query.length === 0) return commands;
     return commands
       .filter((cmd) => commandMatchesQuery(cmd, query))
-      .sort((a, b) => commandScore(b, query) - commandScore(a, query));
+      .toSorted((a, b) => commandScore(b, query) - commandScore(a, query));
   }, [commands, query]);
 
   // Group filtered commands
@@ -372,18 +372,15 @@ function CommandsView() {
   // Clamp highlighted index
   const clampedIndex = Math.min(highlightedIndex, Math.max(0, flatItems.length - 1));
 
-  const scrollToIndex = useCallback(
-    (index: number) => {
-      const listEl = listRef.current;
-      if (!listEl) return;
-      const items = listEl.querySelectorAll("[data-palette-item]");
-      const item = items[index] as HTMLElement | undefined;
-      if (item) {
-        item.scrollIntoView({ block: "nearest" });
-      }
-    },
-    [],
-  );
+  const scrollToIndex = useCallback((index: number) => {
+    const listEl = listRef.current;
+    if (!listEl) return;
+    const items = listEl.querySelectorAll("[data-palette-item]");
+    const item = items[index] as HTMLElement | undefined;
+    if (item) {
+      item.scrollIntoView({ block: "nearest" });
+    }
+  }, []);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -415,7 +412,10 @@ function CommandsView() {
         onChangeIndex={setHighlightedIndex}
       />
       <PalettePanel>
-        <div ref={listRef} className="not-empty:scroll-py-2 not-empty:p-2 overflow-y-auto max-h-[min(20rem,60vh)]">
+        <div
+          ref={listRef}
+          className="not-empty:scroll-py-2 not-empty:p-2 overflow-y-auto max-h-[min(20rem,60vh)]"
+        >
           {flatItems.length === 0 && (
             <div className="py-6 text-center text-sm text-muted-foreground">
               No matching commands.
@@ -446,15 +446,21 @@ function CommandsView() {
       <CommandFooter>
         <div className="flex items-center gap-3">
           <span className="flex items-center gap-1">
-            <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px]">↑↓</kbd>
+            <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px]">
+              ↑↓
+            </kbd>
             <span>navigate</span>
           </span>
           <span className="flex items-center gap-1">
-            <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px]">↵</kbd>
+            <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px]">
+              ↵
+            </kbd>
             <span>select</span>
           </span>
           <span className="flex items-center gap-1">
-            <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px]">esc</kbd>
+            <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px]">
+              esc
+            </kbd>
             <span>close</span>
           </span>
         </div>
@@ -481,11 +487,12 @@ function ProjectsView() {
 
   // Sort: MRU first, then alphabetical
   const sortedProjects = useMemo(() => {
-    const filtered = query.length > 0
-      ? projects.filter((p) => fuzzyMatch(query, p.name) || fuzzyMatch(query, p.cwd))
-      : projects;
+    const filtered =
+      query.length > 0
+        ? projects.filter((p) => fuzzyMatch(query, p.name) || fuzzyMatch(query, p.cwd))
+        : projects;
 
-    return [...filtered].sort((a, b) => {
+    return [...filtered].toSorted((a, b) => {
       const aIndex = mruProjectIds.indexOf(a.id);
       const bIndex = mruProjectIds.indexOf(b.id);
       if (aIndex >= 0 && bIndex >= 0) return aIndex - bIndex;
@@ -497,24 +504,19 @@ function ProjectsView() {
 
   const clampedIndex = Math.min(highlightedIndex, Math.max(0, sortedProjects.length - 1));
 
-  const scrollToIndex = useCallback(
-    (index: number) => {
-      const listEl = listRef.current;
-      if (!listEl) return;
-      const items = listEl.querySelectorAll("[data-palette-item]");
-      (items[index] as HTMLElement | undefined)?.scrollIntoView({ block: "nearest" });
-    },
-    [],
-  );
+  const scrollToIndex = useCallback((index: number) => {
+    const listEl = listRef.current;
+    if (!listEl) return;
+    const items = listEl.querySelectorAll("[data-palette-item]");
+    (items[index] as HTMLElement | undefined)?.scrollIntoView({ block: "nearest" });
+  }, []);
 
   const selectProject = useCallback(
     (project: (typeof projects)[number]) => {
       pushMruProject(project.id);
       const projectThreads = threads
         .filter((t) => t.projectId === project.id)
-        .sort((a, b) =>
-          (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt),
-        );
+        .toSorted((a, b) => (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt));
       const latestThread = projectThreads[0];
       closePalette();
       if (latestThread) {
@@ -560,11 +562,12 @@ function ProjectsView() {
         onBack={() => setMode("commands")}
       />
       <PalettePanel>
-        <div ref={listRef} className="not-empty:scroll-py-2 not-empty:p-2 overflow-y-auto max-h-[min(20rem,60vh)]">
+        <div
+          ref={listRef}
+          className="not-empty:scroll-py-2 not-empty:p-2 overflow-y-auto max-h-[min(20rem,60vh)]"
+        >
           {sortedProjects.length === 0 && (
-            <div className="py-6 text-center text-sm text-muted-foreground">
-              No projects found.
-            </div>
+            <div className="py-6 text-center text-sm text-muted-foreground">No projects found.</div>
           )}
           {sortedProjects.map((project, index) => {
             const isHighlighted = index === clampedIndex;
@@ -594,7 +597,7 @@ function ProjectsView() {
           })}
         </div>
       </PalettePanel>
-      <PaletteFooterWithBack onBack={() => setMode("commands")} />
+      <PaletteFooterWithBack />
     </div>
   );
 }
@@ -621,24 +624,19 @@ function ThreadsView() {
   });
 
   const filteredThreads = useMemo(() => {
-    let list = scopedProjectId
-      ? threads.filter((t) => t.projectId === scopedProjectId)
-      : threads;
+    let list = scopedProjectId ? threads.filter((t) => t.projectId === scopedProjectId) : threads;
 
     if (query.length > 0) {
       list = list.filter((t) => {
         const project = projects.find((p) => p.id === t.projectId);
-        return (
-          fuzzyMatch(query, t.title || "Untitled") ||
-          fuzzyMatch(query, project?.name ?? "")
-        );
+        return fuzzyMatch(query, t.title || "Untitled") || fuzzyMatch(query, project?.name ?? "");
       });
     }
 
     // Sort: MRU first, then by updated_at
     return [...list]
       .filter((t) => t.id !== routeThreadId)
-      .sort((a, b) => {
+      .toSorted((a, b) => {
         const aIndex = mruThreadIds.indexOf(a.id);
         const bIndex = mruThreadIds.indexOf(b.id);
         if (aIndex >= 0 && bIndex >= 0) return aIndex - bIndex;
@@ -650,15 +648,12 @@ function ThreadsView() {
 
   const clampedIndex = Math.min(highlightedIndex, Math.max(0, filteredThreads.length - 1));
 
-  const scrollToIndex = useCallback(
-    (index: number) => {
-      const listEl = listRef.current;
-      if (!listEl) return;
-      const items = listEl.querySelectorAll("[data-palette-item]");
-      (items[index] as HTMLElement | undefined)?.scrollIntoView({ block: "nearest" });
-    },
-    [],
-  );
+  const scrollToIndex = useCallback((index: number) => {
+    const listEl = listRef.current;
+    if (!listEl) return;
+    const items = listEl.querySelectorAll("[data-palette-item]");
+    (items[index] as HTMLElement | undefined)?.scrollIntoView({ block: "nearest" });
+  }, []);
 
   const selectThread = useCallback(
     (thread: (typeof threads)[number]) => {
@@ -694,14 +689,14 @@ function ThreadsView() {
     [clampedIndex, filteredThreads, selectThread, query, setMode, scrollToIndex],
   );
 
-  const scopedProject = scopedProjectId
-    ? projects.find((p) => p.id === scopedProjectId)
-    : null;
+  const scopedProject = scopedProjectId ? projects.find((p) => p.id === scopedProjectId) : null;
 
   return (
     <div onKeyDown={handleKeyDown}>
       <PaletteInput
-        placeholder={scopedProject ? `Search threads in ${scopedProject.name}...` : "Search all threads..."}
+        placeholder={
+          scopedProject ? `Search threads in ${scopedProject.name}...` : "Search all threads..."
+        }
         value={query}
         onChange={setQuery}
         onChangeIndex={setHighlightedIndex}
@@ -709,11 +704,12 @@ function ThreadsView() {
         onBack={() => setMode("commands")}
       />
       <PalettePanel>
-        <div ref={listRef} className="not-empty:scroll-py-2 not-empty:p-2 overflow-y-auto max-h-[min(20rem,60vh)]">
+        <div
+          ref={listRef}
+          className="not-empty:scroll-py-2 not-empty:p-2 overflow-y-auto max-h-[min(20rem,60vh)]"
+        >
           {filteredThreads.length === 0 && (
-            <div className="py-6 text-center text-sm text-muted-foreground">
-              No threads found.
-            </div>
+            <div className="py-6 text-center text-sm text-muted-foreground">No threads found.</div>
           )}
           {filteredThreads.map((thread, index) => {
             const isHighlighted = index === clampedIndex;
@@ -748,7 +744,7 @@ function ThreadsView() {
           })}
         </div>
       </PalettePanel>
-      <PaletteFooterWithBack onBack={() => setMode("commands")} />
+      <PaletteFooterWithBack />
     </div>
   );
 }
@@ -766,15 +762,12 @@ function PaletteInput(props: {
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Auto-focus on mount
-  const setRef = useCallback(
-    (el: HTMLInputElement | null) => {
-      (inputRef as React.MutableRefObject<HTMLInputElement | null>).current = el;
-      if (el) {
-        requestAnimationFrame(() => el.focus());
-      }
-    },
-    [],
-  );
+  const setRef = useCallback((el: HTMLInputElement | null) => {
+    (inputRef as React.MutableRefObject<HTMLInputElement | null>).current = el;
+    if (el) {
+      requestAnimationFrame(() => el.focus());
+    }
+  }, []);
 
   return (
     <div className="flex items-center gap-2 px-3 py-2.5">
@@ -831,31 +824,37 @@ function PaletteItem(props: {
     >
       {Icon && <Icon className="size-4 shrink-0 text-muted-foreground" />}
       <span className="min-w-0 flex-1 truncate">{props.command.label}</span>
-      {props.command.shortcut && (
-        <CommandShortcut>{props.command.shortcut}</CommandShortcut>
-      )}
+      {props.command.shortcut && <CommandShortcut>{props.command.shortcut}</CommandShortcut>}
     </button>
   );
 }
 
-function PaletteFooterWithBack(props: { onBack: () => void }) {
+function PaletteFooterWithBack() {
   return (
     <CommandFooter>
       <div className="flex items-center gap-3">
         <span className="flex items-center gap-1">
-          <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px]">⌫</kbd>
+          <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px]">
+            ⌫
+          </kbd>
           <span>back</span>
         </span>
         <span className="flex items-center gap-1">
-          <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px]">↑↓</kbd>
+          <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px]">
+            ↑↓
+          </kbd>
           <span>navigate</span>
         </span>
         <span className="flex items-center gap-1">
-          <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px]">↵</kbd>
+          <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px]">
+            ↵
+          </kbd>
           <span>select</span>
         </span>
         <span className="flex items-center gap-1">
-          <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px]">esc</kbd>
+          <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px]">
+            esc
+          </kbd>
           <span>close</span>
         </span>
       </div>

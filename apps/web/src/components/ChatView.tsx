@@ -218,6 +218,62 @@ const IMAGE_SIZE_LIMIT_LABEL = `${Math.round(PROVIDER_SEND_TURN_MAX_IMAGE_BYTES 
 const IMAGE_ONLY_BOOTSTRAP_PROMPT =
   "[User attached one or more images without additional text. Respond using the conversation context and the attached image(s).]";
 const EMPTY_ACTIVITIES: OrchestrationThreadActivity[] = [];
+const isAcceptedDragType = (dataTransfer: DataTransfer) =>
+  dataTransfer.types.includes("Files") ||
+  dataTransfer.types.includes("application/x-okcode-tree-path");
+
+const isDragTreePath = (dataTransfer: DataTransfer) =>
+  dataTransfer.types.includes("application/x-okcode-tree-path");
+const SKILL_SUBCOMMAND_ITEMS: Extract<ComposerCommandItem, { type: "skill-subcommand" }>[] = [
+  {
+    id: "skill-sub:create",
+    type: "skill-subcommand" as const,
+    subcommand: "create",
+    label: "/skill create",
+    description: "Create a new skill with scaffold template",
+    usage: "/skill create <name>",
+  },
+  {
+    id: "skill-sub:list",
+    type: "skill-subcommand" as const,
+    subcommand: "list",
+    label: "/skill list",
+    description: "List all installed skills",
+    usage: "/skill list",
+  },
+  {
+    id: "skill-sub:search",
+    type: "skill-subcommand" as const,
+    subcommand: "search",
+    label: "/skill search",
+    description: "Search installed skills by keyword",
+    usage: "/skill search <query>",
+  },
+  {
+    id: "skill-sub:read",
+    type: "skill-subcommand" as const,
+    subcommand: "read",
+    label: "/skill read",
+    description: "View the full content of a skill",
+    usage: "/skill read <name>",
+  },
+  {
+    id: "skill-sub:delete",
+    type: "skill-subcommand" as const,
+    subcommand: "delete",
+    label: "/skill delete",
+    description: "Remove an installed skill",
+    usage: "/skill delete <name>",
+  },
+  {
+    id: "skill-sub:import",
+    type: "skill-subcommand" as const,
+    subcommand: "import",
+    label: "/skill import",
+    description: "Import a skill from a local path",
+    usage: "/skill import <path>",
+  },
+];
 const EMPTY_KEYBINDINGS: ResolvedKeybindingsConfig = [];
 const EMPTY_PROJECT_ENTRIES: ProjectEntry[] = [];
 const EMPTY_PROVIDER_STATUSES: ServerProviderStatus[] = [];
@@ -1114,57 +1170,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
       enabled: composerTriggerKind === "slash-skill" || composerTriggerKind === "slash-command",
     }),
   );
-  const installedSkills = skillsQuery.data?.skills ?? [];
-  const SKILL_SUBCOMMAND_ITEMS: Extract<ComposerCommandItem, { type: "skill-subcommand" }>[] = [
-    {
-      id: "skill-sub:create",
-      type: "skill-subcommand" as const,
-      subcommand: "create",
-      label: "/skill create",
-      description: "Create a new skill with scaffold template",
-      usage: "/skill create <name>",
-    },
-    {
-      id: "skill-sub:list",
-      type: "skill-subcommand" as const,
-      subcommand: "list",
-      label: "/skill list",
-      description: "List all installed skills",
-      usage: "/skill list",
-    },
-    {
-      id: "skill-sub:search",
-      type: "skill-subcommand" as const,
-      subcommand: "search",
-      label: "/skill search",
-      description: "Search installed skills by keyword",
-      usage: "/skill search <query>",
-    },
-    {
-      id: "skill-sub:read",
-      type: "skill-subcommand" as const,
-      subcommand: "read",
-      label: "/skill read",
-      description: "View the full content of a skill",
-      usage: "/skill read <name>",
-    },
-    {
-      id: "skill-sub:delete",
-      type: "skill-subcommand" as const,
-      subcommand: "delete",
-      label: "/skill delete",
-      description: "Remove an installed skill",
-      usage: "/skill delete <name>",
-    },
-    {
-      id: "skill-sub:import",
-      type: "skill-subcommand" as const,
-      subcommand: "import",
-      label: "/skill import",
-      description: "Import a skill from a local path",
-      usage: "/skill import <path>",
-    },
-  ];
+  const installedSkills = useMemo(() => skillsQuery.data?.skills ?? [], [skillsQuery.data?.skills]);
   const composerMenuItems = useMemo<ComposerCommandItem[]>(() => {
     if (!composerTrigger) return [];
     if (composerTrigger.kind === "path") {
@@ -2708,13 +2714,6 @@ export default function ChatView({ threadId }: ChatViewProps) {
     event.preventDefault();
     addComposerImages(imageFiles);
   };
-
-  const isAcceptedDragType = (dataTransfer: DataTransfer) =>
-    dataTransfer.types.includes("Files") ||
-    dataTransfer.types.includes("application/x-okcode-tree-path");
-
-  const isDragTreePath = (dataTransfer: DataTransfer) =>
-    dataTransfer.types.includes("application/x-okcode-tree-path");
 
   const onComposerDragEnter = (event: React.DragEvent<HTMLDivElement>) => {
     if (!isAcceptedDragType(event.dataTransfer)) {

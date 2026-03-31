@@ -142,9 +142,7 @@ export const WorkspaceFileTree = memo(function WorkspaceFileTree(props: {
               <SlidersHorizontalIcon
                 className={cn(
                   "size-3.5",
-                  filtersHaveContent
-                    ? "text-foreground"
-                    : "text-muted-foreground/65",
+                  filtersHaveContent ? "text-foreground" : "text-muted-foreground/65",
                 )}
               />
             </button>

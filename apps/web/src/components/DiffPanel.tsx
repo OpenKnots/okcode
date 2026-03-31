@@ -509,18 +509,21 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
 
   const latestSelectedTurnId = orderedTurnDiffSummaries[0]?.turnId ?? null;
 
-  const selectTurn = (turnId: TurnId) => {
-    if (!activeThread) return;
-    void navigate({
-      to: "/$threadId",
-      params: { threadId: activeThread.id },
-      search: (previous) => {
-        const rest = stripDiffSearchParams(previous);
-        return { ...rest, diff: "1", diffTurnId: turnId };
-      },
-    });
-  };
-  const selectWholeConversation = () => {
+  const selectTurn = useCallback(
+    (turnId: TurnId) => {
+      if (!activeThread) return;
+      void navigate({
+        to: "/$threadId",
+        params: { threadId: activeThread.id },
+        search: (previous) => {
+          const rest = stripDiffSearchParams(previous);
+          return { ...rest, diff: "1", diffTurnId: turnId };
+        },
+      });
+    },
+    [activeThread, navigate],
+  );
+  const selectWholeConversation = useCallback(() => {
     if (!activeThread) return;
     void navigate({
       to: "/$threadId",
@@ -530,7 +533,7 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
         return { ...rest, diff: "1" };
       },
     });
-  };
+  }, [activeThread, navigate]);
   const turnSelectValue = selectedTurnId ?? "all";
   const handleTurnSelectChange = useCallback(
     (value: string | null) => {

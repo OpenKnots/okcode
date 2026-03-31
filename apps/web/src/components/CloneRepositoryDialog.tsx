@@ -37,6 +37,7 @@ export function CloneRepositoryDialog({
   const [isPickingFolder, setIsPickingFolder] = useState(false);
 
   const cloneMutation = useMutation(gitCloneRepositoryMutationOptions({ queryClient }));
+  const { reset: resetCloneMutation } = cloneMutation;
 
   const parsed: ParsedGitHubUrl | null = useMemo(() => parseGitHubRepositoryUrl(url), [url]);
 
@@ -45,8 +46,8 @@ export function CloneRepositoryDialog({
     setUrl("");
     setUrlDirty(false);
     setTargetDir("");
-    cloneMutation.reset();
-  }, [open]);
+    resetCloneMutation();
+  }, [open, resetCloneMutation]);
 
   useEffect(() => {
     if (!open) return;

@@ -4,7 +4,6 @@ import { Effect, FileSystem, Layer, Option, Path, Schema, Stream } from "effect"
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
 import { DEFAULT_GIT_TEXT_GENERATION_MODEL } from "@okcode/contracts";
-import { mergeNodeProcessEnv } from "@okcode/shared/environment";
 import { sanitizeBranchFragment, sanitizeFeatureBranchName } from "@okcode/shared/git";
 
 import { resolveAttachmentPath } from "../../attachmentStore.ts";

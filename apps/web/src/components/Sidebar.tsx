@@ -54,7 +54,7 @@ import { useStore } from "../store";
 import { shortcutLabelForCommand } from "../keybindings";
 import { derivePendingApprovals, derivePendingUserInputs } from "../session-logic";
 import { gitRemoveWorktreeMutationOptions, gitStatusQueryOptions } from "../lib/gitReactQuery";
-import { serverConfigQueryOptions } from "../lib/serverReactQuery";
+import { serverConfigQueryOptions, serverUpdateQueryOptions } from "../lib/serverReactQuery";
 import { readNativeApi } from "../nativeApi";
 import { resolveServerHttpOrigin } from "../lib/runtimeBridge";
 import { useComposerDraftStore } from "../composerDraftStore";
@@ -407,6 +407,12 @@ export default function Sidebar() {
   const dragInProgressRef = useRef(false);
   const suppressProjectClickAfterDragRef = useRef(false);
   const [desktopUpdateState, setDesktopUpdateState] = useState<DesktopUpdateState | null>(null);
+  const { data: serverUpdateInfo } = useQuery({
+    ...serverUpdateQueryOptions(),
+    // Only run the update check in web (non-electron) mode; the desktop bridge
+    // already handles updates for the Electron app.
+    enabled: !isElectron,
+  });
   const selectedThreadIds = useThreadSelectionStore((s) => s.selectedThreadIds);
   const toggleThreadSelection = useThreadSelectionStore((s) => s.toggleThread);
   const rangeSelectTo = useThreadSelectionStore((s) => s.rangeSelectTo);
@@ -1770,7 +1776,36 @@ export default function Sidebar() {
         </>
       ) : (
         <SidebarHeader className="gap-3 px-3 py-2 sm:gap-2.5 sm:px-4 sm:py-3">
-          {wordmark}
+          {serverUpdateInfo?.updateAvailable ? (
+            <div className="flex flex-row items-center gap-2">
+              {wordmark}
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <button
+                      type="button"
+                      aria-label={`Update available: ${serverUpdateInfo.latestVersion}`}
+                      className="inline-flex size-7 ml-auto items-center justify-center rounded-md transition-colors hover:bg-accent hover:text-foreground text-amber-500 animate-pulse"
+                      onClick={() => {
+                        toastManager.add({
+                          type: "info",
+                          title: `OK Code ${serverUpdateInfo.latestVersion} available`,
+                          description: `Update with: npm install -g okcodes@latest`,
+                        });
+                      }}
+                    >
+                      <RocketIcon className="size-3.5" />
+                    </button>
+                  }
+                />
+                <TooltipPopup side="bottom">
+                  Update {serverUpdateInfo.latestVersion} available
+                </TooltipPopup>
+              </Tooltip>
+            </div>
+          ) : (
+            wordmark
+          )}
         </SidebarHeader>
       )}
 

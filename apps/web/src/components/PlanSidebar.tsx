@@ -3,15 +3,7 @@ import { type TimestampFormat } from "../appSettings";
 import { Button } from "./ui/button";
 import { ScrollArea } from "./ui/scroll-area";
 import ChatMarkdown from "./ChatMarkdown";
-import {
-  CheckIcon,
-  ChevronDownIcon,
-  ChevronRightIcon,
-  EllipsisIcon,
-  LoaderIcon,
-  PanelRightCloseIcon,
-} from "lucide-react";
-import { cn } from "~/lib/utils";
+import { ChevronDownIcon, ChevronRightIcon, EllipsisIcon, PanelRightCloseIcon } from "lucide-react";
 import type { ActivePlanState } from "../session-logic";
 import type { LatestProposedPlanState } from "../session-logic";
 import {
@@ -21,6 +13,8 @@ import {
   downloadPlanAsTextFile,
   stripDisplayedPlanMarkdown,
 } from "../proposedPlan";
+import { extractPlanChecklistItems } from "../planChecklist";
+import PlanChecklist from "./PlanChecklist";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "./ui/menu";
 import { readNativeApi } from "~/nativeApi";
 import { toastManager } from "./ui/toast";
@@ -32,28 +26,6 @@ const PLAN_SIDEBAR_WIDTH_STORAGE_KEY = "plan_sidebar_width";
 const PLAN_SIDEBAR_DEFAULT_WIDTH = 340;
 const PLAN_SIDEBAR_MIN_WIDTH = 260;
 const PLAN_SIDEBAR_MAX_WIDTH = 800;
-
-function stepStatusIcon(status: string): React.ReactNode {
-  if (status === "completed") {
-    return (
-      <span className="flex size-4 shrink-0 items-center justify-center text-emerald-500">
-        <CheckIcon className="size-3" />
-      </span>
-    );
-  }
-  if (status === "inProgress") {
-    return (
-      <span className="flex size-4 shrink-0 items-center justify-center text-blue-400">
-        <LoaderIcon className="size-3 animate-spin" />
-      </span>
-    );
-  }
-  return (
-    <span className="flex size-4 shrink-0 items-center justify-center">
-      <span className="size-1.5 rounded-full bg-muted-foreground/25" />
-    </span>
-  );
-}
 
 interface PlanSidebarProps {
   activePlan: ActivePlanState | null;
@@ -175,7 +147,7 @@ const PlanSidebar = memo(function PlanSidebar({
   onClose,
 }: PlanSidebarProps) {
   const hasActiveSteps = (activePlan?.steps.length ?? 0) > 0;
-  const [proposedPlanExpanded, setProposedPlanExpanded] = useState(!hasActiveSteps);
+  const [proposedPlanExpanded, setProposedPlanExpanded] = useState(false);
   const [isSavingToWorkspace, setIsSavingToWorkspace] = useState(false);
   const { copyToClipboard, isCopied } = useCopyToClipboard();
   const { width, railProps } = useResizablePlanSidebar();
@@ -185,12 +157,34 @@ const PlanSidebar = memo(function PlanSidebar({
   const displayedPlanMarkdown = planMarkdown ? stripDisplayedPlanMarkdown(planMarkdown) : null;
   const planTitle = planMarkdown ? proposedPlanTitle(planMarkdown) : null;
 
-  // Auto-expand the full plan when there are no active execution steps
+  // Derive checklist items: prefer live execution steps; fall back to markdown extraction.
+  // Always normalised to { text, status } for the PlanChecklist component.
+  const checklistItems = useMemo<
+    Array<{ text: string; status: "pending" | "inProgress" | "completed" }>
+  >(() => {
+    if (hasActiveSteps && activePlan) {
+      return activePlan.steps.map((s) => ({ text: s.step, status: s.status }));
+    }
+    if (planMarkdown) {
+      const extracted = extractPlanChecklistItems(planMarkdown);
+      if (extracted.length > 0) {
+        return extracted.map((item) => ({
+          text: item.text,
+          status: item.completed ? ("completed" as const) : ("pending" as const),
+        }));
+      }
+    }
+    return [];
+  }, [hasActiveSteps, activePlan, planMarkdown]);
+
+  const hasChecklist = checklistItems.length > 0;
+
+  // Auto-expand markdown when there are no checklist items and no active steps.
   useEffect(() => {
-    if (!hasActiveSteps && planMarkdown) {
+    if (!hasChecklist && planMarkdown) {
       setProposedPlanExpanded(true);
     }
-  }, [hasActiveSteps, planMarkdown]);
+  }, [hasChecklist, planMarkdown]);
 
   const handleCopyPlan = useCallback(() => {
     if (!planMarkdown) return;
@@ -320,33 +314,10 @@ const PlanSidebar = memo(function PlanSidebar({
             </p>
           ) : null}
 
-          {/* Plan Steps */}
-          {activePlan && activePlan.steps.length > 0 ? (
-            <div className="space-y-0.5">
-              {activePlan.steps.map((step) => (
-                <div
-                  key={`${step.status}:${step.step}`}
-                  className="flex items-start gap-2 px-1 py-1.5"
-                >
-                  <div className="mt-0.5">{stepStatusIcon(step.status)}</div>
-                  <p
-                    className={cn(
-                      "text-[13px] leading-snug",
-                      step.status === "completed"
-                        ? "text-muted-foreground/40 line-through decoration-muted-foreground/20"
-                        : step.status === "inProgress"
-                          ? "text-foreground/90"
-                          : "text-muted-foreground/60",
-                    )}
-                  >
-                    {step.step}
-                  </p>
-                </div>
-              ))}
-            </div>
-          ) : null}
+          {/* Checklist (primary view) */}
+          {hasChecklist ? <PlanChecklist items={checklistItems} live={hasActiveSteps} /> : null}
 
-          {/* Proposed Plan Markdown */}
+          {/* Proposed Plan Markdown (collapsible detail) */}
           {planMarkdown ? (
             <div className="space-y-2">
               <button
@@ -360,7 +331,7 @@ const PlanSidebar = memo(function PlanSidebar({
                   <ChevronRightIcon className="size-3 shrink-0 text-muted-foreground/40 transition-transform" />
                 )}
                 <span className="text-[10px] font-semibold tracking-widest text-muted-foreground/40 uppercase group-hover:text-muted-foreground/60">
-                  {planTitle ?? "Full Plan"}
+                  Full Plan
                 </span>
               </button>
               {proposedPlanExpanded ? (
@@ -376,7 +347,7 @@ const PlanSidebar = memo(function PlanSidebar({
           ) : null}
 
           {/* Empty state */}
-          {!activePlan && !planMarkdown ? (
+          {!hasChecklist && !planMarkdown ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <p className="text-[13px] text-muted-foreground/40">No active plan yet.</p>
               <p className="mt-1 text-[11px] text-muted-foreground/30">

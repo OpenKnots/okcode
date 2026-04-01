@@ -49,16 +49,17 @@ Completed so far:
 - Made timestamps honor the resolved app locale
 - Updated the timestamp callsites in chat and diff surfaces
 - Added Phase 1 guardrail tests for locale resolution, timestamp formatting, and catalog parity
+- Resolved the repo-wide server typecheck blocker by forcing a single `effect` version across `@effect/*`
 - `apps/web` tests pass
 - `bun fmt` passed
 - `bun lint` passed
+- `bun typecheck` passed
 
 Not yet completed:
 
 - Settings page migration
 - Onboarding migration
 - Mobile pairing migration
-- Repo-wide `bun typecheck` currently fails in `apps/server` on unrelated Effect/FileSystem context issues
 
 ## Phase 1 — Infrastructure
 
@@ -167,7 +168,7 @@ Checklist:
 - [ ] Run `bun lint`
   - Status: `DONE`
 - [ ] Run `bun typecheck`
-  - Status: `BLOCKED`
+  - Status: `DONE`
 
 Exit criteria:
 
@@ -189,8 +190,7 @@ Phase 3 can follow later without blocking the first release if the app’s core 
 
 Immediate next implementation steps:
 
-1. Resolve the unrelated `apps/server` typecheck failures so repo-wide verification can pass again.
-2. Migrate root route strings and root toasts.
-3. Migrate Settings and its supporting components.
-4. Migrate Onboarding and Mobile Pairing.
-5. Continue with Phase 2 completion toward the first shippable localized stop.
+1. Migrate root route strings and root toasts.
+2. Migrate Settings and its supporting components.
+3. Migrate Onboarding and Mobile Pairing.
+4. Continue with Phase 2 completion toward the first shippable localized stop.

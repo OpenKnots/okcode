@@ -298,7 +298,7 @@ function NavItem({
   color,
   teamColor,
   onClick,
-  isMobile,
+  isMobile: _isMobile,
 }: {
   icon: React.ElementType;
   label: string;

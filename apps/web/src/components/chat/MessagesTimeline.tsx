@@ -387,8 +387,18 @@ export const MessagesTimeline = memo(function MessagesTimeline({
         row.message.role === "user" &&
         (() => {
           const userAttachments = row.message.attachments ?? [];
-          const userImages = userAttachments.filter((attachment) => attachment.type === "image");
-          const userFiles = userAttachments.filter((attachment) => attachment.type === "file");
+          const userImages = userAttachments.filter(
+            (
+              attachment,
+            ): attachment is Extract<(typeof userAttachments)[number], { type: "image" }> =>
+              attachment.type === "image",
+          );
+          const userFiles = userAttachments.filter(
+            (
+              attachment,
+            ): attachment is Extract<(typeof userAttachments)[number], { type: "file" }> =>
+              attachment.type === "file",
+          );
           const displayedUserMessage = deriveDisplayedUserMessageState(row.message.text);
           const terminalContexts = displayedUserMessage.contexts;
           const canRevertAgentWork = revertTurnCountByUserMessageId.has(row.message.id);

@@ -101,7 +101,6 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   CircleAlertIcon,
-  ImagePlusIcon,
   ListTodoIcon,
   LockIcon,
   LockOpenIcon,
@@ -389,11 +388,19 @@ export default function ChatView({ threadId }: ChatViewProps) {
   const prompt = composerDraft.prompt;
   const composerAttachments = composerDraft.attachments;
   const composerImageAttachments = useMemo(
-    () => composerAttachments.filter((attachment) => attachment.type === "image"),
+    () =>
+      composerAttachments.filter(
+        (attachment): attachment is Extract<ComposerAttachment, { type: "image" }> =>
+          attachment.type === "image",
+      ),
     [composerAttachments],
   );
   const composerFileAttachments = useMemo(
-    () => composerAttachments.filter((attachment) => attachment.type === "file"),
+    () =>
+      composerAttachments.filter(
+        (attachment): attachment is Extract<ComposerAttachment, { type: "file" }> =>
+          attachment.type === "file",
+      ),
     [composerAttachments],
   );
   const composerTerminalContexts = composerDraft.terminalContexts;
@@ -4748,7 +4755,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
                               : showPlanFollowUpPrompt && activeProposedPlan
                                 ? "Add feedback to refine the plan, or leave this blank to implement it"
                                 : phase === "disconnected"
-                                  ? "Ask for follow-up changes or attach images"
+                                  ? "Ask for follow-up changes or attach files"
                                   : "Ask anything, @tag files/folders, or use / to show available commands"
                         }
                         disabled={isConnecting || isComposerApprovalState || isRemoteActionBlocked}
@@ -4919,8 +4926,8 @@ export default function ChatView({ threadId }: ChatViewProps) {
                               type="button"
                               className="text-muted-foreground/70 hover:text-foreground/80"
                               onClick={openFilePicker}
-                              title="Attach images"
-                              aria-label="Attach images"
+                              title="Attach files"
+                              aria-label="Attach files"
                             >
                               <PaperclipIcon className="size-4" />
                             </Button>

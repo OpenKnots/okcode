@@ -962,35 +962,36 @@ function hydratePersistedComposerAttachmentFile(
 function hydrateAttachmentsFromPersisted(
   attachments: ReadonlyArray<PersistedComposerAttachment>,
 ): ComposerAttachment[] {
-  return attachments.flatMap((attachment) => {
+  const hydrated: ComposerAttachment[] = [];
+  for (const attachment of attachments) {
     const file = hydratePersistedComposerAttachmentFile(attachment);
-    if (!file) return [];
-
-    if (attachment.type === "image") {
-      return [
-        {
-          type: "image" as const,
-          id: attachment.id,
-          name: attachment.name,
-          mimeType: attachment.mimeType,
-          sizeBytes: attachment.sizeBytes,
-          previewUrl: attachment.dataUrl,
-          file,
-        } satisfies ComposerImageAttachment,
-      ];
+    if (!file) {
+      continue;
     }
 
-    return [
-      {
-        type: "file" as const,
+    if (attachment.type === "image") {
+      hydrated.push({
+        type: "image" as const,
         id: attachment.id,
         name: attachment.name,
         mimeType: attachment.mimeType,
         sizeBytes: attachment.sizeBytes,
+        previewUrl: attachment.dataUrl,
         file,
-      } satisfies ComposerFileAttachment,
-    ];
-  });
+      } satisfies ComposerImageAttachment);
+      continue;
+    }
+
+    hydrated.push({
+      type: "file" as const,
+      id: attachment.id,
+      name: attachment.name,
+      mimeType: attachment.mimeType,
+      sizeBytes: attachment.sizeBytes,
+      file,
+    } satisfies ComposerFileAttachment);
+  }
+  return hydrated;
 }
 
 function toHydratedThreadDraft(

@@ -3027,7 +3027,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
       return;
     }
     const skillManagementCommand =
-      composerImagesForSend.length === 0 && sendableComposerTerminalContexts.length === 0
+      composerAttachmentsForSend.length === 0 && sendableComposerTerminalContexts.length === 0
         ? parseSkillManagementCommand(trimmed)
         : null;
     if (skillManagementCommand) {

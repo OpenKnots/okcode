@@ -212,6 +212,7 @@ import { readDesktopPreviewBridge } from "~/desktopPreview";
 import { usePreviewStateStore } from "~/previewStateStore";
 import { useClientMode } from "~/hooks/useClientMode";
 import { useTransportState } from "~/hooks/useTransportState";
+import { hasCustomThreadTitle, normalizeThreadTitle } from "~/threadTitle";
 
 const ATTACHMENT_PREVIEW_HANDOFF_TTL_MS = 5000;
 const IMAGE_SIZE_LIMIT_LABEL = `${Math.round(PROVIDER_SEND_TURN_MAX_IMAGE_BYTES / (1024 * 1024))}MB`;
@@ -421,6 +422,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
   );
   const clearComposerDraftContent = useComposerDraftStore((store) => store.clearComposerContent);
   const setDraftThreadContext = useComposerDraftStore((store) => store.setDraftThreadContext);
+  const setDraftThreadTitle = useComposerDraftStore((store) => store.setDraftThreadTitle);
   const getDraftThreadByProjectId = useComposerDraftStore(
     (store) => store.getDraftThreadByProjectId,
   );
@@ -3116,17 +3118,23 @@ export default function ChatView({ threadId }: ChatViewProps) {
           firstComposerImageName = firstComposerImage.name;
         }
       }
-      let titleSeed = trimmed;
-      if (!titleSeed) {
-        if (firstComposerImageName) {
-          titleSeed = `Image: ${firstComposerImageName}`;
-        } else if (composerTerminalContextsSnapshot.length > 0) {
-          titleSeed = formatTerminalContextLabel(composerTerminalContextsSnapshot[0]!);
-        } else {
-          titleSeed = "New thread";
+      const manualThreadTitle = hasCustomThreadTitle(activeThread.title)
+        ? normalizeThreadTitle(activeThread.title)
+        : null;
+      let title = manualThreadTitle;
+      if (!title) {
+        let titleSeed = trimmed;
+        if (!titleSeed) {
+          if (firstComposerImageName) {
+            titleSeed = `Image: ${firstComposerImageName}`;
+          } else if (composerTerminalContextsSnapshot.length > 0) {
+            titleSeed = formatTerminalContextLabel(composerTerminalContextsSnapshot[0]!);
+          } else {
+            titleSeed = normalizeThreadTitle(null);
+          }
         }
+        title = truncateTitle(titleSeed);
       }
-      const title = truncateTitle(titleSeed);
       let threadCreateModel: ModelSlug =
         selectedModel || (activeProject.model as ModelSlug) || DEFAULT_MODEL_BY_PROVIDER.codex;
 
@@ -3173,7 +3181,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
       }
 
       // Auto-title from first message
-      if (isFirstMessage && isServerThread) {
+      if (isFirstMessage && isServerThread && !hasCustomThreadTitle(activeThread.title)) {
         await api.orchestration.dispatchCommand({
           type: "thread.meta.update",
           commandId: newCommandId(),
@@ -4239,6 +4247,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
           activeProjectName={activeProject?.name}
           activeProjectCwd={activeProject?.cwd}
           isGitRepo={isGitRepo}
+          isLocalDraftThread={isLocalDraftThread}
           openInCwd={gitCwd}
           activeProjectScripts={activeProject?.scripts}
           preferredScriptId={
@@ -4255,6 +4264,9 @@ export default function ChatView({ threadId }: ChatViewProps) {
           gitCwd={gitCwd}
           diffOpen={diffOpen}
           clientMode={clientMode}
+          onRenameDraftThreadTitle={(title) => {
+            setDraftThreadTitle(activeThread.id, title);
+          }}
           onRunProjectScript={(script) => {
             void runProjectScript(script);
           }}

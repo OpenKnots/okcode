@@ -994,6 +994,7 @@ describe("ChatView timeline estimator parity (full app)", () => {
         [THREAD_ID]: {
           projectId: PROJECT_ID,
           createdAt: NOW_ISO,
+          title: "New thread",
           runtimeMode: "full-access",
           interactionMode: "chat",
           branch: null,
@@ -1051,6 +1052,7 @@ describe("ChatView timeline estimator parity (full app)", () => {
         [THREAD_ID]: {
           projectId: PROJECT_ID,
           createdAt: NOW_ISO,
+          title: "New thread",
           runtimeMode: "full-access",
           interactionMode: "chat",
           branch: null,
@@ -1127,6 +1129,7 @@ describe("ChatView timeline estimator parity (full app)", () => {
         [THREAD_ID]: {
           projectId: PROJECT_ID,
           createdAt: NOW_ISO,
+          title: "New thread",
           runtimeMode: "full-access",
           interactionMode: "chat",
           branch: "feature/draft",

@@ -8,6 +8,7 @@ import {
   stripInlineTerminalContextPlaceholders,
   type TerminalContextDraft,
 } from "../lib/terminalContext";
+import { normalizeThreadTitle } from "../threadTitle";
 
 export const LAST_INVOKED_SCRIPT_BY_PROJECT_KEY = "okcode:last-invoked-script-by-project";
 const WORKTREE_BRANCH_PREFIX = "okcode";
@@ -24,7 +25,7 @@ export function buildLocalDraftThread(
     id: threadId,
     codexThreadId: null,
     projectId: draftThread.projectId,
-    title: "New thread",
+    title: normalizeThreadTitle(draftThread.title),
     model: fallbackModel,
     runtimeMode: draftThread.runtimeMode,
     interactionMode: draftThread.interactionMode,

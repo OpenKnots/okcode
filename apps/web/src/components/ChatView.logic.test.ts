@@ -1,8 +1,9 @@
-import { ThreadId } from "@okcode/contracts";
+import { ProjectId, ThreadId } from "@okcode/contracts";
 import { describe, expect, it } from "vitest";
 
 import {
   buildAutoSelectedWorktreeBaseBranchToastCopy,
+  buildLocalDraftThread,
   buildExpiredTerminalContextToastCopy,
   deriveComposerSendState,
 } from "./ChatView.logic";
@@ -84,5 +85,47 @@ describe("buildAutoSelectedWorktreeBaseBranchToastCopy", () => {
       description:
         "The requested base branch main was unavailable, so OK Code created this worktree from master.",
     });
+  });
+});
+
+describe("buildLocalDraftThread", () => {
+  it("uses a persisted draft title when present", () => {
+    const thread = buildLocalDraftThread(
+      ThreadId.makeUnsafe("thread-draft"),
+      {
+        projectId: ProjectId.makeUnsafe("project-1"),
+        createdAt: "2026-03-17T12:52:29.000Z",
+        title: "Investigate flaky CI",
+        runtimeMode: "full-access",
+        interactionMode: "chat",
+        branch: null,
+        worktreePath: null,
+        envMode: "local",
+      },
+      "gpt-5.4",
+      null,
+    );
+
+    expect(thread.title).toBe("Investigate flaky CI");
+  });
+
+  it("falls back to the default title when the draft title is empty", () => {
+    const thread = buildLocalDraftThread(
+      ThreadId.makeUnsafe("thread-draft-empty"),
+      {
+        projectId: ProjectId.makeUnsafe("project-1"),
+        createdAt: "2026-03-17T12:52:29.000Z",
+        title: "   ",
+        runtimeMode: "full-access",
+        interactionMode: "chat",
+        branch: null,
+        worktreePath: null,
+        envMode: "local",
+      },
+      "gpt-5.4",
+      null,
+    );
+
+    expect(thread.title).toBe("New thread");
   });
 });

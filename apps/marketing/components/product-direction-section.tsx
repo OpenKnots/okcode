@@ -40,7 +40,7 @@ export function ProductDirectionSection() {
           <span className="text-white font-medium">
             Align your team around a unified product timeline.
           </span>{" "}
-          Plan, manage, and track all product initiatives with Sprint's visual planning tools.
+          Plan, manage, and track all product initiatives with OK Code's visual planning tools.
         </p>
 
         {/* 3D Timeline Visualization */}

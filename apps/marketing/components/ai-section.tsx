@@ -62,7 +62,7 @@ export function AISection() {
             transition={{ duration: 0.6, delay: 0.2 }}
             className="text-muted-foreground max-w-md mb-8"
           >
-            <span className="text-foreground font-medium">Sprint for Agents.</span> Choose from a
+            <span className="text-foreground font-medium">OK Code for Agents.</span> Choose from a
             variety of AI agents and start delegating work, from code generation to other technical
             tasks.
           </motion.p>
@@ -303,21 +303,22 @@ export function AISection() {
 
               {/* Right column - Use semantic tokens */}
               <div className="border-t border-b border-border/60 pt-12 pl-12 pb-16">
-                <h3 className="text-secondary-foreground font-medium text-xl mb-3">Sprint MCP</h3>
+                <h3 className="text-secondary-foreground font-medium text-xl mb-3">OK Code MCP</h3>
                 <p className="text-muted-foreground text-base mb-8">
-                  Connect Sprint to your favorite tools including Cursor, Claude, ChatGPT, and more.
+                  Connect OK Code to your favorite tools including Cursor, Claude, ChatGPT, and
+                  more.
                 </p>
 
                 {/* MCP Code Snippet - Use semantic tokens for code syntax */}
                 <div className="bg-card/30 border border-border/60 rounded-xl p-5 font-mono text-sm">
-                  <p className="text-muted-foreground/70 mb-3">{"//mcp.sprint.app/sse"}</p>
+                  <p className="text-muted-foreground/70 mb-3">{"//mcp.okcode.app/sse"}</p>
                   <div className="space-y-1 mb-6">
                     <p>
                       <span className="text-code-constant/70">"mcpServers"</span>
                       <span className="text-muted-foreground">: {"{"}</span>
                     </p>
                     <p className="pl-4">
-                      <span className="text-code-constant/70">"sprint"</span>
+                      <span className="text-code-constant/70">"okcode"</span>
                       <span className="text-muted-foreground">: {"{"}</span>
                     </p>
                     <p className="pl-8">

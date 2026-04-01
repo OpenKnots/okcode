@@ -109,7 +109,7 @@ export function FeatureCardsSection() {
               className="max-w-md"
             >
               <p className="text-muted-foreground leading-relaxed">
-                Sprint is shaped by the practices and principles that distinguish world-class
+                OK Code is shaped by the practices and principles that distinguish world-class
                 product teams from the rest: relentless focus, fast execution, and a commitment to
                 the quality of craft.{" "}
                 <a

@@ -1,77 +1,112 @@
 ---
 const regions = [
-  { name: "North America", latency: "12ms", x: "20%", y: "35%" },
-  { name: "Europe", latency: "18ms", x: "48%", y: "28%" },
-  { name: "Asia Pacific", latency: "25ms", x: "75%", y: "40%" },
-  { name: "South America", latency: "35ms", x: "30%", y: "65%" },
-  { name: "Australia", latency: "30ms", x: "82%", y: "70%" },
+  { name: "San Francisco", latency: "8ms", x: "15%", y: "38%" },
+  { name: "New York", latency: "12ms", x: "25%", y: "35%" },
+  { name: "London", latency: "15ms", x: "46%", y: "28%" },
+  { name: "Frankfurt", latency: "18ms", x: "50%", y: "30%" },
+  { name: "Singapore", latency: "22ms", x: "75%", y: "55%" },
+  { name: "Tokyo", latency: "20ms", x: "82%", y: "38%" },
+  { name: "Sydney", latency: "28ms", x: "85%", y: "72%" },
+  { name: "Sao Paulo", latency: "32ms", x: "30%", y: "68%" },
+];
+
+const stats = [
+  { value: "50+", label: "Edge Locations" },
+  { value: "<50ms", label: "Avg Response" },
+  { value: "99.99%", label: "Uptime SLA" },
+  { value: "6", label: "Continents" },
 ];
 ---
 
-<section id="global" class="relative py-24 sm:py-32 overflow-hidden">
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+<section id="global" class="relative section-padding overflow-hidden">
+  <!-- Background -->
+  <div class="absolute inset-0 bg-gradient-to-b from-transparent via-card/50 to-transparent"></div>
+  
+  <div class="relative container-wide">
     <!-- Section Header -->
-    <div class="text-center mb-16">
-      <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-primary/10 text-primary mb-4">
-        Infrastructure
-      </span>
-      <h2 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-4 text-balance">
+    <div class="text-center mb-16 lg:mb-20">
+      <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass-strong text-sm mb-6">
+        <span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+        <span class="text-muted-foreground">Infrastructure</span>
+      </div>
+      <h2 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-5 text-balance tracking-tight">
         Global edge network
       </h2>
-      <p class="max-w-2xl mx-auto text-lg text-muted-foreground text-balance">
+      <p class="max-w-2xl mx-auto text-base sm:text-lg text-muted-foreground text-pretty leading-relaxed">
         Lightning-fast responses from edge locations worldwide. Your AI assistant is always nearby.
       </p>
     </div>
 
     <!-- Globe Visualization -->
-    <div class="relative aspect-[2/1] max-w-4xl mx-auto">
-      <!-- Map background -->
-      <div class="absolute inset-0 rounded-2xl glass overflow-hidden">
-        <!-- Stylized world map using gradients -->
-        <div class="absolute inset-0 opacity-20">
-          <svg viewBox="0 0 1000 500" class="w-full h-full" preserveAspectRatio="xMidYMid slice">
-            <!-- Simplified continent shapes -->
-            <ellipse cx="200" cy="200" rx="120" ry="80" fill="currentColor" class="text-primary/50" />
-            <ellipse cx="480" cy="180" rx="100" ry="70" fill="currentColor" class="text-primary/40" />
-            <ellipse cx="750" cy="220" rx="150" ry="90" fill="currentColor" class="text-primary/30" />
-            <ellipse cx="280" cy="350" rx="80" ry="60" fill="currentColor" class="text-primary/35" />
-            <ellipse cx="820" cy="380" rx="70" ry="50" fill="currentColor" class="text-primary/25" />
+    <div class="relative aspect-[2/1] max-w-5xl mx-auto">
+      <div class="absolute inset-0 rounded-2xl glass-strong overflow-hidden">
+        <!-- World map stylized background -->
+        <div class="absolute inset-0">
+          <!-- Gradient continents -->
+          <svg viewBox="0 0 1000 500" class="w-full h-full opacity-20" preserveAspectRatio="xMidYMid slice">
+            <!-- North America -->
+            <ellipse cx="180" cy="180" rx="100" ry="70" fill="url(#globe-gradient)" />
+            <!-- South America -->
+            <ellipse cx="250" cy="350" rx="60" ry="80" fill="url(#globe-gradient)" />
+            <!-- Europe -->
+            <ellipse cx="470" cy="160" rx="70" ry="50" fill="url(#globe-gradient)" />
+            <!-- Africa -->
+            <ellipse cx="480" cy="280" rx="60" ry="90" fill="url(#globe-gradient)" />
+            <!-- Asia -->
+            <ellipse cx="700" cy="200" rx="150" ry="80" fill="url(#globe-gradient)" />
+            <!-- Australia -->
+            <ellipse cx="820" cy="380" rx="60" ry="40" fill="url(#globe-gradient)" />
+            
+            <defs>
+              <linearGradient id="globe-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:hsl(var(--primary));stop-opacity:0.6" />
+                <stop offset="100%" style="stop-color:hsl(var(--primary));stop-opacity:0.2" />
+              </linearGradient>
+            </defs>
           </svg>
         </div>
 
         <!-- Grid lines -->
-        <div class="absolute inset-0 bg-[linear-gradient(rgba(139,92,246,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(139,92,246,0.05)_1px,transparent_1px)] bg-[size:50px_50px]"></div>
+        <div class="absolute inset-0 bg-[linear-gradient(rgba(139,92,246,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(139,92,246,0.03)_1px,transparent_1px)] bg-[size:40px_40px]"></div>
 
         <!-- Connection lines -->
         <svg class="absolute inset-0 w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
           <defs>
-            <linearGradient id="line-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <linearGradient id="connection-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
               <stop offset="0%" style="stop-color:hsl(var(--primary));stop-opacity:0" />
-              <stop offset="50%" style="stop-color:hsl(var(--primary));stop-opacity:0.5" />
+              <stop offset="50%" style="stop-color:hsl(var(--primary));stop-opacity:0.4" />
               <stop offset="100%" style="stop-color:hsl(var(--primary));stop-opacity:0" />
             </linearGradient>
           </defs>
-          <!-- Connection paths between regions -->
-          <path d="M20,35 Q35,20 48,28" fill="none" stroke="url(#line-gradient)" stroke-width="0.2" />
-          <path d="M48,28 Q62,35 75,40" fill="none" stroke="url(#line-gradient)" stroke-width="0.2" />
-          <path d="M20,35 Q25,50 30,65" fill="none" stroke="url(#line-gradient)" stroke-width="0.2" />
-          <path d="M75,40 Q78,55 82,70" fill="none" stroke="url(#line-gradient)" stroke-width="0.2" />
+          <!-- Connection arcs -->
+          <path d="M15,38 Q30,20 46,28" fill="none" stroke="url(#connection-gradient)" stroke-width="0.15" />
+          <path d="M25,35 Q35,25 46,28" fill="none" stroke="url(#connection-gradient)" stroke-width="0.15" />
+          <path d="M46,28 Q55,30 50,30" fill="none" stroke="url(#connection-gradient)" stroke-width="0.15" />
+          <path d="M50,30 Q62,40 75,55" fill="none" stroke="url(#connection-gradient)" stroke-width="0.15" />
+          <path d="M75,55 Q78,45 82,38" fill="none" stroke="url(#connection-gradient)" stroke-width="0.15" />
+          <path d="M82,38 Q83,55 85,72" fill="none" stroke="url(#connection-gradient)" stroke-width="0.15" />
+          <path d="M25,35 Q27,50 30,68" fill="none" stroke="url(#connection-gradient)" stroke-width="0.15" />
         </svg>
 
         <!-- Region markers -->
         {regions.map((region) => (
           <div 
-            class="absolute transform -translate-x-1/2 -translate-y-1/2 group cursor-pointer"
+            class="absolute transform -translate-x-1/2 -translate-y-1/2 group cursor-pointer z-10"
             style={`left: ${region.x}; top: ${region.y};`}
           >
-            <!-- Pulse ring -->
-            <div class="absolute inset-0 w-4 h-4 -m-2 rounded-full bg-primary/30 animate-ping"></div>
+            <!-- Outer pulse ring -->
+            <div class="absolute inset-0 w-6 h-6 -m-3 rounded-full bg-primary/20 animate-ping" style="animation-duration: 2s;"></div>
+            <!-- Inner pulse ring -->
+            <div class="absolute inset-0 w-4 h-4 -m-2 rounded-full bg-primary/30 animate-pulse"></div>
             <!-- Core dot -->
-            <div class="relative w-3 h-3 rounded-full bg-primary glow-primary"></div>
+            <div class="relative w-2.5 h-2.5 rounded-full bg-primary glow-primary group-hover:scale-150 transition-transform"></div>
+            
             <!-- Tooltip -->
-            <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 rounded-lg bg-card border border-border opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+            <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 px-3 py-2 rounded-xl glass-strong opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap pointer-events-none translate-y-1 group-hover:translate-y-0">
               <div class="text-sm font-medium text-foreground">{region.name}</div>
-              <div class="text-xs text-primary">{region.latency} latency</div>
+              <div class="text-xs text-primary font-mono">{region.latency}</div>
+              <!-- Tooltip arrow -->
+              <div class="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-white/10"></div>
             </div>
           </div>
         ))}
@@ -79,23 +114,13 @@ const regions = [
     </div>
 
     <!-- Stats Grid -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mt-16">
-      <div class="text-center p-6 rounded-xl glass">
-        <div class="text-3xl font-bold text-foreground mb-2">50+</div>
-        <div class="text-sm text-muted-foreground">Edge Locations</div>
-      </div>
-      <div class="text-center p-6 rounded-xl glass">
-        <div class="text-3xl font-bold text-foreground mb-2">&lt;50ms</div>
-        <div class="text-sm text-muted-foreground">Avg Response</div>
-      </div>
-      <div class="text-center p-6 rounded-xl glass">
-        <div class="text-3xl font-bold text-foreground mb-2">99.99%</div>
-        <div class="text-sm text-muted-foreground">Uptime SLA</div>
-      </div>
-      <div class="text-center p-6 rounded-xl glass">
-        <div class="text-3xl font-bold text-foreground mb-2">6</div>
-        <div class="text-sm text-muted-foreground">Continents</div>
-      </div>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 lg:gap-6 mt-12 lg:mt-16 max-w-4xl mx-auto">
+      {stats.map((stat) => (
+        <div class="text-center p-6 rounded-xl glass card-hover">
+          <div class="text-2xl sm:text-3xl font-bold text-foreground mb-1.5 tracking-tight">{stat.value}</div>
+          <div class="text-sm text-muted-foreground">{stat.label}</div>
+        </div>
+      ))}
     </div>
   </div>
 </section>

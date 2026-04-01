@@ -7,12 +7,14 @@ const navLinks = [
 ];
 ---
 
-<header class="fixed top-0 left-0 right-0 z-50 glass">
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-    <div class="flex items-center justify-between h-16">
+<header class="fixed top-0 left-0 right-0 z-50 transition-all duration-300" id="header">
+  <div class="absolute inset-0 glass-strong opacity-0 transition-opacity duration-300" id="header-bg"></div>
+  
+  <div class="relative container-wide">
+    <div class="flex items-center justify-between h-16 sm:h-20">
       <!-- Logo -->
-      <a href="/" class="flex items-center gap-2">
-        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-violet-400 flex items-center justify-center">
+      <a href="/" class="flex items-center gap-2.5 group">
+        <div class="relative w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-violet-400 flex items-center justify-center transition-transform group-hover:scale-105">
           <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
           </svg>
@@ -21,11 +23,11 @@ const navLinks = [
       </a>
 
       <!-- Navigation -->
-      <nav class="hidden md:flex items-center gap-8">
+      <nav class="hidden md:flex items-center gap-1">
         {navLinks.map((link) => (
           <a
             href={link.href}
-            class="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            class="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-white/5"
           >
             {link.label}
           </a>
@@ -33,20 +35,89 @@ const navLinks = [
       </nav>
 
       <!-- CTA -->
-      <div class="flex items-center gap-4">
+      <div class="flex items-center gap-3">
         <a
           href="#"
-          class="hidden sm:inline-flex text-sm text-muted-foreground hover:text-foreground transition-colors"
+          class="hidden sm:inline-flex text-sm text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-lg hover:bg-white/5"
         >
           Sign in
         </a>
         <a
           href="#"
-          class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+          class="btn-primary text-sm px-5 py-2.5"
         >
           Get Started
+          <svg class="ml-1.5 w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+          </svg>
         </a>
+        
+        <!-- Mobile menu button -->
+        <button 
+          type="button" 
+          class="md:hidden p-2 text-muted-foreground hover:text-foreground transition-colors"
+          aria-label="Toggle menu"
+          id="mobile-menu-btn"
+        >
+          <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
       </div>
     </div>
   </div>
 </header>
+
+<!-- Mobile Menu -->
+<div class="fixed inset-0 z-40 bg-background/95 backdrop-blur-xl hidden" id="mobile-menu">
+  <div class="flex flex-col items-center justify-center h-full gap-6">
+    {navLinks.map((link) => (
+      <a
+        href={link.href}
+        class="text-2xl font-medium text-foreground hover:text-primary transition-colors mobile-nav-link"
+      >
+        {link.label}
+      </a>
+    ))}
+    <div class="flex flex-col gap-3 mt-8">
+      <a href="#" class="btn-secondary px-8 py-3">Sign in</a>
+      <a href="#" class="btn-primary px-8 py-3">Get Started</a>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Header scroll effect
+  const header = document.getElementById('header');
+  const headerBg = document.getElementById('header-bg');
+  
+  const handleScroll = () => {
+    if (window.scrollY > 50) {
+      headerBg?.classList.remove('opacity-0');
+      headerBg?.classList.add('opacity-100');
+    } else {
+      headerBg?.classList.add('opacity-0');
+      headerBg?.classList.remove('opacity-100');
+    }
+  };
+  
+  window.addEventListener('scroll', handleScroll, { passive: true });
+  handleScroll();
+  
+  // Mobile menu toggle
+  const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+  const mobileMenu = document.getElementById('mobile-menu');
+  const mobileNavLinks = document.querySelectorAll('.mobile-nav-link');
+  
+  mobileMenuBtn?.addEventListener('click', () => {
+    mobileMenu?.classList.toggle('hidden');
+    document.body.classList.toggle('overflow-hidden');
+  });
+  
+  mobileNavLinks.forEach(link => {
+    link.addEventListener('click', () => {
+      mobileMenu?.classList.add('hidden');
+      document.body.classList.remove('overflow-hidden');
+    });
+  });
+</script>

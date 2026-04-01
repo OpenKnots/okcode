@@ -656,10 +656,7 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
         </div>
       ) : (
         <>
-          <div
-            ref={patchViewportRef}
-            className="diff-panel-viewport min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto"
-          >
+          <div ref={patchViewportRef} className="min-h-0 min-w-0 flex-1 overflow-hidden">
             {checkpointDiffError && !renderablePatch && (
               <div className="px-3">
                 <p className="mb-2 text-[11px] text-red-500/80">{checkpointDiffError}</p>
@@ -679,7 +676,11 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
               )
             ) : renderablePatch.kind === "files" ? (
               <Virtualizer
-                className="diff-render-surface h-full min-h-0 overflow-auto px-2 pb-2"
+                // `@pierre/diffs` virtualizes file bodies against its own scroll root.
+                // Nesting that root inside another scrolling viewport leaves the diff
+                // rows stuck in placeholder mode, which matches the blank panels here.
+                className="diff-panel-viewport diff-render-surface h-full min-h-0 min-w-0 overflow-x-hidden overflow-y-auto"
+                contentClassName="px-2 pb-2"
                 config={{
                   overscrollSize: 600,
                   intersectionObserverMargin: 1200,

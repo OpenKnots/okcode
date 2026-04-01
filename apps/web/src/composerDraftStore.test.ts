@@ -72,7 +72,7 @@ function resetComposerDraftStore() {
   });
 }
 
-describe("composerDraftStore addImages", () => {
+describe("composerDraftStore addAttachments", () => {
   const threadId = ThreadId.makeUnsafe("thread-dedupe");
   let originalRevokeObjectUrl: typeof URL.revokeObjectURL;
   let revokeSpy: ReturnType<typeof vi.fn<(url: string) => void>>;
@@ -106,10 +106,10 @@ describe("composerDraftStore addImages", () => {
       lastModified: 12345,
     });
 
-    useComposerDraftStore.getState().addImages(threadId, [first, duplicate]);
+    useComposerDraftStore.getState().addAttachments(threadId, [first, duplicate]);
 
     const draft = useComposerDraftStore.getState().draftsByThreadId[threadId];
-    expect(draft?.images.map((image) => image.id)).toEqual(["img-1"]);
+    expect(draft?.attachments.map((attachment) => attachment.id)).toEqual(["img-1"]);
     expect(revokeSpy).toHaveBeenCalledWith("blob:duplicate");
   });
 
@@ -131,11 +131,11 @@ describe("composerDraftStore addImages", () => {
       lastModified: 999,
     });
 
-    useComposerDraftStore.getState().addImage(threadId, first);
-    useComposerDraftStore.getState().addImage(threadId, duplicateLater);
+    useComposerDraftStore.getState().addAttachment(threadId, first);
+    useComposerDraftStore.getState().addAttachment(threadId, duplicateLater);
 
     const draft = useComposerDraftStore.getState().draftsByThreadId[threadId];
-    expect(draft?.images.map((image) => image.id)).toEqual(["img-a"]);
+    expect(draft?.attachments.map((attachment) => attachment.id)).toEqual(["img-a"]);
     expect(revokeSpy).toHaveBeenCalledWith("blob:b");
   });
 
@@ -149,10 +149,10 @@ describe("composerDraftStore addImages", () => {
       previewUrl: "blob:shared",
     });
 
-    useComposerDraftStore.getState().addImages(threadId, [first, duplicateSameUrl]);
+    useComposerDraftStore.getState().addAttachments(threadId, [first, duplicateSameUrl]);
 
     const draft = useComposerDraftStore.getState().draftsByThreadId[threadId];
-    expect(draft?.images.map((image) => image.id)).toEqual(["img-shared"]);
+    expect(draft?.attachments.map((attachment) => attachment.id)).toEqual(["img-shared"]);
     expect(revokeSpy).not.toHaveBeenCalledWith("blob:shared");
   });
 });
@@ -178,7 +178,7 @@ describe("composerDraftStore clearComposerContent", () => {
       id: "img-optimistic",
       previewUrl: "blob:optimistic",
     });
-    useComposerDraftStore.getState().addImage(threadId, first);
+    useComposerDraftStore.getState().addAttachment(threadId, first);
 
     useComposerDraftStore.getState().clearComposerContent(threadId);
 
@@ -209,7 +209,7 @@ describe("composerDraftStore syncPersistedAttachments", () => {
       id: "img-persisted",
       previewUrl: "blob:persisted",
     });
-    useComposerDraftStore.getState().addImage(threadId, image);
+    useComposerDraftStore.getState().addAttachment(threadId, image);
     setLocalStorageItem(
       COMPOSER_DRAFT_STORAGE_KEY,
       {
@@ -227,6 +227,7 @@ describe("composerDraftStore syncPersistedAttachments", () => {
 
     useComposerDraftStore.getState().syncPersistedAttachments(threadId, [
       {
+        type: "image",
         id: image.id,
         name: image.name,
         mimeType: image.mimeType,
@@ -240,7 +241,7 @@ describe("composerDraftStore syncPersistedAttachments", () => {
       useComposerDraftStore.getState().draftsByThreadId[threadId]?.persistedAttachments,
     ).toEqual([]);
     expect(
-      useComposerDraftStore.getState().draftsByThreadId[threadId]?.nonPersistedImageIds,
+      useComposerDraftStore.getState().draftsByThreadId[threadId]?.nonPersistedAttachmentIds,
     ).toEqual([image.id]);
   });
 });

@@ -962,7 +962,7 @@ function hydratePersistedComposerAttachmentFile(
 function hydrateAttachmentsFromPersisted(
   attachments: ReadonlyArray<PersistedComposerAttachment>,
 ): ComposerAttachment[] {
-  return attachments.flatMap((attachment) => {
+  return attachments.flatMap<ComposerAttachment>((attachment) => {
     const file = hydratePersistedComposerAttachmentFile(attachment);
     if (!file) return [];
 

@@ -4696,10 +4696,10 @@ export default function ChatView({ threadId }: ChatViewProps) {
                               "Resolve this approval request to continue")
                             : activePendingProgress
                               ? "Type your own answer, or leave this blank to use the selected option"
-                              : showPlanFollowUpPrompt && activeProposedPlan
-                                ? "Add feedback to refine the plan, or leave this blank to implement it"
+                                : showPlanFollowUpPrompt && activeProposedPlan
+                                  ? "Add feedback to refine the plan, or leave this blank to implement it"
                                 : phase === "disconnected"
-                                  ? "Ask for follow-up changes or attach images"
+                                  ? "Ask for follow-up changes or attach files"
                                   : "Ask anything, @tag files/folders, or use / to show available commands"
                         }
                         disabled={isConnecting || isComposerApprovalState || isRemoteActionBlocked}
@@ -4870,8 +4870,8 @@ export default function ChatView({ threadId }: ChatViewProps) {
                               type="button"
                               className="text-muted-foreground/70 hover:text-foreground/80"
                               onClick={openFilePicker}
-                              title="Attach images"
-                              aria-label="Attach images"
+                              title="Attach files"
+                              aria-label="Attach files"
                             >
                               <PaperclipIcon className="size-4" />
                             </Button>

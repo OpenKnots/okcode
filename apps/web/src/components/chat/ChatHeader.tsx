@@ -1,4 +1,5 @@
 import {
+  type ProjectId,
   type ProjectScript,
   type ThreadId,
   type ResolvedKeybindingsConfig,
@@ -12,6 +13,8 @@ import ProjectScriptsControl, { type NewProjectScriptInput } from "../ProjectScr
 import { SidebarTrigger } from "../ui/sidebar";
 import { useThreadTitleEditor } from "~/hooks/useThreadTitleEditor";
 import { useCodeViewerStore } from "~/codeViewerStore";
+import { useProjectColor } from "~/projectColors";
+import { useTheme } from "~/hooks/useTheme";
 import type { ClientMode } from "~/lib/clientMode";
 import type { PreviewDock } from "~/previewStateStore";
 import { HeaderPanelsMenu } from "./HeaderPanelsMenu";
@@ -19,6 +22,7 @@ import { HeaderPanelsMenu } from "./HeaderPanelsMenu";
 interface ChatHeaderProps {
   activeThreadId: ThreadId;
   activeThreadTitle: string;
+  activeProjectId: ProjectId | undefined;
   activeProjectName: string | undefined;
   activeProjectCwd: string | undefined;
   isGitRepo: boolean;
@@ -53,6 +57,7 @@ interface ChatHeaderProps {
 export const ChatHeader = memo(function ChatHeader({
   activeThreadId,
   activeThreadTitle,
+  activeProjectId,
   activeProjectName,
   activeProjectCwd,
   isGitRepo,
@@ -86,6 +91,9 @@ export const ChatHeader = memo(function ChatHeader({
   const isMobileCompanion = clientMode === "mobile";
   const codeViewerOpen = useCodeViewerStore((state) => state.isOpen);
   const hasCodeViewerTabs = useCodeViewerStore((state) => state.tabs.length > 0);
+  const projectColor = useProjectColor(activeProjectId);
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
   const {
     editingThreadId,
     draftTitle,
@@ -132,7 +140,18 @@ export const ChatHeader = memo(function ChatHeader({
           onCancel={cancelEditing}
         />
         {activeProjectName && (
-          <Badge variant="outline" className="hidden min-w-0 shrink truncate sm:inline-flex">
+          <Badge
+            variant="outline"
+            className="hidden min-w-0 shrink truncate border-transparent sm:inline-flex"
+            style={
+              projectColor
+                ? {
+                    color: isDark ? projectColor.textDark : projectColor.text,
+                    backgroundColor: isDark ? projectColor.bgDark : projectColor.bg,
+                  }
+                : undefined
+            }
+          >
             {activeProjectName}
           </Badge>
         )}

@@ -308,7 +308,7 @@ export function AISection() {
 
                 {/* MCP Code Snippet - Use semantic tokens for code syntax */}
                 <div className="bg-card/30 border border-border/60 rounded-3xl p-6 font-mono text-sm">
-                  <p className="text-muted-foreground/70 mb-3">//mcp.sprint.app/sse</p>
+                  <p className="text-muted-foreground/70 mb-3">{"//mcp.sprint.app/sse"}</p>
                   <div className="space-y-1 mb-6">
                     <p>
                       <span className="text-code-constant/70">"mcpServers"</span>

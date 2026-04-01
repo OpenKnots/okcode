@@ -47,15 +47,15 @@ export function LogoCloud() {
           >
             {/* Logo grid with variety */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-x-16 gap-y-10 items-center justify-items-center transition-all duration-300 group-hover:blur-[2.5px] group-hover:opacity-50">
-              {companies.map((company, i) => {
+              {companies.map((company, companyIndex) => {
                 const Icon = company.icon;
                 return (
                   <motion.div
-                    key={i}
+                    key={company.name}
                     initial={{ opacity: 0, scale: 0.8 }}
                     whileInView={{ opacity: 1, scale: 1 }}
                     viewport={{ once: true }}
-                    transition={{ duration: 0.4, delay: i * 0.05 }}
+                    transition={{ duration: 0.4, delay: companyIndex * 0.05 }}
                     className="text-foreground font-bold text-2xl flex items-center gap-3"
                   >
                     <Icon className="w-5 h-5 fill-current" />

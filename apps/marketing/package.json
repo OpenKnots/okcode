@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
+    "build:marketing": "bun run build",
     "build": "next build",
     "preview": "next start",
     "start": "next start",

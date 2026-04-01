@@ -1,37 +1,38 @@
 import type React from "react";
 import type { Metadata } from "next";
-import { Nunito, Nunito_Sans } from "next/font/google";
+import { Nunito } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const nunito = Nunito({ subsets: ["latin"], variable: "--font-nunito" });
-const nunitoSans = Nunito_Sans({ subsets: ["latin"], variable: "--font-nunito-sans" });
 
 export const metadata: Metadata = {
-  title: "Sprint - Purpose-built tool for planning and building products",
+  title: "OK Code — A Minimal Web GUI for Coding Agents",
   description:
-    "Meet the system for modern software development. Streamline issues, projects, and product roadmaps with Sprint.",
-  generator: "v0.app",
+    "Chat with Codex and Claude in a modern web UI. Git worktree isolation, diff review, integrated terminal, and more. Run anywhere with npx okcodes.",
   keywords: [
-    "project management",
-    "product development",
-    "issue tracking",
-    "roadmap planning",
-    "team collaboration",
+    "coding agents",
+    "AI coding",
+    "web GUI",
+    "git worktree",
+    "diff review",
+    "Claude",
+    "Codex",
+    "terminal",
   ],
-  authors: [{ name: "Sprint" }],
+  authors: [{ name: "OpenKnots" }],
   openGraph: {
-    title: "Sprint - Purpose-built tool for planning and building products",
+    title: "OK Code — A Minimal Web GUI for Coding Agents",
     description:
-      "Meet the system for modern software development. Streamline issues, projects, and product roadmaps.",
+      "Chat with Codex and Claude in a modern web UI. Git worktree isolation, diff review, integrated terminal, and more.",
     type: "website",
     locale: "en_US",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Sprint - Purpose-built tool for planning and building products",
+    title: "OK Code — A Minimal Web GUI for Coding Agents",
     description:
-      "Meet the system for modern software development. Streamline issues, projects, and product roadmaps.",
+      "Chat with Codex and Claude in a modern web UI. Git worktree isolation, diff review, integrated terminal, and more.",
   },
   icons: {
     icon: [
@@ -58,8 +59,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${nunito.variable} ${nunitoSans.variable} font-sans antialiased`}>
+    <html lang="en" className="dark">
+      <body className={`${nunito.variable} font-sans antialiased`}>
         {children}
         <Analytics />
       </body>

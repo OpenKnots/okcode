@@ -4,6 +4,7 @@ Human-readable notes and asset inventories for tagged releases.
 
 | Version            | Notes                                                      | Assets                       |
 | ------------------ | ---------------------------------------------------------- | ---------------------------- |
+| [0.0.8](v0.0.8.md) | Skills, localization, attachment flow, and UI hardening    | [manifest](v0.0.8/assets.md) |
 | [0.0.7](v0.0.7.md) | Navigation, clone flow, plan checklists, preview presets   | [manifest](v0.0.7/assets.md) |
 | [0.0.6](v0.0.6.md) | PR + preview polish, env persistence, search, landing page | [manifest](v0.0.6/assets.md) |
 | [0.0.5](v0.0.5.md) | Git workflows, PR review, mobile shell                     | [manifest](v0.0.5/assets.md) |

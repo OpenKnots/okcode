@@ -11,10 +11,10 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ChatRouteImport } from './routes/_chat'
 import { Route as ChatIndexRouteImport } from './routes/_chat.index'
-import { Route as ChatPluginsRouteImport } from './routes/_chat.plugins'
 import { Route as ChatSkillsRouteImport } from './routes/_chat.skills'
 import { Route as ChatSettingsRouteImport } from './routes/_chat.settings'
 import { Route as ChatPrReviewRouteImport } from './routes/_chat.pr-review'
+import { Route as ChatPluginsRouteImport } from './routes/_chat.plugins'
 import { Route as ChatMergeConflictsRouteImport } from './routes/_chat.merge-conflicts'
 import { Route as ChatFileViewRouteImport } from './routes/_chat.file-view'
 import { Route as ChatThreadIdRouteImport } from './routes/_chat.$threadId'
@@ -26,11 +26,6 @@ const ChatRoute = ChatRouteImport.update({
 const ChatIndexRoute = ChatIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => ChatRoute,
-} as any)
-const ChatPluginsRoute = ChatPluginsRouteImport.update({
-  id: '/plugins',
-  path: '/plugins',
   getParentRoute: () => ChatRoute,
 } as any)
 const ChatSkillsRoute = ChatSkillsRouteImport.update({
@@ -46,6 +41,11 @@ const ChatSettingsRoute = ChatSettingsRouteImport.update({
 const ChatPrReviewRoute = ChatPrReviewRouteImport.update({
   id: '/pr-review',
   path: '/pr-review',
+  getParentRoute: () => ChatRoute,
+} as any)
+const ChatPluginsRoute = ChatPluginsRouteImport.update({
+  id: '/plugins',
+  path: '/plugins',
   getParentRoute: () => ChatRoute,
 } as any)
 const ChatMergeConflictsRoute = ChatMergeConflictsRouteImport.update({
@@ -150,20 +150,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatIndexRouteImport
       parentRoute: typeof ChatRoute
     }
-    '/_chat/settings': {
-      id: '/_chat/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof ChatSettingsRouteImport
-      parentRoute: typeof ChatRoute
-    }
-    '/_chat/plugins': {
-      id: '/_chat/plugins'
-      path: '/plugins'
-      fullPath: '/plugins'
-      preLoaderRoute: typeof ChatPluginsRouteImport
-      parentRoute: typeof ChatRoute
-    }
     '/_chat/skills': {
       id: '/_chat/skills'
       path: '/skills'
@@ -171,11 +157,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatSkillsRouteImport
       parentRoute: typeof ChatRoute
     }
+    '/_chat/settings': {
+      id: '/_chat/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof ChatSettingsRouteImport
+      parentRoute: typeof ChatRoute
+    }
     '/_chat/pr-review': {
       id: '/_chat/pr-review'
       path: '/pr-review'
       fullPath: '/pr-review'
       preLoaderRoute: typeof ChatPrReviewRouteImport
+      parentRoute: typeof ChatRoute
+    }
+    '/_chat/plugins': {
+      id: '/_chat/plugins'
+      path: '/plugins'
+      fullPath: '/plugins'
+      preLoaderRoute: typeof ChatPluginsRouteImport
       parentRoute: typeof ChatRoute
     }
     '/_chat/merge-conflicts': {

@@ -11,6 +11,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - CLI npm package name is `okcodes`. Install with `npm install -g okcodes`; the `okcode` binary name is unchanged.
 
+## [0.0.8] - 2026-03-31
+
+See [docs/releases/v0.0.8.md](docs/releases/v0.0.8.md) for full notes and [docs/releases/v0.0.8/assets.md](docs/releases/v0.0.8/assets.md) for release asset inventory.
+
+### Added
+
+- Add skills library, install flow, and management UI.
+- Add skills UX improvements and session hardening around the skills workflow.
+- Add text file attachments to chat turns.
+- Add app locale loading and the intl provider.
+- Add full-context diff viewing for both file-scoped and per-file comparisons.
+- Add inline thread renaming with draft title persistence.
+- Add file attachment context handling.
+- Add project quick-new thread button.
+- Add PR number input support with repository auto-match.
+- Add interactive plan feedback in the sidebar.
+- Add sidebar accent and thread width settings.
+
+### Changed
+
+- Refresh the OK Code marketing site.
+- Improve raw patch rendering.
+- Allow toggling the code viewer without clearing open tabs.
+- Clear stale worktree paths before starting sessions.
+
+### Fixed
+
+- Fix dev runner entrypoint detection for desktop builds.
+- Fix YouTube player embed layout.
+
 ## [0.0.7] - 2026-03-31
 
 See [docs/releases/v0.0.7.md](docs/releases/v0.0.7.md) for full notes and [docs/releases/v0.0.7/assets.md](docs/releases/v0.0.7/assets.md) for release asset inventory.
@@ -184,3 +214,4 @@ First public version tag. See [docs/releases/v0.0.1.md](docs/releases/v0.0.1.md)
 [0.0.7]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.7
 [0.0.5]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.5
 [0.0.6]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.6
+[0.0.8]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.8

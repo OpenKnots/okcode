@@ -178,6 +178,7 @@ function categorizeCommits(messages: string[]): CategorizedCommits {
 
 function generateChangelogSection(version: string, commits: CategorizedCommits): string {
   const lines: string[] = [];
+  const changedEntries = [...commits.changed, ...commits.other];
   lines.push(`## [${version}] - ${today()}`);
   lines.push("");
   lines.push(
@@ -193,11 +194,11 @@ function generateChangelogSection(version: string, commits: CategorizedCommits):
     }
   }
 
-  if (commits.changed.length > 0) {
+  if (changedEntries.length > 0) {
     lines.push("");
     lines.push("### Changed");
     lines.push("");
-    for (const entry of commits.changed) {
+    for (const entry of changedEntries) {
       lines.push(`- ${capitalize(entry)}.`);
     }
   }
@@ -233,7 +234,7 @@ function generateReleaseNotes(
   summary: string,
   commits: CategorizedCommits,
 ): string {
-  const highlights = [...commits.added, ...commits.fixed, ...commits.changed]
+  const highlights = [...commits.added, ...commits.fixed, ...commits.changed, ...commits.other]
     .slice(0, 8)
     .map((entry) => `- **${capitalize(entry)}.**`)
     .join("\n");
@@ -345,7 +346,7 @@ function updateReleasesReadme(rootDir: string, version: string, shortDescription
   let content = readFileSync(readmePath, "utf8");
 
   // Find the table header separator line (| --- | --- | --- |)
-  const separatorRe = /\|[\s-]+\|[\s-]+\|[\s-]+\|/;
+  const separatorRe = /^\|[ -]+\|[ -]+\|[ -]+\|$/m;
   const match = content.match(separatorRe);
   if (!match || match.index === undefined) {
     fatal("Could not find the table in docs/releases/README.md");
@@ -536,7 +537,9 @@ async function main(): Promise<void> {
     const autoSummary = [
       categorized.added.length > 0 ? `${categorized.added.length} new feature(s)` : "",
       categorized.fixed.length > 0 ? `${categorized.fixed.length} fix(es)` : "",
-      categorized.changed.length > 0 ? `${categorized.changed.length} improvement(s)` : "",
+      categorized.changed.length + categorized.other.length > 0
+        ? `${categorized.changed.length + categorized.other.length} improvement(s)`
+        : "",
     ]
       .filter(Boolean)
       .join(", ");

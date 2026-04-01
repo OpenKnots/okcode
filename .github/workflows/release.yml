@@ -323,7 +323,7 @@ jobs:
           tag_name: ${{ needs.preflight.outputs.tag }}
           target_commitish: ${{ needs.preflight.outputs.ref }}
           name: OK Code v${{ needs.preflight.outputs.version }}
-          generate_release_notes: true
+          body_path: docs/releases/v${{ needs.preflight.outputs.version }}.md
           prerelease: ${{ needs.preflight.outputs.is_prerelease }}
           make_latest: ${{ needs.preflight.outputs.make_latest }}
           files: release-assets/*

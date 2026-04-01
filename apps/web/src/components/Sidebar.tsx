@@ -1443,35 +1443,6 @@ export default function Sidebar() {
               </SidebarMenuSubItem>
             )}
 
-            {project.expanded && (
-              <SidebarMenuSubItem className="w-full">
-                <SidebarMenuSubButton
-                  render={
-                    <button
-                      type="button"
-                      aria-label={`Create new thread in ${project.name}`}
-                      data-testid="new-thread-button"
-                      title={
-                        newThreadShortcutLabel
-                          ? `New thread (${newThreadShortcutLabel})`
-                          : "New thread"
-                      }
-                    />
-                  }
-                  data-thread-selection-safe
-                  size="sm"
-                  className="h-8 w-full translate-x-0 justify-start gap-2 rounded-md border border-primary/20 bg-linear-to-r from-primary/14 via-primary/10 to-transparent px-2.5 text-left text-[11px] font-medium text-primary shadow-[inset_0_1px_0_hsl(0_0%_100%/0.08)] transition-all duration-150 hover:border-primary/35 hover:from-primary/18 hover:via-primary/12 hover:text-primary"
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    void createNewThreadForProject(project.id);
-                  }}
-                >
-                  <PlusIcon className="size-3.5 shrink-0" />
-                  <span>New thread</span>
-                </SidebarMenuSubButton>
-              </SidebarMenuSubItem>
-            )}
           </SidebarMenuSub>
 
           {project.expanded && !appSettings.sidebarHideFiles ? (

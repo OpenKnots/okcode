@@ -618,6 +618,17 @@ export default function Sidebar() {
 
   const canAddProject = newCwd.trim().length > 0 && !isAddingProject;
 
+  const createNewThreadForProject = useCallback(
+    (projectId: ProjectId) => {
+      return handleNewThread(projectId, {
+        envMode: resolveSidebarNewThreadEnvMode({
+          defaultEnvMode: appSettings.defaultThreadEnvMode,
+        }),
+      });
+    },
+    [appSettings.defaultThreadEnvMode, handleNewThread],
+  );
+
   const handlePickFolder = async () => {
     const api = readNativeApi();
     if (!api || isPickingFolder) return;
@@ -1370,11 +1381,11 @@ export default function Sidebar() {
 
     return (
       <Collapsible className="group/collapsible" open={shouldShowThreadPanel}>
-        <div className="group/project-header relative">
+        <div className="group/project-header relative flex items-center gap-1.5">
           <SidebarMenuButton
             ref={isManualProjectSorting ? dragHandleProps?.setActivatorNodeRef : undefined}
             size="sm"
-            className={`gap-2 rounded-lg border border-transparent px-2.5 py-2.5 text-left bg-accent/40 hover:bg-accent/70 group-hover/project-header:bg-accent/70 group-hover/project-header:text-sidebar-accent-foreground dark:bg-accent/30 dark:hover:bg-accent/50 dark:group-hover/project-header:bg-accent/50 ${
+            className={`min-w-0 flex-1 gap-2 rounded-lg border border-transparent px-2.5 py-2.5 text-left bg-accent/40 hover:bg-accent/70 group-hover/project-header:bg-accent/70 group-hover/project-header:text-sidebar-accent-foreground dark:bg-accent/30 dark:hover:bg-accent/50 dark:group-hover/project-header:bg-accent/50 ${
               isManualProjectSorting ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
             }`}
             {...(isManualProjectSorting && dragHandleProps ? dragHandleProps.attributes : {})}
@@ -1424,6 +1435,30 @@ export default function Sidebar() {
               {project.name}
             </span>
           </SidebarMenuButton>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-xs"
+                  aria-label={`Create new thread in ${project.name}`}
+                  data-testid="project-quick-new-thread-button"
+                  className="hidden shrink-0 border-primary/25 bg-background/85 text-primary shadow-[0_10px_24px_-18px_color-mix(in_srgb,var(--primary)_70%,transparent)] transition-all duration-150 hover:border-primary/45 hover:bg-primary/10 hover:text-primary lg:inline-flex"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    void createNewThreadForProject(project.id);
+                  }}
+                >
+                  <PlusIcon className="size-3.5" />
+                </Button>
+              }
+            />
+            <TooltipPopup side="right">
+              {newThreadShortcutLabel ? `New thread (${newThreadShortcutLabel})` : "New thread"}
+            </TooltipPopup>
+          </Tooltip>
         </div>
 
         <CollapsibleContent>
@@ -1481,18 +1516,14 @@ export default function Sidebar() {
                   }
                   data-thread-selection-safe
                   size="sm"
-                  className="h-6 w-full translate-x-0 justify-start gap-1.5 px-2 text-left text-[11px] text-muted-foreground/35 transition-colors duration-150 hover:bg-accent/50 hover:text-muted-foreground/65"
+                  className="h-8 w-full translate-x-0 justify-start gap-2 rounded-md border border-primary/20 bg-linear-to-r from-primary/14 via-primary/10 to-transparent px-2.5 text-left text-[11px] font-medium text-primary shadow-[inset_0_1px_0_hsl(0_0%_100%/0.08)] transition-all duration-150 hover:border-primary/35 hover:from-primary/18 hover:via-primary/12 hover:text-primary"
                   onClick={(event) => {
                     event.preventDefault();
                     event.stopPropagation();
-                    void handleNewThread(project.id, {
-                      envMode: resolveSidebarNewThreadEnvMode({
-                        defaultEnvMode: appSettings.defaultThreadEnvMode,
-                      }),
-                    });
+                    void createNewThreadForProject(project.id);
                   }}
                 >
-                  <PlusIcon className="size-3 shrink-0" />
+                  <PlusIcon className="size-3.5 shrink-0" />
                   <span>New thread</span>
                 </SidebarMenuSubButton>
               </SidebarMenuSubItem>

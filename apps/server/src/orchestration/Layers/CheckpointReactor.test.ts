@@ -163,6 +163,12 @@ function runGit(cwd: string, args: ReadonlyArray<string>) {
     cwd,
     stdio: ["ignore", "pipe", "pipe"],
     encoding: "utf8",
+    env: {
+      ...process.env,
+      GIT_CONFIG_COUNT: "1",
+      GIT_CONFIG_KEY_0: "commit.gpgsign",
+      GIT_CONFIG_VALUE_0: "false",
+    },
   });
 }
 

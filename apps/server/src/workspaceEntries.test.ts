@@ -9,6 +9,12 @@ import { afterEach, assert, describe, it, vi } from "vitest";
 import { listWorkspaceDirectory, searchWorkspaceEntries } from "./workspaceEntries";
 
 const tempDirs: string[] = [];
+const TEST_GIT_ENV = {
+  ...process.env,
+  GIT_CONFIG_COUNT: "1",
+  GIT_CONFIG_KEY_0: "commit.gpgsign",
+  GIT_CONFIG_VALUE_0: "false",
+};
 
 function makeTempDir(prefix: string): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
@@ -23,7 +29,7 @@ function writeFile(cwd: string, relativePath: string, contents = ""): void {
 }
 
 function runGit(cwd: string, args: string[]): void {
-  const result = spawnSync("git", args, { cwd, encoding: "utf8" });
+  const result = spawnSync("git", args, { cwd, encoding: "utf8", env: TEST_GIT_ENV });
   if (result.status !== 0) {
     throw new Error(result.stderr || `git ${args.join(" ")} failed`);
   }

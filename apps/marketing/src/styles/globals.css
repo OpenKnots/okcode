@@ -1,40 +1,24 @@
 :root {
-  /* Color system - Dark theme for developer tools */
+  /* Color system - Minimal dark theme matching OK Code app */
   --background: #0a0a0a;
-  --foreground: #ededed;
-  --card: #141414;
-  --card-foreground: #ededed;
-  --popover: #141414;
-  --popover-foreground: #ededed;
-  --primary: #ffffff;
-  --primary-foreground: #0a0a0a;
-  --secondary: #1f1f1f;
-  --secondary-foreground: #ededed;
+  --foreground: #fafafa;
+  --card: #0f0f0f;
+  --card-foreground: #fafafa;
   --muted: #171717;
-  --muted-foreground: #a1a1a1;
-  --accent: #262626;
-  --accent-foreground: #ededed;
-  --destructive: #dc2626;
-  --destructive-foreground: #ffffff;
-  --border: rgba(255, 255, 255, 0.1);
-  --input: #1f1f1f;
-  --ring: rgba(255, 255, 255, 0.2);
-  --radius: 0.75rem;
+  --muted-foreground: #737373;
+  --border: #262626;
+  --input: #171717;
+  --ring: #404040;
+  --radius: 8px;
 
-  /* Accent colors */
-  --accent-green: #10b981;
-  --accent-blue: #3b82f6;
-  --accent-purple: #8b5cf6;
-  --accent-orange: #f97316;
+  /* Semantic colors */
+  --success: #22c55e;
+  --warning: #eab308;
+  --error: #ef4444;
 
   color-scheme: dark;
   font-family:
-    "Inter",
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    Roboto,
-    sans-serif;
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 * {
@@ -51,12 +35,12 @@ body {
   background: var(--background);
   color: var(--foreground);
   min-height: 100vh;
-  line-height: 1.6;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Typography */
+/* Typography - Clean and minimal */
 h1,
 h2,
 h3,
@@ -64,29 +48,28 @@ h4,
 h5,
 h6 {
   font-weight: 600;
-  line-height: 1.2;
-  letter-spacing: -0.02em;
+  line-height: 1.25;
+  letter-spacing: -0.025em;
   color: var(--foreground);
 }
 
 h1 {
-  font-size: clamp(2.5rem, 6vw, 4rem);
-  font-weight: 700;
-  letter-spacing: -0.03em;
+  font-size: clamp(2rem, 5vw, 3rem);
+  font-weight: 600;
 }
 
 h2 {
-  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-size: clamp(1.5rem, 3vw, 2rem);
 }
 
 h3 {
-  font-size: clamp(1.25rem, 2.5vw, 1.5rem);
+  font-size: 1.125rem;
 }
 
 p {
   color: var(--muted-foreground);
-  font-size: 1rem;
-  line-height: 1.7;
+  font-size: 0.9375rem;
+  line-height: 1.6;
 }
 
 a {
@@ -94,23 +77,27 @@ a {
   text-decoration: none;
 }
 
+a:hover {
+  color: var(--foreground);
+}
+
 code {
-  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
-  background: var(--secondary);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  background: var(--muted);
   border: 1px solid var(--border);
   border-radius: 6px;
-  padding: 0.2rem 0.5rem;
-  font-size: 0.875em;
+  padding: 0.125rem 0.375rem;
+  font-size: 0.8125rem;
 }
 
 /* Layout utilities */
 .container {
-  max-width: 1200px;
+  max-width: 1100px;
   margin: 0 auto;
   padding: 0 1.5rem;
 }
 
-/* Button styles */
+/* Button styles - Flat and minimal */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -118,46 +105,47 @@ code {
   gap: 0.5rem;
   font-weight: 500;
   font-size: 0.875rem;
-  padding: 0.75rem 1.5rem;
-  border-radius: var(--radius);
+  padding: 0.625rem 1.25rem;
+  border-radius: 6px;
   border: none;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
   white-space: nowrap;
 }
 
 .btn-primary {
-  background: var(--primary);
-  color: var(--primary-foreground);
+  background: var(--foreground);
+  color: var(--background);
 }
 
 .btn-primary:hover {
-  background: rgba(255, 255, 255, 0.9);
-  transform: translateY(-1px);
+  background: #e5e5e5;
 }
 
 .btn-secondary {
-  background: var(--secondary);
+  background: var(--muted);
   color: var(--foreground);
   border: 1px solid var(--border);
 }
 
 .btn-secondary:hover {
-  background: var(--accent);
-  border-color: rgba(255, 255, 255, 0.15);
+  background: #1f1f1f;
+  border-color: #333;
 }
 
-.btn-outline {
+.btn-ghost {
   background: transparent;
+  color: var(--muted-foreground);
+}
+
+.btn-ghost:hover {
   color: var(--foreground);
-  border: 1px solid var(--border);
+  background: var(--muted);
 }
 
-.btn-outline:hover {
-  background: var(--secondary);
-}
-
-/* Card styles */
+/* Card styles - Subtle and clean */
 .card {
   background: var(--card);
   border: 1px solid var(--border);
@@ -166,18 +154,18 @@ code {
 }
 
 .card:hover {
-  border-color: rgba(255, 255, 255, 0.15);
+  border-color: #333;
 }
 
 /* Badge styles */
 .badge {
   display: inline-flex;
   align-items: center;
-  padding: 0.25rem 0.75rem;
+  padding: 0.25rem 0.625rem;
   font-size: 0.75rem;
   font-weight: 500;
-  border-radius: 9999px;
-  background: var(--secondary);
+  border-radius: 6px;
+  background: var(--muted);
   color: var(--muted-foreground);
   border: 1px solid var(--border);
 }
@@ -185,82 +173,8 @@ code {
 /* Grid layouts */
 .grid-features {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1.5rem;
-}
-
-/* Animations */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes float {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
-}
-
-.animate-fadeIn {
-  animation: fadeIn 0.6s ease-out forwards;
-}
-
-.animate-float {
-  animation: float 6s ease-in-out infinite;
-}
-
-/* Glow effects */
-.glow {
-  position: relative;
-}
-
-.glow::before {
-  content: "";
-  position: absolute;
-  inset: -1px;
-  border-radius: inherit;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), transparent 50%);
-  pointer-events: none;
-}
-
-/* Selection */
-::selection {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-/* Scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: var(--background);
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-/* Focus visible */
-:focus-visible {
-  outline: 2px solid rgba(255, 255, 255, 0.4);
-  outline-offset: 2px;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1rem;
 }
 
 /* Skills section grid */
@@ -275,13 +189,44 @@ code {
 .footer-grid {
   display: grid;
   grid-template-columns: 2fr 1fr 1fr 1fr;
-  gap: 4rem;
+  gap: 3rem;
+}
+
+/* Selection */
+::selection {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Scrollbar - Minimal */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #333;
+}
+
+/* Focus visible */
+:focus-visible {
+  outline: 2px solid #404040;
+  outline-offset: 2px;
 }
 
 /* Responsive styles */
 @media (max-width: 900px) {
   .skills-grid {
     grid-template-columns: 1fr;
+    gap: 2rem;
   }
 
   .footer-grid {
@@ -299,11 +244,7 @@ code {
     grid-template-columns: 1fr;
   }
 
-  h1 {
-    font-size: 2rem;
-  }
-
-  h2 {
-    font-size: 1.5rem;
+  .container {
+    padding: 0 1rem;
   }
 }

@@ -10,8 +10,8 @@ export function Header() {
         left: 0,
         right: 0,
         zIndex: 50,
-        backdropFilter: "blur(12px)",
-        backgroundColor: "rgba(10, 10, 10, 0.8)",
+        backdropFilter: "blur(8px)",
+        backgroundColor: "rgba(10, 10, 10, 0.85)",
         borderBottom: "1px solid var(--border)",
       }}
     >
@@ -21,7 +21,7 @@ export function Header() {
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          height: "64px",
+          height: "56px",
         }}
       >
         <Link
@@ -29,21 +29,21 @@ export function Header() {
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "0.75rem",
+            gap: "0.625rem",
           }}
         >
           <Image
             src="/okcode-logo.png"
             alt="OK Code"
-            width={32}
-            height={32}
-            style={{ borderRadius: "8px" }}
+            width={28}
+            height={28}
+            style={{ borderRadius: "6px" }}
           />
           <span
             style={{
-              fontWeight: 600,
-              fontSize: "1.125rem",
-              letterSpacing: "-0.02em",
+              fontWeight: 500,
+              fontSize: "0.9375rem",
+              letterSpacing: "-0.01em",
             }}
           >
             OK Code
@@ -54,73 +54,41 @@ export function Header() {
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "2rem",
+            gap: "1.5rem",
           }}
         >
-          <Link
-            href="#features"
-            style={{
-              fontSize: "0.875rem",
-              color: "var(--muted-foreground)",
-              transition: "color 0.2s",
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--foreground)")}
-            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted-foreground)")}
-          >
-            Features
-          </Link>
-          <Link
-            href="#providers"
-            style={{
-              fontSize: "0.875rem",
-              color: "var(--muted-foreground)",
-              transition: "color 0.2s",
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--foreground)")}
-            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted-foreground)")}
-          >
-            Providers
-          </Link>
-          <Link
-            href="https://github.com/OpenKnots/okcode"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              fontSize: "0.875rem",
-              color: "var(--muted-foreground)",
-              transition: "color 0.2s",
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--foreground)")}
-            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted-foreground)")}
-          >
-            GitHub
-          </Link>
-          <Link
-            href="https://discord.gg/openknot"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              fontSize: "0.875rem",
-              color: "var(--muted-foreground)",
-              transition: "color 0.2s",
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--foreground)")}
-            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted-foreground)")}
-          >
-            Discord
-          </Link>
+          {["Features", "Providers", "GitHub", "Discord"].map((item) => (
+            <Link
+              key={item}
+              href={
+                item === "GitHub"
+                  ? "https://github.com/OpenKnots/okcode"
+                  : item === "Discord"
+                    ? "https://discord.gg/openknot"
+                    : `#${item.toLowerCase()}`
+              }
+              target={item === "GitHub" || item === "Discord" ? "_blank" : undefined}
+              rel={item === "GitHub" || item === "Discord" ? "noopener noreferrer" : undefined}
+              style={{
+                fontSize: "0.8125rem",
+                color: "var(--muted-foreground)",
+                transition: "color 0.15s",
+              }}
+            >
+              {item}
+            </Link>
+          ))}
         </nav>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-          <Link
-            href="https://github.com/OpenKnots/okcode/releases"
-            className="btn btn-primary"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Download
-          </Link>
-        </div>
+        <Link
+          href="https://github.com/OpenKnots/okcode/releases"
+          className="btn btn-primary"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ padding: "0.5rem 1rem", fontSize: "0.8125rem" }}
+        >
+          Download
+        </Link>
       </div>
     </header>
   );

@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 const steps = [
   {
     number: "01",
@@ -25,7 +23,7 @@ export function GetStarted() {
   return (
     <section
       style={{
-        padding: "120px 0",
+        padding: "80px 0",
         borderTop: "1px solid var(--border)",
         background: "var(--card)",
       }}
@@ -33,16 +31,16 @@ export function GetStarted() {
       <div className="container">
         <div
           style={{
-            maxWidth: "600px",
-            margin: "0 auto 4rem",
+            maxWidth: "480px",
+            margin: "0 auto 3rem",
             textAlign: "center",
           }}
         >
-          <div className="badge" style={{ marginBottom: "1rem" }}>
+          <div className="badge" style={{ marginBottom: "0.75rem" }}>
             Quick Start
           </div>
           <h2>Get started in minutes</h2>
-          <p style={{ marginTop: "1rem" }}>
+          <p style={{ marginTop: "0.75rem" }}>
             Three simple steps to supercharge your development workflow with AI.
           </p>
         </div>
@@ -50,9 +48,9 @@ export function GetStarted() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-            gap: "2rem",
-            maxWidth: "1000px",
+            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+            gap: "1rem",
+            maxWidth: "900px",
             margin: "0 auto",
           }}
         >
@@ -62,37 +60,42 @@ export function GetStarted() {
               style={{
                 background: "var(--background)",
                 border: "1px solid var(--border)",
-                borderRadius: "var(--radius)",
-                padding: "2rem",
+                borderRadius: "8px",
+                padding: "1.5rem",
                 position: "relative",
               }}
             >
               <span
                 style={{
-                  fontSize: "3rem",
-                  fontWeight: 700,
-                  color: "var(--muted)",
+                  fontSize: "2rem",
+                  fontWeight: 600,
+                  color: "var(--border)",
                   position: "absolute",
                   top: "1rem",
-                  right: "1.5rem",
+                  right: "1rem",
                   lineHeight: 1,
                 }}
               >
                 {step.number}
               </span>
-              <h3 style={{ marginBottom: "0.75rem", paddingRight: "3rem" }}>{step.title}</h3>
-              <p style={{ fontSize: "0.875rem", marginBottom: "1rem" }}>{step.description}</p>
+              <h3 style={{ marginBottom: "0.5rem", paddingRight: "2.5rem", fontSize: "1rem" }}>
+                {step.title}
+              </h3>
+              <p style={{ fontSize: "0.8125rem", marginBottom: step.code ? "1rem" : 0 }}>
+                {step.description}
+              </p>
               {step.code && (
                 <pre
                   style={{
-                    background: "var(--secondary)",
+                    background: "var(--muted)",
                     border: "1px solid var(--border)",
-                    borderRadius: "8px",
-                    padding: "1rem",
-                    fontFamily: "'JetBrains Mono', monospace",
-                    fontSize: "0.8125rem",
+                    borderRadius: "6px",
+                    padding: "0.75rem",
+                    fontFamily: "ui-monospace, SFMono-Regular, monospace",
+                    fontSize: "0.75rem",
                     color: "var(--muted-foreground)",
                     overflow: "auto",
+                    whiteSpace: "pre-wrap",
                   }}
                 >
                   {step.code}
@@ -104,13 +107,14 @@ export function GetStarted() {
 
         <div
           style={{
-            marginTop: "4rem",
+            marginTop: "3rem",
             textAlign: "center",
           }}
         >
           <p
             style={{
-              marginBottom: "1.5rem",
+              marginBottom: "1rem",
+              fontSize: "0.8125rem",
               color: "var(--muted-foreground)",
             }}
           >
@@ -119,11 +123,11 @@ export function GetStarted() {
           <code
             style={{
               display: "inline-block",
-              background: "var(--background)",
-              padding: "0.75rem 1.5rem",
-              borderRadius: "var(--radius)",
-              fontFamily: "'JetBrains Mono', monospace",
-              fontSize: "0.875rem",
+              background: "var(--muted)",
+              padding: "0.5rem 1rem",
+              borderRadius: "6px",
+              fontFamily: "ui-monospace, SFMono-Regular, monospace",
+              fontSize: "0.8125rem",
             }}
           >
             npx okcodes doctor

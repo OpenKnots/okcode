@@ -101,7 +101,6 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   CircleAlertIcon,
-  ImagePlusIcon,
   ListTodoIcon,
   LockIcon,
   LockOpenIcon,
@@ -388,11 +387,19 @@ export default function ChatView({ threadId }: ChatViewProps) {
   const prompt = composerDraft.prompt;
   const composerAttachments = composerDraft.attachments;
   const composerImageAttachments = useMemo(
-    () => composerAttachments.filter((attachment) => attachment.type === "image"),
+    () =>
+      composerAttachments.filter(
+        (attachment): attachment is Extract<ComposerAttachment, { type: "image" }> =>
+          attachment.type === "image",
+      ),
     [composerAttachments],
   );
   const composerFileAttachments = useMemo(
-    () => composerAttachments.filter((attachment) => attachment.type === "file"),
+    () =>
+      composerAttachments.filter(
+        (attachment): attachment is Extract<ComposerAttachment, { type: "file" }> =>
+          attachment.type === "file",
+      ),
     [composerAttachments],
   );
   const composerTerminalContexts = composerDraft.terminalContexts;
@@ -2351,7 +2358,9 @@ export default function ChatView({ threadId }: ChatViewProps) {
         // Stage attachments in persisted draft state first so persist middleware can write them.
         syncComposerDraftPersistedAttachments(threadId, serialized);
       } catch {
-        const currentAttachmentIds = new Set(composerAttachments.map((attachment) => attachment.id));
+        const currentAttachmentIds = new Set(
+          composerAttachments.map((attachment) => attachment.id),
+        );
         const fallbackPersistedAttachments = getPersistedAttachmentsForThread();
         const fallbackPersistedIds = fallbackPersistedAttachments
           .map((attachment) => attachment.id)
@@ -2500,7 +2509,9 @@ export default function ChatView({ threadId }: ChatViewProps) {
       nextQueued.text,
       composerTerminalContextsSnapshot,
     );
-    const fallbackOutgoingText = nextQueued.attachments.some((attachment) => attachment.type === "image")
+    const fallbackOutgoingText = nextQueued.attachments.some(
+      (attachment) => attachment.type === "image",
+    )
       ? IMAGE_ONLY_BOOTSTRAP_PROMPT
       : "";
     const outgoingMessageText = formatOutgoingPrompt({
@@ -4696,8 +4707,8 @@ export default function ChatView({ threadId }: ChatViewProps) {
                               "Resolve this approval request to continue")
                             : activePendingProgress
                               ? "Type your own answer, or leave this blank to use the selected option"
-                                : showPlanFollowUpPrompt && activeProposedPlan
-                                  ? "Add feedback to refine the plan, or leave this blank to implement it"
+                              : showPlanFollowUpPrompt && activeProposedPlan
+                                ? "Add feedback to refine the plan, or leave this blank to implement it"
                                 : phase === "disconnected"
                                   ? "Ask for follow-up changes or attach files"
                                   : "Ask anything, @tag files/folders, or use / to show available commands"

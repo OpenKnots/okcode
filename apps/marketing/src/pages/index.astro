@@ -1,13 +1,22 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import Hero from "../components/Hero.astro";
+import LogoCloud from "../components/LogoCloud.astro";
 import TrustStrip from "../components/TrustStrip.astro";
+import StatsBar from "../components/StatsBar.astro";
 import FeatureGrid from "../components/FeatureGrid.astro";
 import WorkflowSection from "../components/WorkflowSection.astro";
 import CoreSurfaces from "../components/CoreSurfaces.astro";
 import ThemeShowcase from "../components/ThemeShowcase.astro";
 import FaqSection from "../components/FaqSection.astro";
 import FinalCta from "../components/FinalCta.astro";
+
+const metrics = [
+  { value: "100%", label: "Open Source" },
+  { value: "5", label: "Core Surfaces" },
+  { value: "3", label: "Premium Themes" },
+  { value: "<1s", label: "Thread Restore" },
+] as const;
 
 const description =
   "OK Code is the premium dark workspace for AI coding flows — persistent threads, diffs, preview, PR review, and release actions in one calm desktop + web product.";

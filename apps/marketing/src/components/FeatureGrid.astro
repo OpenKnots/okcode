@@ -11,7 +11,7 @@ const icons = [
 ] as const;
 ---
 
-<section id="features" class="feature-grid feature-grid--bento" aria-label="Core product pillars" data-reveal>
+<section id="features" class="feature-grid feature-grid--bento" aria-label="Core product pillars" data-reveal data-reveal-children>
   {pillars.map((pillar, index) => (
     <article class={`feature-card feature-card--bento feature-card--${index + 1}`}>
       <div class="feature-card-head">
@@ -25,3 +25,37 @@ const icons = [
     </article>
   ))}
 </section>
+
+<style>
+  .feature-card {
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease, border-color 0.3s ease;
+  }
+
+  .feature-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--kn-landing-accent, #ca3a29), transparent);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .feature-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.4), 0 0 40px rgba(202, 58, 41, 0.06);
+    border-color: var(--kn-landing-border-hover, rgba(192, 200, 212, 0.16));
+  }
+
+  .feature-card:hover::before {
+    opacity: 1;
+  }
+
+  .feature-card--1 :global(.kn-ico-wrap) { color: var(--kn-landing-accent-bright, #ff4e41); }
+  .feature-card--2 :global(.kn-ico-wrap) { color: #67e8f9; }
+  .feature-card--3 :global(.kn-ico-wrap) { color: #fbbf24; }
+</style>

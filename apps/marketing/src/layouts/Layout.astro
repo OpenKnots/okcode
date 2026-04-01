@@ -52,6 +52,12 @@ const ogImage = Astro.site ? new URL(ogImagePath, Astro.site).href : null;
             <span class="nav-wordmark">OK Code</span>
           </a>
 
+          <button class="kn-nav-toggle" aria-label="Toggle menu" aria-expanded="false">
+            <span class="kn-nav-toggle-bar"></span>
+            <span class="kn-nav-toggle-bar"></span>
+            <span class="kn-nav-toggle-bar"></span>
+          </button>
+
           <div class="kn-nav-links">
             <a href="#features" class="kn-nav-link">Features</a>
             <a href="#surfaces" class="kn-nav-link">Surfaces</a>
@@ -75,21 +81,55 @@ const ogImage = Astro.site ? new URL(ogImagePath, Astro.site).href : null;
       </main>
 
       <footer class="kn-footer">
+        <div class="kn-footer-gradient-line"></div>
         <div class="kn-footer-inner content-wrap">
-          <span class="kn-footer-mark">
-            <img src="/icon.png" alt="" class="footer-icon" width="14" height="14" />
-            OK Code
-          </span>
-          <div class="kn-footer-links">
-            <a href="https://github.com/OpenKnots/okcode" target="_blank" rel="noopener noreferrer">GitHub</a>
-            <a href="https://discord.gg/jn4EGJjrvv" target="_blank" rel="noopener noreferrer">Discord</a>
-            <span>&copy; {new Date().getFullYear()} OpenKnots</span>
+          <div class="kn-footer-grid">
+            <div class="kn-footer-brand">
+              <a href="/" class="kn-footer-mark">
+                <img src="/icon.png" alt="" class="footer-icon" width="20" height="20" />
+                <span>OK Code</span>
+              </a>
+              <p class="kn-footer-tagline">A minimal GUI for coding agents.<br />Web and desktop.</p>
+            </div>
+
+            <div class="kn-footer-col">
+              <h4 class="kn-footer-heading">Product</h4>
+              <ul class="kn-footer-list">
+                <li><a href="#features">Features</a></li>
+                <li><a href="#surfaces">Surfaces</a></li>
+                <li><a href="#themes">Themes</a></li>
+                <li><a href="#faq">FAQ</a></li>
+                <li><a href="#download">Download</a></li>
+              </ul>
+            </div>
+
+            <div class="kn-footer-col">
+              <h4 class="kn-footer-heading">Community</h4>
+              <ul class="kn-footer-list">
+                <li><a href="https://github.com/OpenKnots/okcode" target="_blank" rel="noopener noreferrer">GitHub</a></li>
+                <li><a href="https://discord.gg/jn4EGJjrvv" target="_blank" rel="noopener noreferrer">Discord</a></li>
+              </ul>
+            </div>
+
+            <div class="kn-footer-col">
+              <h4 class="kn-footer-heading">Legal</h4>
+              <ul class="kn-footer-list">
+                <li><a href="#">Privacy</a></li>
+                <li><a href="#">Terms</a></li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="kn-footer-bottom">
+            <span class="kn-footer-copyright">&copy; {new Date().getFullYear()} OpenKnots</span>
+            <a href="#" class="kn-footer-top-link">Back to top &uarr;</a>
           </div>
         </div>
       </footer>
     </div>
 
     <script>
+      /* ── Header scroll state ── */
       const header = document.querySelector("[data-site-header]");
       if (header) {
         const onScroll = () => {
@@ -98,6 +138,81 @@ const ogImage = Astro.site ? new URL(ogImagePath, Astro.site).href : null;
         onScroll();
         window.addEventListener("scroll", onScroll, { passive: true });
       }
+
+      /* ── Scroll-spy for nav links ── */
+      const navLinks = document.querySelectorAll<HTMLAnchorElement>(".kn-nav-link");
+      const spySections = document.querySelectorAll<HTMLElement>("#features, #surfaces, #faq");
+
+      if (spySections.length > 0 && navLinks.length > 0) {
+        const spyObserver = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              const id = entry.target.getAttribute("id");
+              const link = document.querySelector<HTMLAnchorElement>(`.kn-nav-link[href="#${id}"]`);
+              if (link) {
+                link.classList.toggle("is-active", entry.isIntersecting);
+              }
+            });
+          },
+          { rootMargin: "-20% 0px -60% 0px", threshold: 0 }
+        );
+        spySections.forEach((s) => spyObserver.observe(s));
+      }
+
+      /* ── Mobile menu toggle ── */
+      const toggle = document.querySelector<HTMLButtonElement>(".kn-nav-toggle");
+      const navLinksContainer = document.querySelector<HTMLElement>(".kn-nav-links");
+
+      if (toggle && navLinksContainer) {
+        const openMenu = () => {
+          toggle.classList.add("is-open");
+          toggle.setAttribute("aria-expanded", "true");
+          navLinksContainer.classList.add("is-open");
+          document.body.style.overflow = "hidden";
+        };
+
+        const closeMenu = () => {
+          toggle.classList.remove("is-open");
+          toggle.setAttribute("aria-expanded", "false");
+          navLinksContainer.classList.remove("is-open");
+          document.body.style.overflow = "";
+        };
+
+        toggle.addEventListener("click", () => {
+          const isOpen = toggle.classList.contains("is-open");
+          isOpen ? closeMenu() : openMenu();
+        });
+
+        navLinksContainer.querySelectorAll("a").forEach((link) => {
+          link.addEventListener("click", closeMenu);
+        });
+
+        document.addEventListener("keydown", (e) => {
+          if (e.key === "Escape") closeMenu();
+        });
+      }
+
+      /* ── Smooth scroll with offset for sticky header ── */
+      document.querySelectorAll<HTMLAnchorElement>('a[href^="#"]').forEach((anchor) => {
+        anchor.addEventListener("click", (e) => {
+          const href = anchor.getAttribute("href");
+          if (!href || href === "#") return;
+          const target = document.querySelector(href);
+          if (target) {
+            e.preventDefault();
+            const headerHeight = header ? header.getBoundingClientRect().height : 0;
+            const top = target.getBoundingClientRect().top + window.scrollY - headerHeight - 16;
+            window.scrollTo({ top, behavior: "smooth" });
+          }
+        });
+      });
+
+      /* ── Reveal children stagger indices ── */
+      document.querySelectorAll("[data-reveal-children]").forEach((container) => {
+        Array.from(container.children).forEach((child, i) => {
+          (child as HTMLElement).style.setProperty("--reveal-index", String(i));
+        });
+      });
     </script>
   </body>
 </html>
@@ -126,6 +241,7 @@ const ogImage = Astro.site ? new URL(ogImagePath, Astro.site).href : null;
     --kn-landing-border: rgba(192, 200, 212, 0.08);
     --kn-landing-border-hover: rgba(192, 200, 212, 0.16);
     --kn-landing-card-bg: rgba(192, 200, 212, 0.02);
+    --kn-landing-card-bg-hover: rgba(192, 200, 212, 0.04);
     --kn-landing-glow-1: rgba(192, 200, 212, 0.07);
     --kn-landing-glow-2: rgba(202, 58, 41, 0.06);
     --kn-landing-star-color: #c0c8d4;
@@ -140,6 +256,9 @@ const ogImage = Astro.site ? new URL(ogImagePath, Astro.site).href : null;
     --kn-landing-footer-link-hover: #ff4e41;
     --kn-landing-ico-bg: rgba(192, 200, 212, 0.04);
     --kn-landing-status-green: #00d4aa;
+    --kn-landing-section-gap: clamp(5rem, 8vw, 8rem);
+    --kn-landing-ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+    --kn-landing-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
   * {
@@ -151,6 +270,7 @@ const ogImage = Astro.site ? new URL(ogImagePath, Astro.site).href : null;
   html {
     color-scheme: dark;
     scroll-behavior: smooth;
+    scroll-padding-top: 5rem;
   }
 
   body {
@@ -168,7 +288,7 @@ const ogImage = Astro.site ? new URL(ogImagePath, Astro.site).href : null;
     position: fixed;
     inset: 0;
     pointer-events: none;
-    opacity: 0.05;
+    opacity: 0.03;
     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
     z-index: 1;
   }
@@ -224,6 +344,41 @@ const ogImage = Astro.site ? new URL(ogImagePath, Astro.site).href : null;
     min-width: 0;
   }
 
+  /* ── Keyframe Animations ── */
+
+  @keyframes kn-star-twinkle {
+    0%, 100% { opacity: 0.12; }
+    50% { opacity: 0.6; }
+  }
+
+  @keyframes gradient-shift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-12px); }
+  }
+
+  @keyframes fade-in-up {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Header ── */
+
   .site-header {
     position: sticky;
     top: 0;
@@ -264,6 +419,44 @@ const ogImage = Astro.site ? new URL(ogImagePath, Astro.site).href : null;
     box-shadow: 0 0 18px rgba(167, 139, 250, 0.12);
   }
 
+  /* ── Mobile hamburger toggle ── */
+
+  .kn-nav-toggle {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    width: 36px;
+    height: 36px;
+    padding: 6px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    z-index: 25;
+  }
+
+  .kn-nav-toggle-bar {
+    display: block;
+    width: 100%;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--kn-landing-text-secondary);
+    transition: transform 0.3s var(--kn-landing-ease-out-expo), opacity 0.3s ease;
+    transform-origin: center;
+  }
+
+  .kn-nav-toggle.is-open .kn-nav-toggle-bar:nth-child(1) {
+    transform: translateY(7px) rotate(45deg);
+  }
+  .kn-nav-toggle.is-open .kn-nav-toggle-bar:nth-child(2) {
+    opacity: 0;
+  }
+  .kn-nav-toggle.is-open .kn-nav-toggle-bar:nth-child(3) {
+    transform: translateY(-7px) rotate(-45deg);
+  }
+
+  /* ── Nav Links ── */
+
   .kn-nav-links {
     display: flex;
     align-items: center;
@@ -272,6 +465,7 @@ const ogImage = Astro.site ? new URL(ogImagePath, Astro.site).href : null;
   }
 
   .kn-nav-link {
+    position: relative;
     color: var(--kn-landing-nav-link);
     font-size: 0.84rem;
     transition: color 0.2s ease;
@@ -279,6 +473,22 @@ const ogImage = Astro.site ? new URL(ogImagePath, Astro.site).href : null;
 
   .kn-nav-link:hover {
     color: var(--kn-landing-text-secondary);
+  }
+
+  .kn-nav-link.is-active {
+    color: var(--kn-landing-accent-bright);
+  }
+
+  .kn-nav-link.is-active::after {
+    content: "";
+    position: absolute;
+    bottom: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--kn-landing-accent-bright);
   }
 
   .kn-nav-signin,
@@ -322,6 +532,8 @@ const ogImage = Astro.site ? new URL(ogImagePath, Astro.site).href : null;
     box-shadow: 0 12px 36px rgba(0, 0, 0, 0.24), 0 0 24px rgba(202, 58, 41, 0.08);
   }
 
+  /* ── Sections ── */
+
   .hero,
   .trust-strip,
   .feature-grid,
@@ -353,11 +565,6 @@ const ogImage = Astro.site ? new URL(ogImagePath, Astro.site).href : null;
     height: 100%;
   }
 
-  @keyframes kn-star-twinkle {
-    0%, 100% { opacity: 0.12; }
-    50% { opacity: 0.6; }
-  }
-
   .kn-star-twinkle {
     animation: kn-star-twinkle 5s ease-in-out infinite;
   }
@@ -377,12 +584,14 @@ const ogImage = Astro.site ? new URL(ogImagePath, Astro.site).href : null;
   .kn-dot { fill: var(--kn-landing-text-secondary); opacity: 0.25; }
   .kn-glow { fill: var(--kn-landing-accent); opacity: 0.06; }
 
+  /* ── Reveal Animations ── */
+
   [data-reveal] {
     opacity: 0;
     transform: translateY(16px);
     transition:
-      opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1),
-      transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+      opacity 0.8s var(--kn-landing-ease-out-expo),
+      transform 0.8s var(--kn-landing-ease-out-expo);
     will-change: opacity, transform;
   }
 
@@ -391,12 +600,26 @@ const ogImage = Astro.site ? new URL(ogImagePath, Astro.site).href : null;
     transform: translateY(0);
   }
 
+  [data-reveal-children] > * {
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 0.6s var(--kn-landing-ease-out-expo), transform 0.6s var(--kn-landing-ease-out-expo);
+    transition-delay: calc(var(--reveal-index, 0) * 80ms);
+  }
+
+  [data-reveal-children].revealed > * {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* ── Tab Panels ── */
+
   [data-tab-panel] {
     opacity: 0;
     transform: translateY(8px);
     transition:
-      opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1),
-      transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      opacity 0.35s var(--kn-landing-ease-out-expo),
+      transform 0.35s var(--kn-landing-ease-out-expo);
     position: absolute;
     inset: 0 auto auto 0;
     width: 100%;
@@ -412,6 +635,8 @@ const ogImage = Astro.site ? new URL(ogImagePath, Astro.site).href : null;
     visibility: visible;
   }
 
+  /* ── Card System ── */
+
   .kn-card,
   .feature-card,
   .workflow-card,
@@ -425,12 +650,15 @@ const ogImage = Astro.site ? new URL(ogImagePath, Astro.site).href : null;
   .panel,
   .rail,
   .final-cta {
+    position: relative;
+    overflow: hidden;
     background: var(--kn-landing-card-bg);
     border: 1px solid var(--kn-landing-border);
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.04),
       0 24px 80px rgba(0, 0, 0, 0.34);
     backdrop-filter: blur(18px);
+    transition: border-color 0.3s ease, box-shadow 0.4s ease, transform 0.3s var(--kn-landing-ease-out-expo);
   }
 
   .kn-card:hover,
@@ -441,8 +669,15 @@ const ogImage = Astro.site ? new URL(ogImagePath, Astro.site).href : null;
   .theme-preview-card:hover,
   .faq-card:hover,
   .trust-item:hover {
+    transform: translateY(-2px);
     border-color: var(--kn-landing-border-hover);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.04),
+      0 28px 90px rgba(0, 0, 0, 0.38),
+      0 0 24px rgba(202, 58, 41, 0.06);
   }
+
+  /* ── Typography ── */
 
   .eyebrow,
   .hero-pills span,
@@ -496,6 +731,59 @@ const ogImage = Astro.site ? new URL(ogImagePath, Astro.site).href : null;
     line-height: 1.7;
   }
 
+  /* ── Gradient Text Utility ── */
+
+  .gradient-text {
+    background: linear-gradient(135deg, var(--kn-landing-text), var(--kn-landing-accent-bright));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* ── Pill Badge ── */
+
+  .kn-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.85rem 0.4rem 0.45rem;
+    border-radius: 999px;
+    border: 1px solid rgba(192, 200, 212, 0.12);
+    background: rgba(192, 200, 212, 0.04);
+    backdrop-filter: blur(18px);
+    font-size: 0.84rem;
+    color: var(--kn-landing-text-secondary);
+    transition: border-color 0.3s ease, background 0.3s ease;
+  }
+
+  .kn-pill:hover {
+    border-color: rgba(192, 200, 212, 0.2);
+    background: rgba(192, 200, 212, 0.06);
+  }
+
+  .kn-pill-badge {
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+    background: linear-gradient(135deg, var(--kn-landing-accent), var(--kn-landing-accent-bright));
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .kn-pill-arrow {
+    opacity: 0.5;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+  }
+
+  .kn-pill:hover .kn-pill-arrow {
+    transform: translateX(2px);
+    opacity: 0.8;
+  }
+
+  /* ── Hero Button ── */
+
   .hero-button {
     position: relative;
     display: inline-flex;
@@ -539,14 +827,7 @@ const ogImage = Astro.site ? new URL(ogImagePath, Astro.site).href : null;
     transform: rotate(24deg) translateX(1.4rem);
   }
 
-  .kn-footer {
-    position: relative;
-    z-index: 1;
-    border-top: 1px solid var(--kn-landing-border);
-    margin-top: 2rem;
-    background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.02));
-    backdrop-filter: blur(18px);
-  }
+  /* ── Section Divider ── */
 
   .section-divider {
     position: relative;
@@ -555,7 +836,7 @@ const ogImage = Astro.site ? new URL(ogImagePath, Astro.site).href : null;
     justify-content: center;
     gap: 1rem;
     width: 100%;
-    margin: 0 auto 4rem;
+    margin: 0 auto var(--kn-landing-section-gap);
     color: rgba(192, 200, 212, 0.34);
   }
 
@@ -575,62 +856,196 @@ const ogImage = Astro.site ? new URL(ogImagePath, Astro.site).href : null;
     filter: drop-shadow(0 0 16px rgba(202, 58, 41, 0.12));
   }
 
+  /* ── Footer ── */
+
+  .kn-footer {
+    position: relative;
+    z-index: 1;
+    margin-top: 2rem;
+    background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.02));
+    backdrop-filter: blur(18px);
+  }
+
+  .kn-footer-gradient-line {
+    height: 1px;
+    width: 100%;
+    background: linear-gradient(90deg, transparent, var(--kn-landing-accent), transparent);
+  }
+
   .kn-footer-inner {
+    padding: 4rem var(--marketing-pad-x) 2rem;
+  }
+
+  .kn-footer-grid {
+    display: grid;
+    grid-template-columns: 2fr repeat(3, 1fr);
+    gap: 3rem;
+  }
+
+  .kn-footer-brand {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
+    flex-direction: column;
     gap: 1rem;
-    padding: 2rem var(--marketing-pad-x);
   }
 
   .kn-footer-mark {
     display: inline-flex;
     align-items: center;
-    gap: 0.55rem;
+    gap: 0.65rem;
+    color: var(--kn-landing-text);
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  .kn-footer-tagline {
+    font-size: 0.84rem;
     color: var(--kn-landing-text-muted);
-    font-size: 0.78rem;
-    font-weight: 500;
+    line-height: 1.6;
   }
 
-  .kn-footer-links {
+  .kn-footer-col {
     display: flex;
-    align-items: center;
-    gap: 1rem;
-    flex-wrap: wrap;
-    font-size: 0.82rem;
-    color: var(--kn-landing-text-dim);
+    flex-direction: column;
+    gap: 0.85rem;
   }
 
-  .kn-footer-links a {
-    color: var(--kn-landing-footer-link);
+  .kn-footer-heading {
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    color: var(--kn-landing-text-muted);
+    margin-bottom: 0.25rem;
+  }
+
+  .kn-footer-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  .kn-footer-list a {
+    position: relative;
+    display: inline-block;
+    font-size: 0.84rem;
+    color: var(--kn-landing-text-dim);
     transition: color 0.2s ease;
   }
 
-  .kn-footer-links a:hover {
-    color: var(--kn-landing-footer-link-hover);
+  .kn-footer-list a::after {
+    content: "";
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    width: 0;
+    height: 1px;
+    background: var(--kn-landing-accent-bright);
+    transition: width 0.3s var(--kn-landing-ease-out-expo);
   }
 
+  .kn-footer-list a:hover {
+    color: var(--kn-landing-text-secondary);
+  }
+
+  .kn-footer-list a:hover::after {
+    width: 100%;
+  }
+
+  .kn-footer-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--kn-landing-border);
+  }
+
+  .kn-footer-copyright {
+    font-size: 0.78rem;
+    color: var(--kn-landing-text-dim);
+  }
+
+  .kn-footer-top-link {
+    font-size: 0.78rem;
+    color: var(--kn-landing-text-muted);
+    transition: color 0.2s ease;
+  }
+
+  .kn-footer-top-link:hover {
+    color: var(--kn-landing-accent-bright);
+  }
+
+  /* ── Mobile ── */
+
   @media (max-width: 720px) {
-    .kn-nav-inner,
-    .kn-footer-inner {
+    .kn-nav-toggle {
+      display: flex;
+    }
+
+    .kn-nav-links {
+      position: fixed;
+      inset: 0;
+      z-index: 22;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2rem;
+      background: rgba(5, 5, 7, 0.96);
+      backdrop-filter: blur(24px);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s var(--kn-landing-ease-out-expo), visibility 0.3s;
+    }
+
+    .kn-nav-links.is-open {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .kn-nav-links a {
+      font-size: 1.5rem;
+      opacity: 0;
+      transform: translateY(16px);
+      transition: opacity 0.4s var(--kn-landing-ease-out-expo), transform 0.4s var(--kn-landing-ease-out-expo), color 0.2s ease;
+    }
+
+    .kn-nav-links.is-open a:nth-child(1) { opacity: 1; transform: translateY(0); transition-delay: 0.08s; }
+    .kn-nav-links.is-open a:nth-child(2) { opacity: 1; transform: translateY(0); transition-delay: 0.14s; }
+    .kn-nav-links.is-open a:nth-child(3) { opacity: 1; transform: translateY(0); transition-delay: 0.20s; }
+    .kn-nav-links.is-open a:nth-child(4) { opacity: 1; transform: translateY(0); transition-delay: 0.26s; }
+
+    .kn-nav-inner {
       padding-inline: var(--marketing-pad-x);
     }
 
-    .kn-nav-inner,
-    .kn-footer-inner {
-      flex-direction: column;
-      align-items: flex-start;
+    .kn-footer-grid {
+      grid-template-columns: 1fr 1fr;
+      gap: 2.5rem;
     }
 
-    .kn-nav-links,
-    .kn-footer-links {
-      width: 100%;
+    .kn-footer-brand {
+      grid-column: 1 / -1;
+    }
+
+    .kn-footer-bottom {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.75rem;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .kn-footer-grid {
+      grid-template-columns: 1fr;
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior: auto; }
     [data-reveal],
+    [data-reveal-children] > *,
     [data-tab-panel],
     .hero-button,
     .secondary-button,
@@ -638,7 +1053,9 @@ const ogImage = Astro.site ? new URL(ogImagePath, Astro.site).href : null;
     .spotlight-item,
     .faq-trigger,
     .hero-button-shine,
-    .kn-star-twinkle {
+    .kn-star-twinkle,
+    .kn-nav-toggle-bar,
+    .kn-nav-links a {
       transition: none !important;
       animation: none !important;
       transform: none !important;

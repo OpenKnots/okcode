@@ -39,6 +39,30 @@ export function toggleDiffFileAccepted(
   };
 }
 
+export function acceptAllDiffFiles(
+  current: DiffFileReviewStateByPath,
+  paths: ReadonlyArray<string>,
+): DiffFileReviewStateByPath {
+  let next = current;
+
+  for (const path of paths) {
+    const previous = next[path] ?? DEFAULT_DIFF_FILE_REVIEW_STATE;
+    if (previous.accepted && previous.collapsed) {
+      continue;
+    }
+    if (next === current) {
+      next = { ...current };
+    }
+    next[path] = {
+      accepted: true,
+      collapsed: true,
+      contextMode: previous.contextMode,
+    };
+  }
+
+  return next;
+}
+
 export function toggleDiffFileCollapsed(
   current: DiffFileReviewStateByPath,
   path: string,

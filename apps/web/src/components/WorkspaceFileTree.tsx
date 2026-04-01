@@ -8,14 +8,15 @@ import {
   SlidersHorizontalIcon,
   TriangleAlertIcon,
 } from "lucide-react";
-import { memo, useCallback, useDeferredValue, useState } from "react";
+import { type MouseEvent, memo, useCallback, useDeferredValue, useState } from "react";
 import { openInPreferredEditor } from "~/editorPreferences";
+import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
 import { useFileViewNavigation } from "~/hooks/useFileViewNavigation";
 import {
   projectListDirectoryQueryOptions,
   projectSearchEntriesQueryOptions,
 } from "~/lib/projectReactQuery";
-import { cn } from "~/lib/utils";
+import { cn, isMacPlatform } from "~/lib/utils";
 import { readNativeApi } from "~/nativeApi";
 import { resolvePathLinkTarget } from "~/terminal-links";
 import { VscodeEntryIcon } from "./chat/VscodeEntryIcon";
@@ -26,6 +27,9 @@ import { toastManager } from "./ui/toast";
 
 const TREE_ROW_LEFT_PADDING = 8;
 const TREE_ROW_DEPTH_OFFSET = 14;
+type WorkspaceFileAction = "open" | "open-in-editor" | "reveal-in-finder" | "copy-path";
+type WorkspaceDirectoryAction = "expand" | "collapse" | "open-in-finder" | "copy-path";
+type WorkspaceSearchDirectoryAction = "reveal-in-tree" | "open-in-finder" | "copy-path";
 
 export const WorkspaceFileTree = memo(function WorkspaceFileTree(props: {
   cwd: string;
@@ -49,6 +53,26 @@ export const WorkspaceFileTree = memo(function WorkspaceFileTree(props: {
   }, []);
 
   const openFileInViewer = useFileViewNavigation();
+  const fileManagerName =
+    typeof navigator !== "undefined" && isMacPlatform(navigator.platform)
+      ? "Finder"
+      : "File Manager";
+  const { copyToClipboard: copyPathToClipboard } = useCopyToClipboard<{ path: string }>({
+    onCopy: (ctx) => {
+      toastManager.add({
+        type: "success",
+        title: "Path copied",
+        description: ctx.path,
+      });
+    },
+    onError: (error) => {
+      toastManager.add({
+        type: "error",
+        title: "Failed to copy path",
+        description: error instanceof Error ? error.message : "An error occurred.",
+      });
+    },
+  });
   const filtersHaveContent = includePattern.trim().length > 0 || excludePattern.trim().length > 0;
   const filtersVisible = filtersOpen || filtersHaveContent;
 
@@ -96,6 +120,75 @@ export const WorkspaceFileTree = memo(function WorkspaceFileTree(props: {
       openFileInViewer(props.cwd, filePath);
     },
     [props.cwd, openFileInViewer],
+  );
+
+  const openFileInNativeEditor = useCallback(
+    async (pathValue: string) => {
+      const api = readNativeApi();
+      if (!api) {
+        toastManager.add({
+          type: "error",
+          title: "File opening is unavailable.",
+        });
+        return;
+      }
+
+      const targetPath = resolvePathLinkTarget(pathValue, props.cwd);
+      try {
+        await openInPreferredEditor(api, targetPath);
+      } catch (error) {
+        toastManager.add({
+          type: "error",
+          title: "Unable to open file",
+          description: error instanceof Error ? error.message : "An error occurred.",
+        });
+      }
+    },
+    [props.cwd],
+  );
+
+  const openDirectoryInFileManager = useCallback(
+    async (pathValue: string) => {
+      const api = readNativeApi();
+      if (!api) return;
+      const absolutePath = resolvePathLinkTarget(pathValue, props.cwd);
+      try {
+        await api.shell.openInFileManager(absolutePath);
+      } catch (error) {
+        toastManager.add({
+          type: "error",
+          title: `Unable to open in ${fileManagerName}`,
+          description: error instanceof Error ? error.message : "An error occurred.",
+        });
+      }
+    },
+    [fileManagerName, props.cwd],
+  );
+
+  const revealFileInFileManager = useCallback(
+    async (pathValue: string) => {
+      const api = readNativeApi();
+      if (!api) return;
+      const absolutePath = resolvePathLinkTarget(pathValue, props.cwd);
+      try {
+        await api.shell.revealInFileManager(absolutePath);
+      } catch (error) {
+        toastManager.add({
+          type: "error",
+          title: `Unable to reveal in ${fileManagerName}`,
+          description: error instanceof Error ? error.message : "An error occurred.",
+        });
+      }
+    },
+    [fileManagerName, props.cwd],
+  );
+
+  const copyWorkspacePath = useCallback(
+    (pathValue: string) => {
+      const absolutePath = resolvePathLinkTarget(pathValue, props.cwd);
+      copyPathToClipboard(absolutePath, { path: absolutePath });
+    },
+    [copyPathToClipboard, props.cwd],
   );
 
   const revealDirectory = useCallback((pathValue: string) => {
@@ -174,11 +267,17 @@ export const WorkspaceFileTree = memo(function WorkspaceFileTree(props: {
 
       {searchActive ? (
         <WorkspaceSearchResults
+          cwd={props.cwd}
           entries={searchResultsQuery.data?.entries ?? []}
           error={searchResultsQuery.error}
           isError={searchResultsQuery.isError}
           isLoading={searchResultsQuery.isLoading}
+          fileManagerName={fileManagerName}
+          onCopyPath={copyWorkspacePath}
+          onOpenDirectoryInFileManager={openDirectoryInFileManager}
+          onOpenFileInEditor={openFileInNativeEditor}
           onOpenFile={openFile}
+          onRevealFileInFileManager={revealFileInFileManager}
           onRevealDirectory={revealDirectory}
           resolvedTheme={props.resolvedTheme}
           truncated={searchResultsQuery.data?.truncated ?? false}
@@ -188,7 +287,12 @@ export const WorkspaceFileTree = memo(function WorkspaceFileTree(props: {
           cwd={props.cwd}
           depth={0}
           expandedDirectories={expandedDirectories}
+          fileManagerName={fileManagerName}
+          onCopyPath={copyWorkspacePath}
+          onOpenDirectoryInFileManager={openDirectoryInFileManager}
+          onOpenFileInEditor={openFileInNativeEditor}
           onOpenFile={openFile}
+          onRevealFileInFileManager={revealFileInFileManager}
           onToggleDirectory={toggleDirectory}
           resolvedTheme={props.resolvedTheme}
         />
@@ -198,13 +302,19 @@ export const WorkspaceFileTree = memo(function WorkspaceFileTree(props: {
 });
 
 const WorkspaceSearchResults = memo(function WorkspaceSearchResults(props: {
+  cwd: string;
   entries: readonly ProjectEntry[];
+  fileManagerName: string;
   isLoading: boolean;
   isError: boolean;
   error: unknown;
   truncated: boolean;
   resolvedTheme: "light" | "dark";
+  onCopyPath: (pathValue: string) => void;
+  onOpenDirectoryInFileManager: (pathValue: string) => void;
+  onOpenFileInEditor: (pathValue: string) => void;
   onOpenFile: (pathValue: string, event?: { metaKey?: boolean; ctrlKey?: boolean }) => void;
+  onRevealFileInFileManager: (pathValue: string) => void;
   onRevealDirectory: (pathValue: string) => void;
 }) {
   if (props.isLoading) {
@@ -231,8 +341,14 @@ const WorkspaceSearchResults = memo(function WorkspaceSearchResults(props: {
       {props.entries.map((entry) => (
         <WorkspaceSearchResultRow
           key={`${entry.kind}:${entry.path}`}
+          cwd={props.cwd}
           entry={entry}
+          fileManagerName={props.fileManagerName}
+          onCopyPath={props.onCopyPath}
+          onOpenDirectoryInFileManager={props.onOpenDirectoryInFileManager}
+          onOpenFileInEditor={props.onOpenFileInEditor}
           onOpenFile={props.onOpenFile}
+          onRevealFileInFileManager={props.onRevealFileInFileManager}
           onRevealDirectory={props.onRevealDirectory}
           resolvedTheme={props.resolvedTheme}
         />
@@ -247,13 +363,66 @@ const WorkspaceSearchResults = memo(function WorkspaceSearchResults(props: {
 });
 
 const WorkspaceSearchResultRow = memo(function WorkspaceSearchResultRow(props: {
+  cwd: string;
   entry: ProjectEntry;
+  fileManagerName: string;
   resolvedTheme: "light" | "dark";
+  onCopyPath: (pathValue: string) => void;
+  onOpenDirectoryInFileManager: (pathValue: string) => void;
+  onOpenFileInEditor: (pathValue: string) => void;
   onOpenFile: (pathValue: string, event?: { metaKey?: boolean; ctrlKey?: boolean }) => void;
+  onRevealFileInFileManager: (pathValue: string) => void;
   onRevealDirectory: (pathValue: string) => void;
 }) {
   const parentPath = parentPathOf(props.entry.path);
   const isDirectory = props.entry.kind === "directory";
+  const handleContextMenu = useCallback(
+    async (event: MouseEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      const api = readNativeApi();
+      if (!api) return;
+
+      if (isDirectory) {
+        const clicked = await api.contextMenu.show<WorkspaceSearchDirectoryAction>(
+          [
+            { id: "reveal-in-tree", label: "Reveal in tree" },
+            { id: "open-in-finder", label: `Open in ${props.fileManagerName}` },
+            { id: "copy-path", label: "Copy path" },
+          ],
+          { x: event.clientX, y: event.clientY },
+        );
+        if (clicked === "reveal-in-tree") {
+          props.onRevealDirectory(props.entry.path);
+        } else if (clicked === "open-in-finder") {
+          props.onOpenDirectoryInFileManager(props.entry.path);
+        } else if (clicked === "copy-path") {
+          props.onCopyPath(props.entry.path);
+        }
+        return;
+      }
+
+      const clicked = await api.contextMenu.show<WorkspaceFileAction>(
+        [
+          { id: "open", label: "Open" },
+          { id: "open-in-editor", label: "Open in editor" },
+          { id: "reveal-in-finder", label: `Reveal in ${props.fileManagerName}` },
+          { id: "copy-path", label: "Copy path" },
+        ],
+        { x: event.clientX, y: event.clientY },
+      );
+
+      if (clicked === "open") {
+        props.onOpenFile(props.entry.path);
+      } else if (clicked === "open-in-editor") {
+        props.onOpenFileInEditor(props.entry.path);
+      } else if (clicked === "reveal-in-finder") {
+        props.onRevealFileInFileManager(props.entry.path);
+      } else if (clicked === "copy-path") {
+        props.onCopyPath(props.entry.path);
+      }
+    },
+    [isDirectory, props],
+  );
 
   return (
     <button
@@ -266,6 +435,7 @@ const WorkspaceSearchResultRow = memo(function WorkspaceSearchResultRow(props: {
         }
         props.onOpenFile(props.entry.path, { metaKey: event.metaKey, ctrlKey: event.ctrlKey });
       }}
+      onContextMenu={handleContextMenu}
       title={props.entry.path}
     >
       <span className="mt-0.5 shrink-0">
@@ -297,9 +467,14 @@ const WorkspaceFileTreeDirectory = memo(function WorkspaceFileTreeDirectory(prop
   directoryPath?: string;
   depth: number;
   expandedDirectories: Readonly<Record<string, boolean>>;
+  fileManagerName: string;
   resolvedTheme: "light" | "dark";
+  onCopyPath: (pathValue: string) => void;
+  onOpenDirectoryInFileManager: (pathValue: string) => void;
+  onOpenFileInEditor: (pathValue: string) => void;
   onToggleDirectory: (pathValue: string) => void;
   onOpenFile: (pathValue: string, event?: { metaKey?: boolean; ctrlKey?: boolean }) => void;
+  onRevealFileInFileManager: (pathValue: string) => void;
 }) {
   const query = useQuery(
     projectListDirectoryQueryOptions({
@@ -345,7 +520,10 @@ const WorkspaceFileTreeDirectory = memo(function WorkspaceFileTreeDirectory(prop
               <WorkspaceDirectoryRow
                 depth={props.depth}
                 entry={entry}
+                fileManagerName={props.fileManagerName}
                 isExpanded={isExpanded}
+                onCopyPath={props.onCopyPath}
+                onOpenDirectoryInFileManager={props.onOpenDirectoryInFileManager}
                 onToggleDirectory={props.onToggleDirectory}
               />
               {isExpanded && (
@@ -354,7 +532,12 @@ const WorkspaceFileTreeDirectory = memo(function WorkspaceFileTreeDirectory(prop
                   directoryPath={entry.path}
                   depth={props.depth + 1}
                   expandedDirectories={props.expandedDirectories}
+                  fileManagerName={props.fileManagerName}
+                  onCopyPath={props.onCopyPath}
+                  onOpenDirectoryInFileManager={props.onOpenDirectoryInFileManager}
+                  onOpenFileInEditor={props.onOpenFileInEditor}
                   onOpenFile={props.onOpenFile}
+                  onRevealFileInFileManager={props.onRevealFileInFileManager}
                   onToggleDirectory={props.onToggleDirectory}
                   resolvedTheme={props.resolvedTheme}
                 />
@@ -368,7 +551,11 @@ const WorkspaceFileTreeDirectory = memo(function WorkspaceFileTreeDirectory(prop
             key={`file:${entry.path}`}
             depth={props.depth}
             entry={entry}
+            fileManagerName={props.fileManagerName}
+            onCopyPath={props.onCopyPath}
+            onOpenFileInEditor={props.onOpenFileInEditor}
             onOpenFile={props.onOpenFile}
+            onRevealFileInFileManager={props.onRevealFileInFileManager}
             resolvedTheme={props.resolvedTheme}
           />
         );
@@ -385,10 +572,39 @@ const WorkspaceFileTreeDirectory = memo(function WorkspaceFileTreeDirectory(prop
 const WorkspaceDirectoryRow = memo(function WorkspaceDirectoryRow(props: {
   depth: number;
   entry: ProjectDirectoryEntry;
+  fileManagerName: string;
   isExpanded: boolean;
+  onCopyPath: (pathValue: string) => void;
+  onOpenDirectoryInFileManager: (pathValue: string) => void;
   onToggleDirectory: (pathValue: string) => void;
 }) {
   const leftPadding = TREE_ROW_LEFT_PADDING + props.depth * TREE_ROW_DEPTH_OFFSET;
+  const handleContextMenu = useCallback(
+    async (event: MouseEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      const api = readNativeApi();
+      if (!api) return;
+      const clicked = await api.contextMenu.show<WorkspaceDirectoryAction>(
+        [
+          {
+            id: props.isExpanded ? "collapse" : "expand",
+            label: props.isExpanded ? "Collapse" : "Expand",
+          },
+          { id: "open-in-finder", label: `Open in ${props.fileManagerName}` },
+          { id: "copy-path", label: "Copy path" },
+        ],
+        { x: event.clientX, y: event.clientY },
+      );
+      if (clicked === "expand" || clicked === "collapse") {
+        props.onToggleDirectory(props.entry.path);
+      } else if (clicked === "open-in-finder") {
+        props.onOpenDirectoryInFileManager(props.entry.path);
+      } else if (clicked === "copy-path") {
+        props.onCopyPath(props.entry.path);
+      }
+    },
+    [props],
+  );
 
   return (
     <button
@@ -403,6 +619,7 @@ const WorkspaceDirectoryRow = memo(function WorkspaceDirectoryRow(props: {
         !props.entry.hasChildren && "cursor-default",
       )}
       style={{ paddingLeft: `${leftPadding}px` }}
+      onContextMenu={handleContextMenu}
       onClick={() => {
         if (!props.entry.hasChildren) return;
         props.onToggleDirectory(props.entry.path);
@@ -431,10 +648,40 @@ const WorkspaceDirectoryRow = memo(function WorkspaceDirectoryRow(props: {
 const WorkspaceFileRow = memo(function WorkspaceFileRow(props: {
   depth: number;
   entry: ProjectDirectoryEntry;
+  fileManagerName: string;
   resolvedTheme: "light" | "dark";
+  onCopyPath: (pathValue: string) => void;
+  onOpenFileInEditor: (pathValue: string) => void;
   onOpenFile: (pathValue: string, event?: { metaKey?: boolean; ctrlKey?: boolean }) => void;
+  onRevealFileInFileManager: (pathValue: string) => void;
 }) {
   const leftPadding = TREE_ROW_LEFT_PADDING + props.depth * TREE_ROW_DEPTH_OFFSET;
+  const handleContextMenu = useCallback(
+    async (event: MouseEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      const api = readNativeApi();
+      if (!api) return;
+      const clicked = await api.contextMenu.show<WorkspaceFileAction>(
+        [
+          { id: "open", label: "Open" },
+          { id: "open-in-editor", label: "Open in editor" },
+          { id: "reveal-in-finder", label: `Reveal in ${props.fileManagerName}` },
+          { id: "copy-path", label: "Copy path" },
+        ],
+        { x: event.clientX, y: event.clientY },
+      );
+      if (clicked === "open") {
+        props.onOpenFile(props.entry.path);
+      } else if (clicked === "open-in-editor") {
+        props.onOpenFileInEditor(props.entry.path);
+      } else if (clicked === "reveal-in-finder") {
+        props.onRevealFileInFileManager(props.entry.path);
+      } else if (clicked === "copy-path") {
+        props.onCopyPath(props.entry.path);
+      }
+    },
+    [props],
+  );
 
   return (
     <button
@@ -449,6 +696,7 @@ const WorkspaceFileRow = memo(function WorkspaceFileRow(props: {
       onClick={(event) =>
         props.onOpenFile(props.entry.path, { metaKey: event.metaKey, ctrlKey: event.ctrlKey })
       }
+      onContextMenu={handleContextMenu}
       title={props.entry.path}
     >
       <span aria-hidden="true" className="size-3.5 shrink-0" />

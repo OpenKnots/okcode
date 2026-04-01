@@ -289,6 +289,8 @@ export interface NativeApi {
   };
   shell: {
     openInEditor: (cwd: string, editor: EditorId) => Promise<void>;
+    openInFileManager: (path: string) => Promise<void>;
+    revealInFileManager: (path: string) => Promise<void>;
     openExternal: (url: string) => Promise<void>;
   };
   git: {

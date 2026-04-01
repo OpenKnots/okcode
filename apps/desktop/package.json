@@ -1,6 +1,6 @@
 {
   "name": "@okcode/desktop",
-  "version": "0.0.9",
+  "version": "0.0.12",
   "private": true,
   "main": "dist-electron/main.js",
   "scripts": {

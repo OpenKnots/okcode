@@ -87,6 +87,15 @@ bun dev:desktop        # desktop shell + electron dev flow
 bun dev:marketing      # marketing site
 ```
 
+Build marketing directly:
+
+```bash
+bun install
+bun run build:marketing
+```
+
+If `bun run build:marketing` fails with `next: command not found`, run `bun install` first to restore workspace dependencies.
+
 ### Package scoped examples
 
 ```bash

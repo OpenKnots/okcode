@@ -11,6 +11,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - CLI npm package name is `okcodes`. Install with `npm install -g okcodes`; the `okcode` binary name is unchanged.
 
+## [0.0.12] - 2026-04-01
+
+See [docs/releases/v0.0.12.md](docs/releases/v0.0.12.md) for full notes and [docs/releases/v0.0.12/assets.md](docs/releases/v0.0.12/assets.md) for release asset inventory.
+
+### Fixed
+
+- Resolve Footer import casing for typecheck.
+
+## [0.0.12] - 2026-04-01
+
+See [docs/releases/v0.0.12.md](docs/releases/v0.0.12.md) for full notes and [docs/releases/v0.0.12/assets.md](docs/releases/v0.0.12/assets.md) for release asset inventory.
+
+### Fixed
+
+- Resolve Footer import casing for typecheck.
+
 ## [0.0.11] - 2026-04-01
 
 See [docs/releases/v0.0.11.md](docs/releases/v0.0.11.md) for full notes and [docs/releases/v0.0.11/assets.md](docs/releases/v0.0.11/assets.md) for release asset inventory.
@@ -303,3 +319,5 @@ First public version tag. See [docs/releases/v0.0.1.md](docs/releases/v0.0.1.md)
 [0.0.11]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.11
 [0.0.11]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.11
 [0.0.11]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.11
+[0.0.12]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.12
+[0.0.12]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.12

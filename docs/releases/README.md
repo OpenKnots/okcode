@@ -4,6 +4,8 @@ Human-readable notes and asset inventories for tagged releases.
 
 | Version              | Notes                                                        | Assets                        |
 | -------------------- | ------------------------------------------------------------ | ----------------------------- |
+| [0.0.12](v0.0.12.md) | Release 0.0.12 with latest preflight fixes and Apple Silicon | [manifest](v0.0.12/assets.md) |
+| [0.0.12](v0.0.12.md) | Release 0.0.12 with latest preflight fixes and Apple Silicon | [manifest](v0.0.12/assets.md) |
 | [0.0.11](v0.0.11.md) | Release 0.0.11 with Apple Silicon-only macOS default asset m | [manifest](v0.0.11/assets.md) |
 | [0.0.11](v0.0.11.md) | Release 0.0.11 with Apple Silicon-only macOS default asset m | [manifest](v0.0.11/assets.md) |
 | [0.0.11](v0.0.11.md) | Release 0.0.11 with Apple Silicon-only macOS default asset m | [manifest](v0.0.11/assets.md) |

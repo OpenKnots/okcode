@@ -6,25 +6,15 @@ import {
 import { memo, useEffect } from "react";
 import type { ProjectScriptDraft } from "~/projectScriptDefaults";
 import GitActionsControl from "../GitActionsControl";
-import {
-  ArrowLeftRightIcon,
-  ArrowUpDownIcon,
-  DiffIcon,
-  MonitorIcon,
-  TerminalSquareIcon,
-} from "lucide-react";
 import { EditableThreadTitle } from "../EditableThreadTitle";
 import { Badge } from "../ui/badge";
-import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import ProjectScriptsControl, { type NewProjectScriptInput } from "../ProjectScriptsControl";
-import { Toggle } from "../ui/toggle";
 import { SidebarTrigger } from "../ui/sidebar";
 import { useThreadTitleEditor } from "~/hooks/useThreadTitleEditor";
-import { OpenInPicker } from "./OpenInPicker";
 import { useCodeViewerStore } from "~/codeViewerStore";
 import type { ClientMode } from "~/lib/clientMode";
-
 import type { PreviewDock } from "~/previewStateStore";
+import { HeaderPanelsMenu } from "./HeaderPanelsMenu";
 
 interface ChatHeaderProps {
   activeThreadId: ThreadId;
@@ -77,7 +67,7 @@ export const ChatHeader = memo(function ChatHeader({
   diffToggleShortcutLabel,
   previewAvailable,
   previewOpen,
-  previewDock,
+  previewDock: _previewDock,
   gitCwd,
   diffOpen,
   clientMode,
@@ -90,7 +80,7 @@ export const ChatHeader = memo(function ChatHeader({
   onToggleTerminal,
   onToggleDiff,
   onTogglePreview,
-  onTogglePreviewLayout,
+  onTogglePreviewLayout: _onTogglePreviewLayout,
   onToggleCodeViewer,
 }: ChatHeaderProps) {
   const isMobileCompanion = clientMode === "mobile";
@@ -117,6 +107,7 @@ export const ChatHeader = memo(function ChatHeader({
 
   return (
     <div className="flex min-w-0 flex-1 items-center gap-2">
+      {/* Left: Identity — thread title + project context */}
       <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden sm:gap-3">
         <SidebarTrigger className="size-7 shrink-0 md:hidden" />
         <EditableThreadTitle
@@ -141,17 +132,14 @@ export const ChatHeader = memo(function ChatHeader({
           onCancel={cancelEditing}
         />
         {activeProjectName && (
-          <Badge variant="outline" className="min-w-0 shrink truncate">
+          <Badge variant="outline" className="hidden min-w-0 shrink truncate sm:inline-flex">
             {activeProjectName}
           </Badge>
         )}
-        {activeProjectName && !isGitRepo && (
-          <Badge variant="outline" className="shrink-0 text-[10px] text-amber-700">
-            No Git
-          </Badge>
-        )}
       </div>
-      <div className="@container/header-actions flex min-w-0 flex-1 items-center justify-end gap-2 @sm/header-actions:gap-3">
+
+      {/* Right: Actions — only primary actions visible, panels in overflow */}
+      <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
         {!isMobileCompanion && activeProjectScripts && (
           <ProjectScriptsControl
             projectCwd={activeProjectCwd ?? ""}
@@ -165,115 +153,49 @@ export const ChatHeader = memo(function ChatHeader({
             onImportScripts={onImportProjectScripts}
           />
         )}
-        {activeProjectName && hasCodeViewerTabs && (
-          <OpenInPicker codeViewerOpen={codeViewerOpen} onToggleCodeViewer={onToggleCodeViewer} />
-        )}
         {!isMobileCompanion && activeProjectName && (
           <GitActionsControl gitCwd={gitCwd} activeThreadId={activeThreadId} />
         )}
+        {/* Overflow menu: all panel toggles consolidated */}
         {!isMobileCompanion && (
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Toggle
-                  className="shrink-0"
-                  pressed={terminalOpen}
-                  onPressedChange={onToggleTerminal}
-                  aria-label="Toggle terminal drawer"
-                  variant="outline"
-                  size="xs"
-                  disabled={!terminalAvailable}
-                >
-                  <TerminalSquareIcon className="size-3" />
-                </Toggle>
-              }
-            />
-            <TooltipPopup side="bottom">
-              {!terminalAvailable
-                ? "Terminal is unavailable until this thread has an active project."
-                : terminalToggleShortcutLabel
-                  ? `Toggle terminal drawer (${terminalToggleShortcutLabel})`
-                  : "Toggle terminal drawer"}
-            </TooltipPopup>
-          </Tooltip>
-        )}
-        {!isMobileCompanion && previewOpen && previewAvailable ? (
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Toggle
-                  className="shrink-0"
-                  pressed={previewDock === "top" || previewDock === "bottom"}
-                  onPressedChange={onTogglePreviewLayout}
-                  aria-label="Toggle preview split orientation"
-                  variant="outline"
-                  size="xs"
-                >
-                  {previewDock === "top" || previewDock === "bottom" ? (
-                    <ArrowUpDownIcon className="size-3" />
-                  ) : (
-                    <ArrowLeftRightIcon className="size-3" />
-                  )}
-                </Toggle>
-              }
-            />
-            <TooltipPopup side="bottom">
-              {previewDock === "top" || previewDock === "bottom"
-                ? "Switch to side-by-side preview"
-                : "Switch to stacked preview"}
-            </TooltipPopup>
-          </Tooltip>
-        ) : null}
-        {!isMobileCompanion && (
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Toggle
-                  className="shrink-0"
-                  pressed={previewOpen}
-                  onPressedChange={onTogglePreview}
-                  aria-label="Toggle preview panel"
-                  variant="outline"
-                  size="xs"
-                  disabled={!previewAvailable}
-                >
-                  <MonitorIcon className="size-3" />
-                </Toggle>
-              }
-            />
-            <TooltipPopup side="bottom">
-              {!previewAvailable
-                ? "Preview is available in the desktop app when this thread has an active project."
-                : previewOpen
-                  ? "Hide preview panel"
-                  : "Show preview panel"}
-            </TooltipPopup>
-          </Tooltip>
-        )}
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Toggle
-                className="shrink-0"
-                pressed={diffOpen}
-                onPressedChange={onToggleDiff}
-                aria-label="Toggle diff panel"
-                variant="outline"
-                size="xs"
-                disabled={!isGitRepo}
-              >
-                <DiffIcon className="size-3" />
-              </Toggle>
-            }
+          <HeaderPanelsMenu
+            terminalAvailable={terminalAvailable}
+            terminalOpen={terminalOpen}
+            terminalToggleShortcutLabel={terminalToggleShortcutLabel}
+            previewAvailable={previewAvailable}
+            previewOpen={previewOpen}
+            diffOpen={diffOpen}
+            diffToggleShortcutLabel={diffToggleShortcutLabel}
+            isGitRepo={isGitRepo}
+            codeViewerOpen={codeViewerOpen}
+            hasCodeViewerTabs={hasCodeViewerTabs}
+            hasProject={activeProjectName !== undefined}
+            onToggleTerminal={onToggleTerminal}
+            onTogglePreview={onTogglePreview}
+            onToggleDiff={onToggleDiff}
+            onToggleCodeViewer={onToggleCodeViewer}
           />
-          <TooltipPopup side="bottom">
-            {!isGitRepo
-              ? "Diff panel is unavailable because this project is not a git repository."
-              : diffToggleShortcutLabel
-                ? `Toggle diff panel (${diffToggleShortcutLabel})`
-                : "Toggle diff panel"}
-          </TooltipPopup>
-        </Tooltip>
+        )}
+        {/* Mobile: only diff toggle */}
+        {isMobileCompanion && (
+          <HeaderPanelsMenu
+            terminalAvailable={false}
+            terminalOpen={false}
+            terminalToggleShortcutLabel={null}
+            previewAvailable={false}
+            previewOpen={false}
+            diffOpen={diffOpen}
+            diffToggleShortcutLabel={diffToggleShortcutLabel}
+            isGitRepo={isGitRepo}
+            codeViewerOpen={false}
+            hasCodeViewerTabs={false}
+            hasProject={false}
+            onToggleTerminal={() => {}}
+            onTogglePreview={() => {}}
+            onToggleDiff={onToggleDiff}
+            onToggleCodeViewer={() => {}}
+          />
+        )}
       </div>
     </div>
   );

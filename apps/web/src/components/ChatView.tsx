@@ -4588,6 +4588,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
         <ChatHeader
           activeThreadId={activeThread.id}
           activeThreadTitle={activeThread.title}
+          activeProjectId={activeProject?.id}
           activeProjectName={activeProject?.name}
           activeProjectCwd={activeProject?.cwd}
           isGitRepo={isGitRepo}

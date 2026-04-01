@@ -119,6 +119,7 @@ import {
   resolvePackageManagerResolution,
 } from "~/projectScriptDefaults";
 import { useClientMode } from "~/hooks/useClientMode";
+import { getProjectColor } from "~/projectColors";
 import type { Thread } from "../types";
 
 const EMPTY_KEYBINDINGS: ResolvedKeybindingsConfig = [];
@@ -1192,7 +1193,16 @@ export default function Sidebar() {
       );
 
       return (
-        <SidebarMenuSubItem key={thread.id} className="w-full" data-thread-item>
+        <SidebarMenuSubItem key={thread.id} className="relative w-full" data-thread-item>
+          {/* Project color accent bar */}
+          <span
+            aria-hidden="true"
+            className="absolute bottom-1.5 left-0 top-1.5 w-[3px] rounded-full transition-opacity"
+            style={{
+              backgroundColor: pColor.dot,
+              opacity: isActive ? 1 : 0.35,
+            }}
+          />
           <SidebarMenuSubButton
             render={<div role="button" tabIndex={0} />}
             size="sm"
@@ -1315,31 +1325,39 @@ export default function Sidebar() {
       );
     };
 
+    const pColor = getProjectColor(project.id);
+    const isDark = resolvedTheme === "dark";
+
     return (
       <Collapsible className="group/collapsible" open={shouldShowThreadPanel}>
         <div className="group/project-header relative flex items-center gap-1.5">
           <SidebarMenuButton
             ref={isManualProjectSorting ? dragHandleProps?.setActivatorNodeRef : undefined}
             size="sm"
-            className={`min-w-0 flex-1 gap-2 rounded-lg border border-transparent px-2.5 py-2.5 text-left ${appSettings.sidebarAccentBgColorOverride ? "" : "bg-accent/40 hover:bg-accent/70 group-hover/project-header:bg-accent/70 dark:bg-accent/30 dark:hover:bg-accent/50 dark:group-hover/project-header:bg-accent/50"} group-hover/project-header:text-sidebar-accent-foreground ${
+            className={`min-w-0 flex-1 gap-2 rounded-lg border border-transparent px-2.5 py-2.5 text-left ${appSettings.sidebarAccentBgColorOverride ? "" : ""} group-hover/project-header:text-sidebar-accent-foreground ${
               isManualProjectSorting ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
             }`}
-            style={
-              appSettings.sidebarAccentBgColorOverride
-                ? {
-                    backgroundColor: `color-mix(in srgb, ${appSettings.sidebarAccentBgColorOverride} 15%, transparent)`,
-                  }
-                : undefined
-            }
+            style={{
+              backgroundColor: appSettings.sidebarAccentBgColorOverride
+                ? `color-mix(in srgb, ${appSettings.sidebarAccentBgColorOverride} 15%, transparent)`
+                : isDark
+                  ? pColor.bgDark
+                  : pColor.bg,
+            }}
             onMouseEnter={(e) => {
-              if (appSettings.sidebarAccentBgColorOverride) {
-                e.currentTarget.style.backgroundColor = `color-mix(in srgb, ${appSettings.sidebarAccentBgColorOverride} 25%, transparent)`;
-              }
+              const hoverBg = appSettings.sidebarAccentBgColorOverride
+                ? `color-mix(in srgb, ${appSettings.sidebarAccentBgColorOverride} 25%, transparent)`
+                : isDark
+                  ? pColor.bgDark.replace("0.12)", "0.20)")
+                  : pColor.bg.replace("0.08)", "0.14)");
+              e.currentTarget.style.backgroundColor = hoverBg;
             }}
             onMouseLeave={(e) => {
-              if (appSettings.sidebarAccentBgColorOverride) {
-                e.currentTarget.style.backgroundColor = `color-mix(in srgb, ${appSettings.sidebarAccentBgColorOverride} 15%, transparent)`;
-              }
+              e.currentTarget.style.backgroundColor = appSettings.sidebarAccentBgColorOverride
+                ? `color-mix(in srgb, ${appSettings.sidebarAccentBgColorOverride} 15%, transparent)`
+                : isDark
+                  ? pColor.bgDark
+                  : pColor.bg;
             }}
             {...(isManualProjectSorting && dragHandleProps ? dragHandleProps.attributes : {})}
             {...(isManualProjectSorting && dragHandleProps ? dragHandleProps.listeners : {})}
@@ -1378,12 +1396,17 @@ export default function Sidebar() {
             )}
             <ProjectFavicon cwd={project.cwd} />
             <span
-              className={`flex-1 truncate text-[13px] font-semibold tracking-[0.01em] ${appSettings.sidebarAccentProjectNames ? "text-accent-foreground" : "text-foreground"}`}
-              style={
-                appSettings.sidebarAccentProjectNames && appSettings.sidebarAccentColorOverride
-                  ? { color: appSettings.sidebarAccentColorOverride }
-                  : undefined
-              }
+              className="flex-1 truncate text-[13px] font-semibold tracking-[0.01em]"
+              style={{
+                color:
+                  appSettings.sidebarAccentProjectNames && appSettings.sidebarAccentColorOverride
+                    ? appSettings.sidebarAccentColorOverride
+                    : appSettings.sidebarAccentProjectNames
+                      ? isDark
+                        ? pColor.textDark
+                        : pColor.text
+                      : undefined,
+              }}
             >
               {project.name}
             </span>

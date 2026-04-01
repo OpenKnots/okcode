@@ -11,7 +11,8 @@
     "start": "bun run scripts/start-electron.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
-    "smoke-test": "node scripts/smoke-test.mjs"
+    "smoke-test": "node scripts/smoke-test.mjs",
+    "release-smoke": "node ../../scripts/release-smoke.ts"
   },
   "dependencies": {
     "effect": "catalog:",

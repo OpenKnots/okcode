@@ -133,6 +133,8 @@ const make = Effect.gen(function* () {
         fromCheckpointRef,
         toCheckpointRef,
         fallbackFromToHead: false,
+        ...(input.relativePath ? { relativePath: input.relativePath } : {}),
+        ...(input.contextMode ? { contextMode: input.contextMode } : {}),
       });
 
       const turnDiff: OrchestrationGetTurnDiffResultType = {
@@ -158,6 +160,8 @@ const make = Effect.gen(function* () {
       threadId: input.threadId,
       fromTurnCount: 0,
       toTurnCount: input.toTurnCount,
+      relativePath: input.relativePath,
+      contextMode: input.contextMode,
     }).pipe(Effect.map((result): OrchestrationGetFullThreadDiffResult => result));
 
   return {

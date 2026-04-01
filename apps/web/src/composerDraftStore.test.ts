@@ -442,6 +442,7 @@ describe("composerDraftStore project draft thread mapping", () => {
     expect(useComposerDraftStore.getState().getDraftThreadByProjectId(projectId)).toEqual({
       threadId,
       projectId,
+      title: "New thread",
       branch: "feature/test",
       worktreePath: "/tmp/worktree-test",
       envMode: "worktree",
@@ -451,6 +452,7 @@ describe("composerDraftStore project draft thread mapping", () => {
     });
     expect(useComposerDraftStore.getState().getDraftThread(threadId)).toEqual({
       projectId,
+      title: "New thread",
       branch: "feature/test",
       worktreePath: "/tmp/worktree-test",
       envMode: "worktree",
@@ -540,6 +542,7 @@ describe("composerDraftStore project draft thread mapping", () => {
     );
     expect(useComposerDraftStore.getState().getDraftThread(threadId)).toMatchObject({
       projectId,
+      title: "New thread",
       branch: "feature/next",
       worktreePath: "/tmp/feature-next",
       envMode: "worktree",
@@ -563,6 +566,7 @@ describe("composerDraftStore project draft thread mapping", () => {
 
     expect(useComposerDraftStore.getState().getDraftThread(threadId)).toMatchObject({
       projectId,
+      title: "New thread",
       branch: "main",
       worktreePath: "/tmp/main-worktree",
       envMode: "worktree",
@@ -589,9 +593,29 @@ describe("composerDraftStore project draft thread mapping", () => {
 
     expect(useComposerDraftStore.getState().getDraftThread(threadId)).toMatchObject({
       projectId,
+      title: "New thread",
       branch: "feature/base",
       worktreePath: null,
       envMode: "worktree",
+    });
+  });
+
+  it("stores custom draft thread titles independently from branch context", () => {
+    const store = useComposerDraftStore.getState();
+    store.setProjectDraftThreadId(projectId, threadId);
+    store.setDraftThreadTitle(threadId, "Investigate flaky CI");
+
+    expect(useComposerDraftStore.getState().getDraftThread(threadId)).toMatchObject({
+      projectId,
+      title: "Investigate flaky CI",
+    });
+
+    store.setDraftThreadContext(threadId, { branch: "feature/next" });
+
+    expect(useComposerDraftStore.getState().getDraftThread(threadId)).toMatchObject({
+      projectId,
+      title: "Investigate flaky CI",
+      branch: "feature/next",
     });
   });
 });

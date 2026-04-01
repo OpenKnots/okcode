@@ -1,7 +1,4 @@
-import {
-  PROVIDER_SEND_TURN_MAX_INPUT_CHARS,
-  type ChatFileAttachment,
-} from "@okcode/contracts";
+import { PROVIDER_SEND_TURN_MAX_INPUT_CHARS, type ChatFileAttachment } from "@okcode/contracts";
 
 const MAX_FILE_CONTEXT_TOTAL_CHARS = 80_000;
 const MAX_FILE_CONTEXT_CHARS_PER_FILE = 24_000;
@@ -140,10 +137,7 @@ export function buildFileAttachmentContextText(input: {
     return input.baseText;
   }
 
-  const maxChars = Math.max(
-    1,
-    Math.floor(input.maxChars ?? PROVIDER_SEND_TURN_MAX_INPUT_CHARS),
-  );
+  const maxChars = Math.max(1, Math.floor(input.maxChars ?? PROVIDER_SEND_TURN_MAX_INPUT_CHARS));
   let result = input.baseText;
   let usedFileContextChars = 0;
   let omittedCount = 0;

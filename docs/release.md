@@ -2,7 +2,7 @@
 
 Canonical release process documentation for the OK Code project.
 
-**Last updated:** 2026-03-27
+**Last updated:** 2026-03-31
 
 ---
 
@@ -32,7 +32,7 @@ A release of OK Code produces:
 
 The **`okcodes` CLI npm package** is **not** published by CI; publish it manually when needed (see [npm publishing (CLI, manual)](#npm-publishing-cli-manual)).
 
-Releases follow Semantic Versioning and are triggered either by pushing a version tag (`v*.*.*`) or by manual workflow dispatch. Code signing is automatic when the required secrets are configured and is gracefully skipped otherwise.
+Releases follow Semantic Versioning and are triggered either by pushing a version tag (`v*.*.*`) or by manual workflow dispatch. macOS release builds fail closed unless signing and notarization are enabled. Windows signing is used when Azure Trusted Signing secrets are configured, and Linux AppImage builds remain unsigned.
 
 ---
 
@@ -272,7 +272,7 @@ To validate the release pipeline without shipping a real version:
 1. Create a test prerelease tag: `git tag v0.0.0-test.1`
 2. Push it: `git push origin v0.0.0-test.1`
 3. Wait for the workflow to complete.
-4. Verify the GitHub prerelease contains all platform artifacts.
+4. Verify the GitHub prerelease contains all expected platform artifacts.
 5. Delete the prerelease and tag when done.
 
 ---
@@ -309,9 +309,9 @@ The release workflow (`.github/workflows/release.yml`) runs five jobs:
 - Runs in parallel across platforms with `fail-fast: false` (one platform failing does not cancel others).
 - Aligns all workspace `package.json` versions to the release version via `scripts/update-release-package-versions.ts`.
 - Invokes `bun run dist:desktop:artifact` with `--platform`, `--target`, `--arch`, and `--build-version` flags.
-- Detects signing secrets per platform and passes `--signed` when all required secrets are present:
+- Requires signing only for macOS release artifacts and fails the job if the Apple signing secrets are incomplete:
   - **macOS:** Writes `APPLE_API_KEY` to a temporary `.p8` file at `$RUNNER_TEMP`.
-  - **Windows:** Uses Azure Trusted Signing via environment variables.
+  - **Windows:** Uses Azure Trusted Signing via environment variables when configured.
   - **Linux:** No code signing.
 - Collects release assets (`.dmg`, `.zip`, `.AppImage`, `.exe`, `.blockmap`, `latest*.yml`) into `release-publish/`.
 - Renames `latest-mac.yml` to `latest-mac-x64.yml` for the non-arm64 macOS build (prevents collision before merging).

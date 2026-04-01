@@ -6,7 +6,7 @@
 - [x] Projects should be sorted by latest thread update
 - [x] Submitting new messages should scroll to bottom — [#13](https://github.com/OpenKnots/okcode/issues/13)
 - [ ] Thread archiving — [#10](https://github.com/OpenKnots/okcode/issues/10)
-- [ ] New projects should go on top — [#11](https://github.com/OpenKnots/okcode/issues/11)
+- [x] New projects should go on top — [#11](https://github.com/OpenKnots/okcode/issues/11)
 
 ## Bigger things
 

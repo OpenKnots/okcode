@@ -15,7 +15,7 @@ import { resolveDiffThemeName } from "~/lib/diffRendering";
 import { cn } from "~/lib/utils";
 import { ensureNativeApi } from "~/nativeApi";
 import { Button } from "~/components/ui/button";
-import { useCodeViewerStore } from "~/codeViewerStore";
+import { useFileViewNavigation } from "~/hooks/useFileViewNavigation";
 import type { Project } from "~/types";
 import { PrFileCommentComposer } from "./PrFileCommentComposer";
 import { PrFileTabStrip } from "./PrFileTabStrip";
@@ -28,6 +28,7 @@ import {
   summarizeFileDiffStats,
   threadTone,
 } from "./pr-review-utils";
+import { RawPatchViewer } from "./RawPatchViewer";
 
 const FILE_VIEW_MODE_SCHEMA = Schema.Literals(["single", "all"]);
 
@@ -51,7 +52,7 @@ export function PrWorkspace({
   onCreateThread: (input: { path: string; line: number; body: string }) => Promise<void>;
 }) {
   const { resolvedTheme } = useTheme();
-  const openFileInCodeViewer = useCodeViewerStore((state) => state.openFile);
+  const openFileInCodeViewer = useFileViewNavigation();
   const [fileViewMode, setFileViewMode] = useLocalStorage(
     "okcode:pr-review:file-view-mode",
     "single",
@@ -162,14 +163,7 @@ export function PrWorkspace({
           No patch is available for this pull request.
         </div>
       ) : renderablePatch.kind === "raw" ? (
-        <div className="min-h-0 flex-1 overflow-auto p-4">
-          <div className="rounded-2xl border border-border/70 bg-background/90 p-4">
-            <p className="mb-3 text-sm text-muted-foreground">{renderablePatch.reason}</p>
-            <pre className="overflow-auto whitespace-pre-wrap text-xs leading-6 text-foreground/85">
-              {renderablePatch.text}
-            </pre>
-          </div>
-        </div>
+        <RawPatchViewer text={renderablePatch.text} reason={renderablePatch.reason} />
       ) : (
         <Virtualizer className="min-h-0 flex-1 overflow-auto px-3 pb-4 pt-3">
           {visibleFiles.map((fileDiff) => {

@@ -213,6 +213,7 @@ import { readDesktopPreviewBridge } from "~/desktopPreview";
 import { usePreviewStateStore } from "~/previewStateStore";
 import { useClientMode } from "~/hooks/useClientMode";
 import { useTransportState } from "~/hooks/useTransportState";
+import { hasCustomThreadTitle, normalizeThreadTitle } from "~/threadTitle";
 
 const ATTACHMENT_PREVIEW_HANDOFF_TTL_MS = 5000;
 const IMAGE_SIZE_LIMIT_LABEL = `${Math.round(PROVIDER_SEND_TURN_MAX_IMAGE_BYTES / (1024 * 1024))}MB`;
@@ -443,6 +444,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
   );
   const clearComposerDraftContent = useComposerDraftStore((store) => store.clearComposerContent);
   const setDraftThreadContext = useComposerDraftStore((store) => store.setDraftThreadContext);
+  const setDraftThreadTitle = useComposerDraftStore((store) => store.setDraftThreadTitle);
   const getDraftThreadByProjectId = useComposerDraftStore(
     (store) => store.getDraftThreadByProjectId,
   );
@@ -896,6 +898,11 @@ export default function ChatView({ threadId }: ChatViewProps) {
     () => deriveActivePlanState(threadActivities, activeLatestTurn?.turnId ?? undefined),
     [activeLatestTurn?.turnId, threadActivities],
   );
+  const activePlanTurnId = activePlan?.turnId ?? null;
+  const activePendingUserInputRequestId = activePendingUserInput?.requestId ?? null;
+  const hasPendingPlanFeedback =
+    activePendingUserInputRequestId !== null &&
+    (activePlanTurnId !== null || interactionMode === "plan");
   const showPlanFollowUpPrompt =
     pendingUserInputs.length === 0 &&
     interactionMode === "plan" &&
@@ -950,6 +957,23 @@ export default function ChatView({ threadId }: ChatViewProps) {
     activePendingUserInput?.requestId,
     activePendingProgress?.activeQuestion?.id,
   ]);
+  useEffect(() => {
+    if (!hasPendingPlanFeedback) {
+      return;
+    }
+    const turnKey =
+      activePlanTurnId ?? sidebarProposedPlan?.turnId ?? activeLatestTurn?.turnId ?? null;
+    if (!turnKey || planSidebarDismissedForTurnRef.current === turnKey) {
+      return;
+    }
+    setPlanSidebarOpen(true);
+  }, [
+    activeLatestTurn?.turnId,
+    activePlanTurnId,
+    hasPendingPlanFeedback,
+    sidebarProposedPlan?.turnId,
+  ]);
+
   useEffect(() => {
     attachmentPreviewHandoffByMessageIdRef.current = attachmentPreviewHandoffByMessageId;
   }, [attachmentPreviewHandoffByMessageId]);
@@ -1943,7 +1967,8 @@ export default function ChatView({ threadId }: ChatViewProps) {
   const togglePlanSidebar = useCallback(() => {
     setPlanSidebarOpen((open) => {
       if (open) {
-        const turnKey = activePlan?.turnId ?? sidebarProposedPlan?.turnId ?? null;
+        const turnKey =
+          activePlan?.turnId ?? sidebarProposedPlan?.turnId ?? activeLatestTurn?.turnId ?? null;
         if (turnKey) {
           planSidebarDismissedForTurnRef.current = turnKey;
         }
@@ -1952,7 +1977,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
       }
       return !open;
     });
-  }, [activePlan?.turnId, sidebarProposedPlan?.turnId]);
+  }, [activeLatestTurn?.turnId, activePlan?.turnId, sidebarProposedPlan?.turnId]);
 
   const persistThreadSettingsForNextTurn = useCallback(
     async (input: {
@@ -3179,18 +3204,24 @@ export default function ChatView({ threadId }: ChatViewProps) {
         }
       }
 
-      const firstComposerAttachment = composerAttachmentsSnapshot[0] ?? null;
-      let titleSeed = trimmed;
-      if (!titleSeed) {
-        if (firstComposerAttachment) {
-          titleSeed = `${firstComposerAttachment.type === "image" ? "Image" : "File"}: ${firstComposerAttachment.name}`;
-        } else if (composerTerminalContextsSnapshot.length > 0) {
-          titleSeed = formatTerminalContextLabel(composerTerminalContextsSnapshot[0]!);
-        } else {
-          titleSeed = "New thread";
+      const manualThreadTitle = hasCustomThreadTitle(activeThread.title)
+        ? normalizeThreadTitle(activeThread.title)
+        : null;
+      let title = manualThreadTitle;
+      if (!title) {
+        const firstComposerAttachment = composerAttachmentsSnapshot[0] ?? null;
+        let titleSeed = trimmed;
+        if (!titleSeed) {
+          if (firstComposerAttachment) {
+            titleSeed = `${firstComposerAttachment.type === "image" ? "Image" : "File"}: ${firstComposerAttachment.name}`;
+          } else if (composerTerminalContextsSnapshot.length > 0) {
+            titleSeed = formatTerminalContextLabel(composerTerminalContextsSnapshot[0]!);
+          } else {
+            titleSeed = normalizeThreadTitle(null);
+          }
         }
+        title = truncateTitle(titleSeed);
       }
-      const title = truncateTitle(titleSeed);
       let threadCreateModel: ModelSlug =
         selectedModel || (activeProject.model as ModelSlug) || DEFAULT_MODEL_BY_PROVIDER.codex;
 
@@ -3237,7 +3268,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
       }
 
       // Auto-title from first message
-      if (isFirstMessage && isServerThread) {
+      if (isFirstMessage && isServerThread && !hasCustomThreadTitle(activeThread.title)) {
         await api.orchestration.dispatchCommand({
           type: "thread.meta.update",
           commandId: newCommandId(),
@@ -3349,6 +3380,16 @@ export default function ChatView({ threadId }: ChatViewProps) {
       createdAt: new Date().toISOString(),
     });
   };
+
+  const onClearQueue = useCallback(() => {
+    setOptimisticUserMessages((existing) => {
+      for (const msg of existing) {
+        if (msg.queued) revokeUserMessagePreviewUrls(msg);
+      }
+      return existing.filter((msg) => !msg.queued);
+    });
+    setQueuedMessages([]);
+  }, []);
 
   const onRespondToApproval = useCallback(
     async (requestId: ApprovalRequestId, decision: ProviderApprovalDecision) => {
@@ -4305,6 +4346,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
           activeProjectName={activeProject?.name}
           activeProjectCwd={activeProject?.cwd}
           isGitRepo={isGitRepo}
+          isLocalDraftThread={isLocalDraftThread}
           openInCwd={gitCwd}
           activeProjectScripts={activeProject?.scripts}
           preferredScriptId={
@@ -4321,6 +4363,9 @@ export default function ChatView({ threadId }: ChatViewProps) {
           gitCwd={gitCwd}
           diffOpen={diffOpen}
           clientMode={clientMode}
+          onRenameDraftThreadTitle={(title) => {
+            setDraftThreadTitle(activeThread.id, title);
+          }}
           onRunProjectScript={(script) => {
             void runProjectScript(script);
           }}
@@ -4896,9 +4941,30 @@ export default function ChatView({ threadId }: ChatViewProps) {
                             </span>
                           ) : null}
                           {queuedMessages.length > 0 && phase === "running" ? (
-                            <span className="text-muted-foreground/60 text-xs">
+                            <button
+                              type="button"
+                              className="flex items-center gap-1 text-muted-foreground/60 text-xs transition-colors hover:text-destructive"
+                              onClick={onClearQueue}
+                              title="Clear queued messages"
+                              aria-label="Clear queued messages"
+                            >
                               {queuedMessages.length} queued
-                            </span>
+                              <svg
+                                width="10"
+                                height="10"
+                                viewBox="0 0 10 10"
+                                fill="currentColor"
+                                aria-hidden="true"
+                              >
+                                <path
+                                  d="M2 2l6 6M8 2l-6 6"
+                                  stroke="currentColor"
+                                  strokeWidth="1.5"
+                                  strokeLinecap="round"
+                                  fill="none"
+                                />
+                              </svg>
+                            </button>
                           ) : null}
                           {activePendingProgress ? (
                             <div className="flex items-center gap-2">
@@ -5168,14 +5234,24 @@ export default function ChatView({ threadId }: ChatViewProps) {
         {planSidebarOpen ? (
           <PlanSidebar
             activePlan={activePlan}
+            activePendingIsResponding={activePendingIsResponding}
+            activePendingProgress={activePendingProgress}
+            activePendingUserInput={activePendingUserInput}
             activeProposedPlan={sidebarProposedPlan}
             markdownCwd={gitCwd ?? undefined}
+            onAdvancePendingUserInput={onAdvanceActivePendingUserInput}
             workspaceRoot={activeProject?.cwd ?? undefined}
+            onFocusComposer={scheduleComposerFocus}
             timestampFormat={timestampFormat}
+            onSelectPendingUserInputOption={onSelectActivePendingUserInputOption}
             onClose={() => {
               setPlanSidebarOpen(false);
               // Track that the user explicitly dismissed for this turn so auto-open won't fight them.
-              const turnKey = activePlan?.turnId ?? sidebarProposedPlan?.turnId ?? null;
+              const turnKey =
+                activePlan?.turnId ??
+                sidebarProposedPlan?.turnId ??
+                activeLatestTurn?.turnId ??
+                null;
               if (turnKey) {
                 planSidebarDismissedForTurnRef.current = turnKey;
               }

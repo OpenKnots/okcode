@@ -42,12 +42,9 @@ export const useCodeViewerStore = create<CodeViewerState>((set) => ({
   open: () => set({ isOpen: true }),
   close: () => set({ isOpen: false, tabs: [], activeTabPath: null }),
   toggle: () =>
-    set((state) => {
-      if (state.isOpen) {
-        return { isOpen: false, tabs: [], activeTabPath: null };
-      }
-      return { isOpen: true };
-    }),
+    set((state) => ({
+      isOpen: !state.isOpen,
+    })),
 
   openFile: (cwd, relativePath) =>
     set((state) => {

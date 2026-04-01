@@ -401,9 +401,9 @@ export function YouTubePlayerDrawer() {
             title="YouTube Player"
             src={embedUrl}
             width="100%"
-            height="80"
+            height="260"
             allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-            sandbox="allow-scripts allow-popups allow-forms allow-presentation"
+            sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-presentation"
             loading="lazy"
             className="rounded-xl border-0"
           />

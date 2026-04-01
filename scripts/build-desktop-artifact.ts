@@ -73,6 +73,7 @@ interface BuildCliInput {
   readonly skipBuild: Option.Option<boolean>;
   readonly keepStage: Option.Option<boolean>;
   readonly signed: Option.Option<boolean>;
+  readonly requireSigned: Option.Option<boolean>;
   readonly verbose: Option.Option<boolean>;
 }
 
@@ -161,6 +162,7 @@ interface ResolvedBuildOptions {
   readonly skipBuild: boolean;
   readonly keepStage: boolean;
   readonly signed: boolean;
+  readonly requireSigned: boolean;
   readonly verbose: boolean;
 }
 
@@ -203,8 +205,13 @@ const BuildEnvConfig = Config.all({
   skipBuild: Config.boolean("OKCODE_DESKTOP_SKIP_BUILD").pipe(Config.withDefault(false)),
   keepStage: Config.boolean("OKCODE_DESKTOP_KEEP_STAGE").pipe(Config.withDefault(false)),
   signed: Config.boolean("OKCODE_DESKTOP_SIGNED").pipe(Config.withDefault(false)),
+  requireSigned: Config.boolean("OKCODE_DESKTOP_REQUIRE_SIGNED").pipe(Config.withDefault(false)),
   verbose: Config.boolean("OKCODE_DESKTOP_VERBOSE").pipe(Config.withDefault(false)),
 });
+
+function supportsReleaseSigning(platform: typeof BuildPlatform.Type): boolean {
+  return platform === "mac" || platform === "win";
+}
 
 const resolveBooleanFlag = (flag: Option.Option<boolean>, envValue: boolean) =>
   Option.getOrElse(Option.filter(flag, Boolean), () => envValue);
@@ -236,7 +243,21 @@ const resolveBuildOptions = Effect.fn("resolveBuildOptions")(function* (input: B
   const skipBuild = resolveBooleanFlag(input.skipBuild, env.skipBuild);
   const keepStage = resolveBooleanFlag(input.keepStage, env.keepStage);
   const signed = resolveBooleanFlag(input.signed, env.signed);
+  const requireSigned = resolveBooleanFlag(input.requireSigned, env.requireSigned);
   const verbose = resolveBooleanFlag(input.verbose, env.verbose);
+
+  if (requireSigned && !supportsReleaseSigning(platform)) {
+    return yield* new BuildScriptError({
+      message: `Signed desktop releases are not supported for platform '${platform}'.`,
+    });
+  }
+
+  if (requireSigned && !signed) {
+    return yield* new BuildScriptError({
+      message:
+        "This desktop artifact requires signing. Re-run with --signed after configuring the required signing secrets.",
+    });
+  }
 
   return {
     platform,
@@ -247,6 +268,7 @@ const resolveBuildOptions = Effect.fn("resolveBuildOptions")(function* (input: B
     skipBuild,
     keepStage,
     signed,
+    requireSigned,
     verbose,
   } satisfies ResolvedBuildOptions;
 });
@@ -848,6 +870,12 @@ const buildDesktopArtifactCli = Command.make("build-desktop-artifact", {
   signed: Flag.boolean("signed").pipe(
     Flag.withDescription(
       "Enable signing/notarization discovery; Windows uses Azure Trusted Signing (env: OKCODE_DESKTOP_SIGNED).",
+    ),
+    Flag.optional,
+  ),
+  requireSigned: Flag.boolean("require-signed").pipe(
+    Flag.withDescription(
+      "Fail closed unless the artifact is signed; supported for release macOS and Windows builds (env: OKCODE_DESKTOP_REQUIRE_SIGNED).",
     ),
     Flag.optional,
   ),

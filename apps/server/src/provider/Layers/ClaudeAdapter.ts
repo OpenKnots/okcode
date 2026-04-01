@@ -18,6 +18,7 @@ import {
   type SettingSource,
   type SDKUserMessage,
 } from "@anthropic-ai/claude-agent-sdk";
+import type { ContentBlockParam, MessageParam } from "@anthropic-ai/sdk/resources";
 import {
   ApprovalRequestId,
   type CanonicalItemType,
@@ -510,6 +511,11 @@ const SUPPORTED_CLAUDE_IMAGE_MIME_TYPES = new Set([
   "image/png",
   "image/webp",
 ]);
+type ClaudeImageMimeType = "image/gif" | "image/jpeg" | "image/png" | "image/webp";
+
+function isClaudeImageMimeType(value: string): value is ClaudeImageMimeType {
+  return SUPPORTED_CLAUDE_IMAGE_MIME_TYPES.has(value as ClaudeImageMimeType);
+}
 const CLAUDE_SETTING_SOURCES = [
   "user",
   "project",
@@ -532,23 +538,24 @@ function buildPromptText(input: ProviderSendTurnInput): string {
 }
 
 function buildUserMessage(input: {
-  readonly sdkContent: Array<Record<string, unknown>>;
+  readonly sdkContent: Array<ContentBlockParam>;
 }): SDKUserMessage {
+  const message: MessageParam = {
+    role: "user",
+    content: input.sdkContent,
+  };
   return {
     type: "user",
     session_id: "",
     parent_tool_use_id: null,
-    message: {
-      role: "user",
-      content: input.sdkContent,
-    },
-  } as SDKUserMessage;
+    message,
+  };
 }
 
 function buildClaudeImageContentBlock(input: {
-  readonly mimeType: string;
+  readonly mimeType: ClaudeImageMimeType;
   readonly bytes: Uint8Array;
-}): Record<string, unknown> {
+}): ContentBlockParam {
   return {
     type: "image",
     source: {
@@ -567,7 +574,9 @@ function buildUserMessageEffect(
   },
 ): Effect.Effect<SDKUserMessage, ProviderAdapterRequestError> {
   return Effect.gen(function* () {
-    const imageAttachments: Array<Extract<NonNullable<ProviderSendTurnInput["attachments"]>[number], { type: "image" }>> = [];
+    const imageAttachments: Array<
+      Extract<NonNullable<ProviderSendTurnInput["attachments"]>[number], { type: "image" }>
+    > = [];
     const fileAttachments: Array<{
       readonly attachment: Extract<
         NonNullable<ProviderSendTurnInput["attachments"]>[number],
@@ -626,14 +635,14 @@ function buildUserMessageEffect(
       baseText: buildPromptText(input),
       attachments: fileAttachments,
     });
-    const sdkContent: Array<Record<string, unknown>> = [];
+    const sdkContent: Array<ContentBlockParam> = [];
 
     if (text.length > 0) {
       sdkContent.push({ type: "text", text });
     }
 
     for (const attachment of imageAttachments) {
-      if (!SUPPORTED_CLAUDE_IMAGE_MIME_TYPES.has(attachment.mimeType)) {
+      if (!isClaudeImageMimeType(attachment.mimeType)) {
         return yield* new ProviderAdapterRequestError({
           provider: PROVIDER,
           method: "turn/start",

@@ -554,6 +554,7 @@ const runtimeProgram = Command.run(devRunnerCli, { version: "0.0.0" }).pipe(
   Effect.provide([Logger.layer([Logger.consolePretty()]), NodeServices.layer, NetService.layer]),
 ) as Effect.Effect<void, never, never>;
 
-if (import.meta.main) {
+const isMain = import.meta.main ?? fileURLToPath(import.meta.url) === process.argv[1];
+if (isMain) {
   NodeRuntime.runMain(runtimeProgram as never);
 }

@@ -20,5 +20,9 @@
       "cache": false,
       "outputs": [],
     },
+    "release-smoke": {
+      "cache": false,
+      "outputs": [],
+    },
   },
 }

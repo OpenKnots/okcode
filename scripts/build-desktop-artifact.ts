@@ -863,5 +863,5 @@ const buildDesktopArtifactCli = Command.make("build-desktop-artifact", {
 Command.run(buildDesktopArtifactCli, { version: "0.0.0" }).pipe(
   Effect.scoped,
   Effect.provide([Logger.layer([Logger.consolePretty()]), NodeServices.layer]),
-  (program) => NodeRuntime.runMain(program as Effect.Effect<void, never, never>),
+  (effect) => NodeRuntime.runMain(effect as never),
 );

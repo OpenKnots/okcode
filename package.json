@@ -60,9 +60,9 @@
     "@types/node": "catalog:",
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
-    "oxfmt": "^0.40.0",
-    "oxlint": "^1.58.0",
-    "turbo": "^2.9.3",
+    "oxfmt": "^0.42.0",
+    "oxlint": "^1.57.0",
+    "turbo": "^2.8.21",
     "vitest": "catalog:"
   },
   "overrides": {
@@ -77,10 +77,10 @@
     ]
   },
   "engines": {
-    "bun": "^1.3.9",
+    "bun": "^1.3.11",
     "node": "^24.13.1"
   },
-  "packageManager": "bun@1.3.9",
+  "packageManager": "bun@1.3.11",
   "msw": {
     "workerDirectory": [
       "apps/web/public"

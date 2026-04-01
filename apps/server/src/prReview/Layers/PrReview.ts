@@ -1,6 +1,7 @@
 import { Effect, Layer } from "effect";
 import type {
   PrConflictAnalysis,
+  GitHubUserPreview,
   PrReviewAddThreadInput,
   PrReviewComment,
   PrReviewConfig,
@@ -12,9 +13,11 @@ import type {
   PrReviewReplyToThreadInput,
   PrReviewResolveThreadInput,
   PrReviewSearchUsersInput,
+  PrReviewSearchUsersResult,
   PrReviewSummary,
   PrReviewUserPreviewInput,
   PrSubmitReviewInput,
+  PrSubmitReviewResult,
   PrWorkflowStepRunResult,
 } from "@okcode/contracts";
 import { GitHubCli } from "../../git/Services/GitHubCli.ts";

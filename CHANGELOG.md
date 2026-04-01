@@ -11,6 +11,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - CLI npm package name is `okcodes`. Install with `npm install -g okcodes`; the `okcode` binary name is unchanged.
 
+## [0.0.7] - 2026-03-31
+
+See [docs/releases/v0.0.7.md](docs/releases/v0.0.7.md) for full notes and [docs/releases/v0.0.7/assets.md](docs/releases/v0.0.7/assets.md) for release asset inventory.
+
+### Added
+
+- Add a command palette for project and thread switching.
+- Add GitHub clone flow from repository URLs.
+- Add checklist views for proposed plans.
+- Add browser viewport presets to the preview panel.
+- Add skill CRUD and slash-command support.
+- Add `rec` command option mapping for review replies.
+
+### Changed
+
+- Refresh UI fonts and theme presets.
+- Improve PR panel accessibility and keyboard shortcuts.
+- Reorganize conflict intake UI and expandable summaries.
+- Fallback to available git branches when creating new worktrees.
+- Collapse consecutive work entries in the timeline.
+- Polish sidebar project add-row styling and workspace search filters.
+
+### Fixed
+
+- Harden selection highlight styling for accessibility and contrast compatibility.
+
+### Removed
+
+- None.
+
 ## [0.0.6] - 2026-03-28
 
 See [docs/releases/v0.0.6.md](docs/releases/v0.0.6.md) for full notes and [docs/releases/v0.0.6/assets.md](docs/releases/v0.0.6/assets.md) for release asset inventory.
@@ -151,5 +181,6 @@ First public version tag. See [docs/releases/v0.0.1.md](docs/releases/v0.0.1.md)
 [0.0.3]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.3
 [0.0.2]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.2
 [0.0.1]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.1
+[0.0.7]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.7
 [0.0.5]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.5
 [0.0.6]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.6

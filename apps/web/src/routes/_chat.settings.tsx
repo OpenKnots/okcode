@@ -39,6 +39,7 @@ import { SidebarTrigger } from "../components/ui/sidebar";
 import { Switch } from "../components/ui/switch";
 import { SidebarInset } from "../components/ui/sidebar";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../components/ui/tooltip";
+import { CustomThemeDialog } from "../components/CustomThemeDialog";
 import { resolveAndPersistPreferredEditor } from "../editorPreferences";
 import { isElectron } from "../env";
 import { useTheme, COLOR_THEMES, FONT_FAMILIES } from "../hooks/useTheme";
@@ -47,6 +48,19 @@ import {
   globalEnvironmentVariablesQueryOptions,
   projectEnvironmentVariablesQueryOptions,
 } from "../lib/environmentVariablesReactQuery";
+import {
+  applyCustomTheme,
+  clearFontOverride,
+  clearRadiusOverride,
+  clearStoredCustomTheme,
+  getStoredCustomTheme,
+  getStoredFontOverride,
+  getStoredRadiusOverride,
+  removeCustomTheme,
+  setStoredFontOverride,
+  setStoredRadiusOverride,
+  type CustomThemeData,
+} from "../lib/customTheme";
 import { serverConfigQueryOptions } from "../lib/serverReactQuery";
 import { cn } from "../lib/utils";
 import { ensureNativeApi, readNativeApi } from "../nativeApi";

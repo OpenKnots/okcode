@@ -69,3 +69,10 @@ export const ServerConfigUpdatedPayload = Schema.Struct({
   providers: ServerProviderStatuses,
 });
 export type ServerConfigUpdatedPayload = typeof ServerConfigUpdatedPayload.Type;
+
+export const ServerUpdateInfo = Schema.Struct({
+  currentVersion: Schema.String,
+  latestVersion: Schema.NullOr(Schema.String),
+  updateAvailable: Schema.Boolean,
+});
+export type ServerUpdateInfo = typeof ServerUpdateInfo.Type;

@@ -16,7 +16,9 @@ function readSrc(relativePath: string): string {
   return readFileSync(resolve(__dirname, relativePath), "utf-8");
 }
 
-const gamma = (c: number) => (c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055);
+function gamma(c: number): number {
+  return c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  oklch → sRGB conversion (used for WCAG contrast checks)

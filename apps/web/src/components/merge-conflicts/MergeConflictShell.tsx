@@ -165,7 +165,7 @@ function ConflictCandidateButton({
               <Badge className="bg-sky-500/10 text-sky-700 dark:text-sky-300">recommended</Badge>
             ) : null}
           </div>
-          <p className="text-xs text-muted-foreground">{candidate.path}</p>
+          <p className="text-xs text-muted-foreground">{candidate.path.split("/").pop() ?? candidate.path}</p>
         </div>
         <Badge
           className={cn(
@@ -181,7 +181,7 @@ function ConflictCandidateButton({
         className="mt-3"
         text={candidate.description}
         title={candidate.title}
-        subtitle={`${candidate.path} · ${candidate.confidence} confidence`}
+        subtitle={`${candidate.path.split("/").pop() ?? candidate.path} · ${candidate.confidence} confidence`}
       >
         <p className="text-sm text-muted-foreground">{candidate.description}</p>
       </ExpandableSummary>

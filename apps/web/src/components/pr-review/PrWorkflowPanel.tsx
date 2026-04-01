@@ -108,7 +108,7 @@ export function PrWorkflowPanel({
             <div className="space-y-1 text-amber-800 dark:text-amber-200">
               {config.issues.map((issue) => (
                 <p key={`${issue.path}:${issue.message}`}>
-                  {issue.path}: {issue.message}
+                  {issue.path.split("/").pop() ?? issue.path}: {issue.message}
                 </p>
               ))}
             </div>

@@ -141,6 +141,8 @@ interface GitActionFailureDialogState {
   retryInput: RetryableGitActionInput;
 }
 
+type GitDialogAction = GitStackedAction;
+
 const isGitActionFailure = Schema.is(GitActionFailureSchema);
 
 function toRetryableGitActionInput(input: RunGitActionWithToastInput): RetryableGitActionInput {
@@ -262,9 +264,62 @@ function getMenuActionDisabledReason({
   return "Create PR is currently unavailable.";
 }
 
-const COMMIT_DIALOG_TITLE = "Commit changes";
-const COMMIT_DIALOG_DESCRIPTION =
-  "Review and confirm your commit. Leave the message blank to auto-generate one.";
+function dialogIncludesCommit(
+  action: GitDialogAction | null,
+  gitStatus: GitStatusResult | null,
+): boolean {
+  if (!action) return false;
+  return action === "commit" || !!gitStatus?.hasWorkingTreeChanges;
+}
+
+function resolveDialogCopy(input: { action: GitDialogAction | null; includesCommit: boolean }): {
+  title: string;
+  description: string;
+  confirmLabel: string;
+  newBranchLabel: string;
+} {
+  if (input.action === "commit_push_pr") {
+    if (input.includesCommit) {
+      return {
+        title: "Commit, push, and create PR",
+        description:
+          "Review the commit details, then continue through the full publish flow with PR creation.",
+        confirmLabel: "Commit, push & create PR",
+        newBranchLabel: "Use new branch instead",
+      };
+    }
+    return {
+      title: "Create pull request",
+      description: "Push local commits if needed, then create a pull request for this branch.",
+      confirmLabel: "Push & create PR",
+      newBranchLabel: "Use new branch instead",
+    };
+  }
+
+  if (input.action === "commit_push") {
+    if (input.includesCommit) {
+      return {
+        title: "Commit and push changes",
+        description: "Review the commit details, then publish this branch.",
+        confirmLabel: "Commit & push",
+        newBranchLabel: "Use new branch instead",
+      };
+    }
+    return {
+      title: "Push branch",
+      description: "Push local commits on this branch.",
+      confirmLabel: "Push",
+      newBranchLabel: "Use new branch instead",
+    };
+  }
+
+  return {
+    title: "Commit changes",
+    description: "Review and confirm your commit. Leave the message blank to auto-generate one.",
+    confirmLabel: "Commit",
+    newBranchLabel: "Commit on new branch",
+  };
+}
 
 function GitActionItemIcon({ icon }: { icon: GitActionIconName }) {
   if (icon === "commit") return <GitCommitIcon />;
@@ -299,7 +354,7 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
     [activeThreadId],
   );
   const queryClient = useQueryClient();
-  const [isCommitDialogOpen, setIsCommitDialogOpen] = useState(false);
+  const [activeDialogAction, setActiveDialogAction] = useState<GitDialogAction | null>(null);
   const [dialogCommitMessage, setDialogCommitMessage] = useState("");
   const [excludedFiles, setExcludedFiles] = useState<ReadonlySet<string>>(new Set());
   const [isEditingFiles, setIsEditingFiles] = useState(false);
@@ -345,6 +400,11 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
   const selectedFiles = allFiles.filter((f) => !excludedFiles.has(f.path));
   const allSelected = excludedFiles.size === 0;
   const noneSelected = selectedFiles.length === 0;
+  const activeDialogIncludesCommit = dialogIncludesCommit(activeDialogAction, gitStatusForActions);
+  const activeDialogCopy = resolveDialogCopy({
+    action: activeDialogAction,
+    includesCommit: activeDialogIncludesCommit,
+  });
 
   const initMutation = useMutation(gitInitMutationOptions({ cwd: gitCwd, queryClient }));
 
@@ -824,22 +884,28 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
   }, [pendingDefaultBranchAction]);
 
   const runDialogActionOnNewBranch = useCallback(() => {
-    if (!isCommitDialogOpen) return;
+    if (!activeDialogAction || !activeDialogIncludesCommit) return;
     const commitMessage = dialogCommitMessage.trim();
 
-    setIsCommitDialogOpen(false);
+    setActiveDialogAction(null);
     setDialogCommitMessage("");
     setExcludedFiles(new Set());
     setIsEditingFiles(false);
 
     void runGitActionWithToast({
-      action: "commit",
+      action: activeDialogAction,
       ...(commitMessage ? { commitMessage } : {}),
       ...(!allSelected ? { filePaths: selectedFiles.map((f) => f.path) } : {}),
       featureBranch: true,
       skipDefaultBranchPrompt: true,
     });
-  }, [allSelected, isCommitDialogOpen, dialogCommitMessage, selectedFiles]);
+  }, [
+    activeDialogAction,
+    activeDialogIncludesCommit,
+    allSelected,
+    dialogCommitMessage,
+    selectedFiles,
+  ]);
 
   const conflictedFiles = useMemo(
     () => gitStatusForActions?.conflictedFiles ?? [],
@@ -1002,7 +1068,10 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
       return;
     }
     if (quickAction.action) {
-      void runGitActionWithToast({ action: quickAction.action });
+      setDialogCommitMessage("");
+      setExcludedFiles(new Set());
+      setIsEditingFiles(false);
+      setActiveDialogAction(quickAction.action);
     }
   }, [openConflictedFilesInEditor, openExistingPr, quickAction, runPullWithToast, threadToastData]);
 
@@ -1013,40 +1082,48 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
         void openExistingPr();
         return;
       }
+      setDialogCommitMessage("");
+      setExcludedFiles(new Set());
+      setIsEditingFiles(false);
       if (item.dialogAction === "push") {
-        void runGitActionWithToast({ action: "commit_push", forcePushOnlyProgress: true });
+        setActiveDialogAction("commit_push");
         return;
       }
       if (item.dialogAction === "create_pr") {
-        void runGitActionWithToast({ action: "commit_push_pr" });
+        setActiveDialogAction("commit_push_pr");
         return;
       }
-      setExcludedFiles(new Set());
-      setIsEditingFiles(false);
-      setIsCommitDialogOpen(true);
+      setActiveDialogAction("commit");
     },
-    [openExistingPr, setIsCommitDialogOpen],
+    [openExistingPr],
   );
 
   const runDialogAction = useCallback(() => {
-    if (!isCommitDialogOpen) return;
+    if (!activeDialogAction) return;
     const commitMessage = dialogCommitMessage.trim();
-    setIsCommitDialogOpen(false);
+    const includesCommit = dialogIncludesCommit(activeDialogAction, gitStatusForActions);
+    setActiveDialogAction(null);
     setDialogCommitMessage("");
     setExcludedFiles(new Set());
     setIsEditingFiles(false);
     void runGitActionWithToast({
-      action: "commit",
-      ...(commitMessage ? { commitMessage } : {}),
-      ...(!allSelected ? { filePaths: selectedFiles.map((f) => f.path) } : {}),
+      action: activeDialogAction,
+      ...(includesCommit && commitMessage ? { commitMessage } : {}),
+      ...(includesCommit
+        ? !allSelected
+          ? { filePaths: selectedFiles.map((f) => f.path) }
+          : {}
+        : activeDialogAction !== "commit"
+          ? { forcePushOnlyProgress: true }
+          : {}),
     });
   }, [
+    activeDialogAction,
     allSelected,
     dialogCommitMessage,
-    isCommitDialogOpen,
+    gitStatusForActions,
     selectedFiles,
     setDialogCommitMessage,
-    setIsCommitDialogOpen,
   ]);
 
   const openChangedFileInEditor = useCallback(
@@ -1309,10 +1386,10 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
       )}
 
       <Dialog
-        open={isCommitDialogOpen}
+        open={activeDialogAction !== null}
         onOpenChange={(open: boolean) => {
           if (!open) {
-            setIsCommitDialogOpen(false);
+            setActiveDialogAction(null);
             setDialogCommitMessage("");
             setExcludedFiles(new Set());
             setIsEditingFiles(false);
@@ -1321,8 +1398,8 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
       >
         <DialogPopup>
           <DialogHeader>
-            <DialogTitle>{COMMIT_DIALOG_TITLE}</DialogTitle>
-            <DialogDescription>{COMMIT_DIALOG_DESCRIPTION}</DialogDescription>
+            <DialogTitle>{activeDialogCopy.title}</DialogTitle>
+            <DialogDescription>{activeDialogCopy.description}</DialogDescription>
           </DialogHeader>
           <DialogPanel className="space-y-4">
             <div className="space-y-3 rounded-lg border border-input bg-muted/40 p-3 text-xs">
@@ -1340,7 +1417,7 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    {isEditingFiles && allFiles.length > 0 && (
+                    {activeDialogIncludesCommit && isEditingFiles && allFiles.length > 0 && (
                       <Checkbox
                         checked={allSelected}
                         indeterminate={!allSelected && !noneSelected}
@@ -1352,13 +1429,13 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
                       />
                     )}
                     <span className="text-muted-foreground">Files</span>
-                    {!allSelected && !isEditingFiles && (
+                    {activeDialogIncludesCommit && !allSelected && !isEditingFiles && (
                       <span className="text-muted-foreground">
                         ({selectedFiles.length} of {allFiles.length})
                       </span>
                     )}
                   </div>
-                  {allFiles.length > 0 && (
+                  {activeDialogIncludesCommit && allFiles.length > 0 && (
                     <Button
                       variant="ghost"
                       size="xs"
@@ -1381,7 +1458,7 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
                               key={file.path}
                               className="flex w-full items-center gap-2 rounded-md px-2 py-1 font-mono text-xs transition-colors hover:bg-accent/50"
                             >
-                              {isEditingFiles && (
+                              {activeDialogIncludesCommit && isEditingFiles && (
                                 <Checkbox
                                   checked={!excludedFiles.has(file.path)}
                                   onCheckedChange={() => {
@@ -1437,22 +1514,24 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
                 )}
               </div>
             </div>
-            <div className="space-y-1">
-              <p className="text-xs font-medium">Commit message (optional)</p>
-              <Textarea
-                value={dialogCommitMessage}
-                onChange={(event) => setDialogCommitMessage(event.target.value)}
-                placeholder="Leave empty to auto-generate"
-                size="sm"
-              />
-            </div>
+            {activeDialogIncludesCommit ? (
+              <div className="space-y-1">
+                <p className="text-xs font-medium">Commit message (optional)</p>
+                <Textarea
+                  value={dialogCommitMessage}
+                  onChange={(event) => setDialogCommitMessage(event.target.value)}
+                  placeholder="Leave empty to auto-generate"
+                  size="sm"
+                />
+              </div>
+            ) : null}
           </DialogPanel>
           <DialogFooter>
             <Button
               variant="outline"
               size="sm"
               onClick={() => {
-                setIsCommitDialogOpen(false);
+                setActiveDialogAction(null);
                 setDialogCommitMessage("");
                 setExcludedFiles(new Set());
                 setIsEditingFiles(false);
@@ -1460,16 +1539,22 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
             >
               Cancel
             </Button>
+            {activeDialogIncludesCommit ? (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={noneSelected}
+                onClick={runDialogActionOnNewBranch}
+              >
+                {activeDialogCopy.newBranchLabel}
+              </Button>
+            ) : null}
             <Button
-              variant="outline"
               size="sm"
-              disabled={noneSelected}
-              onClick={runDialogActionOnNewBranch}
+              disabled={activeDialogIncludesCommit && noneSelected}
+              onClick={runDialogAction}
             >
-              Commit on new branch
-            </Button>
-            <Button size="sm" disabled={noneSelected} onClick={runDialogAction}>
-              Commit
+              {activeDialogCopy.confirmLabel}
             </Button>
           </DialogFooter>
         </DialogPopup>

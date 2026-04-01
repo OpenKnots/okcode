@@ -42,7 +42,7 @@ import { Tooltip, TooltipPopup, TooltipTrigger } from "../components/ui/tooltip"
 import { CustomThemeDialog } from "../components/CustomThemeDialog";
 import { resolveAndPersistPreferredEditor } from "../editorPreferences";
 import { isElectron } from "../env";
-import { useTheme, COLOR_THEMES, FONT_FAMILIES } from "../hooks/useTheme";
+import { useTheme, COLOR_THEMES, DEFAULT_COLOR_THEME, FONT_FAMILIES } from "../hooks/useTheme";
 import {
   environmentVariablesQueryKeys,
   globalEnvironmentVariablesQueryOptions,
@@ -327,7 +327,7 @@ function SettingsRouteView() {
     settings.codexHomePath !== defaults.codexHomePath;
   const changedSettingLabels = [
     ...(theme !== "system" ? ["Theme"] : []),
-    ...(colorTheme !== "default" ? ["Color theme"] : []),
+    ...(colorTheme !== DEFAULT_COLOR_THEME ? ["Color theme"] : []),
     ...(fontFamily !== "inter" ? ["Font"] : []),
     ...(settings.timestampFormat !== defaults.timestampFormat ? ["Time format"] : []),
     ...(settings.diffWordWrap !== defaults.diffWordWrap ? ["Diff line wrapping"] : []),
@@ -475,7 +475,7 @@ function SettingsRouteView() {
     if (!confirmed) return;
 
     setTheme("system");
-    setColorTheme("default");
+    setColorTheme(DEFAULT_COLOR_THEME);
     setFontFamily("inter");
     resetSettings();
     setOpenInstallProviders({
@@ -579,11 +579,11 @@ function SettingsRouteView() {
                 title="Color theme"
                 description="Pick a color palette for light and dark modes."
                 resetAction={
-                  colorTheme !== "default" ? (
+                  colorTheme !== DEFAULT_COLOR_THEME ? (
                     <SettingResetButton
                       label="color theme"
                       onClick={() => {
-                        setColorTheme("default");
+                        setColorTheme(DEFAULT_COLOR_THEME);
                         clearStoredCustomTheme();
                         removeCustomTheme();
                       }}

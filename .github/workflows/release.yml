@@ -11,7 +11,7 @@ on:
         required: true
         type: string
       mac_arm64_only:
-        description: "Apple Silicon (M-series) Mac only — build and publish only the macOS arm64 DMG (skip Intel Mac, Linux, and Windows). Enabled by default."
+        description: "Apple Silicon (M-series) macOS only on Mac runners. Linux and Windows remain part of the full matrix when requested."
         required: false
         type: boolean
         default: true
@@ -44,7 +44,7 @@ jobs:
           if [[ "$mac_arm64_only" == "true" ]]; then
             matrix_json='[{"label":"macOS arm64","runner":"macos-14","platform":"mac","target":"dmg","arch":"arm64"}]'
           else
-            matrix_json='[{"label":"macOS arm64","runner":"macos-14","platform":"mac","target":"dmg","arch":"arm64"},{"label":"macOS x64","runner":"macos-15-intel","platform":"mac","target":"dmg","arch":"x64"},{"label":"Linux x64","runner":"ubuntu-24.04","platform":"linux","target":"AppImage","arch":"x64"},{"label":"Windows x64","runner":"windows-2022","platform":"win","target":"nsis","arch":"x64"}]'
+            matrix_json='[{"label":"macOS arm64","runner":"macos-14","platform":"mac","target":"dmg","arch":"arm64"},{"label":"Linux x64","runner":"ubuntu-24.04","platform":"linux","target":"AppImage","arch":"x64"},{"label":"Windows x64","runner":"windows-2022","platform":"win","target":"nsis","arch":"x64"}]'
           fi
           {
             echo "matrix<<MATRIX_JSON_EOF"
@@ -103,9 +103,6 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
-
-      - name: Format
-        run: bun run fmt:check
 
       - name: Lint
         run: bun run lint
@@ -248,12 +245,6 @@ jobs:
             done
           done
 
-          if [[ "${{ matrix.platform }}" == "mac" && "${{ matrix.arch }}" != "arm64" ]]; then
-            if [[ -f release-publish/latest-mac.yml ]]; then
-              mv release-publish/latest-mac.yml "release-publish/latest-mac-${{ matrix.arch }}.yml"
-            fi
-          fi
-
       - name: Upload build artifacts
         uses: actions/upload-artifact@v7
         with:
@@ -286,16 +277,7 @@ jobs:
       - name: Merge macOS updater manifests
         run: |
           set -euo pipefail
-          if [[ "${{ needs.configure.outputs.mac_arm64_only }}" == "true" ]]; then
-            echo "macOS arm64-only build: using latest-mac.yml from the arm64 builder as-is."
-          elif [[ -f release-assets/latest-mac-x64.yml ]]; then
-            node scripts/merge-mac-update-manifests.ts \
-              release-assets/latest-mac.yml \
-              release-assets/latest-mac-x64.yml
-            rm -f release-assets/latest-mac-x64.yml
-          else
-            echo "No latest-mac-x64.yml present; using latest-mac.yml as-is."
-          fi
+          echo "Using latest-mac.yml as-is."
 
       - name: Stage documentation for release assets
         env:

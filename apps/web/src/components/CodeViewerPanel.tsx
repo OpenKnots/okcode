@@ -184,7 +184,8 @@ export default function CodeViewerPanel() {
             size="icon-xs"
             variant="ghost"
             onClick={closeViewer}
-            aria-label="Close code viewer"
+            aria-label="Close all open files"
+            title="Close all open files"
           >
             <XIcon className="size-4" />
           </Button>

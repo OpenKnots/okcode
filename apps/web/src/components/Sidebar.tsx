@@ -1328,7 +1328,9 @@ export default function Sidebar() {
                 <span className="min-w-0 flex-1 truncate text-xs">{thread.title}</span>
               )}
             </div>
-            <div className="ml-auto flex shrink-0 items-center gap-1.5">
+            <div
+              className={`ml-auto flex items-center gap-1.5${appSettings.sidebarWideThreadNames ? "" : " shrink-0"}`}
+            >
               {terminalStatus && (
                 <span
                   role="img"
@@ -1401,7 +1403,14 @@ export default function Sidebar() {
               />
             )}
             <ProjectFavicon cwd={project.cwd} />
-            <span className="flex-1 truncate text-[13px] font-semibold tracking-[0.01em] text-foreground">
+            <span
+              className={`flex-1 truncate text-[13px] font-semibold tracking-[0.01em] ${appSettings.sidebarAccentProjectNames ? "text-accent-foreground" : "text-foreground"}`}
+              style={
+                appSettings.sidebarAccentProjectNames && appSettings.sidebarAccentColorOverride
+                  ? { color: appSettings.sidebarAccentColorOverride }
+                  : undefined
+              }
+            >
               {project.name}
             </span>
           </SidebarMenuButton>

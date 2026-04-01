@@ -106,8 +106,8 @@ export function FeatureCardsSection() {
               transition={{ duration: 0.6, delay: 0.1 }}
               className="max-w-md"
             >
-              <p className="text-muted-foreground leading-relaxed text-lg">
-                Sprint is shaped by the practices and principles that distinguish world-class
+              <p className="text-muted-foreground leading-relaxed">
+                OK Code is shaped by the practices and principles that distinguish world-class
                 product teams from the rest: relentless focus, fast execution, and a commitment to
                 the quality of craft.{" "}
                 <a

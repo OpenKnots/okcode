@@ -30,22 +30,22 @@ const carouselCards = [
   },
   {
     id: 3,
-    category: "Sprint Mobile",
+    category: "OK Code Mobile",
     title: "Move product work forward from anywhere",
     icon: ArrowRight,
     mockup: "mobile",
   },
   {
     id: 4,
-    category: "Sprint Asks",
+    category: "OK Code Asks",
     title: "Turn workplace requests into actionable issues",
     icon: ArrowRight,
     mockup: "asks",
   },
   {
     id: 5,
-    category: "Sprint Integrations",
-    title: "100+ ways to enhance your Sprint experience",
+    category: "OK Code Integrations",
+    title: "100+ ways to enhance your OK Code experience",
     icon: ArrowRight,
     mockup: "integrations",
   },
@@ -59,7 +59,7 @@ const carouselCards = [
   {
     id: 7,
     category: "Built for developers",
-    title: "Build your own add-ons with the Sprint API",
+    title: "Build your own add-ons with the OK Code API",
     icon: ArrowRight,
     mockup: "api",
   },
@@ -203,7 +203,7 @@ function ApiMockup() {
   return (
     <div className="flex items-center justify-center h-full">
       <div className="bg-secondary/50 rounded-lg px-4 py-2 border border-border/50">
-        <span className="text-xs font-mono text-muted-foreground">SPRINT API</span>
+        <span className="text-xs font-mono text-muted-foreground">OK CODE API</span>
       </div>
     </div>
   );
@@ -272,8 +272,8 @@ export function WorkflowsSection() {
           </div>
 
           {/* Description */}
-          <p className="text-muted-foreground text-lg lg:max-w-md lg:pt-12">
-            Expand the capabilities of the Sprint system with a wide variety of integrations that
+          <p className="text-muted-foreground lg:max-w-sm lg:pt-12">
+            Expand the capabilities of the OK Code system with a wide variety of integrations that
             keep everyone in your organization aligned and focused.
           </p>
         </div>

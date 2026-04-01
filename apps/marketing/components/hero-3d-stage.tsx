@@ -64,7 +64,7 @@ export function Hero3DStage() {
                 transition={{ duration: 0.6 }}
                 className="text-5xl md:text-6xl lg:text-[72px] font-bold text-foreground leading-[1.08] text-balance"
               >
-                Sprint is a purpose-built tool for planning and building products
+                OK Code is a purpose-built tool for planning and building products
               </motion.h1>
               <motion.p
                 initial={{ opacity: 0, y: 20 }}
@@ -88,7 +88,7 @@ export function Hero3DStage() {
                   </button>
                 </a>
                 <button className="text-secondary-foreground font-semibold hover:text-foreground transition-colors flex items-center gap-2 text-base">
-                  <span className="text-muted-foreground">New:</span> Sprint agent for Slack
+                  <span className="text-muted-foreground">New:</span> OK Code agent for Slack
                   <span aria-hidden="true">→</span>
                 </button>
               </motion.div>

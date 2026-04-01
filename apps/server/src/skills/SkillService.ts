@@ -7,19 +7,26 @@
  * @module SkillService
  */
 import type {
+  SkillCatalogResult,
   SkillCreateResult,
+  SkillImportResult,
+  SkillInstallResult,
   SkillListResult,
   SkillReadResult,
   SkillSearchResult,
 } from "@okcode/contracts";
 import { Effect, Layer, Schema, ServiceMap } from "effect";
 import {
+  ensureSystemSkillsInstalled,
+  importSkill,
+  installBundledSkill,
   listSkills,
   readSkill,
   searchSkills,
   createSkill,
   deleteSkill,
 } from "@okcode/shared/skill";
+import { listBundledSkills } from "@okcode/shared/skillCatalog";
 
 /**
  * SkillServiceError - Tagged error for skill service failures.
@@ -41,6 +48,10 @@ export class SkillServiceError extends Schema.TaggedErrorClass<SkillServiceError
  * SkillServiceShape - Service API for skill CRUD and search operations.
  */
 export interface SkillServiceShape {
+  readonly catalog: (input: {
+    readonly cwd?: string | undefined;
+  }) => Effect.Effect<SkillCatalogResult, SkillServiceError>;
+
   /**
    * List all installed skills.
    */
@@ -64,6 +75,8 @@ export interface SkillServiceShape {
     readonly description: string;
     readonly scope: "global" | "project";
     readonly cwd?: string | undefined;
+    readonly tags?: readonly string[] | undefined;
+    readonly template?: "blank" | "docs-helper" | "automation-helper" | "review-helper" | undefined;
   }) => Effect.Effect<SkillCreateResult, SkillServiceError>;
 
   /**
@@ -74,6 +87,36 @@ export interface SkillServiceShape {
     readonly scope: "global" | "project";
     readonly cwd?: string | undefined;
   }) => Effect.Effect<void, SkillServiceError>;
+
+  readonly install: (input: {
+    readonly id:
+      | "pdf"
+      | "spreadsheet"
+      | "doc"
+      | "playwright"
+      | "github"
+      | "skill-creator"
+      | "image-gen"
+      | "plugin-creator"
+      | "skill-installer"
+      | "openclaw-docs"
+      | "openai-docs"
+      | "anthropic-docs";
+    readonly scope: "global" | "project";
+    readonly cwd?: string | undefined;
+  }) => Effect.Effect<SkillInstallResult, SkillServiceError>;
+
+  readonly uninstall: (input: {
+    readonly name: string;
+    readonly scope: "global" | "project";
+    readonly cwd?: string | undefined;
+  }) => Effect.Effect<void, SkillServiceError>;
+
+  readonly importSkill: (input: {
+    readonly path: string;
+    readonly scope: "global" | "project";
+    readonly cwd?: string | undefined;
+  }) => Effect.Effect<SkillImportResult, SkillServiceError>;
 
   /**
    * Search skills by query.
@@ -91,19 +134,60 @@ export class SkillService extends ServiceMap.Service<SkillService, SkillServiceS
   "okcode/skills/SkillService",
 ) {}
 
+function toSkillEntry(entry: ReturnType<typeof listSkills>[number]) {
+  return {
+    name: entry.name,
+    scope: entry.scope,
+    description: entry.description,
+    tags: entry.tags,
+    path: entry.path,
+    catalogId: entry.catalogId,
+    origin: entry.origin,
+    system: entry.system,
+    mutable: entry.mutable,
+    supplementaryFiles: entry.supplementaryFiles,
+  };
+}
+
+const catalogEntries = listBundledSkills();
+ensureSystemSkillsInstalled();
+
 export const SkillServiceLive = Layer.succeed(SkillService, {
+  catalog: (input) =>
+    Effect.try({
+      try: () => {
+        const installed = listSkills(input.cwd);
+        return {
+          skills: catalogEntries.map((catalogSkill) => {
+            const installedEntry = installed.find(
+              (entry) =>
+                entry.catalogId === catalogSkill.entry.id || entry.name === catalogSkill.skillName,
+            );
+            return Object.assign({}, catalogSkill.entry, {
+              installed: Boolean(installedEntry),
+              installedScope: installedEntry?.scope ?? null,
+              path: installedEntry?.path ?? null,
+              catalogId: installedEntry?.catalogId ?? catalogSkill.entry.id,
+              origin: installedEntry?.origin ?? null,
+              drifted: false,
+            });
+          }),
+        };
+      },
+      catch: (cause) =>
+        new SkillServiceError({
+          operation: "catalog",
+          detail: cause instanceof Error ? cause.message : String(cause),
+          cause: cause instanceof Error ? cause : undefined,
+        }),
+    }),
+
   list: (input) =>
     Effect.try({
       try: () => {
         const entries = listSkills(input.cwd);
         return {
-          skills: entries.map((e) => ({
-            name: e.name,
-            scope: e.scope,
-            description: e.description,
-            tags: e.tags,
-            path: e.path,
-          })),
+          skills: entries.map(toSkillEntry),
         };
       },
       catch: (cause) =>
@@ -128,6 +212,11 @@ export const SkillServiceLive = Layer.succeed(SkillService, {
           content: result.content.raw,
           path: result.path,
           tags: result.tags,
+          catalogId: result.catalogId,
+          origin: result.origin,
+          system: result.system,
+          mutable: result.mutable,
+          supplementaryFiles: result.supplementaryFiles,
         };
       },
       catch: (cause) =>
@@ -140,10 +229,50 @@ export const SkillServiceLive = Layer.succeed(SkillService, {
 
   create: (input) =>
     Effect.try({
-      try: () => createSkill(input.name, input.description, input.scope, input.cwd),
+      try: () =>
+        createSkill(
+          input.name,
+          input.description,
+          input.scope,
+          { tags: input.tags, template: input.template },
+          input.cwd,
+        ),
       catch: (cause) =>
         new SkillServiceError({
           operation: "create",
+          detail: cause instanceof Error ? cause.message : String(cause),
+          cause: cause instanceof Error ? cause : undefined,
+        }),
+    }),
+
+  install: (input) =>
+    Effect.try({
+      try: () => installBundledSkill(input.id, input.scope, input.cwd),
+      catch: (cause) =>
+        new SkillServiceError({
+          operation: "install",
+          detail: cause instanceof Error ? cause.message : String(cause),
+          cause: cause instanceof Error ? cause : undefined,
+        }),
+    }),
+
+  uninstall: (input) =>
+    Effect.try({
+      try: () => deleteSkill(input.name, input.scope, input.cwd),
+      catch: (cause) =>
+        new SkillServiceError({
+          operation: "uninstall",
+          detail: cause instanceof Error ? cause.message : String(cause),
+          cause: cause instanceof Error ? cause : undefined,
+        }),
+    }),
+
+  importSkill: (input) =>
+    Effect.try({
+      try: () => importSkill(input.path, input.scope, input.cwd),
+      catch: (cause) =>
+        new SkillServiceError({
+          operation: "import",
           detail: cause instanceof Error ? cause.message : String(cause),
           cause: cause instanceof Error ? cause : undefined,
         }),
@@ -165,13 +294,7 @@ export const SkillServiceLive = Layer.succeed(SkillService, {
       try: () => {
         const entries = searchSkills(input.query, input.cwd);
         return {
-          skills: entries.map((e) => ({
-            name: e.name,
-            scope: e.scope,
-            description: e.description,
-            tags: e.tags,
-            path: e.path,
-          })),
+          skills: entries.map(toSkillEntry),
         };
       },
       catch: (cause) =>

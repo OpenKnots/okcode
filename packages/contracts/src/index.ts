@@ -14,3 +14,4 @@ export * from "./editor";
 export * from "./project";
 export * from "./environment";
 export * from "./skill";
+export * from "./skillCatalog";

@@ -67,10 +67,14 @@ import { OpenInEditorInput } from "./editor";
 import { ServerConfigUpdatedPayload } from "./server";
 import {
   SkillListInput,
+  SkillCatalogInput,
   SkillReadInput,
   SkillCreateInput,
   SkillDeleteInput,
+  SkillInstallInput,
+  SkillImportInput,
   SkillSearchInput,
+  SkillUninstallInput,
 } from "./skill";
 
 // ── WebSocket RPC Method Names ───────────────────────────────────────
@@ -128,9 +132,13 @@ export const WS_METHODS = {
 
   // Skill methods
   skillList: "skill.list",
+  skillCatalog: "skill.catalog",
   skillRead: "skill.read",
   skillCreate: "skill.create",
   skillDelete: "skill.delete",
+  skillInstall: "skill.install",
+  skillUninstall: "skill.uninstall",
+  skillImport: "skill.import",
   skillSearch: "skill.search",
 
   // Server meta
@@ -227,9 +235,13 @@ const WebSocketRequestBody = Schema.Union([
 
   // Skill methods
   tagRequestBody(WS_METHODS.skillList, SkillListInput),
+  tagRequestBody(WS_METHODS.skillCatalog, SkillCatalogInput),
   tagRequestBody(WS_METHODS.skillRead, SkillReadInput),
   tagRequestBody(WS_METHODS.skillCreate, SkillCreateInput),
   tagRequestBody(WS_METHODS.skillDelete, SkillDeleteInput),
+  tagRequestBody(WS_METHODS.skillInstall, SkillInstallInput),
+  tagRequestBody(WS_METHODS.skillUninstall, SkillUninstallInput),
+  tagRequestBody(WS_METHODS.skillImport, SkillImportInput),
   tagRequestBody(WS_METHODS.skillSearch, SkillSearchInput),
 
   // Server meta

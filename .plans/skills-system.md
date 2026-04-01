@@ -2,7 +2,7 @@
 
 ## Problem
 
-Skills (slash commands backed by markdown definitions) currently exist as an external convention: markdown files placed in `~/.claude/skills/<name>/SKILL.md` that Claude discovers and surfaces as `/slash-commands`. There is no first-class support in OK Code for:
+Skills (slash commands backed by markdown definitions) currently exist as an external convention: markdown files placed in `~/.okcode/skills/<name>/SKILL.md` that Claude discovers and surfaces as `/slash-commands`, with legacy `~/.claude/skills/<name>/SKILL.md` still readable during migration. There is no first-class support in OK Code for:
 
 1. Creating new skills (scaffolding, validation, editing)
 2. Storing skills at workspace vs global scope
@@ -40,7 +40,7 @@ Body follows a loose convention:
 
 | Scope | Path | Purpose |
 |-------|------|---------|
-| User/global | `~/.claude/skills/<name>/SKILL.md` | Available in all projects |
+| User/global | `~/.okcode/skills/<name>/SKILL.md` | Available in all projects |
 | Shared agent | `~/.agents/skills/<name>/SKILL.md` | Shared across agent tools |
 | (missing) | `<project>/.claude/skills/<name>/SKILL.md` | Project-scoped skills |
 
@@ -48,7 +48,7 @@ Global skills can symlink to shared agent skills for deduplication.
 
 ### Current discovery
 
-Claude Code discovers skills at startup by scanning `~/.claude/skills/` and presents them in the system prompt as available slash commands. There is no project-level discovery, no registry, no search.
+OK Code should treat `~/.okcode/skills/` as the canonical global skill directory while preserving read compatibility with legacy `~/.claude/skills/` installs. There is no project-level discovery, no registry, no search.
 
 ### Current invocation
 
@@ -58,7 +58,7 @@ Skills are invoked via the `Skill` tool, which takes `skill: "<name>"` and optio
 
 ## Design goals
 
-1. **Two-tier scoping**: skills live at global (`~/.claude/skills/`) or project (`.claude/skills/`) scope, with clear precedence rules.
+1. **Two-tier scoping**: skills live at global (`~/.okcode/skills/`, with legacy fallback from `~/.claude/skills/`) or project (`.claude/skills/`) scope, with clear precedence rules.
 2. **Scaffold-first authoring**: `okcode skill create` (or UI equivalent) generates valid skill structure with frontmatter, required sections, and optional supplementary files.
 3. **Discoverability**: skills can be browsed, searched, and imported from a registry (local directory, git repo, or future remote registry).
 4. **Zero-config invocation**: existing `/skill-name` slash command convention continues to work; new skills are immediately available after creation.
@@ -117,7 +117,8 @@ Skills are resolved with project scope taking precedence over global scope:
 ```
 Resolution order:
   1. <project-root>/.claude/skills/<name>/SKILL.md   (project scope)
-  2. ~/.claude/skills/<name>/SKILL.md                 (global scope)
+  2. ~/.okcode/skills/<name>/SKILL.md                 (canonical global scope)
+  3. ~/.claude/skills/<name>/SKILL.md                 (legacy global fallback)
 ```
 
 If the same skill name exists in both scopes, the project-scoped version wins. This allows projects to override or customize global skills.
@@ -423,7 +424,7 @@ Recommended phasing:
 2. Skill versioning or dependency resolution between skills.
 3. Skill permissions or access control (all installed skills are available).
 4. Skill marketplace or monetization.
-5. Breaking backwards compatibility with existing `~/.claude/skills/` layout.
+5. Breaking backwards compatibility with existing `~/.claude/skills/` layout; legacy installs should remain readable while `.okcode` becomes the canonical write target.
 6. Auto-updating skills from remote sources.
 
 ---

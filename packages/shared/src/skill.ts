@@ -1,6 +1,11 @@
 import * as path from "node:path";
 import * as fs from "node:fs";
 import * as os from "node:os";
+import type { BundledSkillId } from "@okcode/contracts";
+import { getBundledSkillById, listBundledSkills, readBundledSkillFiles } from "./skillCatalog";
+
+export type SkillOrigin = "bundled" | "custom" | "imported";
+export type SkillTemplateKind = "blank" | "docs-helper" | "automation-helper" | "review-helper";
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -13,6 +18,8 @@ export interface SkillManifest {
   tags?: string[];
   tools?: string[];
   author?: string;
+  origin?: SkillOrigin;
+  catalog_id?: string;
 }
 
 export interface SkillEntry {
@@ -23,6 +30,10 @@ export interface SkillEntry {
   path: string;
   dir: string;
   supplementaryFiles: string[];
+  origin: SkillOrigin;
+  catalogId: string | null;
+  system: boolean;
+  mutable: boolean;
 }
 
 export interface SkillContent {
@@ -35,6 +46,84 @@ export interface SkillValidationResult {
   valid: boolean;
   errors: string[];
   warnings: string[];
+}
+
+function toSkillOrigin(value: unknown): SkillOrigin | undefined {
+  return value === "bundled" || value === "custom" || value === "imported" ? value : undefined;
+}
+
+function serializeFrontmatter(manifest: SkillManifest): string {
+  const lines: string[] = ["---", `name: ${manifest.name}`, `description: ${manifest.description}`];
+  if (manifest.catalog_id) lines.push(`catalog_id: ${manifest.catalog_id}`);
+  if (manifest.origin) lines.push(`origin: ${manifest.origin}`);
+  if (manifest.version) lines.push(`version: ${manifest.version}`);
+  if (manifest.author) lines.push(`author: ${manifest.author}`);
+  if (manifest.scope) lines.push(`scope: ${manifest.scope}`);
+  if (manifest.tags && manifest.tags.length > 0) {
+    lines.push("tags:");
+    for (const tag of manifest.tags) lines.push(`  - ${tag}`);
+  } else {
+    lines.push("tags: []");
+  }
+  if (manifest.triggers && manifest.triggers.length > 0) {
+    lines.push("triggers:");
+    for (const trigger of manifest.triggers) lines.push(`  - ${trigger}`);
+  }
+  if (manifest.tools && manifest.tools.length > 0) {
+    lines.push("tools:");
+    for (const tool of manifest.tools) lines.push(`  - ${tool}`);
+  }
+  lines.push("---");
+  return `${lines.join("\n")}\n`;
+}
+
+function resolveOrigin(manifest: SkillManifest): SkillOrigin {
+  if (manifest.origin) return manifest.origin;
+  if (manifest.catalog_id) return "bundled";
+  return "custom";
+}
+
+function resolveScopeBaseDir(scope: "global" | "project", projectRoot?: string): string {
+  return scope === "project" && projectRoot ? projectSkillsDir(projectRoot) : globalSkillsDir();
+}
+
+function getSupplementaryFiles(skillDir: string): string[] {
+  const supplementaryFiles: string[] = [];
+  try {
+    const dirContents = fs.readdirSync(skillDir);
+    for (const file of dirContents) {
+      if (file !== "SKILL.md" && !file.startsWith(".")) {
+        supplementaryFiles.push(file);
+      }
+    }
+  } catch {
+    // Ignore errors reading supplementary files
+  }
+  return supplementaryFiles;
+}
+
+function buildSkillEntry(input: {
+  manifest: SkillManifest;
+  scope: "global" | "project";
+  mdPath: string;
+  dir: string;
+}): SkillEntry {
+  const bundled = input.manifest.catalog_id
+    ? getBundledSkillById(input.manifest.catalog_id as BundledSkillId)
+    : undefined;
+  return {
+    name: input.manifest.name,
+    scope: input.scope,
+    description: input.manifest.description,
+    tags: input.manifest.tags ?? [],
+    path: input.mdPath,
+    dir: input.dir,
+    supplementaryFiles: getSupplementaryFiles(input.dir),
+    origin: resolveOrigin(input.manifest),
+    catalogId: input.manifest.catalog_id ?? null,
+    system: bundled?.entry.system ?? false,
+    mutable: !(bundled?.entry.immutable ?? false),
+  };
 }
 
 // ── Frontmatter parsing ──────────────────────────────────────────────
@@ -133,6 +222,7 @@ export function parseSkillFrontmatter(raw: string): {
  */
 export function parseSkillContent(raw: string, fallbackName: string): SkillContent {
   const { frontmatter, body } = parseSkillFrontmatter(raw);
+  const origin = toSkillOrigin(frontmatter.origin);
 
   const manifest: SkillManifest = {
     name: typeof frontmatter.name === "string" ? frontmatter.name : fallbackName,
@@ -145,6 +235,8 @@ export function parseSkillContent(raw: string, fallbackName: string): SkillConte
     ...(Array.isArray(frontmatter.tags) ? { tags: frontmatter.tags.map(String) } : {}),
     ...(Array.isArray(frontmatter.tools) ? { tools: frontmatter.tools.map(String) } : {}),
     ...(typeof frontmatter.author === "string" ? { author: frontmatter.author } : {}),
+    ...(origin ? { origin } : {}),
+    ...(typeof frontmatter.catalog_id === "string" ? { catalog_id: frontmatter.catalog_id } : {}),
   };
 
   return { manifest, body, raw };
@@ -199,6 +291,10 @@ export function validateSkillDirectory(skillDir: string): SkillValidationResult 
 // ── Storage paths ────────────────────────────────────────────────────
 
 export function globalSkillsDir(): string {
+  return path.join(os.homedir(), ".okcode", "skills");
+}
+
+export function legacyGlobalSkillsDir(): string {
   return path.join(os.homedir(), ".claude", "skills");
 }
 
@@ -230,29 +326,7 @@ function scanSkillsDirectory(baseDir: string, scope: "global" | "project"): Skil
       try {
         const raw = fs.readFileSync(mdPath, "utf-8");
         const { manifest } = parseSkillContent(raw, item.name);
-
-        // Find supplementary files
-        const supplementaryFiles: string[] = [];
-        try {
-          const dirContents = fs.readdirSync(skillDir);
-          for (const file of dirContents) {
-            if (file !== "SKILL.md" && !file.startsWith(".")) {
-              supplementaryFiles.push(file);
-            }
-          }
-        } catch {
-          // Ignore errors reading supplementary files
-        }
-
-        entries.push({
-          name: manifest.name,
-          scope,
-          description: manifest.description,
-          tags: manifest.tags ?? [],
-          path: mdPath,
-          dir: skillDir,
-          supplementaryFiles,
-        });
+        entries.push(buildSkillEntry({ manifest, scope, mdPath, dir: skillDir }));
       } catch {
         // Skip skills that can't be parsed
       }
@@ -269,13 +343,27 @@ function scanSkillsDirectory(baseDir: string, scope: "global" | "project"): Skil
  */
 export function listSkills(projectRoot?: string): SkillEntry[] {
   const globalEntries = scanSkillsDirectory(globalSkillsDir(), "global");
+  const legacyGlobalEntries = scanSkillsDirectory(legacyGlobalSkillsDir(), "global");
   const projectEntries = projectRoot
     ? scanSkillsDirectory(projectSkillsDir(projectRoot), "project")
     : [];
 
-  // Project-scoped skills override global skills with the same name
+  const canonicalGlobalNames = new Set<string>();
+  try {
+    for (const entry of fs.readdirSync(globalSkillsDir(), { withFileTypes: true })) {
+      if (entry.isDirectory()) canonicalGlobalNames.add(entry.name);
+    }
+  } catch {
+    // Ignore unreadable canonical global directory.
+  }
+
+  // Project-scoped skills override canonical global, which overrides legacy global.
   const nameSet = new Set(projectEntries.map((e) => e.name));
-  const merged = [...projectEntries, ...globalEntries.filter((e) => !nameSet.has(e.name))];
+  const merged = [
+    ...projectEntries,
+    ...globalEntries.filter((e) => !nameSet.has(e.name)),
+    ...legacyGlobalEntries.filter((e) => !nameSet.has(e.name) && !canonicalGlobalNames.has(e.name)),
+  ];
 
   return merged.toSorted((a, b) => a.name.localeCompare(b.name));
 }
@@ -290,52 +378,56 @@ export function readSkill(
   const nameValidation = validateSkillName(name);
   if (!nameValidation.valid) return null;
 
-  // Direct path lookup instead of scanning all directories
-  const candidates: Array<{ dir: string; mdPath: string; scope: "global" | "project" }> = [];
-
-  if (projectRoot) {
-    const dir = path.join(projectSkillsDir(projectRoot), name);
-    candidates.push({ dir, mdPath: skillMdPath(dir), scope: "project" });
-  }
-  candidates.push({
-    dir: path.join(globalSkillsDir(), name),
-    mdPath: skillMdPath(path.join(globalSkillsDir(), name)),
-    scope: "global",
-  });
-
-  for (const candidate of candidates) {
-    if (!fs.existsSync(candidate.mdPath)) continue;
-
+  const tryReadCandidate = (candidate: {
+    dir: string;
+    mdPath: string;
+    scope: "global" | "project";
+  }): (SkillEntry & { content: SkillContent }) | null => {
     try {
+      if (!fs.existsSync(candidate.mdPath)) return null;
       const raw = fs.readFileSync(candidate.mdPath, "utf-8");
       const content = parseSkillContent(raw, name);
-
-      // Find supplementary files
-      const supplementaryFiles: string[] = [];
-      try {
-        const dirContents = fs.readdirSync(candidate.dir);
-        for (const file of dirContents) {
-          if (file !== "SKILL.md" && !file.startsWith(".")) {
-            supplementaryFiles.push(file);
-          }
-        }
-      } catch {
-        // Ignore
-      }
-
       return {
-        name: content.manifest.name,
-        scope: candidate.scope,
-        description: content.manifest.description,
-        tags: content.manifest.tags ?? [],
-        path: candidate.mdPath,
-        dir: candidate.dir,
-        supplementaryFiles,
+        ...buildSkillEntry({
+          manifest: content.manifest,
+          scope: candidate.scope,
+          mdPath: candidate.mdPath,
+          dir: candidate.dir,
+        }),
         content,
       };
     } catch {
-      continue;
+      return null;
     }
+  };
+
+  if (projectRoot) {
+    const projectDir = path.join(projectSkillsDir(projectRoot), name);
+    if (fs.existsSync(projectDir)) {
+      return tryReadCandidate({
+        dir: projectDir,
+        mdPath: skillMdPath(projectDir),
+        scope: "project",
+      });
+    }
+  }
+
+  const canonicalGlobalDir = path.join(globalSkillsDir(), name);
+  if (fs.existsSync(canonicalGlobalDir)) {
+    return tryReadCandidate({
+      dir: canonicalGlobalDir,
+      mdPath: skillMdPath(canonicalGlobalDir),
+      scope: "global",
+    });
+  }
+
+  const legacyGlobalDir = path.join(legacyGlobalSkillsDir(), name);
+  if (fs.existsSync(legacyGlobalDir)) {
+    return tryReadCandidate({
+      dir: legacyGlobalDir,
+      mdPath: skillMdPath(legacyGlobalDir),
+      scope: "global",
+    });
   }
 
   return null;
@@ -380,13 +472,22 @@ export function skillExists(
 ): { exists: boolean; scope?: "global" | "project" } {
   if (projectRoot) {
     const projectDir = path.join(projectSkillsDir(projectRoot), name);
-    if (fs.existsSync(skillMdPath(projectDir))) {
-      return { exists: true, scope: "project" };
+    if (fs.existsSync(projectDir)) {
+      return fs.existsSync(skillMdPath(projectDir))
+        ? { exists: true, scope: "project" }
+        : { exists: false };
     }
   }
 
   const globalDir = path.join(globalSkillsDir(), name);
-  if (fs.existsSync(skillMdPath(globalDir))) {
+  if (fs.existsSync(globalDir)) {
+    return fs.existsSync(skillMdPath(globalDir))
+      ? { exists: true, scope: "global" }
+      : { exists: false };
+  }
+
+  const legacyGlobalDir = path.join(legacyGlobalSkillsDir(), name);
+  if (fs.existsSync(skillMdPath(legacyGlobalDir))) {
     return { exists: true, scope: "global" };
   }
 
@@ -395,19 +496,65 @@ export function skillExists(
 
 // ── Scaffold template ────────────────────────────────────────────────
 
-export function generateSkillTemplate(name: string, description: string): string {
-  const titleCase = name
+function titleCaseName(name: string): string {
+  return name
     .split("-")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
+}
 
-  return `---
-name: ${name}
-description: ${description}
-tags: []
----
+function generateSkillTemplateContent(
+  name: string,
+  description: string,
+  options?: {
+    tags?: readonly string[];
+    template?: SkillTemplateKind;
+    origin?: SkillOrigin;
+    catalogId?: string;
+  },
+): string {
+  const template = options?.template ?? "blank";
+  const titleCase = titleCaseName(name);
+  const manifest: SkillManifest = {
+    name,
+    description,
+    tags: [...(options?.tags ?? [])],
+    origin: options?.origin ?? "custom",
+    ...(options?.catalogId ? { catalog_id: options.catalogId } : {}),
+  };
+  const whatItDoes =
+    template === "docs-helper"
+      ? [
+          "Summarize the relevant documentation accurately.",
+          "Link advice to source material when possible.",
+        ]
+      : template === "automation-helper"
+        ? [
+            "Automate repetitive workflows with clear prerequisites.",
+            "Favor deterministic commands over manual steps.",
+          ]
+        : template === "review-helper"
+          ? [
+              "Review changes with emphasis on bugs, regressions, and missing validation.",
+              "Present findings before summary.",
+            ]
+          : [description];
+  const implementation =
+    template === "docs-helper"
+      ? ["Inspect the relevant docs first.", "Differentiate documented facts from inference."]
+      : template === "automation-helper"
+        ? ["Check available tools.", "Prefer repeatable scripts and safe defaults."]
+        : template === "review-helper"
+          ? ["Inspect the affected code paths.", "Call out severity and missing tests."]
+          : ["TODO: Add step-by-step instructions, commands, code examples."];
+  const bestPractices =
+    template === "review-helper"
+      ? ["Keep findings specific and actionable.", "Avoid speculative issues without evidence."]
+      : ["TODO: Add dos and don'ts"];
 
-# ${titleCase} — Claude Code Skill
+  return `${serializeFrontmatter(manifest)}
+
+# ${titleCase}
 
 ## When to use this skill
 
@@ -415,16 +562,136 @@ tags: []
 
 ## What this skill does
 
-${description}
+${whatItDoes.map((item) => `- ${item}`).join("\n")}
 
 ## Implementation
 
-TODO: Add step-by-step instructions, commands, code examples.
+${implementation.map((item) => `- ${item}`).join("\n")}
 
 ## Best practices
 
-- TODO: Add dos and don'ts
+${bestPractices.map((item) => `- ${item}`).join("\n")}
 `;
+}
+
+function copyDirectory(sourceDir: string, targetDir: string) {
+  fs.mkdirSync(targetDir, { recursive: true });
+  const entries = fs.readdirSync(sourceDir, { withFileTypes: true });
+  for (const entry of entries) {
+    if (entry.name.startsWith(".")) continue;
+    const sourcePath = path.join(sourceDir, entry.name);
+    const targetPath = path.join(targetDir, entry.name);
+    if (entry.isDirectory()) {
+      copyDirectory(sourcePath, targetPath);
+      continue;
+    }
+    fs.copyFileSync(sourcePath, targetPath);
+  }
+}
+
+function writeSkillDirectory(input: {
+  skillDir: string;
+  content: string;
+  supplementaryFiles?: Readonly<Record<string, string>> | undefined;
+}) {
+  fs.mkdirSync(input.skillDir, { recursive: true });
+  fs.writeFileSync(skillMdPath(input.skillDir), input.content, "utf-8");
+  for (const [fileName, fileContent] of Object.entries(input.supplementaryFiles ?? {})) {
+    fs.writeFileSync(path.join(input.skillDir, fileName), fileContent, "utf-8");
+  }
+}
+
+export function installBundledSkill(
+  id: BundledSkillId,
+  scope: "global" | "project",
+  projectRoot?: string,
+): { path: string; name: string } {
+  const bundledSkill = getBundledSkillById(id);
+  if (!bundledSkill) {
+    throw new Error(`Bundled skill "${id}" not found`);
+  }
+  const baseDir = resolveScopeBaseDir(scope, projectRoot);
+  const skillDir = path.join(baseDir, bundledSkill.skillName);
+  const mdPath = skillMdPath(skillDir);
+  if (fs.existsSync(mdPath)) {
+    const existing = readSkill(bundledSkill.skillName, projectRoot);
+    if (existing?.system) {
+      return { path: mdPath, name: bundledSkill.skillName };
+    }
+    throw new Error(`Skill "${bundledSkill.skillName}" already exists at ${scope} scope`);
+  }
+  const bundledFiles = readBundledSkillFiles(id);
+  writeSkillDirectory({
+    skillDir,
+    content: bundledFiles.skillMd,
+    supplementaryFiles: bundledFiles.supplementaryFiles,
+  });
+  return { path: mdPath, name: bundledSkill.skillName };
+}
+
+export function ensureSystemSkillsInstalled(): void {
+  for (const bundledSkill of listBundledSkills()) {
+    if (!bundledSkill.entry.system) continue;
+    const targetDir = path.join(globalSkillsDir(), bundledSkill.skillName);
+    const targetMdPath = skillMdPath(targetDir);
+    if (!fs.existsSync(targetMdPath)) {
+      const bundledFiles = readBundledSkillFiles(bundledSkill.entry.id);
+      writeSkillDirectory({
+        skillDir: targetDir,
+        content: bundledFiles.skillMd,
+        supplementaryFiles: bundledFiles.supplementaryFiles,
+      });
+      continue;
+    }
+    try {
+      const currentRaw = fs.readFileSync(targetMdPath, "utf-8");
+      const current = parseSkillContent(currentRaw, bundledSkill.skillName);
+      if (
+        current.manifest.catalog_id === bundledSkill.entry.id &&
+        resolveOrigin(current.manifest) === "bundled"
+      ) {
+        continue;
+      }
+    } catch {
+      // Fall through to preserve existing file.
+    }
+  }
+}
+
+export function importSkill(
+  sourcePath: string,
+  scope: "global" | "project",
+  projectRoot?: string,
+): { path: string; name: string } {
+  const sourceDir = path.resolve(sourcePath);
+  const validation = validateSkillDirectory(sourceDir);
+  if (!validation.valid) {
+    throw new Error(validation.errors.join(", "));
+  }
+  const raw = fs.readFileSync(skillMdPath(sourceDir), "utf-8");
+  const parsed = parseSkillContent(raw, path.basename(sourceDir));
+  const nameValidation = validateSkillName(parsed.manifest.name);
+  if (!nameValidation.valid) {
+    throw new Error(nameValidation.reason ?? "Invalid skill name");
+  }
+  const baseDir = resolveScopeBaseDir(scope, projectRoot);
+  const targetDir = path.join(baseDir, parsed.manifest.name);
+  const targetMdPath = skillMdPath(targetDir);
+  if (fs.existsSync(targetMdPath)) {
+    throw new Error(`Skill "${parsed.manifest.name}" already exists at ${scope} scope`);
+  }
+  copyDirectory(sourceDir, targetDir);
+  const importedManifest: SkillManifest = {
+    ...parsed.manifest,
+    origin: "imported",
+  };
+  const updatedContent = `${serializeFrontmatter(importedManifest)}\n${parsed.body}`;
+  fs.writeFileSync(targetMdPath, updatedContent, "utf-8");
+  return { path: targetMdPath, name: parsed.manifest.name };
+}
+
+export function generateSkillTemplate(name: string, description: string): string {
+  return generateSkillTemplateContent(name, description, { template: "blank" });
 }
 
 /**
@@ -434,6 +701,10 @@ export function createSkill(
   name: string,
   description: string,
   scope: "global" | "project",
+  options?: {
+    tags?: readonly string[];
+    template?: SkillTemplateKind;
+  },
   projectRoot?: string,
 ): { path: string; name: string } {
   const nameValidation = validateSkillName(name);
@@ -441,9 +712,7 @@ export function createSkill(
     throw new Error(nameValidation.reason ?? "Invalid skill name");
   }
 
-  const baseDir =
-    scope === "project" && projectRoot ? projectSkillsDir(projectRoot) : globalSkillsDir();
-
+  const baseDir = resolveScopeBaseDir(scope, projectRoot);
   const skillDir = path.join(baseDir, name);
   const mdPath = skillMdPath(skillDir);
 
@@ -452,7 +721,15 @@ export function createSkill(
   }
 
   fs.mkdirSync(skillDir, { recursive: true });
-  fs.writeFileSync(mdPath, generateSkillTemplate(name, description), "utf-8");
+  fs.writeFileSync(
+    mdPath,
+    generateSkillTemplateContent(name, description, {
+      origin: "custom",
+      ...(options?.tags ? { tags: options.tags } : {}),
+      ...(options?.template ? { template: options.template } : {}),
+    }),
+    "utf-8",
+  );
 
   return { path: mdPath, name };
 }
@@ -466,9 +743,11 @@ export function deleteSkill(name: string, scope: "global" | "project", projectRo
     throw new Error(nameValidation.reason ?? "Invalid skill name");
   }
 
-  const baseDir =
-    scope === "project" && projectRoot ? projectSkillsDir(projectRoot) : globalSkillsDir();
-
+  const existing = readSkill(name, projectRoot);
+  if (existing && !existing.mutable) {
+    throw new Error(`Skill "${name}" is immutable and cannot be removed`);
+  }
+  const baseDir = resolveScopeBaseDir(scope, projectRoot);
   const skillDir = path.join(baseDir, name);
 
   if (!fs.existsSync(skillDir)) {
@@ -488,8 +767,13 @@ export interface SkillSubcommandDef {
 
 export const SKILL_MANAGEMENT_SUBCOMMANDS: readonly SkillSubcommandDef[] = [
   {
+    name: "browse",
+    description: "Open the skills library",
+    usage: "/skill browse",
+  },
+  {
     name: "create",
-    description: "Create a new skill with scaffold template",
+    description: "Create a new skill with a guided scaffold",
     usage: "/skill create <name> [--scope global|project]",
   },
   {
@@ -506,6 +790,16 @@ export const SKILL_MANAGEMENT_SUBCOMMANDS: readonly SkillSubcommandDef[] = [
     name: "read",
     description: "View the full content of a skill",
     usage: "/skill read <name>",
+  },
+  {
+    name: "install",
+    description: "Install a recommended bundled skill",
+    usage: "/skill install <name> [--scope global|project]",
+  },
+  {
+    name: "uninstall",
+    description: "Remove an installed mutable skill",
+    usage: "/skill uninstall <name> [--scope global|project]",
   },
   {
     name: "delete",

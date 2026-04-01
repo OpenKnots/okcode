@@ -3,6 +3,20 @@ import { INLINE_TERMINAL_CONTEXT_PLACEHOLDER } from "./lib/terminalContext";
 
 export type ComposerTriggerKind = "path" | "slash-command" | "slash-model" | "slash-skill";
 export type ComposerSlashCommand = "model" | "plan" | "chat" | "code" | "skill";
+export type SkillManagementSubcommand =
+  | "browse"
+  | "create"
+  | "list"
+  | "search"
+  | "read"
+  | "install"
+  | "uninstall"
+  | "import";
+
+export interface ParsedSkillManagementCommand {
+  subcommand: SkillManagementSubcommand;
+  argument: string;
+}
 
 export interface ComposerTrigger {
   kind: ComposerTriggerKind;
@@ -278,6 +292,31 @@ export function parseStandaloneComposerSlashCommand(
   if (command === "skill") return "skill";
   // `/default` is a legacy alias for chat mode
   return "chat";
+}
+
+const SKILL_MANAGEMENT_COMMANDS = new Set<SkillManagementSubcommand>([
+  "browse",
+  "create",
+  "list",
+  "search",
+  "read",
+  "install",
+  "uninstall",
+  "import",
+]);
+
+export function parseSkillManagementCommand(text: string): ParsedSkillManagementCommand | null {
+  const match = /^\/skill(?:\s+([a-z-]+))?(?:\s+(.+))?$/i.exec(text.trim());
+  if (!match) return null;
+  const rawSubcommand = match[1]?.toLowerCase();
+  if (!rawSubcommand) return { subcommand: "browse", argument: "" };
+  if (!SKILL_MANAGEMENT_COMMANDS.has(rawSubcommand as SkillManagementSubcommand)) {
+    return null;
+  }
+  return {
+    subcommand: rawSubcommand as SkillManagementSubcommand,
+    argument: (match[2] ?? "").trim(),
+  };
 }
 
 export function replaceTextRange(

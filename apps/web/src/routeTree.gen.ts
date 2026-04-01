@@ -11,6 +11,8 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ChatRouteImport } from './routes/_chat'
 import { Route as ChatIndexRouteImport } from './routes/_chat.index'
+import { Route as ChatPluginsRouteImport } from './routes/_chat.plugins'
+import { Route as ChatSkillsRouteImport } from './routes/_chat.skills'
 import { Route as ChatSettingsRouteImport } from './routes/_chat.settings'
 import { Route as ChatPrReviewRouteImport } from './routes/_chat.pr-review'
 import { Route as ChatMergeConflictsRouteImport } from './routes/_chat.merge-conflicts'
@@ -24,6 +26,16 @@ const ChatRoute = ChatRouteImport.update({
 const ChatIndexRoute = ChatIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => ChatRoute,
+} as any)
+const ChatPluginsRoute = ChatPluginsRouteImport.update({
+  id: '/plugins',
+  path: '/plugins',
+  getParentRoute: () => ChatRoute,
+} as any)
+const ChatSkillsRoute = ChatSkillsRouteImport.update({
+  id: '/skills',
+  path: '/skills',
   getParentRoute: () => ChatRoute,
 } as any)
 const ChatSettingsRoute = ChatSettingsRouteImport.update({
@@ -57,15 +69,19 @@ export interface FileRoutesByFullPath {
   '/$threadId': typeof ChatThreadIdRoute
   '/file-view': typeof ChatFileViewRoute
   '/merge-conflicts': typeof ChatMergeConflictsRoute
+  '/plugins': typeof ChatPluginsRoute
   '/pr-review': typeof ChatPrReviewRoute
   '/settings': typeof ChatSettingsRoute
+  '/skills': typeof ChatSkillsRoute
 }
 export interface FileRoutesByTo {
   '/$threadId': typeof ChatThreadIdRoute
   '/file-view': typeof ChatFileViewRoute
   '/merge-conflicts': typeof ChatMergeConflictsRoute
+  '/plugins': typeof ChatPluginsRoute
   '/pr-review': typeof ChatPrReviewRoute
   '/settings': typeof ChatSettingsRoute
+  '/skills': typeof ChatSkillsRoute
   '/': typeof ChatIndexRoute
 }
 export interface FileRoutesById {
@@ -74,8 +90,10 @@ export interface FileRoutesById {
   '/_chat/$threadId': typeof ChatThreadIdRoute
   '/_chat/file-view': typeof ChatFileViewRoute
   '/_chat/merge-conflicts': typeof ChatMergeConflictsRoute
+  '/_chat/plugins': typeof ChatPluginsRoute
   '/_chat/pr-review': typeof ChatPrReviewRoute
   '/_chat/settings': typeof ChatSettingsRoute
+  '/_chat/skills': typeof ChatSkillsRoute
   '/_chat/': typeof ChatIndexRoute
 }
 export interface FileRouteTypes {
@@ -85,15 +103,19 @@ export interface FileRouteTypes {
     | '/$threadId'
     | '/file-view'
     | '/merge-conflicts'
+    | '/plugins'
     | '/pr-review'
     | '/settings'
+    | '/skills'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/$threadId'
     | '/file-view'
     | '/merge-conflicts'
+    | '/plugins'
     | '/pr-review'
     | '/settings'
+    | '/skills'
     | '/'
   id:
     | '__root__'
@@ -101,8 +123,10 @@ export interface FileRouteTypes {
     | '/_chat/$threadId'
     | '/_chat/file-view'
     | '/_chat/merge-conflicts'
+    | '/_chat/plugins'
     | '/_chat/pr-review'
     | '/_chat/settings'
+    | '/_chat/skills'
     | '/_chat/'
   fileRoutesById: FileRoutesById
 }
@@ -131,6 +155,20 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof ChatSettingsRouteImport
+      parentRoute: typeof ChatRoute
+    }
+    '/_chat/plugins': {
+      id: '/_chat/plugins'
+      path: '/plugins'
+      fullPath: '/plugins'
+      preLoaderRoute: typeof ChatPluginsRouteImport
+      parentRoute: typeof ChatRoute
+    }
+    '/_chat/skills': {
+      id: '/_chat/skills'
+      path: '/skills'
+      fullPath: '/skills'
+      preLoaderRoute: typeof ChatSkillsRouteImport
       parentRoute: typeof ChatRoute
     }
     '/_chat/pr-review': {
@@ -168,8 +206,10 @@ interface ChatRouteChildren {
   ChatThreadIdRoute: typeof ChatThreadIdRoute
   ChatFileViewRoute: typeof ChatFileViewRoute
   ChatMergeConflictsRoute: typeof ChatMergeConflictsRoute
+  ChatPluginsRoute: typeof ChatPluginsRoute
   ChatPrReviewRoute: typeof ChatPrReviewRoute
   ChatSettingsRoute: typeof ChatSettingsRoute
+  ChatSkillsRoute: typeof ChatSkillsRoute
   ChatIndexRoute: typeof ChatIndexRoute
 }
 
@@ -177,8 +217,10 @@ const ChatRouteChildren: ChatRouteChildren = {
   ChatThreadIdRoute: ChatThreadIdRoute,
   ChatFileViewRoute: ChatFileViewRoute,
   ChatMergeConflictsRoute: ChatMergeConflictsRoute,
+  ChatPluginsRoute: ChatPluginsRoute,
   ChatPrReviewRoute: ChatPrReviewRoute,
   ChatSettingsRoute: ChatSettingsRoute,
+  ChatSkillsRoute: ChatSkillsRoute,
   ChatIndexRoute: ChatIndexRoute,
 }
 

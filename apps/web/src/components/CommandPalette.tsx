@@ -206,6 +206,17 @@ function CommandsView() {
         void navigate({ to: "/settings" });
       },
     });
+    cmds.push({
+      id: "nav-skills",
+      label: "Open skills",
+      keywords: ["skills", "slash commands", "catalog", "library"],
+      icon: SearchIcon,
+      group: "Navigation",
+      onSelect: () => {
+        closePalette();
+        void navigate({ to: "/skills", search: { create: undefined, name: undefined } });
+      },
+    });
 
     // ── Project quick-switch (inline, first 5) ──
     for (const project of projects.slice(0, 5)) {

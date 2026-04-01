@@ -1316,6 +1316,11 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
         return yield* skillService.list(body);
       }
 
+      case WS_METHODS.skillCatalog: {
+        const body = stripRequestTag(request.body);
+        return yield* skillService.catalog(body);
+      }
+
       case WS_METHODS.skillRead: {
         const body = stripRequestTag(request.body);
         return yield* skillService.read(body);
@@ -1329,6 +1334,21 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
       case WS_METHODS.skillDelete: {
         const body = stripRequestTag(request.body);
         return yield* skillService.delete(body);
+      }
+
+      case WS_METHODS.skillInstall: {
+        const body = stripRequestTag(request.body);
+        return yield* skillService.install(body);
+      }
+
+      case WS_METHODS.skillUninstall: {
+        const body = stripRequestTag(request.body);
+        return yield* skillService.uninstall(body);
+      }
+
+      case WS_METHODS.skillImport: {
+        const body = stripRequestTag(request.body);
+        return yield* skillService.importSkill(body);
       }
 
       case WS_METHODS.skillSearch: {

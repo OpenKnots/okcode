@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { gitBranchesQueryOptions } from "~/lib/gitReactQuery";
 import { checkpointDiffQueryOptions } from "~/lib/providerReactQuery";
 import { cn } from "~/lib/utils";
-import { useCodeViewerStore } from "../codeViewerStore";
+import { useFileViewNavigation } from "~/hooks/useFileViewNavigation";
 import { parseDiffRouteSearch, stripDiffSearchParams } from "../diffRouteSearch";
 import { useTheme } from "../hooks/useTheme";
 import { buildPatchCacheKey } from "../lib/diffRendering";
@@ -474,7 +474,7 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
     target?.scrollIntoView({ block: "nearest" });
   }, [selectedFilePath, renderableFiles]);
 
-  const openFileInCodeViewer = useCodeViewerStore((state) => state.openFile);
+  const openFileInCodeViewer = useFileViewNavigation();
   const openDiffFileInCodeViewer = useCallback(
     (filePath: string) => {
       if (!activeCwd) return;

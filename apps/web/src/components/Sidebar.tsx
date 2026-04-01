@@ -4,6 +4,7 @@ import {
   ChevronRightIcon,
   EyeIcon,
   EyeOffIcon,
+  FileCodeIcon,
   FolderIcon,
   GitMergeIcon,
   GitPullRequestIcon,
@@ -375,7 +376,10 @@ export default function Sidebar() {
   const navigate = useNavigate();
   const pathname = useLocation({ select: (loc) => loc.pathname });
   const isOnSubPage =
-    pathname === "/settings" || pathname === "/pr-review" || pathname === "/merge-conflicts";
+    pathname === "/settings" ||
+    pathname === "/pr-review" ||
+    pathname === "/merge-conflicts" ||
+    pathname === "/file-view";
   const { settings: appSettings, updateSettings } = useAppSettings();
   const { resolvedTheme } = useTheme();
   const { handleNewThread } = useHandleNewThread();
@@ -2124,6 +2128,16 @@ export default function Sidebar() {
                 >
                   <GitMergeIcon className="size-3.5" />
                   <span className="text-xs">Merge Conflicts</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  size="sm"
+                  className="gap-2 px-2 py-1.5 text-muted-foreground/70 hover:bg-accent hover:text-foreground"
+                  onClick={() => void navigate({ to: "/file-view" })}
+                >
+                  <FileCodeIcon className="size-3.5" />
+                  <span className="text-xs">File View</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>

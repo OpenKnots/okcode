@@ -17,8 +17,8 @@ import type { Components } from "react-markdown";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useAppSettings } from "../appSettings";
-import { useCodeViewerStore } from "../codeViewerStore";
 import { openFileReference } from "../fileOpen";
+import { useFileViewNavigation } from "~/hooks/useFileViewNavigation";
 import { resolveDiffThemeName, type DiffThemeName } from "../lib/diffRendering";
 import { fnv1a32 } from "../lib/diffRendering";
 import { LRUCache } from "../lib/lruCache";
@@ -240,7 +240,7 @@ function SuspenseShikiCodeBlock({
 
 function ChatMarkdown({ text, cwd, isStreaming = false }: ChatMarkdownProps) {
   const { settings } = useAppSettings();
-  const openFileInViewer = useCodeViewerStore((state) => state.openFile);
+  const openFileInViewer = useFileViewNavigation();
   const { resolvedTheme } = useTheme();
   const diffThemeName = resolveDiffThemeName(resolvedTheme);
   const openLinksExternally = settings.openLinksExternally;

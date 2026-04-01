@@ -61,74 +61,87 @@ Rationale:
 
 The mobile companion must be a first-class client mode, not a set of accidental viewport behaviors. That means the web app needs an explicit companion presentation mode with these constraints:
 
-- Sidebar closed by default on mobile.
-- Secondary surfaces shown as sheets, not inline sidebars.
-- Thread timeline and pending actions prioritized above everything else.
-- Layout choices optimized for one-handed use and reconnect tolerance.
+- [ ] Sidebar closed by default on mobile.
+- [ ] Secondary surfaces shown as sheets, not inline sidebars.
+- [ ] Thread timeline and pending actions prioritized above everything else.
+- [ ] Layout choices optimized for one-handed use and reconnect tolerance.
 
-## Implementation Phases
+## Phased Release Checklist
 
 ### Phase 0: Web Companion Mode
 
 Goal: establish an intentional mobile client surface inside `apps/web`.
 
-Deliverables:
+Checklist:
 
-- Explicit client mode resolution (`desktop` vs `mobile`).
-- Mobile defaults for the left thread sidebar.
-- Mobile sheets for code viewer and diff surfaces.
-- Documentation for how the mobile companion product differs from desktop.
+- [ ] Add explicit client mode resolution (`desktop` vs `mobile`).
+- [ ] Default the left thread sidebar to closed on mobile.
+- [ ] Move code viewer and diff surfaces into mobile sheets.
+- [ ] Document how the mobile companion differs from desktop.
+- [ ] Validate the browser app on a phone without the full desktop multi-pane layout.
 
 Exit criteria:
 
-- The browser app is usable on a phone without inheriting the full desktop multi-pane layout.
-- Remote-access sessions on mobile are stable enough for internal dogfooding.
+- [ ] The browser app is usable on a phone without inheriting the full desktop multi-pane layout.
+- [ ] Remote-access sessions on mobile are stable enough for internal dogfooding.
 
 ### Phase 1: Attention Loop
 
 Goal: make the mobile client useful for active supervision.
 
-Deliverables:
+Checklist:
 
-- Attention state projection per thread.
-- Clear surfacing for pending approvals and user-input requests.
-- Fast actions for approve, reject, answer, and follow-up.
-- Safer reconnect states and degraded-mode messaging when the remote server is unavailable.
+- [ ] Project attention state per thread.
+- [ ] Surface pending approvals and user-input requests clearly.
+- [ ] Add fast actions for approve, reject, answer, and follow-up.
+- [ ] Show safer reconnect states and degraded-mode messaging when the remote server is unavailable.
+- [ ] Confirm a user can monitor and unblock an agent session from a phone.
 
 Exit criteria:
 
-- A user can reliably monitor and unblock an agent session from a phone.
+- [ ] A user can reliably monitor and unblock an agent session from a phone.
 
 ### Phase 2: Native Shell
 
 Goal: package the companion as an installable app.
 
-Deliverables:
+Checklist:
 
-- New `apps/mobile` Capacitor shell that hosts the companion web build.
-- Native build targets for iOS and Android.
-- Deep-link based pairing.
-- Native secure storage for pairing details and auth token.
-- Manual paste fallback for pairing links when a deep link cannot be opened directly.
+- [ ] Add a new `apps/mobile` Capacitor shell that hosts the companion web build.
+- [ ] Produce native build targets for iOS and Android.
+- [ ] Implement deep-link based pairing.
+- [ ] Store pairing details and auth token in native secure storage.
+- [ ] Provide manual paste fallback for pairing links when a deep link cannot be opened directly.
+- [ ] Verify TestFlight and internal Android builds can complete the attention loop.
 
 Exit criteria:
 
-- TestFlight and internal Android builds can connect to an OK Code server and complete the attention loop.
+- [ ] TestFlight and internal Android builds can connect to an OK Code server and complete the attention loop.
 
 ### Phase 3: Notifications And Pairing Hardening
 
 Goal: reduce friction and close the loop when the user is away.
 
-Deliverables:
+Checklist:
 
-- Push notifications for approval requested, user input requested, turn completed, and session failed.
-- Pairing UX with short-lived bootstrap links or QR code flow.
-- Token rotation and revocation model.
-- Better offline and reconnect messaging.
+- [ ] Add push notifications for approval requested, user input requested, turn completed, and session failed.
+- [ ] Provide pairing UX with short-lived bootstrap links or QR code flow.
+- [ ] Add token rotation and revocation handling.
+- [ ] Improve offline and reconnect messaging.
+- [ ] Ensure users can leave the app and still get pulled back in only when needed.
 
 Exit criteria:
 
-- Users can leave the app and still get pulled back in only when needed.
+- [ ] Users can leave the app and still get pulled back in only when needed.
+
+## Release Readiness Checklist
+
+- [ ] `apps/web` behaves correctly in mobile companion mode on both iOS and Android browsers.
+- [ ] `apps/mobile` builds and launches on at least one iOS and one Android target.
+- [ ] Pairing works with both deep links and manual paste fallback.
+- [ ] Attention states, approvals, and user-input prompts are easy to act on from a phone.
+- [ ] Offline, reconnect, and degraded-mode states are understandable and non-blocking.
+- [ ] Release notes call out any remaining mobile limitations explicitly.
 
 ## Architecture Notes
 

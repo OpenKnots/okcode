@@ -53,9 +53,12 @@ packages/
   shared/      Shared runtime utilities.
 docs/
   releases/    Release process, release notes, and asset manifests.
+  mobile-mvp.md Phased mobile app release plan and checklist.
 scripts/
   Build/release/bootstrap scripts and local tooling.
 ```
+
+Mobile plan: [docs/mobile-mvp.md](/Users/buns/.okcode/worktrees/okcode/okcode-04310139/docs/mobile-mvp.md)
 
 ## 4) Setup and local development
 

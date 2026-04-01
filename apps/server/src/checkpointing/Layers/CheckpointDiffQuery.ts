@@ -133,8 +133,8 @@ const make = Effect.gen(function* () {
         fromCheckpointRef,
         toCheckpointRef,
         fallbackFromToHead: false,
-        relativePath: input.relativePath,
-        contextMode: input.contextMode,
+        ...(input.relativePath ? { relativePath: input.relativePath } : {}),
+        ...(input.contextMode ? { contextMode: input.contextMode } : {}),
       });
 
       const turnDiff: OrchestrationGetTurnDiffResultType = {

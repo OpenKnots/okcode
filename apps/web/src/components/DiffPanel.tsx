@@ -236,7 +236,9 @@ function DiffFileSection(props: {
     [contextMode, filePath, fullContextDiffQuery.data?.diff, resolvedTheme],
   );
   const resolvedFileDiff =
-    contextMode === "full" ? (resolveRenderableFileDiff(fullContextPatch, filePath) ?? fileDiff) : fileDiff;
+    contextMode === "full"
+      ? (resolveRenderableFileDiff(fullContextPatch, filePath) ?? fileDiff)
+      : fileDiff;
   const fullContextError =
     contextMode === "full" && fullContextDiffQuery.error
       ? fullContextDiffQuery.error instanceof Error
@@ -768,7 +770,9 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
                         threadId: activeThreadId,
                         fromTurnCount: activeCheckpointRange?.fromTurnCount ?? null,
                         toTurnCount: activeCheckpointRange?.toTurnCount ?? null,
-                        cacheScope: selectedTurn ? `turn:${selectedTurn.turnId}` : conversationCacheScope,
+                        cacheScope: selectedTurn
+                          ? `turn:${selectedTurn.turnId}`
+                          : conversationCacheScope,
                         enabled: isGitRepo,
                       }}
                       collapsed={fileReviewState.collapsed}

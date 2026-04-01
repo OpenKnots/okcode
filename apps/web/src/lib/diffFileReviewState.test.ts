@@ -94,8 +94,8 @@ describe("expandDiffFile", () => {
 
   it("returns the same object when the file is already expanded", () => {
     const state = {
-      "src/a.ts": { accepted: false, collapsed: false, contextMode: "patch" },
-    };
+      "src/a.ts": { accepted: false, collapsed: false, contextMode: "patch" as const },
+    } satisfies Record<string, { accepted: boolean; collapsed: boolean; contextMode: "patch" }>;
     // File is already expanded, so the same object reference is returned.
     expect(expandDiffFile(state, "src/a.ts")).toBe(state);
   });

@@ -44,6 +44,7 @@
     "oxfmt": "^0.42.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-intl": "^10.1.1",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
     "tailwind-merge": "^3.4.0",

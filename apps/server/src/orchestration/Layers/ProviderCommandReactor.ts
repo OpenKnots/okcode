@@ -6,6 +6,7 @@ import {
   DEFAULT_GIT_TEXT_GENERATION_MODEL,
   EventId,
   type OrchestrationEvent,
+  type ProjectId,
   type ProviderModelOptions,
   ProviderKind,
   type ProviderStartOptions,
@@ -145,11 +146,11 @@ function buildGeneratedWorktreeBranchName(raw: string): string {
 function resolveSessionCwd(input: {
   readonly thread: {
     readonly id: ThreadId;
-    readonly projectId: string;
+    readonly projectId: ProjectId;
     readonly worktreePath: string | null;
   };
   readonly projects: ReadonlyArray<{
-    readonly id: string;
+    readonly id: ProjectId;
     readonly workspaceRoot: string;
   }>;
 }): {

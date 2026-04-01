@@ -356,9 +356,7 @@ describe("ProviderCommandReactor", () => {
     });
 
     const readModel = await Effect.runPromise(harness.engine.getReadModel());
-    const thread = readModel.threads.find(
-      (entry) => entry.id === ThreadId.makeUnsafe("thread-1"),
-    );
+    const thread = readModel.threads.find((entry) => entry.id === ThreadId.makeUnsafe("thread-1"));
     expect(thread?.worktreePath).toBeNull();
   });
 

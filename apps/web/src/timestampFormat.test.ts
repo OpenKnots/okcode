@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { getTimestampFormatOptions } from "./timestampFormat";
+import { formatShortTimestamp, getTimestampFormatOptions } from "./timestampFormat";
 
 describe("getTimestampFormatOptions", () => {
   it("omits hour12 when locale formatting is requested", () => {
@@ -26,5 +26,27 @@ describe("getTimestampFormatOptions", () => {
       minute: "2-digit",
       hour12: false,
     });
+  });
+});
+
+describe("formatShortTimestamp", () => {
+  it("formats against the selected app locale instead of the ambient locale", () => {
+    const isoDate = "2026-03-31T13:05:06.000Z";
+
+    const english = formatShortTimestamp(isoDate, "locale", "en");
+    const french = formatShortTimestamp(isoDate, "locale", "fr");
+
+    expect(english).not.toEqual(french);
+  });
+
+  it("uses locale-specific formatter caches", () => {
+    const isoDate = "2026-03-31T13:05:06.000Z";
+
+    const firstEnglish = formatShortTimestamp(isoDate, "locale", "en");
+    const secondEnglish = formatShortTimestamp(isoDate, "locale", "en");
+    const chinese = formatShortTimestamp(isoDate, "locale", "zh-CN");
+
+    expect(firstEnglish).toEqual(secondEnglish);
+    expect(chinese).not.toEqual(firstEnglish);
   });
 });

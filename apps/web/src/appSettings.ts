@@ -11,6 +11,7 @@ import {
   normalizeModelSlug,
   resolveSelectableModel,
 } from "@okcode/shared/model";
+import { APP_LOCALE_PREFERENCES } from "./i18n/types";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 import { EnvMode } from "./components/BranchToolbar.logic";
 
@@ -21,6 +22,9 @@ export const MAX_CUSTOM_MODEL_LENGTH = 256;
 export const TimestampFormat = Schema.Literals(["locale", "12-hour", "24-hour"]);
 export type TimestampFormat = typeof TimestampFormat.Type;
 export const DEFAULT_TIMESTAMP_FORMAT: TimestampFormat = "locale";
+export const AppLocale = Schema.Literals(APP_LOCALE_PREFERENCES);
+export type AppLocale = typeof AppLocale.Type;
+export const DEFAULT_APP_LOCALE: AppLocale = "system";
 export const SidebarProjectSortOrder = Schema.Literals(["updated_at", "created_at", "manual"]);
 export type SidebarProjectSortOrder = typeof SidebarProjectSortOrder.Type;
 export const DEFAULT_SIDEBAR_PROJECT_SORT_ORDER: SidebarProjectSortOrder = "updated_at";
@@ -64,6 +68,7 @@ export const AppSettingsSchema = Schema.Struct({
   confirmThreadDelete: Schema.Boolean.pipe(withDefaults(() => true)),
   diffWordWrap: Schema.Boolean.pipe(withDefaults(() => false)),
   enableAssistantStreaming: Schema.Boolean.pipe(withDefaults(() => false)),
+  locale: AppLocale.pipe(withDefaults(() => DEFAULT_APP_LOCALE)),
   openLinksExternally: Schema.Boolean.pipe(withDefaults(() => false)),
   sidebarProjectSortOrder: SidebarProjectSortOrder.pipe(
     withDefaults(() => DEFAULT_SIDEBAR_PROJECT_SORT_ORDER),

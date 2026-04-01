@@ -234,7 +234,10 @@ export const SkillServiceLive = Layer.succeed(SkillService, {
           input.name,
           input.description,
           input.scope,
-          { tags: input.tags, template: input.template },
+          {
+            ...(input.tags ? { tags: input.tags } : {}),
+            ...(input.template ? { template: input.template } : {}),
+          },
           input.cwd,
         ),
       catch: (cause) =>

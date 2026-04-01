@@ -298,8 +298,8 @@ export function PreviewPanel({ threadId, onClose }: PreviewPanelProps) {
   return (
     <div className="flex h-full min-w-0 flex-col bg-background">
       {/* Toolbar */}
-      <div className="flex items-center gap-2 border-b border-border/60 px-3 py-2">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 border-b border-border/60 px-3 py-2">
+        <div className="flex items-center gap-2">
           <Button
             type="button"
             size="icon-xs"
@@ -336,23 +336,22 @@ export function PreviewPanel({ threadId, onClose }: PreviewPanelProps) {
           >
             <RefreshCwIcon className="size-3.5" />
           </Button>
-          <GlobeIcon className="size-3.5 shrink-0 text-muted-foreground/65" />
-          <form className="min-w-0 flex-1" onSubmit={onSubmit}>
-            <Input
-              value={inputUrl}
-              onChange={(event) => {
-                setInputUrl(event.target.value);
-                if (inputError) setInputError(null);
-              }}
-              placeholder="https://example.com"
-              aria-label="URL"
-              autoCapitalize="off"
-              autoCorrect="off"
-              spellCheck={false}
-              className="h-7 text-xs"
-            />
-          </form>
         </div>
+        <form className="order-last min-w-0 basis-full lg:order-none lg:flex-1 lg:basis-auto" onSubmit={onSubmit}>
+          <Input
+            value={inputUrl}
+            onChange={(event) => {
+              setInputUrl(event.target.value);
+              if (inputError) setInputError(null);
+            }}
+            placeholder="https://example.com"
+            aria-label="URL"
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
+            className="h-7 text-xs"
+          />
+        </form>
         <div className="flex items-center gap-1">
           <Menu>
             <MenuTrigger

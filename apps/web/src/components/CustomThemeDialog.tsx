@@ -7,7 +7,6 @@ import {
   parseThemeInput,
   setStoredCustomTheme,
 } from "../lib/customTheme";
-import { cn } from "../lib/utils";
 import { Button } from "./ui/button";
 import {
   Dialog,

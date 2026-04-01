@@ -54,7 +54,7 @@
     "clean": "rm -rf node_modules apps/*/node_modules packages/*/node_modules apps/*/dist apps/*/dist-electron packages/*/dist .turbo apps/*/.turbo packages/*/.turbo",
     "sync:vscode-icons": "node scripts/sync-vscode-icons.mjs",
     "regenerate:brand-assets": "python3 scripts/generate-brand-assets.py",
-    "prepare": "husky && node scripts/patch-effect-language-service.ts"
+    "prepare": "husky && node scripts/patch-effect-language-service.ts && node scripts/dedupe-effect-node-modules.mjs"
   },
   "devDependencies": {
     "@types/node": "catalog:",

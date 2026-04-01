@@ -138,30 +138,53 @@ function SkillDetailDialog(props: {
   const mutable = isCatalog ? !skill.immutable && skill.installed : skill.mutable;
   const pathValue = skill.path;
   const slashName = isCatalog ? skill.name.toLowerCase().replace(/\s+/g, "-") : skill.name;
+  const tags = "tags" in skill ? skill.tags : [];
+  const Icon = skillIcon("icon" in skill ? skill.icon : "file");
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
       <DialogPopup>
         <DialogHeader>
-          <DialogTitle>{skill.name}</DialogTitle>
-          <DialogDescription>{skill.description}</DialogDescription>
-        </DialogHeader>
-        <DialogPanel className="space-y-4">
-          <div className="flex flex-wrap gap-2">
-            {("tags" in skill ? skill.tags : []).map((tag) => (
-              <Badge key={tag} variant="secondary">
-                {tag}
-              </Badge>
-            ))}
+          <div className="flex items-center gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/70 text-foreground">
+              <Icon className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <DialogTitle>{skill.name}</DialogTitle>
+              <DialogDescription className="mt-1">{skill.description}</DialogDescription>
+            </div>
           </div>
+          {tags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {tags.map((tag) => (
+                <Badge key={tag} variant="secondary" className="text-xs">
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+          )}
+        </DialogHeader>
+        <DialogPanel className="space-y-3">
           <div className="rounded-xl border bg-muted/35 p-3 text-sm">
-            <p className="font-medium text-foreground">Slash commands</p>
-            <p className="mt-2 font-mono text-xs text-muted-foreground">/{slashName}</p>
-            <p className="mt-1 font-mono text-xs text-muted-foreground">/skill read {slashName}</p>
+            <p className="font-medium text-foreground text-xs uppercase tracking-wider text-muted-foreground">
+              Slash commands
+            </p>
+            <div className="mt-2 space-y-1">
+              <p className="rounded-md bg-muted/50 px-2 py-1 font-mono text-xs text-foreground">
+                /{slashName}
+              </p>
+              <p className="rounded-md bg-muted/50 px-2 py-1 font-mono text-xs text-foreground">
+                /skill read {slashName}
+              </p>
+            </div>
           </div>
           {pathValue ? (
             <div className="rounded-xl border bg-muted/35 p-3 text-sm">
-              <p className="font-medium text-foreground">Path</p>
-              <p className="mt-1 break-all font-mono text-xs text-muted-foreground">{pathValue}</p>
+              <p className="font-medium text-xs uppercase tracking-wider text-muted-foreground">
+                Installed path
+              </p>
+              <p className="mt-2 break-all rounded-md bg-muted/50 px-2 py-1 font-mono text-xs text-foreground">
+                {pathValue}
+              </p>
             </div>
           ) : null}
         </DialogPanel>
@@ -422,7 +445,7 @@ export function SkillsPage(props: {
             <SkillLibraryTabs current="skills" />
           </div>
         </div>
-        <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 px-4 py-8 sm:px-6">
+        <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 overflow-y-auto px-4 py-8 sm:px-6">
           <div className="space-y-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="space-y-2">

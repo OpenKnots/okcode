@@ -58,6 +58,9 @@
     "regenerate:brand-assets": "python3 scripts/generate-brand-assets.py",
     "prepare": "husky && node scripts/patch-effect-language-service.ts && node scripts/patch-effect-smol-peer-installs.mjs"
   },
+  "dependencies": {
+    "@pierre/diffs": "^1.1.8"
+  },
   "devDependencies": {
     "@types/node": "catalog:",
     "husky": "^9.1.7",

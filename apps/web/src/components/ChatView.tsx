@@ -1,5 +1,6 @@
 import {
   type ApprovalRequestId,
+  DEFAULT_CHAT_FILE_MIME_TYPE,
   DEFAULT_MODEL_BY_PROVIDER,
   type ClaudeCodeEffort,
   type MessageId,
@@ -10,6 +11,7 @@ import {
   type ProjectId,
   type ProviderApprovalDecision,
   PROVIDER_SEND_TURN_MAX_ATTACHMENTS,
+  PROVIDER_SEND_TURN_MAX_FILE_BYTES,
   PROVIDER_SEND_TURN_MAX_IMAGE_BYTES,
   type ResolvedKeybindingsConfig,
   type ServerProviderStatus,
@@ -148,9 +150,9 @@ import {
 } from "../appSettings";
 import { isTerminalFocused } from "../lib/terminalFocus";
 import {
-  type ComposerImageAttachment,
+  type ComposerAttachment,
   type DraftThreadEnvMode,
-  type PersistedComposerImageAttachment,
+  type PersistedComposerAttachment,
   useComposerDraftStore,
   useComposerThreadDraft,
 } from "../composerDraftStore";
@@ -195,7 +197,7 @@ import {
   buildExpiredTerminalContextToastCopy,
   buildLocalDraftThread,
   buildTemporaryWorktreeBranchName,
-  cloneComposerImageForRetry,
+  cloneComposerAttachmentForRetry,
   collectUserMessageBlobPreviewUrls,
   deriveComposerSendState,
   LAST_INVOKED_SCRIPT_BY_PROJECT_KEY,
@@ -216,6 +218,7 @@ import { hasCustomThreadTitle, normalizeThreadTitle } from "~/threadTitle";
 
 const ATTACHMENT_PREVIEW_HANDOFF_TTL_MS = 5000;
 const IMAGE_SIZE_LIMIT_LABEL = `${Math.round(PROVIDER_SEND_TURN_MAX_IMAGE_BYTES / (1024 * 1024))}MB`;
+const FILE_SIZE_LIMIT_LABEL = `${Math.round(PROVIDER_SEND_TURN_MAX_FILE_BYTES / (1024 * 1024))}MB`;
 const IMAGE_ONLY_BOOTSTRAP_PROMPT =
   "[User attached one or more images without additional text. Respond using the conversation context and the attached image(s).]";
 const EMPTY_ACTIVITIES: OrchestrationThreadActivity[] = [];
@@ -296,6 +299,10 @@ const SCRIPT_TERMINAL_ROWS = 30;
 const PREVIEW_SPLIT_MIN_SIZE_PX = 220;
 const PREVIEW_SPLIT_DEFAULT_SIZE_PX = 384;
 const PREVIEW_CHAT_MIN_SIZE_PX = 360;
+
+function composerAttachmentMimeType(file: File): string {
+  return file.type.trim() || DEFAULT_CHAT_FILE_MIME_TYPE;
+}
 
 const extendReplacementRangeForTrailingSpace = (
   text: string,
@@ -380,18 +387,26 @@ export default function ChatView({ threadId }: ChatViewProps) {
   const createWorktreeMutation = useMutation(gitCreateWorktreeMutationOptions({ queryClient }));
   const composerDraft = useComposerThreadDraft(threadId);
   const prompt = composerDraft.prompt;
-  const composerImages = composerDraft.images;
+  const composerAttachments = composerDraft.attachments;
+  const composerImageAttachments = useMemo(
+    () => composerAttachments.filter((attachment) => attachment.type === "image"),
+    [composerAttachments],
+  );
+  const composerFileAttachments = useMemo(
+    () => composerAttachments.filter((attachment) => attachment.type === "file"),
+    [composerAttachments],
+  );
   const composerTerminalContexts = composerDraft.terminalContexts;
   const composerSendState = useMemo(
     () =>
       deriveComposerSendState({
         prompt,
-        imageCount: composerImages.length,
+        attachmentCount: composerAttachments.length,
         terminalContexts: composerTerminalContexts,
       }),
-    [composerImages.length, composerTerminalContexts, prompt],
+    [composerAttachments.length, composerTerminalContexts, prompt],
   );
-  const nonPersistedComposerImageIds = composerDraft.nonPersistedImageIds;
+  const nonPersistedComposerAttachmentIds = composerDraft.nonPersistedAttachmentIds;
   const setComposerDraftPrompt = useComposerDraftStore((store) => store.setPrompt);
   const setComposerDraftProvider = useComposerDraftStore((store) => store.setProvider);
   const setComposerDraftModel = useComposerDraftStore((store) => store.setModel);
@@ -399,9 +414,9 @@ export default function ChatView({ threadId }: ChatViewProps) {
   const setComposerDraftInteractionMode = useComposerDraftStore(
     (store) => store.setInteractionMode,
   );
-  const addComposerDraftImage = useComposerDraftStore((store) => store.addImage);
-  const addComposerDraftImages = useComposerDraftStore((store) => store.addImages);
-  const removeComposerDraftImage = useComposerDraftStore((store) => store.removeImage);
+  const addComposerDraftAttachment = useComposerDraftStore((store) => store.addAttachment);
+  const addComposerDraftAttachments = useComposerDraftStore((store) => store.addAttachments);
+  const removeComposerDraftAttachment = useComposerDraftStore((store) => store.removeAttachment);
   const insertComposerDraftTerminalContext = useComposerDraftStore(
     (store) => store.insertTerminalContext,
   );
@@ -512,7 +527,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
   const composerEditorRef = useRef<ComposerPromptEditorHandle>(null);
   const composerFormRef = useRef<HTMLFormElement>(null);
   const composerFormHeightRef = useRef(0);
-  const composerImagesRef = useRef<ComposerImageAttachment[]>([]);
+  const composerAttachmentsRef = useRef<ComposerAttachment[]>([]);
   const composerSelectLockRef = useRef(false);
   const composerMenuOpenRef = useRef(false);
   const composerMenuItemsRef = useRef<ComposerCommandItem[]>([]);
@@ -544,17 +559,17 @@ export default function ChatView({ threadId }: ChatViewProps) {
     },
     [setComposerDraftPrompt, threadId],
   );
-  const addComposerImage = useCallback(
-    (image: ComposerImageAttachment) => {
-      addComposerDraftImage(threadId, image);
+  const addComposerAttachment = useCallback(
+    (attachment: ComposerAttachment) => {
+      addComposerDraftAttachment(threadId, attachment);
     },
-    [addComposerDraftImage, threadId],
+    [addComposerDraftAttachment, threadId],
   );
-  const addComposerImagesToDraft = useCallback(
-    (images: ComposerImageAttachment[]) => {
-      addComposerDraftImages(threadId, images);
+  const addComposerAttachmentsToDraft = useCallback(
+    (attachments: ComposerAttachment[]) => {
+      addComposerDraftAttachments(threadId, attachments);
     },
-    [addComposerDraftImages, threadId],
+    [addComposerDraftAttachments, threadId],
   );
   const addComposerTerminalContextsToDraft = useCallback(
     (contexts: TerminalContextDraft[]) => {
@@ -562,11 +577,11 @@ export default function ChatView({ threadId }: ChatViewProps) {
     },
     [addComposerDraftTerminalContexts, threadId],
   );
-  const removeComposerImageFromDraft = useCallback(
-    (imageId: string) => {
-      removeComposerDraftImage(threadId, imageId);
+  const removeComposerAttachmentFromDraft = useCallback(
+    (attachmentId: string) => {
+      removeComposerDraftAttachment(threadId, attachmentId);
     },
-    [removeComposerDraftImage, threadId],
+    [removeComposerDraftAttachment, threadId],
   );
   const removeComposerTerminalContextFromDraft = useCallback(
     (contextId: string) => {
@@ -1344,9 +1359,9 @@ export default function ChatView({ threadId }: ChatViewProps) {
   composerMenuOpenRef.current = composerMenuOpen;
   composerMenuItemsRef.current = composerMenuItems;
   activeComposerMenuItemRef.current = activeComposerMenuItem;
-  const nonPersistedComposerImageIdSet = useMemo(
-    () => new Set(nonPersistedComposerImageIds),
-    [nonPersistedComposerImageIds],
+  const nonPersistedComposerAttachmentIdSet = useMemo(
+    () => new Set(nonPersistedComposerAttachmentIds),
+    [nonPersistedComposerAttachmentIds],
   );
   const keybindings = serverConfigQuery.data?.keybindings ?? EMPTY_KEYBINDINGS;
   const providerStatuses = serverConfigQuery.data?.providers ?? EMPTY_PROVIDER_STATUSES;
@@ -2261,8 +2276,8 @@ export default function ChatView({ threadId }: ChatViewProps) {
   }, [activeThread?.id, focusComposer, terminalState.terminalOpen]);
 
   useEffect(() => {
-    composerImagesRef.current = composerImages;
-  }, [composerImages]);
+    composerAttachmentsRef.current = composerAttachments;
+  }, [composerAttachments]);
 
   useEffect(() => {
     composerTerminalContextsRef.current = composerTerminalContexts;
@@ -2322,7 +2337,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      if (composerImages.length === 0) {
+      if (composerAttachments.length === 0) {
         clearComposerDraftPersistedAttachments(threadId);
         return;
       }
@@ -2333,22 +2348,23 @@ export default function ChatView({ threadId }: ChatViewProps) {
         const existingPersistedById = new Map(
           currentPersistedAttachments.map((attachment) => [attachment.id, attachment]),
         );
-        const stagedAttachmentById = new Map<string, PersistedComposerImageAttachment>();
+        const stagedAttachmentById = new Map<string, PersistedComposerAttachment>();
         await Promise.all(
-          composerImages.map(async (image) => {
+          composerAttachments.map(async (attachment) => {
             try {
-              const dataUrl = await readFileAsDataUrl(image.file);
-              stagedAttachmentById.set(image.id, {
-                id: image.id,
-                name: image.name,
-                mimeType: image.mimeType,
-                sizeBytes: image.sizeBytes,
+              const dataUrl = await readFileAsDataUrl(attachment.file);
+              stagedAttachmentById.set(attachment.id, {
+                type: attachment.type,
+                id: attachment.id,
+                name: attachment.name,
+                mimeType: attachment.mimeType,
+                sizeBytes: attachment.sizeBytes,
                 dataUrl,
               });
             } catch {
-              const existingPersisted = existingPersistedById.get(image.id);
+              const existingPersisted = existingPersistedById.get(attachment.id);
               if (existingPersisted) {
-                stagedAttachmentById.set(image.id, existingPersisted);
+                stagedAttachmentById.set(attachment.id, existingPersisted);
               }
             }
           }),
@@ -2360,11 +2376,13 @@ export default function ChatView({ threadId }: ChatViewProps) {
         // Stage attachments in persisted draft state first so persist middleware can write them.
         syncComposerDraftPersistedAttachments(threadId, serialized);
       } catch {
-        const currentImageIds = new Set(composerImages.map((image) => image.id));
+        const currentAttachmentIds = new Set(
+          composerAttachments.map((attachment) => attachment.id),
+        );
         const fallbackPersistedAttachments = getPersistedAttachmentsForThread();
         const fallbackPersistedIds = fallbackPersistedAttachments
           .map((attachment) => attachment.id)
-          .filter((id) => currentImageIds.has(id));
+          .filter((id) => currentAttachmentIds.has(id));
         const fallbackPersistedIdSet = new Set(fallbackPersistedIds);
         const fallbackAttachments = fallbackPersistedAttachments.filter((attachment) =>
           fallbackPersistedIdSet.has(attachment.id),
@@ -2380,7 +2398,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
     };
   }, [
     clearComposerDraftPersistedAttachments,
-    composerImages,
+    composerAttachments,
     syncComposerDraftPersistedAttachments,
     threadId,
   ]);
@@ -2509,10 +2527,15 @@ export default function ChatView({ threadId }: ChatViewProps) {
       nextQueued.text,
       composerTerminalContextsSnapshot,
     );
+    const fallbackOutgoingText = nextQueued.attachments.some(
+      (attachment) => attachment.type === "image",
+    )
+      ? IMAGE_ONLY_BOOTSTRAP_PROMPT
+      : "";
     const outgoingMessageText = formatOutgoingPrompt({
       provider: selectedProvider,
       effort: selectedPromptEffort,
-      text: messageTextForSend || IMAGE_ONLY_BOOTSTRAP_PROMPT,
+      text: messageTextForSend || fallbackOutgoingText,
     });
 
     sendInFlightRef.current = true;
@@ -2527,12 +2550,12 @@ export default function ChatView({ threadId }: ChatViewProps) {
         interactionMode,
       });
       const turnAttachments = await Promise.all(
-        nextQueued.images.map(async (image) => ({
-          type: "image" as const,
-          name: image.name,
-          mimeType: image.mimeType,
-          sizeBytes: image.sizeBytes,
-          dataUrl: await readFileAsDataUrl(image.file),
+        nextQueued.attachments.map(async (attachment) => ({
+          type: attachment.type,
+          name: attachment.name,
+          mimeType: attachment.mimeType,
+          sizeBytes: attachment.sizeBytes,
+          dataUrl: await readFileAsDataUrl(attachment.file),
         })),
       );
       await api.orchestration.dispatchCommand({
@@ -2674,57 +2697,71 @@ export default function ChatView({ threadId }: ChatViewProps) {
     toggleTerminalVisibility,
   ]);
 
-  const addComposerImages = (files: File[]) => {
+  const addComposerAttachments = (files: File[]) => {
     if (!activeThreadId || files.length === 0) return;
 
     if (pendingUserInputs.length > 0) {
       toastManager.add({
         type: "error",
-        title: "Attach images after answering plan questions.",
+        title: "Attach files after answering plan questions.",
       });
       return;
     }
 
-    const nextImages: ComposerImageAttachment[] = [];
-    let nextImageCount = composerImagesRef.current.length;
+    const nextAttachments: ComposerAttachment[] = [];
+    let nextAttachmentCount = composerAttachmentsRef.current.length;
     let error: string | null = null;
     for (const file of files) {
-      if (!file.type.startsWith("image/")) {
-        error = `Unsupported file type for '${file.name}'. Please attach image files only.`;
-        continue;
-      }
-      if (file.size > PROVIDER_SEND_TURN_MAX_IMAGE_BYTES) {
-        error = `'${file.name}' exceeds the ${IMAGE_SIZE_LIMIT_LABEL} attachment limit.`;
-        continue;
-      }
-      if (nextImageCount >= PROVIDER_SEND_TURN_MAX_ATTACHMENTS) {
-        error = `You can attach up to ${PROVIDER_SEND_TURN_MAX_ATTACHMENTS} images per message.`;
+      if (nextAttachmentCount >= PROVIDER_SEND_TURN_MAX_ATTACHMENTS) {
+        error = `You can attach up to ${PROVIDER_SEND_TURN_MAX_ATTACHMENTS} files per message.`;
         break;
       }
 
-      const previewUrl = URL.createObjectURL(file);
-      nextImages.push({
-        type: "image",
+      const mimeType = composerAttachmentMimeType(file);
+      if (mimeType.startsWith("image/")) {
+        if (file.size > PROVIDER_SEND_TURN_MAX_IMAGE_BYTES) {
+          error = `'${file.name}' exceeds the ${IMAGE_SIZE_LIMIT_LABEL} attachment limit.`;
+          continue;
+        }
+        const previewUrl = URL.createObjectURL(file);
+        nextAttachments.push({
+          type: "image",
+          id: randomUUID(),
+          name: file.name || "image",
+          mimeType,
+          sizeBytes: file.size,
+          previewUrl,
+          file,
+        });
+        nextAttachmentCount += 1;
+        continue;
+      }
+
+      if (file.size > PROVIDER_SEND_TURN_MAX_FILE_BYTES) {
+        error = `'${file.name}' exceeds the ${FILE_SIZE_LIMIT_LABEL} attachment limit.`;
+        continue;
+      }
+      nextAttachments.push({
+        type: "file",
         id: randomUUID(),
-        name: file.name || "image",
-        mimeType: file.type,
+        name: file.name || "file",
+        mimeType,
         sizeBytes: file.size,
-        previewUrl,
         file,
       });
-      nextImageCount += 1;
+      nextAttachmentCount += 1;
     }
 
-    if (nextImages.length === 1 && nextImages[0]) {
-      addComposerImage(nextImages[0]);
-    } else if (nextImages.length > 1) {
-      addComposerImagesToDraft(nextImages);
+    if (nextAttachments.length === 1 && nextAttachments[0]) {
+      addComposerAttachment(nextAttachments[0]);
+    } else if (nextAttachments.length > 1) {
+      addComposerAttachmentsToDraft(nextAttachments);
     }
     setThreadError(activeThreadId, error);
   };
 
-  const removeComposerImage = (imageId: string) => {
-    removeComposerImageFromDraft(imageId);
+  const removeComposerAttachment = (attachmentId: string) => {
+    removeComposerAttachmentFromDraft(attachmentId);
   };
 
   const onComposerPaste = (event: React.ClipboardEvent<HTMLElement>) => {
@@ -2732,12 +2769,8 @@ export default function ChatView({ threadId }: ChatViewProps) {
     if (files.length === 0) {
       return;
     }
-    const imageFiles = files.filter((file) => file.type.startsWith("image/"));
-    if (imageFiles.length === 0) {
-      return;
-    }
     event.preventDefault();
-    addComposerImages(imageFiles);
+    addComposerAttachments(files);
   };
 
   const onComposerDragEnter = (event: React.DragEvent<HTMLDivElement>) => {
@@ -2795,16 +2828,16 @@ export default function ChatView({ threadId }: ChatViewProps) {
       return;
     }
 
-    // Handle image file drops
+    // Handle file drops
     const files = Array.from(event.dataTransfer.files);
-    addComposerImages(files);
+    addComposerAttachments(files);
     focusComposer();
   };
 
   const onFileInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
     if (files.length > 0) {
-      addComposerImages(files);
+      addComposerAttachments(files);
     }
     // Reset so the same file can be selected again
     event.target.value = "";
@@ -2860,15 +2893,15 @@ export default function ChatView({ threadId }: ChatViewProps) {
       ? useComposerDraftStore.getState().draftsByThreadId[activeThread.id]
       : null;
     const nextPrompt = latestDraft?.prompt ?? promptRef.current;
-    const nextImages = latestDraft?.images ?? composerImagesRef.current;
+    const nextAttachments = latestDraft?.attachments ?? composerAttachmentsRef.current;
     const nextTerminalContexts =
       latestDraft?.terminalContexts ?? composerTerminalContextsRef.current;
     promptRef.current = nextPrompt;
-    composerImagesRef.current = nextImages;
+    composerAttachmentsRef.current = nextAttachments;
     composerTerminalContextsRef.current = nextTerminalContexts;
     return {
       prompt: nextPrompt,
-      images: nextImages,
+      attachments: nextAttachments,
       terminalContexts: nextTerminalContexts,
     };
   }, [activeThread]);
@@ -2883,7 +2916,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
     }
     const liveComposerDraft = readLiveComposerDraftSnapshot();
     const promptForSend = liveComposerDraft.prompt;
-    const composerImagesForSend = liveComposerDraft.images;
+    const composerAttachmentsForSend = liveComposerDraft.attachments;
     const composerTerminalContextsForSend = liveComposerDraft.terminalContexts;
     const {
       trimmedPrompt: trimmed,
@@ -2892,7 +2925,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
       hasSendableContent,
     } = deriveComposerSendState({
       prompt: promptForSend,
-      imageCount: composerImagesForSend.length,
+      attachmentCount: composerAttachmentsForSend.length,
       terminalContexts: composerTerminalContextsForSend,
     });
     if (showPlanFollowUpPrompt && activeProposedPlan) {
@@ -2912,7 +2945,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
       return;
     }
     const standaloneSlashCommand =
-      composerImagesForSend.length === 0 && sendableComposerTerminalContexts.length === 0
+      composerAttachmentsForSend.length === 0 && sendableComposerTerminalContexts.length === 0
         ? parseStandaloneComposerSlashCommand(trimmed)
         : null;
     if (standaloneSlashCommand) {
@@ -2943,32 +2976,47 @@ export default function ChatView({ threadId }: ChatViewProps) {
 
     // ── Queue message if a turn is already running ────────────────────
     if (phase === "running") {
-      const composerImagesSnapshot = [...composerImagesForSend];
+      const composerAttachmentsSnapshot = [...composerAttachmentsForSend];
       const messageTextForSend = appendTerminalContextsToPrompt(
         promptForSend,
         sendableComposerTerminalContexts,
       );
       const messageCreatedAt = new Date().toISOString();
+      const fallbackOutgoingText = composerAttachmentsSnapshot.some(
+        (attachment) => attachment.type === "image",
+      )
+        ? IMAGE_ONLY_BOOTSTRAP_PROMPT
+        : "";
       const outgoingMessageText = formatOutgoingPrompt({
         provider: selectedProvider,
         effort: selectedPromptEffort,
-        text: messageTextForSend || IMAGE_ONLY_BOOTSTRAP_PROMPT,
+        text: messageTextForSend || fallbackOutgoingText,
       });
-      const optimisticAttachments = composerImagesSnapshot.map((image) => ({
-        type: "image" as const,
-        id: image.id,
-        name: image.name,
-        mimeType: image.mimeType,
-        sizeBytes: image.sizeBytes,
-        previewUrl: image.previewUrl,
-      }));
+      const optimisticAttachments = composerAttachmentsSnapshot.map((attachment) =>
+        attachment.type === "image"
+          ? {
+              type: "image" as const,
+              id: attachment.id,
+              name: attachment.name,
+              mimeType: attachment.mimeType,
+              sizeBytes: attachment.sizeBytes,
+              previewUrl: attachment.previewUrl,
+            }
+          : {
+              type: "file" as const,
+              id: attachment.id,
+              name: attachment.name,
+              mimeType: attachment.mimeType,
+              sizeBytes: attachment.sizeBytes,
+            },
+      );
       const queuedId = newMessageId();
       setQueuedMessages((existing) => [
         ...existing,
         {
           id: queuedId,
           text: promptForSend,
-          images: composerImagesSnapshot,
+          attachments: composerAttachmentsSnapshot,
           terminalContexts: [...sendableComposerTerminalContexts],
           createdAt: messageCreatedAt,
         },
@@ -3029,7 +3077,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
     sendInFlightRef.current = true;
     beginSendPhase(baseBranchForWorktree ? "preparing-worktree" : "sending-turn");
 
-    const composerImagesSnapshot = [...composerImagesForSend];
+    const composerAttachmentsSnapshot = [...composerAttachmentsForSend];
     const composerTerminalContextsSnapshot = [...sendableComposerTerminalContexts];
     const messageTextForSend = appendTerminalContextsToPrompt(
       promptForSend,
@@ -3037,28 +3085,43 @@ export default function ChatView({ threadId }: ChatViewProps) {
     );
     const messageIdForSend = newMessageId();
     const messageCreatedAt = new Date().toISOString();
+    const fallbackOutgoingText = composerAttachmentsSnapshot.some(
+      (attachment) => attachment.type === "image",
+    )
+      ? IMAGE_ONLY_BOOTSTRAP_PROMPT
+      : "";
     const outgoingMessageText = formatOutgoingPrompt({
       provider: selectedProvider,
       effort: selectedPromptEffort,
-      text: messageTextForSend || IMAGE_ONLY_BOOTSTRAP_PROMPT,
+      text: messageTextForSend || fallbackOutgoingText,
     });
     const turnAttachmentsPromise = Promise.all(
-      composerImagesSnapshot.map(async (image) => ({
-        type: "image" as const,
-        name: image.name,
-        mimeType: image.mimeType,
-        sizeBytes: image.sizeBytes,
-        dataUrl: await readFileAsDataUrl(image.file),
+      composerAttachmentsSnapshot.map(async (attachment) => ({
+        type: attachment.type,
+        name: attachment.name,
+        mimeType: attachment.mimeType,
+        sizeBytes: attachment.sizeBytes,
+        dataUrl: await readFileAsDataUrl(attachment.file),
       })),
     );
-    const optimisticAttachments = composerImagesSnapshot.map((image) => ({
-      type: "image" as const,
-      id: image.id,
-      name: image.name,
-      mimeType: image.mimeType,
-      sizeBytes: image.sizeBytes,
-      previewUrl: image.previewUrl,
-    }));
+    const optimisticAttachments = composerAttachmentsSnapshot.map((attachment) =>
+      attachment.type === "image"
+        ? {
+            type: "image" as const,
+            id: attachment.id,
+            name: attachment.name,
+            mimeType: attachment.mimeType,
+            sizeBytes: attachment.sizeBytes,
+            previewUrl: attachment.previewUrl,
+          }
+        : {
+            type: "file" as const,
+            id: attachment.id,
+            name: attachment.name,
+            mimeType: attachment.mimeType,
+            sizeBytes: attachment.sizeBytes,
+          },
+    );
     setOptimisticUserMessages((existing) => [
       ...existing,
       {
@@ -3134,22 +3197,16 @@ export default function ChatView({ threadId }: ChatViewProps) {
         }
       }
 
-      let firstComposerImageName: string | null = null;
-      if (composerImagesSnapshot.length > 0) {
-        const firstComposerImage = composerImagesSnapshot[0];
-        if (firstComposerImage) {
-          firstComposerImageName = firstComposerImage.name;
-        }
-      }
       const manualThreadTitle = hasCustomThreadTitle(activeThread.title)
         ? normalizeThreadTitle(activeThread.title)
         : null;
       let title = manualThreadTitle;
       if (!title) {
+        const firstComposerAttachment = composerAttachmentsSnapshot[0] ?? null;
         let titleSeed = trimmed;
         if (!titleSeed) {
-          if (firstComposerImageName) {
-            titleSeed = `Image: ${firstComposerImageName}`;
+          if (firstComposerAttachment) {
+            titleSeed = `${firstComposerAttachment.type === "image" ? "Image" : "File"}: ${firstComposerAttachment.name}`;
           } else if (composerTerminalContextsSnapshot.length > 0) {
             titleSeed = formatTerminalContextLabel(composerTerminalContextsSnapshot[0]!);
           } else {
@@ -3260,7 +3317,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
       if (
         !turnStartSucceeded &&
         promptRef.current.length === 0 &&
-        composerImagesRef.current.length === 0 &&
+        composerAttachmentsRef.current.length === 0 &&
         composerTerminalContextsRef.current.length === 0
       ) {
         setOptimisticUserMessages((existing) => {
@@ -3274,7 +3331,9 @@ export default function ChatView({ threadId }: ChatViewProps) {
         promptRef.current = promptForSend;
         setPrompt(promptForSend);
         setComposerCursor(collapseExpandedComposerCursor(promptForSend, promptForSend.length));
-        addComposerImagesToDraft(composerImagesSnapshot.map(cloneComposerImageForRetry));
+        addComposerAttachmentsToDraft(
+          composerAttachmentsSnapshot.map(cloneComposerAttachmentForRetry),
+        );
         addComposerTerminalContextsToDraft(composerTerminalContextsSnapshot);
         setComposerTrigger(detectComposerTrigger(promptForSend, promptForSend.length));
       }
@@ -4452,7 +4511,6 @@ export default function ChatView({ threadId }: ChatViewProps) {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/*"
                   multiple
                   className="hidden"
                   onChange={onFileInputChange}
@@ -4478,8 +4536,8 @@ export default function ChatView({ threadId }: ChatViewProps) {
                           </>
                         ) : (
                           <>
-                            <ImagePlusIcon className="size-4" />
-                            Drop images to attach
+                            <PaperclipIcon className="size-4" />
+                            Drop files to attach
                           </>
                         )}
                       </div>
@@ -4540,71 +4598,126 @@ export default function ChatView({ threadId }: ChatViewProps) {
 
                       {!isComposerApprovalState &&
                         pendingUserInputs.length === 0 &&
-                        composerImages.length > 0 && (
-                          <div className="mb-3 flex flex-wrap gap-2">
-                            {composerImages.map((image) => (
-                              <div
-                                key={image.id}
-                                className="relative h-16 w-16 overflow-hidden rounded-lg border border-border/80 bg-background"
-                              >
-                                {image.previewUrl ? (
-                                  <button
-                                    type="button"
-                                    className="h-full w-full cursor-zoom-in"
-                                    aria-label={`Preview ${image.name}`}
-                                    onClick={() => {
-                                      const preview = buildExpandedImagePreview(
-                                        composerImages,
-                                        image.id,
-                                      );
-                                      if (!preview) return;
-                                      setExpandedImage(preview);
-                                    }}
+                        composerAttachments.length > 0 && (
+                          <div className="mb-3 space-y-2">
+                            {composerImageAttachments.length > 0 && (
+                              <div className="flex flex-wrap gap-2">
+                                {composerImageAttachments.map((image) => (
+                                  <div
+                                    key={image.id}
+                                    className="relative h-16 w-16 overflow-hidden rounded-lg border border-border/80 bg-background"
                                   >
-                                    <img
-                                      src={image.previewUrl}
-                                      alt={image.name}
-                                      className="h-full w-full object-cover"
-                                    />
-                                  </button>
-                                ) : (
-                                  <div className="flex h-full w-full items-center justify-center px-1 text-center text-[10px] text-muted-foreground/70">
-                                    {image.name}
-                                  </div>
-                                )}
-                                {nonPersistedComposerImageIdSet.has(image.id) && (
-                                  <Tooltip>
-                                    <TooltipTrigger
-                                      render={
-                                        <span
-                                          role="img"
-                                          aria-label="Draft attachment may not persist"
-                                          className="absolute left-1 top-1 inline-flex items-center justify-center rounded bg-background/85 p-0.5 text-amber-600"
+                                    {image.previewUrl ? (
+                                      <button
+                                        type="button"
+                                        className="h-full w-full cursor-zoom-in"
+                                        aria-label={`Preview ${image.name}`}
+                                        onClick={() => {
+                                          const preview = buildExpandedImagePreview(
+                                            composerImageAttachments,
+                                            image.id,
+                                          );
+                                          if (!preview) return;
+                                          setExpandedImage(preview);
+                                        }}
+                                      >
+                                        <img
+                                          src={image.previewUrl}
+                                          alt={image.name}
+                                          className="h-full w-full object-cover"
+                                        />
+                                      </button>
+                                    ) : (
+                                      <div className="flex h-full w-full items-center justify-center px-1 text-center text-[10px] text-muted-foreground/70">
+                                        {image.name}
+                                      </div>
+                                    )}
+                                    {nonPersistedComposerAttachmentIdSet.has(image.id) && (
+                                      <Tooltip>
+                                        <TooltipTrigger
+                                          render={
+                                            <span
+                                              role="img"
+                                              aria-label="Draft attachment may not persist"
+                                              className="absolute left-1 top-1 inline-flex items-center justify-center rounded bg-background/85 p-0.5 text-amber-600"
+                                            >
+                                              <CircleAlertIcon className="size-3" />
+                                            </span>
+                                          }
+                                        />
+                                        <TooltipPopup
+                                          side="top"
+                                          className="max-w-64 whitespace-normal leading-tight"
                                         >
-                                          <CircleAlertIcon className="size-3" />
-                                        </span>
-                                      }
-                                    />
-                                    <TooltipPopup
-                                      side="top"
-                                      className="max-w-64 whitespace-normal leading-tight"
+                                          Draft attachment could not be saved locally and may be
+                                          lost on navigation.
+                                        </TooltipPopup>
+                                      </Tooltip>
+                                    )}
+                                    <Button
+                                      variant="ghost"
+                                      size="icon-xs"
+                                      className="absolute right-1 top-1 bg-background/80 hover:bg-background/90"
+                                      onClick={() => removeComposerAttachment(image.id)}
+                                      aria-label={`Remove ${image.name}`}
                                     >
-                                      Draft attachment could not be saved locally and may be lost on
-                                      navigation.
-                                    </TooltipPopup>
-                                  </Tooltip>
-                                )}
-                                <Button
-                                  variant="ghost"
-                                  size="icon-xs"
-                                  className="absolute right-1 top-1 bg-background/80 hover:bg-background/90"
-                                  onClick={() => removeComposerImage(image.id)}
-                                  aria-label={`Remove ${image.name}`}
-                                >
-                                  <XIcon />
-                                </Button>
+                                      <XIcon />
+                                    </Button>
+                                  </div>
+                                ))}
                               </div>
-                            ))}
+                            )}
+                            {composerFileAttachments.length > 0 && (
+                              <div className="flex flex-wrap gap-2">
+                                {composerFileAttachments.map((attachment) => (
+                                  <div
+                                    key={attachment.id}
+                                    className="relative flex min-w-0 max-w-[280px] items-center gap-2 rounded-lg border border-border/80 bg-background px-3 py-2 pr-9"
+                                  >
+                                    <PaperclipIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                                    <div className="min-w-0">
+                                      <div className="truncate text-xs font-medium">
+                                        {attachment.name}
+                                      </div>
+                                      <div className="truncate text-[11px] text-muted-foreground">
+                                        {attachment.mimeType}
+                                      </div>
+                                    </div>
+                                    {nonPersistedComposerAttachmentIdSet.has(attachment.id) && (
+                                      <Tooltip>
+                                        <TooltipTrigger
+                                          render={
+                                            <span
+                                              role="img"
+                                              aria-label="Draft attachment may not persist"
+                                              className="absolute left-1 top-1 inline-flex items-center justify-center rounded bg-background/85 p-0.5 text-amber-600"
+                                            >
+                                              <CircleAlertIcon className="size-3" />
+                                            </span>
+                                          }
+                                        />
+                                        <TooltipPopup
+                                          side="top"
+                                          className="max-w-64 whitespace-normal leading-tight"
+                                        >
+                                          Draft attachment could not be saved locally and may be
+                                          lost on navigation.
+                                        </TooltipPopup>
+                                      </Tooltip>
+                                    )}
+                                    <Button
+                                      variant="ghost"
+                                      size="icon-xs"
+                                      className="absolute right-1 top-1 bg-background/80 hover:bg-background/90"
+                                      onClick={() => removeComposerAttachment(attachment.id)}
+                                      aria-label={`Remove ${attachment.name}`}
+                                    >
+                                      <XIcon />
+                                    </Button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         )}
                       <ComposerPromptEditor

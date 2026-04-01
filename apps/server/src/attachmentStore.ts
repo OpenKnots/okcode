@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 
 import type { ChatAttachment } from "@okcode/contracts";
 
@@ -7,9 +7,7 @@ import {
   normalizeAttachmentRelativePath,
   resolveAttachmentRelativePath,
 } from "./attachmentPaths.ts";
-import { inferImageExtension, SAFE_IMAGE_FILE_EXTENSIONS } from "./imageMime.ts";
-
-const ATTACHMENT_FILENAME_EXTENSIONS = [...SAFE_IMAGE_FILE_EXTENSIONS, ".bin"];
+import { inferAttachmentExtension } from "./imageMime.ts";
 const ATTACHMENT_ID_THREAD_SEGMENT_MAX_CHARS = 80;
 const ATTACHMENT_ID_THREAD_SEGMENT_PATTERN = "[a-z0-9_]+(?:-[a-z0-9_]+)*";
 const ATTACHMENT_ID_UUID_PATTERN = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
@@ -55,8 +53,9 @@ export function parseThreadSegmentFromAttachmentId(attachmentId: string): string
 
 export function attachmentRelativePath(attachment: ChatAttachment): string {
   switch (attachment.type) {
-    case "image": {
-      const extension = inferImageExtension({
+    case "image":
+    case "file": {
+      const extension = inferAttachmentExtension({
         mimeType: attachment.mimeType,
         fileName: attachment.name,
       });
@@ -83,10 +82,20 @@ export function resolveAttachmentPathById(input: {
   if (!normalizedId || normalizedId.includes("/") || normalizedId.includes(".")) {
     return null;
   }
-  for (const extension of ATTACHMENT_FILENAME_EXTENSIONS) {
+  let entries: string[];
+  try {
+    entries = readdirSync(input.attachmentsDir);
+  } catch {
+    return null;
+  }
+  for (const entry of entries) {
+    const entryId = parseAttachmentIdFromRelativePath(entry);
+    if (entryId !== normalizedId) {
+      continue;
+    }
     const maybePath = resolveAttachmentRelativePath({
       attachmentsDir: input.attachmentsDir,
-      relativePath: `${normalizedId}${extension}`,
+      relativePath: entry,
     });
     if (maybePath && existsSync(maybePath)) {
       return maybePath;

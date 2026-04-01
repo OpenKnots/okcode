@@ -4662,8 +4662,10 @@ export default function ChatView({ threadId }: ChatViewProps) {
               </div>
               <div
                 className={cn(
-                  "relative z-10 shrink-0 bg-border/80 transition-colors hover:bg-border",
-                  previewStacked ? "h-1.5 cursor-row-resize" : "w-1.5 cursor-col-resize",
+                  "relative z-10 shrink-0 bg-transparent touch-none select-none after:absolute after:bg-border/35 after:transition-colors hover:after:bg-border/55",
+                  previewStacked
+                    ? "h-4 cursor-row-resize after:inset-x-0 after:top-1/2 after:h-px after:-translate-y-1/2"
+                    : "w-4 cursor-col-resize after:inset-y-0 after:left-1/2 after:w-px after:-translate-x-1/2",
                 )}
                 onPointerDown={handlePreviewResizePointerDown}
                 onPointerMove={handlePreviewResizePointerMove}
@@ -5448,8 +5450,10 @@ export default function ChatView({ threadId }: ChatViewProps) {
             <>
               <div
                 className={cn(
-                  "relative z-10 shrink-0 bg-border/80 transition-colors hover:bg-border",
-                  previewStacked ? "h-1.5 cursor-row-resize" : "w-1.5 cursor-col-resize",
+                  "relative z-10 shrink-0 bg-transparent touch-none select-none after:absolute after:bg-border/35 after:transition-colors hover:after:bg-border/55",
+                  previewStacked
+                    ? "h-4 cursor-row-resize after:inset-x-0 after:top-1/2 after:h-px after:-translate-y-1/2"
+                    : "w-4 cursor-col-resize after:inset-y-0 after:left-1/2 after:w-px after:-translate-x-1/2",
                 )}
                 onPointerDown={handlePreviewResizePointerDown}
                 onPointerMove={handlePreviewResizePointerMove}

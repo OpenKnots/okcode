@@ -6,7 +6,6 @@ type ColorTheme =
   | "default"
   | "iridescent-void"
   | "solar-witch"
-  | "midnight-clarity"
   | "carbon"
   | "vapor"
   | "cathedral-circuit"
@@ -25,7 +24,6 @@ export const COLOR_THEMES: { id: ColorTheme; label: string }[] = [
   { id: "default", label: "Default" },
   { id: "iridescent-void", label: "Iridescent Void" },
   { id: "solar-witch", label: "Solar Witch" },
-  { id: "midnight-clarity", label: "Midnight Clarity" },
   { id: "carbon", label: "Carbon" },
   { id: "vapor", label: "Vapor" },
   { id: "cathedral-circuit", label: "Cathedral Circuit" },
@@ -66,7 +64,6 @@ function getStoredColorTheme(): ColorTheme {
     raw === "default" ||
     raw === "iridescent-void" ||
     raw === "solar-witch" ||
-    raw === "midnight-clarity" ||
     raw === "carbon" ||
     raw === "vapor" ||
     raw === "cathedral-circuit" ||

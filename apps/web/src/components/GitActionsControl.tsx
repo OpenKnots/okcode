@@ -933,7 +933,6 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
         loading: { title: "Opening file...", data: threadToastData },
         success: () => ({
           title: "Opened conflicted file",
-          description: filePath,
           data: threadToastData,
         }),
         error: (error) => ({

@@ -798,7 +798,6 @@ export default function Sidebar() {
       toastManager.add({
         type: "success",
         title: "Path copied",
-        description: ctx.path,
       });
     },
     onError: (error) => {

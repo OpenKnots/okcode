@@ -18,6 +18,10 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**", "dist-electron/**"]
     },
+    "@okcode/marketing#build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "!.next/cache/**"]
+    },
     "dev": {
       "dependsOn": ["@okcode/contracts#build"],
       "cache": false,

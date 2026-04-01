@@ -1,0 +1,195 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark, .dark *));
+
+/* Add scrollbar-hide utility */
+@utility scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+:root {
+  color-scheme: dark;
+  --radius: 0.625rem;
+
+  /* Dark-mode-only palette */
+  --background: color-mix(in srgb, #0a0a1a 95%, white);
+  --foreground: #f5f5f5;
+  --card: color-mix(in srgb, #0a0a1a 95%, white);
+  --card-foreground: #f5f5f5;
+  --popover: color-mix(in srgb, #0a0a1a 95%, white);
+  --popover-foreground: #f5f5f5;
+  --primary: oklch(0.588 0.217 264);
+  --primary-foreground: #f5f5f5;
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: #f5f5f5;
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: color-mix(in srgb, #a3a3a3 90%, white);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: #f5f5f5;
+  --destructive: oklch(0.396 0.141 25.723);
+  --destructive-foreground: oklch(0.637 0.237 25.331);
+  --border: oklch(1 0 0 / 0.06);
+  --input: oklch(1 0 0 / 0.06);
+  --ring: oklch(0.588 0.217 264 / 0.4);
+
+  /* Chart colors */
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+
+  /* Sidebar */
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: #f5f5f5;
+  --sidebar-primary: oklch(0.588 0.217 264);
+  --sidebar-primary-foreground: #f5f5f5;
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: #f5f5f5;
+  --sidebar-border: oklch(1 0 0 / 0.06);
+  --sidebar-ring: oklch(0.588 0.217 264 / 0.4);
+
+  /* Semantic tokens */
+  --brand: oklch(0.585 0.233 277.117);
+  --brand-foreground: #f5f5f5;
+  --surface: oklch(0.205 0 0);
+  --surface-elevated: oklch(0.269 0 0);
+  --highlight: oklch(0.585 0.233 277.117);
+  --highlight-foreground: #f5f5f5;
+
+  /* Landing page section accents */
+  --accent-ai: oklch(0.623 0.214 259.815);
+  --accent-workflows: oklch(0.705 0.213 47.604);
+  --accent-planning: oklch(0.723 0.219 149.579);
+
+  /* Code syntax */
+  --code-comment: oklch(0.439 0 0);
+  --code-keyword: oklch(0.627 0.265 303.9);
+  --code-string: oklch(0.723 0.219 149.579);
+  --code-function: oklch(0.769 0.188 70.08);
+  --code-variable: oklch(0.795 0.184 86.047);
+  --code-type: oklch(0.6 0.118 184.704);
+  --code-constant: oklch(0.705 0.213 47.604);
+}
+
+@theme inline {
+  --font-sans: var(--font-dm-sans), "DM Sans", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", system-ui, sans-serif;
+  --font-mono: "SF Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo,
+    monospace;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-highlight: var(--highlight);
+  --color-highlight-foreground: var(--highlight-foreground);
+  --color-accent-ai: var(--accent-ai);
+  --color-accent-workflows: var(--accent-workflows);
+  --color-accent-planning: var(--accent-planning);
+  --color-code-comment: var(--code-comment);
+  --color-code-keyword: var(--code-keyword);
+  --color-code-string: var(--code-string);
+  --color-code-function: var(--code-function);
+  --color-code-variable: var(--code-variable);
+  --color-code-type: var(--code-type);
+  --color-code-constant: var(--code-constant);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  ::selection {
+    background-color: var(--primary);
+    color: white;
+  }
+}
+
+/* Fractal noise texture overlay */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+}
+
+/* Heading scale */
+h1 {
+  font-size: clamp(2.25rem, 5vw, 3.75rem);
+  line-height: 1.1;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+h2 {
+  font-size: clamp(1.5rem, 3.5vw, 2.25rem);
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+/* Custom thin scrollbar styling */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--muted) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--muted);
+  border-radius: 3px;
+}

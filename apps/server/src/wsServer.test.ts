@@ -64,6 +64,8 @@ const asTurnId = (value: string): TurnId => TurnId.makeUnsafe(value);
 const defaultOpenService: OpenShape = {
   openBrowser: () => Effect.void,
   openInEditor: () => Effect.void,
+  openInFileManager: () => Effect.void,
+  revealInFileManager: () => Effect.void,
 };
 
 const defaultProviderStatuses: ReadonlyArray<ServerProviderStatus> = [
@@ -1024,6 +1026,8 @@ describe("WebSocket Server", () => {
         openCalls.push({ cwd: input.cwd, editor: input.editor });
         return Effect.void;
       },
+      openInFileManager: () => Effect.void,
+      revealInFileManager: () => Effect.void,
     };
 
     server = await createTestServer({ cwd: "/my/workspace", open: openService });
@@ -1039,6 +1043,58 @@ describe("WebSocket Server", () => {
     });
     expect(response.error).toBeUndefined();
     expect(openCalls).toEqual([{ cwd: "/my/workspace", editor: "cursor" }]);
+  });
+
+  it("routes shell.openInFileManager through the injected open service", async () => {
+    const openCalls: string[] = [];
+    const openService: OpenShape = {
+      openBrowser: () => Effect.void,
+      openInEditor: () => Effect.void,
+      openInFileManager: (input) => {
+        openCalls.push(input.path);
+        return Effect.void;
+      },
+      revealInFileManager: () => Effect.void,
+    };
+
+    server = await createTestServer({ cwd: "/my/workspace", open: openService });
+    const addr = server.address();
+    const port = typeof addr === "object" && addr !== null ? addr.port : 0;
+
+    const [ws] = await connectAndAwaitWelcome(port);
+    connections.push(ws);
+
+    const response = await sendRequest(ws, WS_METHODS.shellOpenInFileManager, {
+      path: "/my/workspace/src",
+    });
+    expect(response.error).toBeUndefined();
+    expect(openCalls).toEqual(["/my/workspace/src"]);
+  });
+
+  it("routes shell.revealInFileManager through the injected open service", async () => {
+    const revealCalls: string[] = [];
+    const openService: OpenShape = {
+      openBrowser: () => Effect.void,
+      openInEditor: () => Effect.void,
+      openInFileManager: () => Effect.void,
+      revealInFileManager: (input) => {
+        revealCalls.push(input.path);
+        return Effect.void;
+      },
+    };
+
+    server = await createTestServer({ cwd: "/my/workspace", open: openService });
+    const addr = server.address();
+    const port = typeof addr === "object" && addr !== null ? addr.port : 0;
+
+    const [ws] = await connectAndAwaitWelcome(port);
+    connections.push(ws);
+
+    const response = await sendRequest(ws, WS_METHODS.shellRevealInFileManager, {
+      path: "/my/workspace/src/index.ts",
+    });
+    expect(response.error).toBeUndefined();
+    expect(revealCalls).toEqual(["/my/workspace/src/index.ts"]);
   });
 
   it("reads keybindings from the configured state directory", async () => {
@@ -1503,6 +1559,8 @@ describe("WebSocket Server", () => {
       openBrowser: () => Effect.void,
       openInEditor: () =>
         Effect.sync(() => BigInt(1)).pipe(Effect.map((result) => result as unknown as void)),
+      openInFileManager: () => Effect.void,
+      revealInFileManager: () => Effect.void,
     };
 
     try {

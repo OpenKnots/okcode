@@ -710,7 +710,7 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
   const checkpointDiffQuery = yield* CheckpointDiffQuery;
   const orchestrationReactor = yield* OrchestrationReactor;
   const prReview = yield* PrReview;
-  const { openInEditor } = yield* Open;
+  const { openInEditor, openInFileManager, revealInFileManager } = yield* Open;
   const environmentVariables = yield* EnvironmentVariables;
   const skillService = yield* SkillService;
 
@@ -1008,6 +1008,16 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
       case WS_METHODS.shellOpenInEditor: {
         const body = stripRequestTag(request.body);
         return yield* openInEditor(body);
+      }
+
+      case WS_METHODS.shellOpenInFileManager: {
+        const body = stripRequestTag(request.body);
+        return yield* openInFileManager(body);
+      }
+
+      case WS_METHODS.shellRevealInFileManager: {
+        const body = stripRequestTag(request.body);
+        return yield* revealInFileManager(body);
       }
 
       case WS_METHODS.gitStatus: {

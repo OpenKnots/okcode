@@ -177,6 +177,14 @@ const faqs = [
   <ThemeShowcase themes={themes} />
   <FaqSection faqs={faqs} />
   <FinalCta />
+  <div class="section-divider" aria-hidden="true">
+    <svg viewBox="0 0 32 32" fill="none">
+      <path d="M8 16 C8 10, 14 8, 16 14 S24 10, 24 16" stroke="currentColor" stroke-width="1" />
+      <path d="M16 8 C10 8, 8 14, 14 16 S10 24, 16 24" stroke="var(--kn-landing-accent)" stroke-width="1" />
+      <path d="M24 16 C24 22, 18 24, 16 18 S8 22, 8 16" stroke="currentColor" stroke-width="0.85" opacity="0.7" />
+      <circle cx="16" cy="16" r="1.4" fill="var(--kn-landing-accent)" opacity="0.5" />
+    </svg>
+  </div>
 </Layout>
 
 <script>
@@ -320,9 +328,49 @@ const faqs = [
     sections.forEach((el) => observer.observe(el));
   }
 
+  function initFaqAccordion() {
+    const root = document.querySelector<HTMLElement>("[data-faq-root]");
+    if (!root) return;
+
+    const items = Array.from(root.querySelectorAll<HTMLElement>("[data-faq-item]"));
+
+    const setOpen = (targetIndex: number) => {
+      items.forEach((item, index) => {
+        const trigger = item.querySelector<HTMLButtonElement>("[data-faq-trigger]");
+        const panel = item.querySelector<HTMLElement>("[data-faq-panel]");
+        const isOpen = index === targetIndex;
+        if (!trigger || !panel) return;
+
+        trigger.setAttribute("aria-expanded", String(isOpen));
+        item.dataset.open = String(isOpen);
+        panel.setAttribute("aria-hidden", String(!isOpen));
+        panel.style.maxHeight = isOpen ? `${panel.scrollHeight}px` : "0px";
+        panel.style.opacity = isOpen ? "1" : "0";
+      });
+    };
+
+    items.forEach((item, index) => {
+      const trigger = item.querySelector<HTMLButtonElement>("[data-faq-trigger]");
+      if (!trigger) return;
+      trigger.addEventListener("click", () => {
+        const expanded = trigger.getAttribute("aria-expanded") === "true";
+        setOpen(expanded ? -1 : index);
+      });
+    });
+
+    const initiallyOpen = items.findIndex((item) => item.querySelector("[data-faq-trigger]")?.getAttribute("aria-expanded") === "true");
+    setOpen(initiallyOpen >= 0 ? initiallyOpen : -1);
+
+    window.addEventListener("resize", () => {
+      const openIndex = items.findIndex((item) => item.dataset.open === "true");
+      if (openIndex >= 0) setOpen(openIndex);
+    });
+  }
+
   initDownloadButton();
   initTabGroups();
   initScrollReveal();
+  initFaqAccordion();
 </script>
 
 <style>
@@ -392,15 +440,31 @@ const faqs = [
 
   :global(.hero) {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.12fr);
-    gap: clamp(2.5rem, 5vw, 4.5rem);
+    grid-template-columns: 1fr;
+    gap: 2rem;
     align-items: center;
-    margin-bottom: 2rem;
+    justify-items: center;
+    margin-bottom: 2.75rem;
+    padding-top: clamp(1rem, 3vw, 2.25rem);
   }
 
   :global(.hero-copy) {
     position: relative;
     z-index: 1;
+    width: min(100%, 62rem);
+  }
+
+  :global(.hero-copy--centered),
+  :global(.hero-actions--centered),
+  :global(.hero-meta--centered) {
+    justify-content: center;
+    text-align: center;
+  }
+
+  :global(.hero-copy--centered) {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
 
   :global(.eyebrow) {
@@ -427,20 +491,71 @@ const faqs = [
     box-shadow: 0 0 18px rgba(103, 232, 249, 0.55);
   }
 
+  :global(.hero-mark) {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: clamp(7rem, 15vw, 10rem);
+    height: clamp(7rem, 15vw, 10rem);
+    margin: 0.5rem 0 1.25rem;
+  }
+
+  :global(.hero-mark-glow) {
+    position: absolute;
+    inset: auto;
+    border-radius: 999px;
+    filter: blur(30px);
+    pointer-events: none;
+  }
+
+  :global(.hero-mark-glow--violet) {
+    width: 9rem;
+    height: 9rem;
+    background: radial-gradient(circle, rgba(192, 200, 212, 0.22), transparent 72%);
+  }
+
+  :global(.hero-mark-glow--cyan) {
+    width: 11rem;
+    height: 11rem;
+    background: radial-gradient(circle, rgba(202, 58, 41, 0.16), transparent 74%);
+  }
+
+  :global(.hero-mark-core) {
+    position: relative;
+    z-index: 1;
+    width: clamp(5rem, 10vw, 6.25rem);
+    height: clamp(5rem, 10vw, 6.25rem);
+    border-radius: 1.7rem;
+    display: grid;
+    place-items: center;
+    background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+    border: 1px solid rgba(192, 200, 212, 0.14);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255,255,255,0.08);
+    backdrop-filter: blur(20px);
+  }
+
+  :global(.hero-mark-core img) {
+    width: 56%;
+    height: auto;
+    filter: drop-shadow(0 0 24px rgba(202, 58, 41, 0.2));
+  }
+
   :global(.tagline) {
-    font-size: clamp(3rem, 6vw, 5.75rem);
-    line-height: 0.96;
-    letter-spacing: -0.06em;
-    max-width: 11ch;
+    font-size: clamp(3.2rem, 7vw, 6.2rem);
+    line-height: 0.92;
+    letter-spacing: -0.07em;
+    max-width: 12ch;
     text-wrap: balance;
+    margin-inline: auto;
   }
 
   :global(.subtagline) {
     margin-top: 1.35rem;
-    max-width: 40rem;
+    max-width: 46rem;
     font-size: clamp(1.06rem, 1.5vw, 1.28rem);
     line-height: 1.72;
-    color: rgba(250, 250, 250, 0.75);
+    color: rgba(232, 236, 240, 0.75);
+    margin-inline: auto;
   }
 
   :global(.hero-actions),
@@ -494,13 +609,14 @@ const faqs = [
   }
 
   :global(.hero-button) {
-    border: 1px solid rgba(103, 232, 249, 0.22);
+    border: 1px solid rgba(192, 200, 212, 0.22);
     background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.02)),
-      linear-gradient(135deg, rgba(56, 189, 248, 0.22), rgba(168, 85, 247, 0.24));
+      linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.03)),
+      linear-gradient(135deg, rgba(202, 58, 41, 0.94), rgba(154, 45, 31, 0.96));
     color: #ffffff;
     box-shadow:
-      0 12px 48px rgba(56, 189, 248, 0.14),
+      0 14px 54px rgba(202, 58, 41, 0.22),
+      0 0 28px rgba(192, 200, 212, 0.06),
       inset 0 1px 0 rgba(255, 255, 255, 0.18);
   }
 
@@ -1008,8 +1124,8 @@ const faqs = [
 
   :global(.spotlight-item[aria-selected="true"]),
   :global(.tab-chip[aria-selected="true"]) {
-    border-color: rgba(103, 232, 249, 0.22);
-    background: linear-gradient(135deg, rgba(56, 189, 248, 0.16), rgba(168, 85, 247, 0.12));
+    border-color: rgba(202, 58, 41, 0.22);
+    background: linear-gradient(135deg, rgba(202, 58, 41, 0.16), rgba(192, 200, 212, 0.08));
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
   }
 
@@ -1127,6 +1243,56 @@ const faqs = [
   :global(.theme-note h3) {
     font-size: 1.35rem;
     margin-bottom: 0.65rem;
+  }
+
+  :global(.faq-shell) {
+    margin-top: 1.5rem;
+    border-radius: 1.5rem;
+    overflow: hidden;
+  }
+
+  :global(.faq-item + .faq-item) {
+    border-top: 1px solid rgba(192, 200, 212, 0.08);
+  }
+
+  :global(.faq-trigger) {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.2rem 1.35rem;
+    background: transparent;
+    border: 0;
+    color: var(--kn-landing-text-secondary);
+    text-align: left;
+    font: inherit;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  :global(.faq-chevron) {
+    font-size: 1.25rem;
+    color: var(--kn-landing-text-muted);
+    transition: transform 0.28s ease, color 0.28s ease;
+  }
+
+  :global(.faq-item[data-open="true"] .faq-chevron) {
+    transform: rotate(180deg);
+    color: var(--kn-landing-accent-bright);
+  }
+
+  :global(.faq-panel) {
+    overflow: hidden;
+    transition: max-height 0.38s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.28s ease;
+    padding-inline: 1.35rem;
+  }
+
+  :global(.faq-panel p) {
+    padding: 0 0 1.2rem;
+    color: rgba(232, 236, 240, 0.72);
+    line-height: 1.7;
   }
 
   :global(.faq-grid) {

@@ -1,20 +1,26 @@
 ---
-/**
- * Feature grid — three core product pillars.
- */
-
 interface Props {
   pillars: ReadonlyArray<{ eyebrow: string; title: string; body: string }>;
 }
 
 const { pillars } = Astro.props;
+const icons = [
+  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7H14.5a3.5 3.5 0 0 1 0 7H6"/></svg>`,
+  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18"/><path d="M3 12h12"/><path d="M3 17h8"/><path d="M17 11l4 4-4 4"/></svg>`,
+  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg>`
+] as const;
 ---
 
-<section class="feature-grid" aria-label="Core product pillars" data-reveal>
-  {pillars.map((pillar) => (
-    <article class="feature-card">
-      <div class="feature-eyebrow">{pillar.eyebrow}</div>
-      <h2>{pillar.title}</h2>
+<section id="features" class="feature-grid feature-grid--bento" aria-label="Core product pillars" data-reveal>
+  {pillars.map((pillar, index) => (
+    <article class={`feature-card feature-card--bento feature-card--${index + 1}`}>
+      <div class="feature-card-head">
+        <span class="kn-ico-wrap feature-icon" set:html={icons[index] ?? icons[0]} />
+        <div class="feature-card-copy">
+          <div class="feature-eyebrow">{pillar.eyebrow}</div>
+          <h2>{pillar.title}</h2>
+        </div>
+      </div>
       <p>{pillar.body}</p>
     </article>
   ))}

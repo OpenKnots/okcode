@@ -1,8 +1,4 @@
 ---
-/**
- * Workflow section — four-step numbered cards.
- */
-
 interface Props {
   steps: ReadonlyArray<{ step: string; title: string; body: string }>;
 }
@@ -20,9 +16,9 @@ const { steps } = Astro.props;
     </p>
   </div>
 
-  <div class="workflow-grid">
+  <div class="workflow-grid workflow-grid--cards">
     {steps.map((item) => (
-      <article class="workflow-card">
+      <article class="workflow-card kn-card">
         <span class="workflow-step">{item.step}</span>
         <h3>{item.title}</h3>
         <p>{item.body}</p>

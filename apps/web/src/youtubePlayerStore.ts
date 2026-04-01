@@ -42,13 +42,13 @@ interface YouTubePlayerStore extends PersistedYouTubeState {
   clearCustomSlot: (slotIndex: 0 | 1) => void;
 }
 
-const STORAGE_KEY = "okcode:youtube-player:v1";
+const STORAGE_KEY = "okcode:youtube-player:v2";
 
 function readPersistedState(): PersistedYouTubeState {
   const defaults: PersistedYouTubeState = {
     isOpen: false,
     minimized: false,
-    selectedIndex: null,
+    selectedIndex: 0,
     volume: 80,
     customSlots: [null, null],
   };

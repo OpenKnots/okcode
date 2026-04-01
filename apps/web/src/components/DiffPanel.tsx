@@ -14,9 +14,9 @@ import { parseDiffRouteSearch, stripDiffSearchParams } from "../diffRouteSearch"
 import { useTheme } from "../hooks/useTheme";
 import { buildPatchCacheKey } from "../lib/diffRendering";
 import {
+  acceptAllDiffFiles,
   expandDiffFile,
   reconcileDiffFileReviewState,
-  setDiffFileContextMode,
   toggleDiffFileAccepted,
   toggleDiffFileCollapsed,
   type DiffFileReviewStateByPath,
@@ -168,92 +168,33 @@ function summarizeFileDiffStats(fileDiff: FileDiffMetadata): {
   );
 }
 
-function resolveRenderableFileDiff(
-  renderablePatch: RenderablePatch | null,
-  filePath: string,
-): FileDiffMetadata | null {
-  if (!renderablePatch || renderablePatch.kind !== "files") {
-    return null;
-  }
-  return (
-    renderablePatch.files.find((candidate) => resolveFileDiffPath(candidate) === filePath) ?? null
-  );
-}
-
-interface FileScopedCheckpointDiffInput {
-  threadId: ThreadId | null;
-  fromTurnCount: number | null;
-  toTurnCount: number | null;
-  cacheScope?: string | null;
-  enabled: boolean;
-}
-
 function DiffFileSection(props: {
   fileDiff: FileDiffMetadata;
   filePath: string;
   fileKey: string;
-  checkpointDiffInput: FileScopedCheckpointDiffInput;
   diffRenderMode: DiffRenderMode;
   diffWordWrap: boolean;
   resolvedTheme: "light" | "dark";
   collapsed: boolean;
   accepted: boolean;
-  contextMode: "patch" | "full";
   onOpenInEditor: (filePath: string) => void;
   onToggleCollapsed: (filePath: string) => void;
   onToggleAccepted: (filePath: string) => void;
-  onContextModeChange: (filePath: string, contextMode: "patch" | "full") => void;
 }) {
   const {
     accepted,
-    checkpointDiffInput,
     collapsed,
-    contextMode,
     diffRenderMode,
     diffWordWrap,
     fileDiff,
     fileKey,
     filePath,
-    onContextModeChange,
     onOpenInEditor,
     onToggleAccepted,
     onToggleCollapsed,
     resolvedTheme,
   } = props;
   const stats = summarizeFileDiffStats(fileDiff);
-  const fullContextDiffQuery = useQuery(
-    checkpointDiffQueryOptions({
-      ...checkpointDiffInput,
-      relativePath: filePath,
-      contextMode: "full",
-      enabled: checkpointDiffInput.enabled && !collapsed && contextMode === "full",
-    }),
-  );
-  const fullContextPatch = useMemo(
-    () =>
-      getRenderablePatch(
-        contextMode === "full" ? fullContextDiffQuery.data?.diff : undefined,
-        `diff-panel:file:${resolvedTheme}:${filePath}:full`,
-      ),
-    [contextMode, filePath, fullContextDiffQuery.data?.diff, resolvedTheme],
-  );
-  const fullContextFileDiff =
-    contextMode === "full" ? resolveRenderableFileDiff(fullContextPatch, filePath) : null;
-  const resolvedFileDiff = contextMode === "full" ? (fullContextFileDiff ?? fileDiff) : fileDiff;
-  const fullContextError =
-    contextMode === "full" && fullContextDiffQuery.error
-      ? fullContextDiffQuery.error instanceof Error
-        ? fullContextDiffQuery.error.message
-        : "Failed to load full-file context."
-      : null;
-  const fullContextFallbackMessage =
-    contextMode === "full" &&
-    !fullContextError &&
-    !fullContextDiffQuery.isLoading &&
-    fullContextDiffQuery.data &&
-    fullContextFileDiff === null
-      ? "Full-file context is unavailable for this file. Showing patch context."
-      : null;
 
   return (
     <section
@@ -289,25 +230,6 @@ function DiffFileSection(props: {
             <DiffStatLabel additions={stats.additions} deletions={stats.deletions} />
           </span>
         )}
-        <ToggleGroup
-          className="shrink-0"
-          variant="outline"
-          size="xs"
-          value={[contextMode]}
-          onValueChange={(value) => {
-            const next = value[0];
-            if (next === "patch" || next === "full") {
-              onContextModeChange(filePath, next);
-            }
-          }}
-        >
-          <Toggle aria-label={`Show patch diff for ${filePath}`} value="patch">
-            Patch
-          </Toggle>
-          <Toggle aria-label={`Show full file context for ${filePath}`} value="full">
-            Full
-          </Toggle>
-        </ToggleGroup>
         <Button
           size="xs"
           variant={accepted ? "secondary" : "outline"}
@@ -323,21 +245,8 @@ function DiffFileSection(props: {
       </div>
       {!collapsed && (
         <div key={fileKey}>
-          {contextMode === "full" && fullContextDiffQuery.isLoading ? (
-            <DiffPanelLoadingState label="Loading full file..." />
-          ) : null}
-          {fullContextError ? (
-            <div className="border-b border-border/60 bg-destructive/8 px-3 py-2 text-[11px] text-destructive/80">
-              {fullContextError}
-            </div>
-          ) : null}
-          {fullContextFallbackMessage ? (
-            <div className="border-b border-border/60 bg-amber-500/8 px-3 py-2 text-[11px] text-amber-700 dark:text-amber-300/90">
-              {fullContextFallbackMessage}
-            </div>
-          ) : null}
           <FileDiff
-            fileDiff={resolvedFileDiff}
+            fileDiff={fileDiff}
             options={{
               diffStyle: diffRenderMode === "split" ? "split" : "unified",
               lineDiffType: "none",
@@ -512,6 +421,16 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
   const activeReviewState = patchReviewSelectionKey
     ? (reviewStateBySelectionKey[patchReviewSelectionKey] ?? {})
     : {};
+  const acceptedFileCount = useMemo(
+    () =>
+      renderableFilePaths.reduce(
+        (count, filePath) => count + (activeReviewState[filePath]?.accepted ? 1 : 0),
+        0,
+      ),
+    [activeReviewState, renderableFilePaths],
+  );
+  const hasUnacceptedFiles =
+    renderableFilePaths.length > 0 && acceptedFileCount < renderableFilePaths.length;
 
   useEffect(() => {
     if (diffOpen && !previousDiffOpenRef.current) {
@@ -595,19 +514,18 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
     },
     [updateActiveReviewState],
   );
+  const onAcceptAllFiles = useCallback(() => {
+    if (renderableFilePaths.length === 0) {
+      return;
+    }
+    updateActiveReviewState((current) => acceptAllDiffFiles(current, renderableFilePaths));
+  }, [renderableFilePaths, updateActiveReviewState]);
   const onToggleFileCollapsed = useCallback(
     (filePath: string) => {
       updateActiveReviewState((current) => toggleDiffFileCollapsed(current, filePath));
     },
     [updateActiveReviewState],
   );
-  const onChangeFileContextMode = useCallback(
-    (filePath: string, contextMode: "patch" | "full") => {
-      updateActiveReviewState((current) => setDiffFileContextMode(current, filePath, contextMode));
-    },
-    [updateActiveReviewState],
-  );
-
   const latestSelectedTurnId = orderedTurnDiffSummaries[0]?.turnId ?? null;
 
   const selectTurn = useCallback(
@@ -704,6 +622,18 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
         </Select>
       </div>
       <div className="flex shrink-0 items-center gap-1 [-webkit-app-region:no-drag]">
+        {renderablePatch?.kind === "files" ? (
+          <Button
+            size="xs"
+            variant="outline"
+            onClick={onAcceptAllFiles}
+            disabled={!hasUnacceptedFiles}
+            className="gap-1.5"
+          >
+            <CheckIcon className="size-3.5" />
+            {hasUnacceptedFiles ? "Accept All" : "All Accepted"}
+          </Button>
+        ) : null}
         <ToggleGroup
           className="shrink-0"
           variant="outline"
@@ -755,10 +685,7 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
         </div>
       ) : (
         <>
-          <div
-            ref={patchViewportRef}
-            className="diff-panel-viewport min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto"
-          >
+          <div ref={patchViewportRef} className="min-h-0 min-w-0 flex-1 overflow-hidden">
             {checkpointDiffError && !renderablePatch && (
               <div className="px-3">
                 <p className="mb-2 text-[11px] text-red-500/80">{checkpointDiffError}</p>
@@ -778,7 +705,11 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
               )
             ) : renderablePatch.kind === "files" ? (
               <Virtualizer
-                className="diff-render-surface h-full min-h-0 overflow-auto px-2 pb-2"
+                // `@pierre/diffs` virtualizes file bodies against its own scroll root.
+                // Nesting that root inside another scrolling viewport leaves the diff
+                // rows stuck in placeholder mode, which matches the blank panels here.
+                className="diff-panel-viewport diff-render-surface h-full min-h-0 min-w-0 overflow-x-hidden overflow-y-auto"
+                contentClassName="px-2 pb-2"
                 config={{
                   overscrollSize: 600,
                   intersectionObserverMargin: 1200,
@@ -791,29 +722,17 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
                   const fileReviewState = activeReviewState[filePath] ?? {
                     accepted: false,
                     collapsed: true,
-                    contextMode: "patch" as const,
                   };
                   return (
                     <DiffFileSection
                       key={themedFileKey}
                       accepted={fileReviewState.accepted}
-                      checkpointDiffInput={{
-                        threadId: activeThreadId,
-                        fromTurnCount: activeCheckpointRange?.fromTurnCount ?? null,
-                        toTurnCount: activeCheckpointRange?.toTurnCount ?? null,
-                        cacheScope: selectedTurn
-                          ? `turn:${selectedTurn.turnId}`
-                          : conversationCacheScope,
-                        enabled: isGitRepo,
-                      }}
                       collapsed={fileReviewState.collapsed}
-                      contextMode={fileReviewState.contextMode}
                       diffRenderMode={diffRenderMode}
                       diffWordWrap={diffWordWrap}
                       fileDiff={fileDiff}
                       fileKey={themedFileKey}
                       filePath={filePath}
-                      onContextModeChange={onChangeFileContextMode}
                       onOpenInEditor={openDiffFileInCodeViewer}
                       onToggleAccepted={onToggleFileAccepted}
                       onToggleCollapsed={onToggleFileCollapsed}

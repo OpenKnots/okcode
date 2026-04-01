@@ -1,7 +1,9 @@
+import { type OrchestrationDiffContextMode } from "@okcode/contracts";
+
 export interface DiffFileReviewState {
   collapsed: boolean;
   accepted: boolean;
-  contextMode: "patch" | "full";
+  contextMode: OrchestrationDiffContextMode;
 }
 
 export type DiffFileReviewStateByPath = Record<string, DiffFileReviewState>;
@@ -32,11 +34,35 @@ export function toggleDiffFileAccepted(
   return {
     ...current,
     [path]: {
+      contextMode: previous.contextMode,
       accepted,
       collapsed: accepted,
-      contextMode: previous.contextMode,
     },
   };
+}
+
+export function acceptAllDiffFiles(
+  current: DiffFileReviewStateByPath,
+  paths: ReadonlyArray<string>,
+): DiffFileReviewStateByPath {
+  let next = current;
+
+  for (const path of paths) {
+    const previous = next[path] ?? DEFAULT_DIFF_FILE_REVIEW_STATE;
+    if (previous.accepted && previous.collapsed) {
+      continue;
+    }
+    if (next === current) {
+      next = { ...current };
+    }
+    next[path] = {
+      accepted: true,
+      collapsed: true,
+      contextMode: previous.contextMode,
+    };
+  }
+
+  return next;
 }
 
 export function toggleDiffFileCollapsed(
@@ -49,25 +75,6 @@ export function toggleDiffFileCollapsed(
     [path]: {
       ...previous,
       collapsed: !previous.collapsed,
-    },
-  };
-}
-
-export function setDiffFileContextMode(
-  current: DiffFileReviewStateByPath,
-  path: string,
-  contextMode: "patch" | "full",
-): DiffFileReviewStateByPath {
-  const previous = current[path] ?? DEFAULT_DIFF_FILE_REVIEW_STATE;
-  if (previous.contextMode === contextMode) {
-    return current;
-  }
-  return {
-    ...current,
-    [path]: {
-      ...previous,
-      collapsed: contextMode === "full" ? false : previous.collapsed,
-      contextMode,
     },
   };
 }

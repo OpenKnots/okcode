@@ -1,5 +1,5 @@
-import { PlusIcon, Trash2Icon } from "lucide-react";
-import { type ReactNode, useEffect, useState } from "react";
+import { EyeIcon, EyeOffIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { type CSSProperties, type ReactNode, useEffect, useState } from "react";
 import {
   ENVIRONMENT_VARIABLE_KEY_MAX_LENGTH,
   ENVIRONMENT_VARIABLE_MAX_COUNT,
@@ -10,6 +10,7 @@ import {
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
 import { cn } from "~/lib/utils";
 
 type DraftRow = {
@@ -121,11 +122,13 @@ export function EnvironmentVariablesEditor({
   disabled = false,
 }: EnvironmentVariablesEditorProps) {
   const [rows, setRows] = useState<DraftRow[]>(() => rowsFromEntries(entries));
+  const [visibleValueRowIds, setVisibleValueRowIds] = useState<Set<string>>(() => new Set());
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     setRows(rowsFromEntries(entries));
+    setVisibleValueRowIds(new Set());
     setSaveError(null);
   }, [entries]);
 
@@ -142,6 +145,18 @@ export function EnvironmentVariablesEditor({
     setSaveError(null);
   };
 
+  const toggleValueVisibility = (rowId: string) => {
+    setVisibleValueRowIds((current) => {
+      const next = new Set(current);
+      if (next.has(rowId)) {
+        next.delete(rowId);
+      } else {
+        next.add(rowId);
+      }
+      return next;
+    });
+  };
+
   const addRow = () => {
     if (!canAddRow) return;
     setRows((current) => [...current, createDraftRow()]);
@@ -150,11 +165,18 @@ export function EnvironmentVariablesEditor({
 
   const removeRow = (rowId: string) => {
     setRows((current) => current.filter((row) => row.id !== rowId));
+    setVisibleValueRowIds((current) => {
+      if (!current.has(rowId)) return current;
+      const next = new Set(current);
+      next.delete(rowId);
+      return next;
+    });
     setSaveError(null);
   };
 
   const resetRows = () => {
     setRows(rowsFromEntries(entries));
+    setVisibleValueRowIds(new Set());
     setSaveError(null);
   };
 
@@ -165,6 +187,7 @@ export function EnvironmentVariablesEditor({
     try {
       const savedEntries = await onSave(normalizedEntries);
       setRows(rowsFromEntries(savedEntries));
+      setVisibleValueRowIds(new Set());
     } catch (error) {
       setSaveError(
         error instanceof Error ? error.message : "Failed to save environment variables.",
@@ -215,6 +238,13 @@ export function EnvironmentVariablesEditor({
         {rows.map((row, index) => {
           const errors = rowErrors.get(row.id);
           const isBlank = !hasDraftMeaningfulContent(row);
+          const isValueVisible = visibleValueRowIds.has(row.id);
+          const valueFieldId = `env-var-value-${row.id}`;
+          const valueMaskStyle = {
+            WebkitTextSecurity: isValueVisible ? "none" : "disc",
+          } as CSSProperties & {
+            WebkitTextSecurity?: string;
+          };
           return (
             <div
               key={row.id}
@@ -240,9 +270,42 @@ export function EnvironmentVariablesEditor({
                   ) : null}
                 </label>
 
-                <label className="block space-y-1">
-                  <span className="block text-xs font-medium text-foreground">Value</span>
+                <div className="block space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <label
+                      className="block text-xs font-medium text-foreground"
+                      htmlFor={valueFieldId}
+                    >
+                      Value
+                    </label>
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <Button
+                            type="button"
+                            size="icon-xs"
+                            variant="ghost"
+                            className="size-6 rounded-md text-muted-foreground hover:text-foreground"
+                            aria-label={isValueVisible ? "Hide value" : "Show value"}
+                            aria-pressed={isValueVisible}
+                            disabled={isReadonly}
+                            onClick={() => toggleValueVisibility(row.id)}
+                          >
+                            {isValueVisible ? (
+                              <EyeOffIcon className="size-3.5" />
+                            ) : (
+                              <EyeIcon className="size-3.5" />
+                            )}
+                          </Button>
+                        }
+                      />
+                      <TooltipPopup side="top">
+                        {isValueVisible ? "Hide value" : "Show value"}
+                      </TooltipPopup>
+                    </Tooltip>
+                  </div>
                   <Textarea
+                    id={valueFieldId}
                     value={row.value}
                     disabled={isReadonly}
                     onChange={(event) => updateRow(row.id, { value: event.target.value })}
@@ -252,11 +315,12 @@ export function EnvironmentVariablesEditor({
                     spellCheck={false}
                     aria-invalid={errors?.value ? "true" : undefined}
                     className="resize-y"
+                    style={valueMaskStyle}
                   />
                   {errors?.value ? (
                     <span className="block text-[11px] text-destructive">{errors.value}</span>
                   ) : null}
-                </label>
+                </div>
               </div>
 
               <div className="mt-3 flex items-center justify-between gap-2">

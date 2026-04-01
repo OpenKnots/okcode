@@ -146,4 +146,79 @@ describe("resolveExclusivePanelAction", () => {
     const result = resolveExclusivePanelAction(false, true, false, true, false, false);
     expect(result).toEqual(["close-code-viewer"]);
   });
+
+  // ─── Simulation panel tests ──────────────────────────────────────
+  it("returns 'close-simulation' when diff transitions open while simulation is open", () => {
+    const result = resolveExclusivePanelAction(
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      /* prevSimulationOpen */ true,
+      /* simulationOpen */ true,
+    );
+    expect(result).toEqual(["close-simulation"]);
+  });
+
+  it("closes diff, code viewer, and preview when simulation opens", () => {
+    const result = resolveExclusivePanelAction(
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      /* prevSimulationOpen */ false,
+      /* simulationOpen */ true,
+    );
+    expect(result).toEqual(
+      expect.arrayContaining(["close-diff", "close-code-viewer", "close-preview"]),
+    );
+    expect(result).toHaveLength(3);
+  });
+
+  it("returns empty array when simulation opens but no other panels are open", () => {
+    const result = resolveExclusivePanelAction(
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+    );
+    expect(result).toEqual([]);
+  });
+
+  it("returns empty array when only simulation is open (no transition)", () => {
+    const result = resolveExclusivePanelAction(
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+    );
+    expect(result).toEqual([]);
+  });
+
+  it("closes simulation when code viewer opens", () => {
+    const result = resolveExclusivePanelAction(false, false, false, true, false, false, true, true);
+    expect(result).toEqual(["close-simulation"]);
+  });
+
+  it("closes simulation when preview opens", () => {
+    const result = resolveExclusivePanelAction(false, false, false, false, false, true, true, true);
+    expect(result).toEqual(["close-simulation"]);
+  });
+
+  it("backward-compatible: works without simulation args", () => {
+    const result = resolveExclusivePanelAction(false, true, true, true, false, false);
+    expect(result).toEqual(["close-code-viewer"]);
+  });
 });

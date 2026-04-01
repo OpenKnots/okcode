@@ -62,7 +62,6 @@ export const WorkspaceFileTree = memo(function WorkspaceFileTree(props: {
       toastManager.add({
         type: "success",
         title: "Path copied",
-        description: ctx.path,
       });
     },
     onError: (error) => {
@@ -436,7 +435,6 @@ const WorkspaceSearchResultRow = memo(function WorkspaceSearchResultRow(props: {
         props.onOpenFile(props.entry.path, { metaKey: event.metaKey, ctrlKey: event.ctrlKey });
       }}
       onContextMenu={handleContextMenu}
-      title={props.entry.path}
     >
       <span className="mt-0.5 shrink-0">
         {isDirectory ? (
@@ -697,7 +695,6 @@ const WorkspaceFileRow = memo(function WorkspaceFileRow(props: {
         props.onOpenFile(props.entry.path, { metaKey: event.metaKey, ctrlKey: event.ctrlKey })
       }
       onContextMenu={handleContextMenu}
-      title={props.entry.path}
     >
       <span aria-hidden="true" className="size-3.5 shrink-0" />
       <VscodeEntryIcon

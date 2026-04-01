@@ -55,6 +55,10 @@ describe("runtimeBridge", () => {
       }),
       openExternal: async () => true,
       onPairingState: () => () => {},
+      getConnectionState: () => "connected",
+      onConnectionState: () => () => {},
+      registerNotifications: async () => true,
+      fireNotification: async () => {},
     };
 
     expect(resolveRuntimeWsUrl()).toBe("wss://pair.example/ws?token=secret");
@@ -85,6 +89,10 @@ describe("runtimeBridge", () => {
       }),
       openExternal: async () => true,
       onPairingState: () => () => {},
+      getConnectionState: () => "disconnected",
+      onConnectionState: () => () => {},
+      registerNotifications: async () => true,
+      fireNotification: async () => {},
     };
 
     expect(hasRuntimeConnectionTarget()).toBe(false);

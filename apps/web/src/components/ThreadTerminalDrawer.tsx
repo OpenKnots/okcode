@@ -1,5 +1,12 @@
 import { FitAddon } from "@xterm/addon-fit";
-import { Plus, SquareSplitHorizontal, TerminalSquare, Trash2, XIcon } from "lucide-react";
+import {
+  ChevronDown,
+  Plus,
+  SquareSplitHorizontal,
+  TerminalSquare,
+  Trash2,
+  XIcon,
+} from "lucide-react";
 import { type ThreadId } from "@okcode/contracts";
 import { Terminal, type ITheme } from "@xterm/xterm";
 import {
@@ -12,6 +19,14 @@ import {
   useRef,
   useState,
 } from "react";
+import {
+  Menu,
+  MenuItem,
+  MenuPopup,
+  MenuSeparator,
+  MenuShortcut,
+  MenuTrigger,
+} from "~/components/ui/menu";
 import { Popover, PopoverPopup, PopoverTrigger } from "~/components/ui/popover";
 import { type TerminalContextSelection } from "~/lib/terminalContext";
 import { openInPreferredEditor } from "../editorPreferences";
@@ -837,6 +852,65 @@ function TerminalActionButton({ label, className, onClick, children }: TerminalA
   );
 }
 
+interface TerminalDropdownMenuProps {
+  onSplitTerminal: () => void;
+  onNewTerminal: () => void;
+  onCloseTerminal: () => void;
+  splitDisabled: boolean;
+  splitLabel: string;
+  newLabel: string;
+  closeLabel: string;
+  splitShortcutLabel?: string | undefined;
+  newShortcutLabel?: string | undefined;
+  closeShortcutLabel?: string | undefined;
+  triggerClassName: string;
+}
+
+function TerminalDropdownMenu({
+  onSplitTerminal,
+  onNewTerminal,
+  onCloseTerminal,
+  splitDisabled,
+  splitLabel,
+  newLabel,
+  closeLabel,
+  splitShortcutLabel,
+  newShortcutLabel,
+  closeShortcutLabel,
+  triggerClassName,
+}: TerminalDropdownMenuProps) {
+  return (
+    <Menu>
+      <MenuTrigger
+        render={<button type="button" className={triggerClassName} aria-label="Terminal actions" />}
+      >
+        <ChevronDown className="size-3.25" />
+      </MenuTrigger>
+      <MenuPopup align="end" side="bottom" sideOffset={6}>
+        <MenuItem
+          className={splitDisabled ? "pointer-events-none opacity-45" : ""}
+          onClick={onSplitTerminal}
+        >
+          <SquareSplitHorizontal className="size-4" />
+          {splitLabel}
+          {splitShortcutLabel ? <MenuShortcut>{splitShortcutLabel}</MenuShortcut> : null}
+        </MenuItem>
+        <MenuItem onClick={onNewTerminal}>
+          <Plus className="size-4" />
+          {newLabel}
+          {newShortcutLabel ? <MenuShortcut>{newShortcutLabel}</MenuShortcut> : null}
+        </MenuItem>
+        <MenuSeparator />
+        <MenuItem variant="destructive" onClick={onCloseTerminal}>
+          <Trash2 className="size-4" />
+          {closeLabel}
+          {closeShortcutLabel ? <MenuShortcut>{closeShortcutLabel}</MenuShortcut> : null}
+        </MenuItem>
+      </MenuPopup>
+    </Menu>
+  );
+}
+
 export default function ThreadTerminalDrawer({
   threadId,
   cwd,
@@ -1097,33 +1171,19 @@ export default function ThreadTerminalDrawer({
       {!hasTerminalSidebar && (
         <div className="pointer-events-none absolute right-2 top-2 z-20">
           <div className="pointer-events-auto inline-flex items-center overflow-hidden rounded-md border border-border/80 bg-background/70">
-            <TerminalActionButton
-              className={`p-1 text-foreground/90 transition-colors ${
-                hasReachedSplitLimit
-                  ? "cursor-not-allowed opacity-45 hover:bg-transparent"
-                  : "hover:bg-accent"
-              }`}
-              onClick={onSplitTerminalAction}
-              label={splitTerminalActionLabel}
-            >
-              <SquareSplitHorizontal className="size-3.25" />
-            </TerminalActionButton>
-            <div className="h-4 w-px bg-border/80" />
-            <TerminalActionButton
-              className="p-1 text-foreground/90 transition-colors hover:bg-accent"
-              onClick={onNewTerminalAction}
-              label={newTerminalActionLabel}
-            >
-              <Plus className="size-3.25" />
-            </TerminalActionButton>
-            <div className="h-4 w-px bg-border/80" />
-            <TerminalActionButton
-              className="p-1 text-foreground/90 transition-colors hover:bg-accent"
-              onClick={() => onCloseTerminal(resolvedActiveTerminalId)}
-              label={closeTerminalActionLabel}
-            >
-              <Trash2 className="size-3.25" />
-            </TerminalActionButton>
+            <TerminalDropdownMenu
+              onSplitTerminal={onSplitTerminalAction}
+              onNewTerminal={onNewTerminalAction}
+              onCloseTerminal={() => onCloseTerminal(resolvedActiveTerminalId)}
+              splitDisabled={hasReachedSplitLimit}
+              splitLabel="Split Terminal"
+              newLabel="New Terminal"
+              closeLabel="Close Terminal"
+              splitShortcutLabel={splitShortcutLabel}
+              newShortcutLabel={newShortcutLabel}
+              closeShortcutLabel={closeShortcutLabel}
+              triggerClassName="p-1 text-foreground/90 transition-colors hover:bg-accent"
+            />
           </div>
         </div>
       )}
@@ -1195,31 +1255,19 @@ export default function ThreadTerminalDrawer({
             <aside className="flex w-36 min-w-36 flex-col border border-border/70 bg-muted/10">
               <div className="flex h-[22px] items-stretch justify-end border-b border-border/70">
                 <div className="inline-flex h-full items-stretch">
-                  <TerminalActionButton
-                    className={`inline-flex h-full items-center px-1 text-foreground/90 transition-colors ${
-                      hasReachedSplitLimit
-                        ? "cursor-not-allowed opacity-45 hover:bg-transparent"
-                        : "hover:bg-accent/70"
-                    }`}
-                    onClick={onSplitTerminalAction}
-                    label={splitTerminalActionLabel}
-                  >
-                    <SquareSplitHorizontal className="size-3.25" />
-                  </TerminalActionButton>
-                  <TerminalActionButton
-                    className="inline-flex h-full items-center border-l border-border/70 px-1 text-foreground/90 transition-colors hover:bg-accent/70"
-                    onClick={onNewTerminalAction}
-                    label={newTerminalActionLabel}
-                  >
-                    <Plus className="size-3.25" />
-                  </TerminalActionButton>
-                  <TerminalActionButton
-                    className="inline-flex h-full items-center border-l border-border/70 px-1 text-foreground/90 transition-colors hover:bg-accent/70"
-                    onClick={() => onCloseTerminal(resolvedActiveTerminalId)}
-                    label={closeTerminalActionLabel}
-                  >
-                    <Trash2 className="size-3.25" />
-                  </TerminalActionButton>
+                  <TerminalDropdownMenu
+                    onSplitTerminal={onSplitTerminalAction}
+                    onNewTerminal={onNewTerminalAction}
+                    onCloseTerminal={() => onCloseTerminal(resolvedActiveTerminalId)}
+                    splitDisabled={hasReachedSplitLimit}
+                    splitLabel="Split Terminal"
+                    newLabel="New Terminal"
+                    closeLabel="Close Terminal"
+                    splitShortcutLabel={splitShortcutLabel}
+                    newShortcutLabel={newShortcutLabel}
+                    closeShortcutLabel={closeShortcutLabel}
+                    triggerClassName="inline-flex h-full items-center px-1 text-foreground/90 transition-colors hover:bg-accent/70"
+                  />
                 </div>
               </div>
 

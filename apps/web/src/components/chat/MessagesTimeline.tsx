@@ -608,6 +608,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
                             files={checkpointFiles}
                             allDirectoriesExpanded={allDirectoriesExpanded}
                             resolvedTheme={resolvedTheme}
+                            cwd={markdownCwd}
                             onOpenTurnDiff={onOpenTurnDiff}
                           />
                         </div>
@@ -984,17 +985,29 @@ function workToneClass(tone: "thinking" | "tool" | "info" | "error"): string {
   return "text-muted-foreground/40";
 }
 
+/**
+ * Returns a privacy-safe preview string for a collapsed work entry.
+ *
+ * - Commands: only the base command name (e.g. "git", "npm"), never arguments or paths.
+ * - File changes: only basenames of changed files, never full paths.
+ * - Tool details (JSON params, etc.): omitted entirely to prevent leaking
+ *   file paths, usernames, or other personal data during livestreams.
+ */
 function workEntryPreview(
   workEntry: Pick<TimelineWorkEntry, "detail" | "command" | "changedFiles">,
 ) {
-  if (workEntry.command) return workEntry.command;
-  if (workEntry.detail) return workEntry.detail;
+  if (workEntry.command) {
+    // Only show the base command name (first token), not arguments or subcommands.
+    const baseCommand = workEntry.command.trim().split(/\s+/)[0];
+    return baseCommand || null;
+  }
+  // Intentionally skip workEntry.detail — it may contain serialized tool inputs
+  // with full file paths, environment info, or other sensitive data.
   if ((workEntry.changedFiles?.length ?? 0) === 0) return null;
-  const [firstPath] = workEntry.changedFiles ?? [];
-  if (!firstPath) return null;
-  return workEntry.changedFiles!.length === 1
-    ? firstPath
-    : `${firstPath} +${workEntry.changedFiles!.length - 1} more`;
+  const basenames = workEntry.changedFiles!.map((p) => p.split("/").pop() ?? p);
+  const [first] = basenames;
+  if (!first) return null;
+  return basenames.length === 1 ? first : `${first} +${basenames.length - 1} more`;
 }
 
 function workEntryIcon(workEntry: TimelineWorkEntry): LucideIcon {
@@ -1083,26 +1096,27 @@ const SimpleWorkEntryRow = memo(function SimpleWorkEntryRow(props: {
               workToneClass(workEntry.tone),
               preview ? "text-muted-foreground/70" : "",
             )}
-            title={displayText}
           >
             <span className={cn("text-foreground/80", workToneClass(workEntry.tone))}>
               {heading}
             </span>
-            {preview && <span className="text-muted-foreground/55"> - {preview}</span>}
+            {preview && <span className="text-muted-foreground/55"> – {preview}</span>}
           </p>
         </div>
       </div>
       {hasChangedFiles && !previewIsChangedFiles && (
         <div className="mt-1 flex flex-wrap gap-1 pl-6">
-          {workEntry.changedFiles?.slice(0, 4).map((filePath) => (
-            <span
-              key={`${workEntry.id}:${filePath}`}
-              className="rounded-md border border-border/55 bg-background/75 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground/75"
-              title={filePath}
-            >
-              {filePath}
-            </span>
-          ))}
+          {workEntry.changedFiles?.slice(0, 4).map((filePath) => {
+            const basename = filePath.split("/").pop() ?? filePath;
+            return (
+              <span
+                key={`${workEntry.id}:${filePath}`}
+                className="rounded-md border border-border/55 bg-background/75 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground/75"
+              >
+                {basename}
+              </span>
+            );
+          })}
           {(workEntry.changedFiles?.length ?? 0) > 4 && (
             <span className="px-1 text-[10px] text-muted-foreground/55">
               +{(workEntry.changedFiles?.length ?? 0) - 4}
@@ -1157,7 +1171,6 @@ const CollapsedWorkEntryGroup = memo(function CollapsedWorkEntryGroup(props: {
               <p
                 key={`subentry:${entry.id}`}
                 className="truncate py-0.5 text-[10px] leading-4 text-muted-foreground/55"
-                title={preview ?? undefined}
               >
                 {preview ?? heading}
               </p>

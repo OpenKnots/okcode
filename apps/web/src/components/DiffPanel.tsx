@@ -208,7 +208,7 @@ function DiffFileSection(props: {
         <Button
           size="icon-xs"
           variant="ghost"
-          aria-label={collapsed ? `Expand ${filePath}` : `Collapse ${filePath}`}
+          aria-label={collapsed ? "Expand file diff" : "Collapse file diff"}
           aria-expanded={!collapsed}
           onClick={() => onToggleCollapsed(filePath)}
           className="text-muted-foreground/80"
@@ -221,9 +221,8 @@ function DiffFileSection(props: {
           type="button"
           className="min-w-0 flex-1 truncate text-left font-mono text-[11px] text-foreground/90 underline-offset-2 hover:underline"
           onClick={() => onOpenInEditor(filePath)}
-          title={`Open ${filePath}`}
         >
-          {filePath}
+          {filePath.split("/").pop() ?? filePath}
         </button>
         {hasNonZeroStat(stats) && (
           <span className="hidden shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground/80 sm:inline">

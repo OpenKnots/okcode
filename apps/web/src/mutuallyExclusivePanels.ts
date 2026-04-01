@@ -1,7 +1,16 @@
 import { useEffect, useRef } from "react";
 
 /**
- * Given previous and current open states for three right-side panels,
+ * Action types for panel mutual exclusivity enforcement.
+ */
+export type ExclusivePanelAction =
+  | "close-diff"
+  | "close-code-viewer"
+  | "close-preview"
+  | "close-simulation";
+
+/**
+ * Given previous and current open states for the right-side panels,
  * returns which panels should be closed to enforce mutual exclusivity,
  * or an empty array if no action is needed.
  *
@@ -15,31 +24,42 @@ export function resolveExclusivePanelAction(
   codeViewerOpen: boolean,
   prevPreviewOpen: boolean,
   previewOpen: boolean,
-): Array<"close-diff" | "close-code-viewer" | "close-preview"> {
+  prevSimulationOpen: boolean = false,
+  simulationOpen: boolean = false,
+): ExclusivePanelAction[] {
   const diffJustOpened = diffOpen && !prevDiffOpen;
   const codeViewerJustOpened = codeViewerOpen && !prevCodeViewerOpen;
   const previewJustOpened = previewOpen && !prevPreviewOpen;
+  const simulationJustOpened = simulationOpen && !prevSimulationOpen;
 
-  const actions: Array<"close-diff" | "close-code-viewer" | "close-preview"> = [];
+  const actions: ExclusivePanelAction[] = [];
 
   if (diffJustOpened) {
     if (codeViewerOpen) actions.push("close-code-viewer");
     if (previewOpen) actions.push("close-preview");
+    if (simulationOpen) actions.push("close-simulation");
   } else if (codeViewerJustOpened) {
     if (diffOpen) actions.push("close-diff");
     if (previewOpen) actions.push("close-preview");
+    if (simulationOpen) actions.push("close-simulation");
   } else if (previewJustOpened) {
     if (diffOpen) actions.push("close-diff");
     if (codeViewerOpen) actions.push("close-code-viewer");
+    if (simulationOpen) actions.push("close-simulation");
+  } else if (simulationJustOpened) {
+    if (diffOpen) actions.push("close-diff");
+    if (codeViewerOpen) actions.push("close-code-viewer");
+    if (previewOpen) actions.push("close-preview");
   }
 
   return actions;
 }
 
 /**
- * Ensures that the diff panel, code viewer, and preview panel are never open
- * simultaneously. When one panel transitions from closed → open while another
- * is already open, the previously-open panel(s) are closed.
+ * Ensures that the diff panel, code viewer, preview panel, and simulation
+ * viewer are never open simultaneously. When one panel transitions from
+ * closed → open while another is already open, the previously-open panel(s)
+ * are closed.
  */
 export function useMutuallyExclusivePanels(
   diffOpen: boolean,
@@ -48,18 +68,23 @@ export function useMutuallyExclusivePanels(
   closeDiff: () => void,
   closeCodeViewer: () => void,
   closePreview: () => void,
+  simulationOpen: boolean = false,
+  closeSimulation?: () => void,
 ) {
   const prevDiffOpen = useRef(diffOpen);
   const prevCodeViewerOpen = useRef(codeViewerOpen);
   const prevPreviewOpen = useRef(previewOpen);
+  const prevSimulationOpen = useRef(simulationOpen);
 
   useEffect(() => {
     const wasDiffOpen = prevDiffOpen.current;
     const wasCodeViewerOpen = prevCodeViewerOpen.current;
     const wasPreviewOpen = prevPreviewOpen.current;
+    const wasSimulationOpen = prevSimulationOpen.current;
     prevDiffOpen.current = diffOpen;
     prevCodeViewerOpen.current = codeViewerOpen;
     prevPreviewOpen.current = previewOpen;
+    prevSimulationOpen.current = simulationOpen;
 
     const actions = resolveExclusivePanelAction(
       wasDiffOpen,
@@ -68,6 +93,8 @@ export function useMutuallyExclusivePanels(
       codeViewerOpen,
       wasPreviewOpen,
       previewOpen,
+      wasSimulationOpen,
+      simulationOpen,
     );
     for (const action of actions) {
       if (action === "close-code-viewer") {
@@ -76,7 +103,18 @@ export function useMutuallyExclusivePanels(
         closeDiff();
       } else if (action === "close-preview") {
         closePreview();
+      } else if (action === "close-simulation") {
+        closeSimulation?.();
       }
     }
-  }, [diffOpen, codeViewerOpen, previewOpen, closeDiff, closeCodeViewer, closePreview]);
+  }, [
+    diffOpen,
+    codeViewerOpen,
+    previewOpen,
+    simulationOpen,
+    closeDiff,
+    closeCodeViewer,
+    closePreview,
+    closeSimulation,
+  ]);
 }

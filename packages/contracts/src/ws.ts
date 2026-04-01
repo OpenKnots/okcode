@@ -64,7 +64,12 @@ import {
   ProjectWriteFileInput,
 } from "./project";
 import { OpenInEditorInput, OpenPathInput } from "./editor";
-import { ServerConfigUpdatedPayload } from "./server";
+import {
+  GeneratePairingLinkInput,
+  ListTokensResult,
+  RevokeTokenInput,
+  ServerConfigUpdatedPayload,
+} from "./server";
 import {
   SkillListInput,
   SkillCatalogInput,
@@ -152,6 +157,12 @@ export const WS_METHODS = {
   serverSaveProjectEnvironmentVariables: "server.saveProjectEnvironmentVariables",
   serverUpsertKeybinding: "server.upsertKeybinding",
   serverPickFolder: "server.pickFolder",
+
+  // Token management
+  serverGeneratePairingLink: "server.generatePairingLink",
+  serverRotateToken: "server.rotateToken",
+  serverRevokeToken: "server.revokeToken",
+  serverListTokens: "server.listTokens",
 } as const;
 
 // ── Push Event Channels ──────────────────────────────────────────────
@@ -263,6 +274,12 @@ const WebSocketRequestBody = Schema.Union([
   ),
   tagRequestBody(WS_METHODS.serverUpsertKeybinding, KeybindingRule),
   tagRequestBody(WS_METHODS.serverPickFolder, Schema.Struct({})),
+
+  // Token management
+  tagRequestBody(WS_METHODS.serverGeneratePairingLink, GeneratePairingLinkInput),
+  tagRequestBody(WS_METHODS.serverRotateToken, Schema.Struct({})),
+  tagRequestBody(WS_METHODS.serverRevokeToken, RevokeTokenInput),
+  tagRequestBody(WS_METHODS.serverListTokens, Schema.Struct({})),
 ]);
 
 export const WebSocketRequest = Schema.Struct({

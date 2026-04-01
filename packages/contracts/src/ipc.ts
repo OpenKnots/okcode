@@ -258,6 +258,23 @@ export interface MobilePairingState {
   lastError: string | null;
 }
 
+export type MobileConnectionState = "connected" | "connecting" | "reconnecting" | "disconnected";
+
+export interface MobileNotificationEvent {
+  /** Unique ID for deduplication. */
+  id: string;
+  /** Category determines the notification behavior and grouping. */
+  category: "approval-requested" | "user-input-requested" | "turn-completed" | "session-error";
+  /** Human-readable title. */
+  title: string;
+  /** Human-readable body. */
+  body: string;
+  /** Thread ID for deep-link navigation on tap. */
+  threadId?: string;
+  /** Timestamp of the originating server event. */
+  occurredAt: string;
+}
+
 export interface MobileBridge {
   getWsUrl: () => string | null;
   getPairingState: () => Promise<MobilePairingState>;
@@ -265,6 +282,16 @@ export interface MobileBridge {
   clearPairing: () => Promise<MobilePairingState>;
   openExternal: (url: string) => Promise<boolean>;
   onPairingState: (listener: (state: MobilePairingState) => void) => () => void;
+
+  // ── Phase 3 additions ──────────────────────────────────────────
+  /** Current connection state of the WebSocket transport. */
+  getConnectionState: () => MobileConnectionState;
+  /** Subscribe to connection state changes. Returns unsubscribe function. */
+  onConnectionState: (listener: (state: MobileConnectionState) => void) => () => void;
+  /** Request permission and register for local push notifications. */
+  registerNotifications: () => Promise<boolean>;
+  /** Fire a local notification (used by the web layer when the app is backgrounded). */
+  fireNotification: (event: MobileNotificationEvent) => Promise<void>;
 }
 
 export interface NativeApi {

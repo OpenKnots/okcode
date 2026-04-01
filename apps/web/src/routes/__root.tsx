@@ -25,6 +25,7 @@ import { providerQueryKeys } from "../lib/providerReactQuery";
 import { projectQueryKeys } from "../lib/projectReactQuery";
 import { collectActiveTerminalThreadIds } from "../lib/terminalStateCleanup";
 import { OnboardingDialog } from "../components/onboarding/OnboardingDialog";
+import { MobileConnectionBanner } from "../components/mobile/MobileConnectionBanner";
 import { MobilePairingScreen } from "../components/mobile/MobilePairingScreen";
 import { useMobilePairingState } from "../hooks/useMobilePairingState";
 import { I18nProvider } from "../i18n/I18nProvider";
@@ -79,6 +80,7 @@ function RootRouteContent() {
   return (
     <ToastProvider>
       <AnchoredToastProvider>
+        <MobileConnectionBanner />
         <EventRouter />
         <DesktopProjectBootstrap />
         <Outlet />

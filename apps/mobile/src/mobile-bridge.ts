@@ -1,16 +1,28 @@
 import { App } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
-import type { MobileBridge, MobilePairingState } from "@okcode/contracts";
+import type {
+  MobileBridge,
+  MobileConnectionState,
+  MobileNotificationEvent,
+  MobilePairingState,
+} from "@okcode/contracts";
 import { SecureStoragePlugin } from "capacitor-secure-storage-plugin";
 
 import { parseMobilePairingInput } from "./mobilePairing";
+import {
+  fireNotification as fireLocalNotification,
+  registerNotifications as registerLocalNotifications,
+  setupNotificationTapHandler,
+} from "./notifications";
 
 const STORAGE_KEYS = {
   serverUrl: "okcode.mobile.serverUrl",
   token: "okcode.mobile.authToken",
 } as const;
 
-const listeners = new Set<(state: MobilePairingState) => void>();
+// ── Pairing state ────────────────────────────────────────────────────
+
+const pairingListeners = new Set<(state: MobilePairingState) => void>();
 
 let pairingState: MobilePairingState = {
   paired: false,
@@ -39,7 +51,7 @@ async function removeSecureValue(key: string): Promise<void> {
 }
 
 function emitPairingState(): void {
-  for (const listener of listeners) {
+  for (const listener of pairingListeners) {
     try {
       listener(pairingState);
     } catch {
@@ -161,6 +173,58 @@ async function clearPairing(): Promise<MobilePairingState> {
   );
 }
 
+// ── Connection state ─────────────────────────────────────────────────
+
+const connectionListeners = new Set<(state: MobileConnectionState) => void>();
+let connectionState: MobileConnectionState = "disconnected";
+
+function setConnectionState(nextState: MobileConnectionState): void {
+  if (connectionState === nextState) return;
+  connectionState = nextState;
+  for (const listener of connectionListeners) {
+    try {
+      listener(connectionState);
+    } catch {
+      // Swallow listener errors.
+    }
+  }
+}
+
+// The web app's WsTransport emits state changes. The bridge listens to a
+// custom event that the web layer fires so the native side can track it.
+if (typeof window !== "undefined") {
+  window.addEventListener("okcode:transport-state", ((event: CustomEvent<string>) => {
+    const state = event.detail;
+    switch (state) {
+      case "open":
+        setConnectionState("connected");
+        break;
+      case "connecting":
+        setConnectionState("connecting");
+        break;
+      case "reconnecting":
+        setConnectionState("reconnecting");
+        break;
+      case "closed":
+      case "disposed":
+        setConnectionState("disconnected");
+        break;
+    }
+  }) as EventListener);
+}
+
+// ── Notification tap handler ─────────────────────────────────────────
+
+setupNotificationTapHandler((threadId) => {
+  if (threadId && typeof window !== "undefined") {
+    // Navigate to the thread when a notification is tapped.
+    // The web app listens for this custom event and handles navigation.
+    window.dispatchEvent(new CustomEvent("okcode:notification-tap", { detail: { threadId } }));
+  }
+});
+
+// ── Bridge export ────────────────────────────────────────────────────
+
 const mobileBridge: MobileBridge = {
   getWsUrl: () => websocketUrl,
   getPairingState: async () => {
@@ -184,11 +248,31 @@ const mobileBridge: MobileBridge = {
     }
   },
   onPairingState: (listener) => {
-    listeners.add(listener);
+    pairingListeners.add(listener);
     listener(pairingState);
     return () => {
-      listeners.delete(listener);
+      pairingListeners.delete(listener);
     };
+  },
+
+  // ── Phase 3 additions ──────────────────────────────────────────
+
+  getConnectionState: () => connectionState,
+
+  onConnectionState: (listener) => {
+    connectionListeners.add(listener);
+    listener(connectionState);
+    return () => {
+      connectionListeners.delete(listener);
+    };
+  },
+
+  registerNotifications: async () => {
+    return registerLocalNotifications();
+  },
+
+  fireNotification: async (event: MobileNotificationEvent) => {
+    return fireLocalNotification(event);
   },
 };
 

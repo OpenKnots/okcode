@@ -338,5 +338,15 @@ export class WsTransport {
         // Swallow listener errors
       }
     }
+
+    // Emit a custom event so the mobile bridge can track connection state
+    // without a direct import dependency on the transport.
+    if (typeof window !== "undefined") {
+      try {
+        window.dispatchEvent(new CustomEvent("okcode:transport-state", { detail: nextState }));
+      } catch {
+        // Swallow dispatch errors in non-browser environments.
+      }
+    }
   }
 }

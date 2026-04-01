@@ -10,6 +10,11 @@ React client (`apps/web`) that renders live orchestration events and session sta
 
 ### High-level flow
 
+![OK Code System Architecture](assets/diagrams/high-level-architecture.png)
+
+<details>
+<summary>Mermaid source (text fallback)</summary>
+
 ```mermaid
 flowchart LR
   User["Developer"] --> UI["apps/web (React/Vite)"]
@@ -22,6 +27,16 @@ flowchart LR
   Shared["packages/shared/*"] --> PM
   Shared --> UI
 ```
+
+</details>
+
+### Server request flow
+
+![Server Request Flow](assets/diagrams/server-request-flow.png)
+
+### Package dependencies
+
+![Package Dependencies](assets/diagrams/package-dependencies.png)
 
 ### Component responsibilities
 
@@ -53,9 +68,12 @@ packages/
   shared/      Shared runtime utilities.
 docs/
   releases/    Release process, release notes, and asset manifests.
+  mobile-mvp.md Phased mobile app release plan and checklist.
 scripts/
   Build/release/bootstrap scripts and local tooling.
 ```
+
+Mobile plan: [docs/mobile-mvp.md](/Users/buns/.okcode/worktrees/okcode/okcode-04310139/docs/mobile-mvp.md)
 
 ## 4) Setup and local development
 
@@ -121,7 +139,13 @@ bun --filter @okcode/contracts typecheck
 | Validate TypeScript       | `bun run typecheck`              | no compile errors                                | all package typechecks pass                            |
 | Run tests                 | `bun run test`                   | Vitest suites execute                            | exit code 0, no failing tests                          |
 
+### Technology stack
+
+![Technology Stack](assets/diagrams/tech-stack.png)
+
 ## 5) Runtime behavior (what happens during a session)
+
+![Orchestration Event Flow](assets/diagrams/orchestration-event-flow.png)
 
 1. Web UI opens WebSocket and subscribes to orchestration events.
 2. UI submits user action to a `NativeApi` endpoint in `wsServer.ts`.

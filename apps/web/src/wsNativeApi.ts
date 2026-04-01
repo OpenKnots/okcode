@@ -13,6 +13,7 @@ import {
 } from "@okcode/contracts";
 
 import { showContextMenuFallback } from "./contextMenuFallback";
+import { initMobileNotifications } from "./lib/mobileNotifications";
 import { type TransportState, WsTransport } from "./wsTransport";
 
 let instance: { api: NativeApi; transport: WsTransport } | null = null;
@@ -92,6 +93,10 @@ export function createWsNativeApi(): NativeApi {
   if (instance) return instance.api;
 
   const transport = new WsTransport();
+
+  // Initialize mobile push notifications when running in the mobile shell.
+  initMobileNotifications(transport);
+
   transport.subscribeState((state) => {
     for (const listener of transportStateListeners) {
       try {

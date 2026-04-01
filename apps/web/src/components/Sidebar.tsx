@@ -4,6 +4,7 @@ import {
   ChevronRightIcon,
   EyeIcon,
   EyeOffIcon,
+  FileCodeIcon,
   FolderIcon,
   GitMergeIcon,
   GitPullRequestIcon,
@@ -54,7 +55,7 @@ import { useStore } from "../store";
 import { shortcutLabelForCommand } from "../keybindings";
 import { derivePendingApprovals, derivePendingUserInputs } from "../session-logic";
 import { gitRemoveWorktreeMutationOptions, gitStatusQueryOptions } from "../lib/gitReactQuery";
-import { serverConfigQueryOptions } from "../lib/serverReactQuery";
+import { serverConfigQueryOptions, serverUpdateQueryOptions } from "../lib/serverReactQuery";
 import { readNativeApi } from "../nativeApi";
 import { resolveServerHttpOrigin } from "../lib/runtimeBridge";
 import { useComposerDraftStore } from "../composerDraftStore";
@@ -375,7 +376,10 @@ export default function Sidebar() {
   const navigate = useNavigate();
   const pathname = useLocation({ select: (loc) => loc.pathname });
   const isOnSubPage =
-    pathname === "/settings" || pathname === "/pr-review" || pathname === "/merge-conflicts";
+    pathname === "/settings" ||
+    pathname === "/pr-review" ||
+    pathname === "/merge-conflicts" ||
+    pathname === "/file-view";
   const { settings: appSettings, updateSettings } = useAppSettings();
   const { resolvedTheme } = useTheme();
   const { handleNewThread } = useHandleNewThread();
@@ -407,6 +411,12 @@ export default function Sidebar() {
   const dragInProgressRef = useRef(false);
   const suppressProjectClickAfterDragRef = useRef(false);
   const [desktopUpdateState, setDesktopUpdateState] = useState<DesktopUpdateState | null>(null);
+  const { data: serverUpdateInfo } = useQuery({
+    ...serverUpdateQueryOptions(),
+    // Only run the update check in web (non-electron) mode; the desktop bridge
+    // already handles updates for the Electron app.
+    enabled: !isElectron,
+  });
   const selectedThreadIds = useThreadSelectionStore((s) => s.selectedThreadIds);
   const toggleThreadSelection = useThreadSelectionStore((s) => s.toggleThread);
   const rangeSelectTo = useThreadSelectionStore((s) => s.rangeSelectTo);
@@ -1328,7 +1338,9 @@ export default function Sidebar() {
                 <span className="min-w-0 flex-1 truncate text-xs">{thread.title}</span>
               )}
             </div>
-            <div className="ml-auto flex shrink-0 items-center gap-1.5">
+            <div
+              className={`ml-auto flex items-center gap-1.5${appSettings.sidebarWideThreadNames ? "" : " shrink-0"}`}
+            >
               {terminalStatus && (
                 <span
                   role="img"
@@ -1401,7 +1413,14 @@ export default function Sidebar() {
               />
             )}
             <ProjectFavicon cwd={project.cwd} />
-            <span className="flex-1 truncate text-[13px] font-semibold tracking-[0.01em] text-foreground">
+            <span
+              className={`flex-1 truncate text-[13px] font-semibold tracking-[0.01em] ${appSettings.sidebarAccentProjectNames ? "text-accent-foreground" : "text-foreground"}`}
+              style={
+                appSettings.sidebarAccentProjectNames && appSettings.sidebarAccentColorOverride
+                  ? { color: appSettings.sidebarAccentColorOverride }
+                  : undefined
+              }
+            >
               {project.name}
             </span>
           </SidebarMenuButton>
@@ -1770,7 +1789,36 @@ export default function Sidebar() {
         </>
       ) : (
         <SidebarHeader className="gap-3 px-3 py-2 sm:gap-2.5 sm:px-4 sm:py-3">
-          {wordmark}
+          {serverUpdateInfo?.updateAvailable ? (
+            <div className="flex flex-row items-center gap-2">
+              {wordmark}
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <button
+                      type="button"
+                      aria-label={`Update available: ${serverUpdateInfo.latestVersion}`}
+                      className="inline-flex size-7 ml-auto items-center justify-center rounded-md transition-colors hover:bg-accent hover:text-foreground text-amber-500 animate-pulse"
+                      onClick={() => {
+                        toastManager.add({
+                          type: "info",
+                          title: `OK Code ${serverUpdateInfo.latestVersion} available`,
+                          description: `Update with: npm install -g okcodes@latest`,
+                        });
+                      }}
+                    >
+                      <RocketIcon className="size-3.5" />
+                    </button>
+                  }
+                />
+                <TooltipPopup side="bottom">
+                  Update {serverUpdateInfo.latestVersion} available
+                </TooltipPopup>
+              </Tooltip>
+            </div>
+          ) : (
+            wordmark
+          )}
         </SidebarHeader>
       )}
 
@@ -2089,6 +2137,16 @@ export default function Sidebar() {
                 >
                   <GitMergeIcon className="size-3.5" />
                   <span className="text-xs">Merge Conflicts</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  size="sm"
+                  className="gap-2 px-2 py-1.5 text-muted-foreground/70 hover:bg-accent hover:text-foreground"
+                  onClick={() => void navigate({ to: "/file-view" })}
+                >
+                  <FileCodeIcon className="size-3.5" />
+                  <span className="text-xs">File View</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>

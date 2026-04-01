@@ -88,6 +88,7 @@ export const ChatHeader = memo(function ChatHeader({
   onToggleCodeViewer,
 }: ChatHeaderProps) {
   const isMobileCompanion = clientMode === "mobile";
+  const codeViewerOpen = useCodeViewerStore((state) => state.isOpen);
   const hasCodeViewerTabs = useCodeViewerStore((state) => state.tabs.length > 0);
 
   return (
@@ -126,7 +127,7 @@ export const ChatHeader = memo(function ChatHeader({
           />
         )}
         {activeProjectName && hasCodeViewerTabs && (
-          <OpenInPicker onToggleCodeViewer={onToggleCodeViewer} />
+          <OpenInPicker codeViewerOpen={codeViewerOpen} onToggleCodeViewer={onToggleCodeViewer} />
         )}
         {!isMobileCompanion && activeProjectName && (
           <GitActionsControl gitCwd={gitCwd} activeThreadId={activeThreadId} />

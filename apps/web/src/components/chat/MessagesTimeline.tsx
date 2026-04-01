@@ -53,6 +53,7 @@ import {
 import { cn } from "~/lib/utils";
 import { type TimestampFormat } from "../../appSettings";
 import { formatTimestamp } from "../../timestampFormat";
+import { useI18n } from "../../i18n/useI18n";
 import {
   buildInlineTerminalContextText,
   formatInlineTerminalContextLabel,
@@ -113,6 +114,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
   shortcutGuides,
   onOpenSettings,
 }: MessagesTimelineProps) {
+  const { resolvedLocale } = useI18n();
   const timelineRootRef = useRef<HTMLDivElement | null>(null);
   const [timelineWidthPx, setTimelineWidthPx] = useState<number | null>(null);
 
@@ -467,7 +469,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
                       </span>
                     )}
                     <p className="text-right text-[10px] text-muted-foreground/30">
-                      {formatTimestamp(row.message.createdAt, timestampFormat)}
+                      {formatTimestamp(row.message.createdAt, timestampFormat, resolvedLocale)}
                     </p>
                   </div>
                 </div>
@@ -579,6 +581,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
                       ? formatElapsed(row.durationStart, nowIso)
                       : formatElapsed(row.durationStart, row.message.completedAt),
                     timestampFormat,
+                    resolvedLocale,
                   )}
                 </p>
               </div>
@@ -795,9 +798,10 @@ function formatMessageMeta(
   createdAt: string,
   duration: string | null,
   timestampFormat: TimestampFormat,
+  locale: ReturnType<typeof useI18n>["resolvedLocale"],
 ): string {
-  if (!duration) return formatTimestamp(createdAt, timestampFormat);
-  return `${formatTimestamp(createdAt, timestampFormat)} • ${duration}`;
+  if (!duration) return formatTimestamp(createdAt, timestampFormat, locale);
+  return `${formatTimestamp(createdAt, timestampFormat, locale)} • ${duration}`;
 }
 
 const UserMessageTerminalContextInlineLabel = memo(

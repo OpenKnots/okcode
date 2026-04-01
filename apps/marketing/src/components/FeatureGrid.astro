@@ -9,11 +9,40 @@ const icons = [
   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18"/><path d="M3 12h12"/><path d="M3 17h8"/><path d="M17 11l4 4-4 4"/></svg>`,
   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg>`
 ] as const;
+
+const visuals = [
+  // Card 1: Thread list pills
+  `<div class="fv-threads">
+    <div class="fv-thread fv-thread--active"></div>
+    <div class="fv-thread"></div>
+    <div class="fv-thread fv-thread--short"></div>
+    <div class="fv-thread"></div>
+  </div>`,
+  // Card 2: Diff lines
+  `<div class="fv-diff">
+    <div class="fv-line fv-line--add"></div>
+    <div class="fv-line fv-line--add fv-line--short"></div>
+    <div class="fv-line fv-line--remove"></div>
+    <div class="fv-line"></div>
+  </div>`,
+  // Card 3: Progress dots
+  `<div class="fv-progress">
+    <span class="fv-dot fv-dot--done"></span>
+    <span class="fv-connector fv-connector--done"></span>
+    <span class="fv-dot fv-dot--done"></span>
+    <span class="fv-connector"></span>
+    <span class="fv-dot"></span>
+  </div>`
+] as const;
 ---
 
-<section id="features" class="feature-grid feature-grid--bento" aria-label="Core product pillars" data-reveal>
+<section id="features" class="feature-grid feature-grid--bento" aria-label="Core product pillars">
   {pillars.map((pillar, index) => (
-    <article class={`feature-card feature-card--bento feature-card--${index + 1}`}>
+    <article
+      class={`feature-card feature-card--bento feature-card--${index + 1}`}
+      data-reveal
+      style={`transition-delay: ${index * 0.12}s`}
+    >
       <div class="feature-card-head">
         <span class="kn-ico-wrap feature-icon" set:html={icons[index] ?? icons[0]} />
         <div class="feature-card-copy">
@@ -22,6 +51,7 @@ const icons = [
         </div>
       </div>
       <p>{pillar.body}</p>
+      <div class="feature-card-visual" aria-hidden="true" set:html={visuals[index] ?? visuals[0]} />
     </article>
   ))}
 </section>

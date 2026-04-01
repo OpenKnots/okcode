@@ -242,7 +242,7 @@ export function WorkflowsSection() {
   };
 
   return (
-    <section className="relative py-24 bg-background">
+    <section className="relative py-32 bg-background">
       {/* Top gradient */}
       <div
         className="absolute top-0 left-0 right-0 pointer-events-none"
@@ -264,7 +264,7 @@ export function WorkflowsSection() {
             </div>
 
             {/* Heading */}
-            <h2 className="text-4xl md:text-5xl font-medium text-foreground leading-[1.1]">
+            <h2 className="text-5xl md:text-6xl lg:text-[68px] font-bold text-foreground leading-[1.08]">
               Collaborate across
               <br />
               tools and teams
@@ -286,7 +286,7 @@ export function WorkflowsSection() {
           >
             {carouselCards.map((card) => (
               <div key={card.id} className="flex-shrink-0 w-[calc(25%-12px)] min-w-[280px]">
-                <div className="bg-card/50 border border-border/50 rounded-xl overflow-hidden h-[340px] flex flex-col">
+                <div className="bg-card/50 border border-border/50 rounded-3xl overflow-hidden h-[380px] flex flex-col hover:shadow-xl hover:scale-[1.02] transition-all">
                   {/* Mockup area */}
                   <div className="flex-1 relative overflow-hidden">
                     <CardMockup type={card.mockup} />
@@ -305,8 +305,10 @@ export function WorkflowsSection() {
                     <div className="flex items-center justify-between gap-3">
                       {/* Text content */}
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs text-muted-foreground mb-1">{card.category}</p>
-                        <p className="text-sm text-secondary-foreground leading-snug">
+                        <p className="text-sm text-muted-foreground mb-1 font-medium">
+                          {card.category}
+                        </p>
+                        <p className="text-base text-secondary-foreground leading-snug font-semibold">
                           {card.title}
                         </p>
                       </div>
@@ -326,14 +328,14 @@ export function WorkflowsSection() {
         <div className="flex items-center justify-center gap-2 mt-8">
           <button
             onClick={scrollLeft}
-            className="w-10 h-10 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-ring transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            className="w-12 h-12 rounded-full border-2 border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-ring hover:scale-110 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
             disabled={scrollPosition === 0}
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
           <button
             onClick={scrollRight}
-            className="w-10 h-10 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-ring transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            className="w-12 h-12 rounded-full border-2 border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-ring hover:scale-110 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
             disabled={scrollPosition >= carouselCards.length - 4}
           >
             <ChevronRight className="w-5 h-5" />

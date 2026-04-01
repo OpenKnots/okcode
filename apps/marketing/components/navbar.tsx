@@ -64,7 +64,7 @@ export function Navbar() {
       } backdrop-blur-md`}
     >
       <div className="w-full flex justify-center px-6 py-4">
-        <div className="w-full max-w-4xl flex items-center justify-between">
+        <div className="w-full max-w-6xl flex items-center justify-between">
           {/* Logo */}
           <button
             onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
@@ -95,7 +95,7 @@ export function Navbar() {
             </Link>
             <Link
               href="/dashboard"
-              className="text-sm text-foreground bg-secondary hover:bg-accent px-3.5 py-1.5 rounded-md border border-border transition-colors"
+              className="text-sm font-semibold text-foreground bg-secondary hover:bg-accent px-5 py-2 rounded-xl border border-border transition-all hover:scale-105"
             >
               Sign up
             </Link>

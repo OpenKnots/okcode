@@ -12,11 +12,13 @@ import type { Duplex } from "node:stream";
 import Mime from "@effect/platform-node/Mime";
 import {
   CommandId,
+  DEFAULT_CHAT_FILE_MIME_TYPE,
   DEFAULT_PROVIDER_INTERACTION_MODE,
   type ClientOrchestrationCommand,
   type OrchestrationCommand,
   ORCHESTRATION_WS_CHANNELS,
   ORCHESTRATION_WS_METHODS,
+  PROVIDER_SEND_TURN_MAX_FILE_BYTES,
   PROVIDER_SEND_TURN_MAX_IMAGE_BYTES,
   ProjectId,
   ThreadId,
@@ -75,6 +77,7 @@ import {
   resolveAttachmentPathById,
 } from "./attachmentStore.ts";
 import { parseBase64DataUrl } from "./imageMime.ts";
+import { extractTextAttachmentContents } from "./attachmentText.ts";
 import { AnalyticsService } from "./telemetry/Services/AnalyticsService.ts";
 import { expandHomePath } from "./os-jank.ts";
 import { makeServerPushBus } from "./wsServer/pushBus.ts";
@@ -391,17 +394,43 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
       (attachment) =>
         Effect.gen(function* () {
           const parsed = parseBase64DataUrl(attachment.dataUrl);
-          if (!parsed || !parsed.mimeType.startsWith("image/")) {
+          if (!parsed) {
             return yield* new RouteRequestError({
-              message: `Invalid image attachment payload for '${attachment.name}'.`,
+              message: `Invalid attachment payload for '${attachment.name}'.`,
             });
           }
 
           const bytes = Buffer.from(parsed.base64, "base64");
-          if (bytes.byteLength === 0 || bytes.byteLength > PROVIDER_SEND_TURN_MAX_IMAGE_BYTES) {
-            return yield* new RouteRequestError({
-              message: `Image attachment '${attachment.name}' is empty or too large.`,
+          const normalizedMimeType =
+            parsed.mimeType.trim().toLowerCase() || DEFAULT_CHAT_FILE_MIME_TYPE;
+
+          if (attachment.type === "image") {
+            if (!normalizedMimeType.startsWith("image/")) {
+              return yield* new RouteRequestError({
+                message: `Invalid image attachment payload for '${attachment.name}'.`,
+              });
+            }
+            if (bytes.byteLength === 0 || bytes.byteLength > PROVIDER_SEND_TURN_MAX_IMAGE_BYTES) {
+              return yield* new RouteRequestError({
+                message: `Image attachment '${attachment.name}' is empty or too large.`,
+              });
+            }
+          } else {
+            if (bytes.byteLength === 0 || bytes.byteLength > PROVIDER_SEND_TURN_MAX_FILE_BYTES) {
+              return yield* new RouteRequestError({
+                message: `File attachment '${attachment.name}' is empty or too large.`,
+              });
+            }
+            const extractedText = extractTextAttachmentContents({
+              mimeType: normalizedMimeType,
+              fileName: attachment.name,
+              bytes,
             });
+            if (extractedText === null) {
+              return yield* new RouteRequestError({
+                message: `Unsupported file attachment '${attachment.name}'. Attach UTF-8 text files or images.`,
+              });
+            }
           }
 
           const attachmentId = createAttachmentId(turnStartCommand.threadId);
@@ -411,13 +440,22 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
             });
           }
 
-          const persistedAttachment = {
-            type: "image" as const,
-            id: attachmentId,
-            name: attachment.name,
-            mimeType: parsed.mimeType.toLowerCase(),
-            sizeBytes: bytes.byteLength,
-          };
+          const persistedAttachment =
+            attachment.type === "image"
+              ? {
+                  type: "image" as const,
+                  id: attachmentId,
+                  name: attachment.name,
+                  mimeType: normalizedMimeType,
+                  sizeBytes: bytes.byteLength,
+                }
+              : {
+                  type: "file" as const,
+                  id: attachmentId,
+                  name: attachment.name,
+                  mimeType: normalizedMimeType,
+                  sizeBytes: bytes.byteLength,
+                };
 
           const attachmentPath = resolveAttachmentPath({
             attachmentsDir: serverConfig.attachmentsDir,

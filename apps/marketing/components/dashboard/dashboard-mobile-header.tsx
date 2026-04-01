@@ -1,7 +1,7 @@
 "use client";
 
 import { Menu, Plus, Search, Bell } from "lucide-react";
-import { CirclePower } from "lucide-react";
+import { OkCodeMark } from "../OkCodeLogo";
 
 interface DashboardMobileHeaderProps {
   onMenuToggle: () => void;
@@ -34,9 +34,7 @@ export function DashboardMobileHeader({
           <Menu className="w-5 h-5" />
         </button>
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded bg-gradient-to-br from-brand to-highlight flex items-center justify-center">
-            <CirclePower className="w-4 h-4 text-brand-foreground" />
-          </div>
+          <OkCodeMark className="w-5 h-5 text-foreground" />
           <span className="text-foreground font-medium">{viewTitle}</span>
         </div>
       </div>

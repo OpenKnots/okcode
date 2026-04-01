@@ -64,6 +64,8 @@ const POPUP_POSITIONER_SELECTOR = [
   '[data-slot="select-positioner"]',
   '[data-slot="combobox-positioner"]',
   '[data-slot="autocomplete-positioner"]',
+  '[data-slot="toast-viewport"]:not(:empty)',
+  '[data-slot="toast-viewport-anchored"]:not(:empty)',
 ].join(",");
 
 const PRESET_ICONS: Record<BrowserPresetId, typeof SmartphoneIcon> = {

@@ -40,8 +40,20 @@ const ogImage = Astro.site ? new URL(ogImagePath, Astro.site).href : null;
     <link rel="icon" type="image/png" href="/favicon-16x16.png" sizes="16x16" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <title>{title}</title>
+    <script type="application/ld+json" set:html={JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "OK Code",
+      "applicationCategory": "DeveloperApplication",
+      "operatingSystem": "macOS, Windows, Linux",
+      "description": description,
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "url": canonical ?? "https://okcode.dev"
+    })} />
   </head>
   <body>
+    <a href="#main-content" class="skip-link">Skip to content</a>
+
     <div class="kn-root">
       <Background />
 
@@ -52,7 +64,17 @@ const ogImage = Astro.site ? new URL(ogImagePath, Astro.site).href : null;
             <span class="nav-wordmark">OK Code</span>
           </a>
 
-          <div class="kn-nav-links">
+          <button
+            class="kn-nav-toggle"
+            data-nav-toggle
+            aria-label="Toggle navigation"
+            aria-expanded="false"
+            type="button"
+          >
+            <span></span><span></span><span></span>
+          </button>
+
+          <div class="kn-nav-links" data-nav-drawer>
             <a href="#features" class="kn-nav-link">Features</a>
             <a href="#surfaces" class="kn-nav-link">Surfaces</a>
             <a href="#faq" class="kn-nav-link">FAQ</a>
@@ -68,7 +90,7 @@ const ogImage = Astro.site ? new URL(ogImagePath, Astro.site).href : null;
         </nav>
       </header>
 
-      <main class="main">
+      <main id="main-content" class="main">
         <div class="main-inner">
           <slot />
         </div>
@@ -76,20 +98,34 @@ const ogImage = Astro.site ? new URL(ogImagePath, Astro.site).href : null;
 
       <footer class="kn-footer">
         <div class="kn-footer-inner content-wrap">
-          <span class="kn-footer-mark">
-            <img src="/icon.png" alt="" class="footer-icon" width="14" height="14" />
-            OK Code
-          </span>
-          <div class="kn-footer-links">
+          <div class="kn-footer-brand">
+            <span class="kn-footer-mark">
+              <img src="/icon.png" alt="" class="footer-icon" width="14" height="14" />
+              OK Code
+            </span>
+            <p class="kn-footer-tagline">The beautiful workspace for shipping with AI.</p>
+          </div>
+          <div class="kn-footer-col">
+            <span class="kn-footer-col-title">Product</span>
+            <a href="#features">Features</a>
+            <a href="#surfaces">Surfaces</a>
+            <a href="/download">Download</a>
+          </div>
+          <div class="kn-footer-col">
+            <span class="kn-footer-col-title">Community</span>
             <a href="https://github.com/OpenKnots/okcode" target="_blank" rel="noopener noreferrer">GitHub</a>
             <a href="https://discord.gg/jn4EGJjrvv" target="_blank" rel="noopener noreferrer">Discord</a>
-            <span>&copy; {new Date().getFullYear()} OpenKnots</span>
           </div>
+        </div>
+        <div class="kn-footer-bottom content-wrap">
+          <span>&copy; {new Date().getFullYear()} OpenKnots</span>
+          <span>Built by <a href="https://github.com/OpenKnots" target="_blank" rel="noopener noreferrer">OpenKnots</a></span>
         </div>
       </footer>
     </div>
 
     <script>
+      // Sticky header scroll effect
       const header = document.querySelector("[data-site-header]");
       if (header) {
         const onScroll = () => {
@@ -97,6 +133,57 @@ const ogImage = Astro.site ? new URL(ogImagePath, Astro.site).href : null;
         };
         onScroll();
         window.addEventListener("scroll", onScroll, { passive: true });
+      }
+
+      // Mobile nav toggle
+      const navToggle = document.querySelector<HTMLButtonElement>("[data-nav-toggle]");
+      const navDrawer = document.querySelector<HTMLElement>("[data-nav-drawer]");
+      if (navToggle && navDrawer) {
+        navToggle.addEventListener("click", () => {
+          const isOpen = navToggle.getAttribute("aria-expanded") === "true";
+          navToggle.setAttribute("aria-expanded", String(!isOpen));
+          navDrawer.classList.toggle("is-open", !isOpen);
+          document.body.classList.toggle("nav-open", !isOpen);
+        });
+
+        // Close on link click
+        navDrawer.querySelectorAll("a").forEach((link) => {
+          link.addEventListener("click", () => {
+            navToggle.setAttribute("aria-expanded", "false");
+            navDrawer.classList.remove("is-open");
+            document.body.classList.remove("nav-open");
+          });
+        });
+
+        // Close on Escape
+        document.addEventListener("keydown", (e) => {
+          if (e.key === "Escape" && navDrawer.classList.contains("is-open")) {
+            navToggle.setAttribute("aria-expanded", "false");
+            navDrawer.classList.remove("is-open");
+            document.body.classList.remove("nav-open");
+            navToggle.focus();
+          }
+        });
+      }
+
+      // Active nav highlighting on scroll
+      const navLinks = document.querySelectorAll<HTMLAnchorElement>(".kn-nav-link");
+      const sections = document.querySelectorAll<HTMLElement>("section[id]");
+      if (navLinks.length && sections.length) {
+        const navObserver = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              if (entry.isIntersecting) {
+                const id = entry.target.id;
+                navLinks.forEach((link) => {
+                  link.classList.toggle("is-active", link.getAttribute("href") === `#${id}`);
+                });
+              }
+            });
+          },
+          { threshold: 0.3, rootMargin: "-80px 0px -50% 0px" },
+        );
+        sections.forEach((s) => navObserver.observe(s));
       }
     </script>
   </body>
@@ -322,6 +409,69 @@ const ogImage = Astro.site ? new URL(ogImagePath, Astro.site).href : null;
     box-shadow: 0 12px 36px rgba(0, 0, 0, 0.24), 0 0 24px rgba(202, 58, 41, 0.08);
   }
 
+  /* ── Skip link ── */
+
+  .skip-link {
+    position: absolute;
+    top: -100%;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 100;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+    background: var(--kn-landing-accent);
+    color: #fff;
+    font-weight: 600;
+    font-size: 0.88rem;
+    transition: top 0.2s ease;
+  }
+
+  .skip-link:focus {
+    top: 0;
+  }
+
+  /* ── Mobile nav toggle ── */
+
+  .kn-nav-toggle {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    width: 44px;
+    height: 44px;
+    padding: 10px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .kn-nav-toggle span {
+    display: block;
+    width: 100%;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--kn-landing-text-secondary);
+    transition: transform 0.3s ease, opacity 0.3s ease;
+  }
+
+  .kn-nav-toggle[aria-expanded="true"] span:nth-child(1) {
+    transform: translateY(7px) rotate(45deg);
+  }
+
+  .kn-nav-toggle[aria-expanded="true"] span:nth-child(2) {
+    opacity: 0;
+  }
+
+  .kn-nav-toggle[aria-expanded="true"] span:nth-child(3) {
+    transform: translateY(-7px) rotate(-45deg);
+  }
+
+  /* ── Active nav link ── */
+
+  .kn-nav-link.is-active {
+    color: var(--kn-landing-text);
+  }
+
   .hero,
   .trust-strip,
   .feature-grid,
@@ -329,7 +479,8 @@ const ogImage = Astro.site ? new URL(ogImagePath, Astro.site).href : null;
   .spotlight,
   .theme-section,
   .faq-section,
-  .final-cta {
+  .final-cta,
+  .final-cta-wrap {
     position: relative;
     z-index: 1;
     width: 100%;

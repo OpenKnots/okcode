@@ -77,13 +77,13 @@ export function ProductDirectionSection() {
               <div className="absolute top-0 left-0 right-0 flex items-end">
                 {/* Tick marks row */}
                 <div className="flex items-end gap-[3px] absolute bottom-0 left-[5%] right-0">
-                  {Array.from({ length: 60 }, (_, tickIndex) => tickIndex).map((tickIndex) => (
+                  {Array.from({ length: 60 }).map((_, i) => (
                     <div
-                      key={tickIndex}
+                      key={i}
                       className="bg-zinc-600/60"
                       style={{
                         width: "1px",
-                        height: tickIndex % 7 === 0 ? "16px" : "8px",
+                        height: i % 7 === 0 ? "16px" : "8px",
                       }}
                     />
                   ))}

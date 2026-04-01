@@ -197,11 +197,7 @@ function FieldError({
 
     return (
       <ul className="ml-4 flex list-disc flex-col gap-1">
-        {errors
-          .filter((error): error is { message: string } => typeof error?.message === "string")
-          .map((error) => (
-            <li key={error.message}>{error.message}</li>
-          ))}
+        {errors.map((error, index) => error?.message && <li key={index}>{error.message}</li>)}
       </ul>
     );
   }, [children, errors]);

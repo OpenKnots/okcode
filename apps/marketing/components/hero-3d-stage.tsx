@@ -130,35 +130,53 @@ export function Hero3DStage() {
                 position: "relative",
               }}
             >
-              {/* Transformed base - Use CSS variables */}
+              {/* Floating animation wrapper */}
               <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{
-                  delay: 0.5,
-                  duration: 1,
-                  ease: [0.22, 1, 0.36, 1] as const,
+                animate={{
+                  y: [0, -10, 0],
+                  rotateZ: [0, -0.3, 0],
                 }}
-                className="bg-background border border-border"
+                transition={{
+                  duration: 6,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
                 style={{
-                  transformOrigin: "0 0",
-                  backfaceVisibility: "hidden",
-                  WebkitBackfaceVisibility: "hidden",
-                  borderRadius: "10px",
-                  width: "1600px",
-                  height: "900px",
-                  margin: "280px auto auto",
-                  position: "absolute",
-                  top: 0,
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  transform: `translate(${baseTransform.translateX}%) scale(${baseTransform.scale}) rotateX(${baseTransform.rotateX}deg) rotateY(${baseTransform.rotateY}deg) rotate(${baseTransform.rotateZ}deg)`,
-                  transformStyle: "preserve-3d",
-                  overflow: "hidden",
+                  width: "100%",
+                  height: "100%",
+                  position: "relative",
                 }}
               >
-                <OKCodeMockup />
+                {/* Transformed base - Use CSS variables */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{
+                    delay: 0.5,
+                    duration: 1,
+                    ease: [0.22, 1, 0.36, 1] as const,
+                  }}
+                  className="bg-background border border-border"
+                  style={{
+                    transformOrigin: "0 0",
+                    backfaceVisibility: "hidden",
+                    WebkitBackfaceVisibility: "hidden",
+                    borderRadius: "10px",
+                    width: "1600px",
+                    height: "900px",
+                    margin: "280px auto auto",
+                    position: "absolute",
+                    top: 0,
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    transform: `translate(${baseTransform.translateX}%) scale(${baseTransform.scale}) rotateX(${baseTransform.rotateX}deg) rotateY(${baseTransform.rotateY}deg) rotate(${baseTransform.rotateZ}deg)`,
+                    transformStyle: "preserve-3d",
+                    overflow: "hidden",
+                  }}
+                >
+                  <OKCodeMockup />
+                </motion.div>
               </motion.div>
             </div>
           </div>

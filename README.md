@@ -1,81 +1,90 @@
 # OK Code
 
-A minimal web GUI for coding agents. Currently supports Codex and Claude, with more providers coming.
+## 1) What this project is
 
-## Quick Start
+OK Code is a desktop-first orchestration platform for interactive coding agents.
+It connects a local runtime (`apps/server`) that manages provider sessions with a
+React client (`apps/web`) that renders live orchestration events and session state.
 
-```bash
-npx okcodes
+## 2) Architecture and core flow
+
+### High-level flow
+
+```mermaid
+flowchart LR
+  User["Developer"] --> UI["apps/web (React/Vite)"]
+  UI --> WS["apps/server/src/wsServer.ts<br/>NativeApi + WS routing"]
+  WS --> PM["apps/server/src/providerManager.ts<br/>Session request orchestration"]
+  PM --> SM["apps/server/src/codexAppServerManager.ts<br/>Provider process lifecycle"]
+  SM --> Codex["codex app-server (process)"]
+  PM --> Contracts["@okcode/contracts"]
+  WS --> Contracts
+  Shared["packages/shared/*"] --> PM
+  Shared --> UI
 ```
 
-This starts the OK Code server and opens your browser. The app automatically detects which providers you have installed.
+### Component responsibilities
 
-Or install the [desktop app from the Releases page](https://github.com/OpenKnots/okcode/releases).
+- `apps/server`
+  - Owns session lifecycle: start/resume, reconnect handling, provider multiplexing.
+  - Provides the WebSocket API that the web app talks to.
+  - Converts provider output into shared orchestration-domain events.
+- `apps/web`
+  - Owns user interaction, streaming UI, logs, and local state.
+  - Consumes server events and sends control actions back through `NativeApi`.
+- `packages/contracts`
+  - Shared protocol/event types (`effect/Schema`) used by both sides.
+  - Keep this package schema-focused and stable.
+- `packages/shared`
+  - Cross-package runtime helpers with explicit subpath exports (for example `@okcode/shared/git`).
+  - Use shared helpers instead of duplicating transport/session utility code.
 
-### Provider Setup
+## 3) Repository map
 
-OK Code supports multiple AI providers. You need **at least one** configured to start coding.
-
-<details>
-<summary><strong>Option A: OpenAI (Codex CLI)</strong></summary>
-
-1. Install: `npm install -g @openai/codex`
-2. Authenticate: `codex login`
-3. Verify: `codex login status`
-
-If using a custom model provider (Azure OpenAI, Portkey, etc.), configure `model_provider` in `~/.codex/config.toml` instead — no `codex login` needed.
-
-</details>
-
-<details>
-<summary><strong>Option B: Anthropic (Claude Code)</strong></summary>
-
-1. Install: `npm install -g @anthropic-ai/claude-code`
-2. Authenticate: `claude auth login`
-3. Verify: `claude auth status`
-
-</details>
-
-> [!TIP]
-> You can install both providers and switch between them per session.
-
-### Troubleshooting
-
-Run the built-in diagnostic to check your setup:
-
-```bash
-npx okcodes doctor
+```text
+apps/
+  server/      Runtime orchestration and websocket gateway.
+  web/         React conversation and orchestration UI.
+  desktop/     Electron shell and client bootstrap.
+  marketing/   Marketing/public site.
+  mobile/      Capacitor app wrapper/build tooling.
+packages/
+  contracts/   Shared protocol/schema definitions.
+  shared/      Shared runtime utilities.
+docs/
+  releases/    Release process, release notes, and asset manifests.
+scripts/
+  Build/release/bootstrap scripts and local tooling.
 ```
 
-If OK Code shows a provider error banner after launch:
+## 4) Setup and local development
 
-| Banner message                 | Fix                                               |
-| ------------------------------ | ------------------------------------------------- |
-| "not installed or not on PATH" | Install the CLI (see above), then restart OK Code |
-| "not authenticated"            | Run the login command for that provider           |
-| "version check failed"         | Update the CLI to the latest version              |
+### Required tooling
 
-> [!NOTE]
-> OK Code launches even without providers configured — you can explore the UI and configure provider binary paths from **Settings** before starting a session.
+- Bun (matching project engine): `bun@1.3.11+`
+- Node 24+ (repo declares `bun` + `node` engine compatibility)
+- Xcode for iOS-related work
+- macOS or Linux for development
 
-## Development Setup
-
-**Prerequisites**: [Bun](https://bun.sh) >= 1.3.9, [Node.js](https://nodejs.org) >= 24.13.1
+### Install
 
 ```bash
 bun install
-bun dev            # start server + web in parallel
 ```
 
-This runs the contracts build, then starts the server (port 3773) and web app (port 5733) together via Turbo.
-
-Other dev commands:
+### Run everything
 
 ```bash
-bun dev:server     # server only
-bun dev:web        # web only
-bun dev:desktop    # Electron desktop + web
-bun dev:marketing  # Astro marketing site
+bun dev
+```
+
+### Common workflows
+
+```bash
+bun dev:server         # apps/server only
+bun dev:web            # apps/web only
+bun dev:desktop        # desktop shell + electron dev flow
+bun dev:marketing      # marketing site
 ```
 
 Build marketing directly:
@@ -87,77 +96,130 @@ bun run build:marketing
 
 If `bun run build:marketing` fails with `next: command not found`, run `bun install` first to restore workspace dependencies.
 
-Quality checks:
+### Package scoped examples
 
 ```bash
-bun fmt            # format (oxfmt)
-bun lint           # lint (oxlint)
-bun typecheck      # type-check all packages
-bun run test       # run tests (Vitest)
+bun --filter @okcode/web dev
+bun --filter okcodes dev
+bun --filter @okcode/desktop build
+bun --filter @okcode/contracts typecheck
 ```
 
-## Architecture
+> `bun --filter okcodes dev` is useful when you explicitly want the server package by
+> its legacy package name (`okcodes`).
 
-OK Code is a monorepo with four apps and two shared packages, orchestrated by [Turbo](https://turbo.build).
+### Quick-start operator matrix
 
+| Intent                    | Command                          | Expected result                                  | Where to verify                                        |
+| ------------------------- | -------------------------------- | ------------------------------------------------ | ------------------------------------------------------ |
+| Boot full local stack     | `bun dev`                        | workspace starts dev scripts and shared services | logs show dev server/process startup                   |
+| Run desktop app flow only | `bun dev:desktop`                | local Electron + web bundle pipeline starts      | verify desktop window opens and server socket connects |
+| Build desktop artifacts   | `bun build:desktop`              | production desktop build output generated        | workspace build pipeline succeeds in logs              |
+| Build web app             | `bun --filter @okcode/web build` | Vite build output produced                       | check dist artifacts and exit code 0                   |
+| Validate formatting       | `bun run fmt:check`              | no formatting diffs                              | command exits 0                                        |
+| Validate lint rules       | `bun run lint`                   | lint passes                                      | no lints in output                                     |
+| Validate TypeScript       | `bun run typecheck`              | no compile errors                                | all package typechecks pass                            |
+| Run tests                 | `bun run test`                   | Vitest suites execute                            | exit code 0, no failing tests                          |
+
+## 5) Runtime behavior (what happens during a session)
+
+1. Web UI opens WebSocket and subscribes to orchestration events.
+2. UI submits user action to a `NativeApi` endpoint in `wsServer.ts`.
+3. Server dispatches the request through `providerManager`.
+4. `codexAppServerManager` starts or resumes the underlying `codex app-server` process.
+5. Process outputs are parsed, normalized into shared events, and pushed back to UI.
+6. UI applies deterministic reducers for rendering logs, state, and action controls.
+
+Reconnect and recovery are first-class behaviors:
+
+- active process restarts should resume context when session state is available,
+- failed parses are surfaced as explicit error states instead of silent fallback behavior.
+
+## 6) Contracts and compatibility
+
+- All contract changes should begin in `packages/contracts`.
+- Update both producer (`apps/server`) and consumer (`apps/web`) in the same commit.
+- Validate generated type surface with:
+  - `bun run typecheck`
+  - targeted package `typecheck` scripts when needed.
+
+## 7) Build and quality gates
+
+```bash
+bun run fmt
+bun run fmt:check
+bun run lint
+bun run typecheck
+bun run test
 ```
-┌─────────────────────────────────┐
-│  Browser (React + Vite)         │
-│  wsTransport (state machine)    │
-│  Typed push decode at boundary  │
-└──────────┬──────────────────────┘
-           │ ws://localhost:3773
-┌──────────▼──────────────────────┐
-│  apps/server (Node.js)          │
-│  WebSocket + HTTP static server │
-│  OrchestrationEngine            │
-│  ProviderService                │
-└──────────┬──────────────────────┘
-           │ JSON-RPC over stdio
-┌──────────▼──────────────────────┐
-│  codex app-server               │
-└─────────────────────────────────┘
-```
 
-The server spawns `codex app-server` as a child process, communicating over JSON-RPC on stdio. Provider runtime events are normalized into orchestration domain events and pushed to the browser over WebSocket.
+Notes:
 
-### Packages
+- `bun run test` is the required test entrypoint.
+- Formatting uses `oxfmt`; lint uses `oxlint`.
+- Release tasks in CI are intentionally strict and require clean checks to proceed.
 
-| Package             | Path                 | Role                                                                                                                                                                                          |
-| ------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `okcodes`           | `apps/server`        | Node.js CLI and WebSocket server. Wraps Codex app-server, serves the React web app, and manages provider sessions.                                                                            |
-| `@okcode/web`       | `apps/web`           | React 19 + Vite SPA. Session UX, conversation rendering, and client-side state via Zustand. Connects to the server over WebSocket.                                                            |
-| `@okcode/desktop`   | `apps/desktop`       | Electron shell that bundles the server and web app into a native desktop application with auto-updates.                                                                                       |
-| `@okcode/marketing` | `apps/marketing`     | Astro marketing site.                                                                                                                                                                         |
-| `@okcode/contracts` | `packages/contracts` | Shared [Effect](https://effect.website) schemas and TypeScript contracts for the WebSocket protocol, provider events, orchestration model, and session types. Schema-only — no runtime logic. |
-| `@okcode/shared`    | `packages/shared`    | Shared runtime utilities (git, logging, shell, networking). Uses explicit subpath exports (`@okcode/shared/git`, etc.) — no barrel index.                                                     |
+## 8) Release operations
 
-### Key Technologies
+Release is mostly driven by `.github/workflows/release.yml` and docs in `docs/releases`.
 
-- **Runtime**: Node.js + Bun
-- **UI**: React 19, Vite 8, Tailwind CSS 4, TanStack Router & Query
-- **Server**: Effect, WebSocket (`ws`), node-pty
-- **Desktop**: Electron
-- **Schemas**: Effect Schema (in `@okcode/contracts`)
-- **Build**: Turbo, tsdown
-- **Lint/Format**: oxlint, oxfmt
-- **Tests**: Vitest, Playwright
+- Trigger on tag push (`vX.Y.Z`) or `workflow_dispatch`.
+- Preflight does `bun run lint`, `bun run typecheck`, `bun run test`,
+  and release smoke.
+- Artifact build step executes `bun run dist:desktop:artifact`.
+- Publishing requires release notes + asset manifest for the version.
 
-### Event Flow
+For a practical walkthrough, use the release playbook in
+[`docs/releases/README.md`](/Users/buns/.okcode/worktrees/okcode/okcode-ddc899c0/docs/releases/README.md).
 
-1. The browser opens a WebSocket to the server and registers typed listeners.
-2. User actions become typed requests sent through the WebSocket transport.
-3. The server routes requests to `ProviderService`, which talks to `codex app-server` over JSON-RPC.
-4. Provider events are ingested, normalized into orchestration events, and persisted.
-5. The server pushes domain events back to the browser through an ordered push bus (`orchestration.domainEvent` channel).
-6. Async work (checkpoints, command reactions) runs through queue-backed workers and emits typed receipts on completion.
+## 9) Extending the system (recommended pattern)
 
-For the full architecture with sequence diagrams, see [.docs/architecture.md](.docs/architecture.md).
+1. Start at the boundary where behavior changes:
+   - event shape → `packages/contracts`
+   - runtime orchestration → `apps/server`
+   - rendering/state handling → `apps/web`
+2. Add/update shared types first.
+3. Update server-side translation/projection next.
+4. Update UI consumers and add tests or focused regression checks.
+5. Run all quality gates before commit.
 
-## Contributing
+## 10) Security and operational posture
 
-Read [CONTRIBUTING.md](./CONTRIBUTING.md) before opening an issue or PR.
+- No secrets in files tracked by git.
+- Validate untrusted inputs before invoking spawn/process APIs.
+- Keep cleanup idempotent (process kill, temp files, sockets).
+- Emit explicit telemetry for failure modes to avoid hidden partial failures.
 
-## Support
+## 11) FAQ
 
-Join the [Discord](https://discord.gg/openknot).
+- **Why are x64 macOS artifacts sometimes absent from release matrix?**  
+  The release workflow can be configured to build only Apple Silicon by default for `workflow_dispatch` with `mac_arm64_only=true`.
+- **Why strict release gates?**  
+  They prevent format/type drift from reaching published artifacts.
+- **Can I run release checks locally first?**  
+  Yes, run the section 7 checks and create your release notes manifest files before creating a tag.
+
+## 12) Operational checklists
+
+### Pre-PR gate
+
+1. `bun run fmt:check`
+2. `bun run lint`
+3. `bun run typecheck`
+4. `bun run test`
+5. targeted package checks if changing app/domain boundaries
+
+### Pre-release hardening
+
+1. Ensure release notes and asset manifest are prepared.
+2. Confirm release matrix intent (`mac_arm64_only` expectation).
+3. Confirm signing secrets availability for macOS/Windows targets.
+4. Confirm `docs/releases/v<version>.md` and `docs/releases/v<version>/assets.md` exist.
+5. Trigger release and monitor all jobs.
+
+## 12) Contributing expectations
+
+- Favor small scoped changes with clear ownership.
+- Keep protocol surfaces version-consistent and documented.
+- Update docs whenever startup flow, payload contracts, or release behavior changes.
+- Prefer correctness over convenience in stream/retry code.

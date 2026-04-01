@@ -608,6 +608,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
                             files={checkpointFiles}
                             allDirectoriesExpanded={allDirectoriesExpanded}
                             resolvedTheme={resolvedTheme}
+                            cwd={markdownCwd}
                             onOpenTurnDiff={onOpenTurnDiff}
                           />
                         </div>

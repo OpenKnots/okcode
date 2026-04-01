@@ -1,20 +1,109 @@
 import { type TurnId } from "@okcode/contracts";
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { type MouseEvent, memo, useCallback, useEffect, useMemo, useState } from "react";
 import { type TurnDiffFileChange } from "../../types";
 import { buildTurnDiffTree, type TurnDiffTreeNode } from "../../lib/turnDiffTree";
 import { ChevronRightIcon, FolderIcon, FolderClosedIcon } from "lucide-react";
-import { cn } from "~/lib/utils";
+import { cn, isMacPlatform } from "~/lib/utils";
+import { openInPreferredEditor } from "~/editorPreferences";
+import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
+import { readNativeApi } from "~/nativeApi";
+import { resolvePathLinkTarget } from "~/terminal-links";
 import { DiffStatLabel, hasNonZeroStat } from "./DiffStatLabel";
 import { VscodeEntryIcon } from "./VscodeEntryIcon";
+import { toastManager } from "../ui/toast";
+
+type ChangedFileAction = "view-diff" | "open-in-editor" | "reveal-in-finder" | "copy-path";
+type ChangedDirectoryAction = "reveal-in-finder" | "copy-path";
 
 export const ChangedFilesTree = memo(function ChangedFilesTree(props: {
   turnId: TurnId;
   files: ReadonlyArray<TurnDiffFileChange>;
   allDirectoriesExpanded: boolean;
   resolvedTheme: "light" | "dark";
+  cwd: string | undefined;
   onOpenTurnDiff: (turnId: TurnId, filePath?: string) => void;
 }) {
-  const { files, allDirectoriesExpanded, onOpenTurnDiff, resolvedTheme, turnId } = props;
+  const { files, allDirectoriesExpanded, onOpenTurnDiff, resolvedTheme, turnId, cwd } = props;
+  const fileManagerName =
+    typeof navigator !== "undefined" && isMacPlatform(navigator.platform)
+      ? "Finder"
+      : "File Manager";
+
+  const { copyToClipboard: copyPathToClipboard } = useCopyToClipboard<{ path: string }>({
+    onCopy: (ctx) => {
+      toastManager.add({ type: "success", title: "Path copied", description: ctx.path });
+    },
+    onError: (error) => {
+      toastManager.add({
+        type: "error",
+        title: "Failed to copy path",
+        description: error instanceof Error ? error.message : "An error occurred.",
+      });
+    },
+  });
+
+  const revealInFileManager = useCallback(
+    async (pathValue: string) => {
+      const api = readNativeApi();
+      if (!api || !cwd) return;
+      const absolutePath = resolvePathLinkTarget(pathValue, cwd);
+      try {
+        await api.shell.revealInFileManager(absolutePath);
+      } catch (error) {
+        toastManager.add({
+          type: "error",
+          title: `Unable to reveal in ${fileManagerName}`,
+          description: error instanceof Error ? error.message : "An error occurred.",
+        });
+      }
+    },
+    [cwd, fileManagerName],
+  );
+
+  const openDirectoryInFileManager = useCallback(
+    async (pathValue: string) => {
+      const api = readNativeApi();
+      if (!api || !cwd) return;
+      const absolutePath = resolvePathLinkTarget(pathValue, cwd);
+      try {
+        await api.shell.openInFileManager(absolutePath);
+      } catch (error) {
+        toastManager.add({
+          type: "error",
+          title: `Unable to open in ${fileManagerName}`,
+          description: error instanceof Error ? error.message : "An error occurred.",
+        });
+      }
+    },
+    [cwd, fileManagerName],
+  );
+
+  const openInEditor = useCallback(
+    async (pathValue: string) => {
+      const api = readNativeApi();
+      if (!api || !cwd) return;
+      const targetPath = resolvePathLinkTarget(pathValue, cwd);
+      try {
+        await openInPreferredEditor(api, targetPath);
+      } catch (error) {
+        toastManager.add({
+          type: "error",
+          title: "Unable to open file",
+          description: error instanceof Error ? error.message : "An error occurred.",
+        });
+      }
+    },
+    [cwd],
+  );
+
+  const copyPath = useCallback(
+    (pathValue: string) => {
+      if (!cwd) return;
+      const absolutePath = resolvePathLinkTarget(pathValue, cwd);
+      copyPathToClipboard(absolutePath, { path: absolutePath });
+    },
+    [cwd, copyPathToClipboard],
+  );
   const treeNodes = useMemo(() => buildTurnDiffTree(files), [files]);
   const directoryPathsKey = useMemo(
     () => collectDirectoryPaths(treeNodes).join("\u0000"),
@@ -42,6 +131,54 @@ export const ChangedFilesTree = memo(function ChangedFilesTree(props: {
     }));
   }, []);
 
+  const handleDirectoryContextMenu = useCallback(
+    async (event: MouseEvent<HTMLButtonElement>, node: TurnDiffTreeNode & { kind: "directory" }) => {
+      event.preventDefault();
+      const api = readNativeApi();
+      if (!api || !cwd) return;
+      const clicked = await api.contextMenu.show<ChangedDirectoryAction>(
+        [
+          { id: "reveal-in-finder", label: `Open in ${fileManagerName}` },
+          { id: "copy-path", label: "Copy path" },
+        ],
+        { x: event.clientX, y: event.clientY },
+      );
+      if (clicked === "reveal-in-finder") {
+        openDirectoryInFileManager(node.path);
+      } else if (clicked === "copy-path") {
+        copyPath(node.path);
+      }
+    },
+    [cwd, fileManagerName, openDirectoryInFileManager, copyPath],
+  );
+
+  const handleFileContextMenu = useCallback(
+    async (event: MouseEvent<HTMLButtonElement>, node: TurnDiffTreeNode & { kind: "file" }) => {
+      event.preventDefault();
+      const api = readNativeApi();
+      if (!api || !cwd) return;
+      const clicked = await api.contextMenu.show<ChangedFileAction>(
+        [
+          { id: "view-diff", label: "View diff" },
+          { id: "open-in-editor", label: "Open in editor" },
+          { id: "reveal-in-finder", label: `Reveal in ${fileManagerName}` },
+          { id: "copy-path", label: "Copy path" },
+        ],
+        { x: event.clientX, y: event.clientY },
+      );
+      if (clicked === "view-diff") {
+        onOpenTurnDiff(turnId, node.path);
+      } else if (clicked === "open-in-editor") {
+        openInEditor(node.path);
+      } else if (clicked === "reveal-in-finder") {
+        revealInFileManager(node.path);
+      } else if (clicked === "copy-path") {
+        copyPath(node.path);
+      }
+    },
+    [cwd, fileManagerName, turnId, onOpenTurnDiff, openInEditor, revealInFileManager, copyPath],
+  );
+
   const renderTreeNode = (node: TurnDiffTreeNode, depth: number) => {
     const leftPadding = 8 + depth * 14;
     if (node.kind === "directory") {
@@ -53,6 +190,7 @@ export const ChangedFilesTree = memo(function ChangedFilesTree(props: {
             className="group flex w-full items-center gap-1.5 rounded-md py-1 pr-2 text-left hover:bg-background/80"
             style={{ paddingLeft: `${leftPadding}px` }}
             onClick={() => toggleDirectory(node.path, depth === 0)}
+            onContextMenu={(event) => handleDirectoryContextMenu(event, node)}
           >
             <ChevronRightIcon
               aria-hidden="true"
@@ -91,6 +229,7 @@ export const ChangedFilesTree = memo(function ChangedFilesTree(props: {
         className="group flex w-full items-center gap-1.5 rounded-md py-1 pr-2 text-left hover:bg-background/80"
         style={{ paddingLeft: `${leftPadding}px` }}
         onClick={() => onOpenTurnDiff(turnId, node.path)}
+        onContextMenu={(event) => handleFileContextMenu(event, node)}
       >
         <span aria-hidden="true" className="size-3.5 shrink-0" />
         <VscodeEntryIcon

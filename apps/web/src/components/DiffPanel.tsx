@@ -235,15 +235,22 @@ function DiffFileSection(props: {
       ),
     [contextMode, filePath, fullContextDiffQuery.data?.diff, resolvedTheme],
   );
-  const resolvedFileDiff =
-    contextMode === "full"
-      ? (resolveRenderableFileDiff(fullContextPatch, filePath) ?? fileDiff)
-      : fileDiff;
+  const fullContextFileDiff =
+    contextMode === "full" ? resolveRenderableFileDiff(fullContextPatch, filePath) : null;
+  const resolvedFileDiff = contextMode === "full" ? (fullContextFileDiff ?? fileDiff) : fileDiff;
   const fullContextError =
     contextMode === "full" && fullContextDiffQuery.error
       ? fullContextDiffQuery.error instanceof Error
         ? fullContextDiffQuery.error.message
         : "Failed to load full-file context."
+      : null;
+  const fullContextFallbackMessage =
+    contextMode === "full" &&
+    !fullContextError &&
+    !fullContextDiffQuery.isLoading &&
+    fullContextDiffQuery.data &&
+    fullContextFileDiff === null
+      ? "Full-file context is unavailable for this file. Showing patch context."
       : null;
 
   return (
@@ -320,6 +327,11 @@ function DiffFileSection(props: {
           {fullContextError ? (
             <div className="border-b border-border/60 bg-destructive/8 px-3 py-2 text-[11px] text-destructive/80">
               {fullContextError}
+            </div>
+          ) : null}
+          {fullContextFallbackMessage ? (
+            <div className="border-b border-border/60 bg-amber-500/8 px-3 py-2 text-[11px] text-amber-700 dark:text-amber-300/90">
+              {fullContextFallbackMessage}
             </div>
           ) : null}
           <FileDiff

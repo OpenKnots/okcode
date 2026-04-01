@@ -11,16 +11,20 @@ import {
   XCircleIcon,
 } from "lucide-react";
 import { Button } from "../ui/button";
+import {
+  getProviderLabel,
+  getProviderSetupPhase,
+  getProviderStatusDescription,
+  getProviderStatusHeading,
+} from "./providerStatusPresentation";
 
 const PROVIDER_CONFIG = {
   codex: {
-    label: "OpenAI (Codex CLI)",
     installCmd: "npm install -g @openai/codex",
     authCmd: "codex login",
     verifyCmd: "codex login status",
   },
   claudeAgent: {
-    label: "Anthropic (Claude Code)",
     installCmd: "npm install -g @anthropic-ai/claude-code",
     authCmd: "claude auth login",
     verifyCmd: "claude auth status",
@@ -42,6 +46,9 @@ function ProviderRow({ status }: { status: ServerProviderStatus }) {
   const [expanded, setExpanded] = useState(status.status !== "ready");
   const config = PROVIDER_CONFIG[status.provider as keyof typeof PROVIDER_CONFIG];
   if (!config) return null;
+  const setupPhase = getProviderSetupPhase(status);
+  const heading = getProviderStatusHeading(status);
+  const description = getProviderStatusDescription(status);
 
   return (
     <div className="rounded-lg border border-border bg-card/50 p-3">
@@ -51,7 +58,14 @@ function ProviderRow({ status }: { status: ServerProviderStatus }) {
         onClick={() => setExpanded((v) => !v)}
       >
         <StatusIcon status={status.status} />
-        <span className="flex-1 font-medium text-foreground">{config.label}</span>
+        <span className="flex-1 font-medium text-foreground">
+          {getProviderLabel(status.provider)}
+        </span>
+        {status.status !== "ready" ? (
+          <span className="rounded-full border border-border bg-background px-2 py-0.5 text-[10px] font-medium tracking-[0.08em] text-muted-foreground uppercase">
+            {setupPhase}
+          </span>
+        ) : null}
         {expanded ? (
           <ChevronDownIcon className="size-3.5 text-muted-foreground" />
         ) : (
@@ -59,20 +73,23 @@ function ProviderRow({ status }: { status: ServerProviderStatus }) {
         )}
       </button>
 
-      {status.status !== "ready" && status.message && (
-        <p className="mt-1.5 ml-6.5 text-xs text-muted-foreground">{status.message}</p>
+      {status.status !== "ready" && (
+        <div className="mt-1.5 ml-6.5 space-y-1">
+          <p className="text-xs font-medium text-foreground">{heading}</p>
+          <p className="text-xs text-muted-foreground">{description}</p>
+        </div>
       )}
 
       {expanded && status.status !== "ready" && (
         <div className="mt-3 ml-6.5 space-y-2">
           <div className="space-y-1.5">
-            <Step n={1} label="Install">
+            <Step n={1} label="Install" active={setupPhase === "install"}>
               <Code>{config.installCmd}</Code>
             </Step>
-            <Step n={2} label="Authenticate">
+            <Step n={2} label="Authenticate" active={setupPhase === "authenticate"}>
               <Code>{config.authCmd}</Code>
             </Step>
-            <Step n={3} label="Verify">
+            <Step n={3} label="Verify" active={setupPhase === "verify"}>
               <Code>{config.verifyCmd}</Code>
             </Step>
           </div>
@@ -86,10 +103,24 @@ function ProviderRow({ status }: { status: ServerProviderStatus }) {
   );
 }
 
-function Step({ n, label, children }: { n: number; label: string; children: React.ReactNode }) {
+function Step({
+  n,
+  label,
+  active,
+  children,
+}: {
+  n: number;
+  label: string;
+  active: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <div className="flex items-baseline gap-2 text-xs">
-      <span className="shrink-0 text-muted-foreground">
+      <span
+        className={
+          active ? "shrink-0 font-medium text-foreground" : "shrink-0 text-muted-foreground"
+        }
+      >
         {n}. {label}:
       </span>
       {children}

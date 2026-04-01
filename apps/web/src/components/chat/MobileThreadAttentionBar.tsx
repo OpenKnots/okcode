@@ -5,6 +5,10 @@ import { type ServerProviderStatus } from "@okcode/contracts";
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "../ui/alert";
 import { Button } from "../ui/button";
 import { type PendingApproval, type PendingUserInput } from "../../session-logic";
+import {
+  getProviderStatusDescription,
+  getProviderStatusHeading,
+} from "./providerStatusPresentation";
 
 function summarizeApproval(approval: PendingApproval): string {
   return approval.requestKind === "command"
@@ -85,11 +89,8 @@ export const MobileThreadAttentionBar = memo(function MobileThreadAttentionBar({
         className="rounded-2xl"
       >
         <CircleAlertIcon />
-        <AlertTitle>Provider needs attention</AlertTitle>
-        <AlertDescription>
-          {providerStatus.message ??
-            "The selected provider is degraded. The thread may pause until the provider recovers."}
-        </AlertDescription>
+        <AlertTitle>{getProviderStatusHeading(providerStatus)}</AlertTitle>
+        <AlertDescription>{getProviderStatusDescription(providerStatus)}</AlertDescription>
       </Alert>
     );
   }

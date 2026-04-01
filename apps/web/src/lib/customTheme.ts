@@ -225,13 +225,13 @@ export function parseTweakcnJSON(json: unknown): CustomThemeData {
   }
 
   const light = filterSupported({
-    ...(cssVars.theme ?? {}),
-    ...(cssVars.light ?? {}),
+    ...cssVars.theme,
+    ...cssVars.light,
   });
 
   const dark = filterSupported({
-    ...(cssVars.theme ?? {}),
-    ...(cssVars.dark ?? {}),
+    ...cssVars.theme,
+    ...cssVars.dark,
   });
 
   if (Object.keys(light).length === 0 && Object.keys(dark).length === 0) {

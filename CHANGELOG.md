@@ -11,6 +11,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - CLI npm package name is `okcodes`. Install with `npm install -g okcodes`; the `okcode` binary name is unchanged.
 
+## [0.0.13] - 2026-04-01
+
+See [docs/releases/v0.0.13.md](docs/releases/v0.0.13.md) for full notes.
+
+### Added
+
+- Push notifications for approval requests, user-input requests, turn completions, and session errors on mobile.
+- QR code pairing flow: desktop shows scannable QR, mobile supports clipboard paste and auto-pair.
+- Token rotation and revocation model with short-lived pairing tokens.
+- Connection state banner for mobile companion (connecting, reconnecting, disconnected).
+- Android `POST_NOTIFICATIONS` and `SCHEDULE_EXACT_ALARM` permissions.
+- iOS `UIBackgroundModes` for background processing.
+- Capacitor `LocalNotifications` plugin configuration.
+- `GET /api/pairing` HTTP endpoint for short-lived pairing link generation.
+- WebSocket methods: `server.generatePairingLink`, `server.rotateToken`, `server.revokeToken`, `server.listTokens`.
+
 ## [0.0.12] - 2026-04-01
 
 See [docs/releases/v0.0.12.md](docs/releases/v0.0.12.md) for full notes and [docs/releases/v0.0.12/assets.md](docs/releases/v0.0.12/assets.md) for release asset inventory.

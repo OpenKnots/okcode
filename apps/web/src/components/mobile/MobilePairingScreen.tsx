@@ -34,6 +34,40 @@ export function MobilePairingScreen() {
     }
   };
 
+  const handlePasteFromClipboard = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text || text.trim().length === 0) {
+        setErrorMessage("Clipboard is empty.");
+        return;
+      }
+      setPairingInput(text.trim());
+      setErrorMessage(null);
+
+      // Auto-submit if it looks like a valid pairing link.
+      if (
+        mobileBridge &&
+        (text.trim().startsWith("okcode://") || text.trim().includes("?token="))
+      ) {
+        setIsSubmitting(true);
+        try {
+          const nextState = await mobileBridge.applyPairingUrl(text.trim());
+          if (!nextState.paired) {
+            setErrorMessage(nextState.lastError ?? "Could not pair this device.");
+            return;
+          }
+          window.location.reload();
+        } catch (error) {
+          setErrorMessage(error instanceof Error ? error.message : "Could not pair this device.");
+        } finally {
+          setIsSubmitting(false);
+        }
+      }
+    } catch {
+      setErrorMessage("Could not read clipboard. Paste the link manually instead.");
+    }
+  };
+
   const handleReset = async () => {
     if (!mobileBridge) {
       return;
@@ -63,8 +97,8 @@ export function MobilePairingScreen() {
         </p>
         <h1 className="mt-3 text-2xl font-semibold tracking-tight">Pair this device</h1>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          Paste a pairing link like <code>okcode://pair?server=…&amp;token=…</code> or a server URL
-          that includes <code>?token=…</code>.
+          Open <strong>Settings &rarr; Mobile Companion</strong> on your desktop to show a QR
+          pairing code, then copy the link and paste it below.
         </p>
 
         <div className="mt-5 space-y-3">
@@ -81,13 +115,25 @@ export function MobilePairingScreen() {
         </div>
 
         <div className="mt-5 flex flex-wrap gap-2">
-          <Button onClick={() => void handleSubmit()} disabled={isSubmitting}>
-            {isSubmitting ? "Pairing..." : "Pair device"}
+          <Button onClick={() => void handlePasteFromClipboard()} disabled={isSubmitting}>
+            {isSubmitting ? "Pairing..." : "Paste from clipboard"}
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => void handleSubmit()}
+            disabled={isSubmitting || pairingInput.trim().length === 0}
+          >
+            Pair device
           </Button>
           <Button variant="outline" onClick={() => void handleReset()} disabled={isClearing}>
             Clear saved pairing
           </Button>
         </div>
+
+        <p className="mt-4 text-[11px] leading-relaxed text-muted-foreground/70">
+          You can also open a pairing link directly from another app &mdash; it will be handled
+          automatically via deep link.
+        </p>
       </section>
     </div>
   );

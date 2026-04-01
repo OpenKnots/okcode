@@ -23,10 +23,12 @@ export function PairingQrCode() {
   const [loading, setLoading] = useState(false);
   const [svgHtml, setSvgHtml] = useState<string | null>(null);
   const [expiresIn, setExpiresIn] = useState<number | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const fetchPairingLink = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setCopied(false);
     try {
       const origin = resolveServerHttpOrigin();
       const response = await fetch(`${origin}/api/pairing?ttl=300`);
@@ -80,6 +82,17 @@ export function PairingQrCode() {
     return () => clearInterval(interval);
   }, [pairing?.expiresAt, fetchPairingLink]);
 
+  const handleCopyLink = async () => {
+    if (!pairing?.pairingUrl) return;
+    try {
+      await navigator.clipboard.writeText(pairing.pairingUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback: select the text in the details element
+    }
+  };
+
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
@@ -116,24 +129,23 @@ export function PairingQrCode() {
               {expiresIn > 0 ? <>Expires in {formatTime(expiresIn)}</> : <>Refreshing...</>}
             </p>
           )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => void fetchPairingLink()}
-            disabled={loading}
-          >
-            {loading ? "Generating..." : "Generate new code"}
-          </Button>
-          {pairing?.pairingUrl && (
-            <details className="w-full max-w-xs">
-              <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
-                Show pairing link
-              </summary>
-              <code className="mt-1 block break-all rounded bg-muted px-2 py-1 text-[10px]">
-                {pairing.pairingUrl}
-              </code>
-            </details>
-          )}
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => void handleCopyLink()}>
+              {copied ? "Copied!" : "Copy pairing link"}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => void fetchPairingLink()}
+              disabled={loading}
+            >
+              {loading ? "Generating..." : "Refresh"}
+            </Button>
+          </div>
+          <p className="max-w-xs text-center text-[11px] leading-relaxed text-muted-foreground/70">
+            Scan the QR code with your phone camera, or copy the link and paste it in the mobile
+            app.
+          </p>
         </>
       ) : loading ? (
         <div className="flex h-[220px] w-[220px] items-center justify-center rounded-xl border border-border bg-muted">

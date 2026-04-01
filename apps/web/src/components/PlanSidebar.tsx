@@ -1,11 +1,11 @@
 import { memo, useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { type TimestampFormat } from "../appSettings";
 import { Button } from "./ui/button";
+import { Badge } from "./ui/badge";
 import { ScrollArea } from "./ui/scroll-area";
 import ChatMarkdown from "./ChatMarkdown";
 import { ChevronDownIcon, ChevronRightIcon, EllipsisIcon, PanelRightCloseIcon } from "lucide-react";
-import type { ActivePlanState } from "../session-logic";
-import type { LatestProposedPlanState } from "../session-logic";
+import type { ActivePlanState, LatestProposedPlanState, PendingUserInput } from "../session-logic";
 import {
   proposedPlanTitle,
   buildProposedPlanMarkdownFilename,
@@ -14,12 +14,14 @@ import {
   stripDisplayedPlanMarkdown,
 } from "../proposedPlan";
 import { extractPlanChecklistItems } from "../planChecklist";
-import PlanChecklist from "./PlanChecklist";
+import PlanChecklist, { type PlanChecklistItemData } from "./PlanChecklist";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "./ui/menu";
 import { readNativeApi } from "~/nativeApi";
 import { toastManager } from "./ui/toast";
 import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
 import { getLocalStorageItem, setLocalStorageItem } from "~/hooks/useLocalStorage";
+import { type PendingUserInputProgress } from "../pendingUserInput";
+import { cn } from "~/lib/utils";
 import { Schema } from "effect";
 
 const PLAN_SIDEBAR_WIDTH_STORAGE_KEY = "plan_sidebar_width";
@@ -33,6 +35,12 @@ interface PlanSidebarProps {
   markdownCwd: string | undefined;
   workspaceRoot: string | undefined;
   timestampFormat: TimestampFormat;
+  activePendingUserInput: PendingUserInput | null;
+  activePendingProgress: PendingUserInputProgress | null;
+  activePendingIsResponding: boolean;
+  onSelectPendingUserInputOption: (questionId: string, optionLabel: string) => void;
+  onAdvancePendingUserInput: () => void;
+  onFocusComposer: () => void;
   onClose: () => void;
 }
 
@@ -139,16 +147,44 @@ function useResizablePlanSidebar() {
   };
 }
 
+function findFeedbackStepIndex(
+  steps: ActivePlanState["steps"] | undefined,
+  feedbackRequested: boolean,
+): number | null {
+  if (!feedbackRequested || !steps || steps.length === 0) {
+    return null;
+  }
+
+  const inProgressIndex = steps.findIndex((step) => step.status === "inProgress");
+  if (inProgressIndex !== -1) {
+    return inProgressIndex;
+  }
+
+  const nextPendingIndex = steps.findIndex((step) => step.status !== "completed");
+  if (nextPendingIndex !== -1) {
+    return nextPendingIndex;
+  }
+
+  return steps.length - 1;
+}
+
 const PlanSidebar = memo(function PlanSidebar({
   activePlan,
   activeProposedPlan,
   markdownCwd,
   workspaceRoot,
+  activePendingUserInput,
+  activePendingProgress,
+  activePendingIsResponding,
+  onSelectPendingUserInputOption,
+  onAdvancePendingUserInput,
+  onFocusComposer,
   onClose,
 }: PlanSidebarProps) {
   const hasActiveSteps = (activePlan?.steps.length ?? 0) > 0;
   const [proposedPlanExpanded, setProposedPlanExpanded] = useState(false);
   const [isSavingToWorkspace, setIsSavingToWorkspace] = useState(false);
+  const pendingAdvanceTimerRef = useRef<number | null>(null);
   const { copyToClipboard, isCopied } = useCopyToClipboard();
   const { width, railProps } = useResizablePlanSidebar();
   const progress = usePlanProgress(activePlan?.steps);
@@ -156,14 +192,39 @@ const PlanSidebar = memo(function PlanSidebar({
   const planMarkdown = activeProposedPlan?.planMarkdown ?? null;
   const displayedPlanMarkdown = planMarkdown ? stripDisplayedPlanMarkdown(planMarkdown) : null;
   const planTitle = planMarkdown ? proposedPlanTitle(planMarkdown) : null;
+  const feedbackQuestion = activePendingProgress?.activeQuestion ?? null;
+  const feedbackStepIndex = useMemo(
+    () => findFeedbackStepIndex(activePlan?.steps, activePendingUserInput !== null),
+    [activePendingUserInput, activePlan?.steps],
+  );
+  const feedbackStep =
+    feedbackStepIndex !== null && activePlan?.steps[feedbackStepIndex]
+      ? activePlan.steps[feedbackStepIndex]
+      : null;
 
   // Derive checklist items: prefer live execution steps; fall back to markdown extraction.
   // Always normalised to { text, status } for the PlanChecklist component.
-  const checklistItems = useMemo<
-    Array<{ text: string; status: "pending" | "inProgress" | "completed" }>
-  >(() => {
+  const checklistItems = useMemo<PlanChecklistItemData[]>(() => {
     if (hasActiveSteps && activePlan) {
-      return activePlan.steps.map((s) => ({ text: s.step, status: s.status }));
+      return activePlan.steps.map((step, index) => {
+        const isFeedbackStep =
+          feedbackQuestion !== null && feedbackStepIndex !== null && index === feedbackStepIndex;
+        return {
+          text: step.step,
+          status: step.status,
+          ...(isFeedbackStep
+            ? {
+                note: activePendingIsResponding
+                  ? "Submitting your answer."
+                  : activePendingProgress?.usingCustomAnswer
+                    ? "Custom answer drafted in the composer. Submit when ready."
+                    : "Waiting for your feedback to continue.",
+                statusText: activePendingIsResponding ? "Sending" : "Needs input",
+                statusTone: "warning" as const,
+              }
+            : {}),
+        };
+      });
     }
     if (planMarkdown) {
       const extracted = extractPlanChecklistItems(planMarkdown);
@@ -175,7 +236,15 @@ const PlanSidebar = memo(function PlanSidebar({
       }
     }
     return [];
-  }, [hasActiveSteps, activePlan, planMarkdown]);
+  }, [
+    hasActiveSteps,
+    activePlan,
+    planMarkdown,
+    feedbackQuestion,
+    feedbackStepIndex,
+    activePendingIsResponding,
+    activePendingProgress?.usingCustomAnswer,
+  ]);
 
   const hasChecklist = checklistItems.length > 0;
 
@@ -185,6 +254,14 @@ const PlanSidebar = memo(function PlanSidebar({
       setProposedPlanExpanded(true);
     }
   }, [hasChecklist, planMarkdown]);
+
+  useEffect(() => {
+    return () => {
+      if (pendingAdvanceTimerRef.current !== null) {
+        window.clearTimeout(pendingAdvanceTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleCopyPlan = useCallback(() => {
     if (!planMarkdown) return;
@@ -227,6 +304,33 @@ const PlanSidebar = memo(function PlanSidebar({
         () => setIsSavingToWorkspace(false),
       );
   }, [planMarkdown, workspaceRoot]);
+
+  const handleSelectPendingOption = useCallback(
+    (questionId: string, optionLabel: string) => {
+      onSelectPendingUserInputOption(questionId, optionLabel);
+      if (pendingAdvanceTimerRef.current !== null) {
+        window.clearTimeout(pendingAdvanceTimerRef.current);
+      }
+      pendingAdvanceTimerRef.current = window.setTimeout(() => {
+        pendingAdvanceTimerRef.current = null;
+        onAdvancePendingUserInput();
+      }, 200);
+    },
+    [onAdvancePendingUserInput, onSelectPendingUserInputOption],
+  );
+
+  const handlePendingAction = useCallback(() => {
+    if (activePendingProgress?.usingCustomAnswer && activePendingProgress.canAdvance) {
+      onAdvancePendingUserInput();
+      return;
+    }
+    onFocusComposer();
+  }, [
+    activePendingProgress?.canAdvance,
+    activePendingProgress?.usingCustomAnswer,
+    onAdvancePendingUserInput,
+    onFocusComposer,
+  ]);
 
   return (
     <div
@@ -297,8 +401,17 @@ const PlanSidebar = memo(function PlanSidebar({
                 }}
               />
             </div>
-            <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground/50">
-              {progress.completed}/{progress.total}
+            <span
+              className={cn(
+                "shrink-0 text-[11px] tabular-nums",
+                progress.completed > 0
+                  ? "text-emerald-700/80 dark:text-emerald-300/80"
+                  : "text-muted-foreground/50",
+              )}
+            >
+              {progress.completed === progress.total
+                ? "Done"
+                : `${progress.completed}/${progress.total} done`}
             </span>
           </div>
         ) : null}
@@ -309,9 +422,104 @@ const PlanSidebar = memo(function PlanSidebar({
         <div className="p-3 space-y-4">
           {/* Explanation */}
           {activePlan?.explanation ? (
-            <p className="text-[13px] leading-relaxed text-muted-foreground/80">
-              {activePlan.explanation}
-            </p>
+            <div className="rounded-xl border border-border/60 bg-background/40 p-3">
+              <p className="text-[10px] font-semibold tracking-widest text-muted-foreground/55 uppercase">
+                Latest Note
+              </p>
+              <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground/85">
+                {activePlan.explanation}
+              </p>
+            </div>
+          ) : null}
+
+          {activePendingUserInput && feedbackQuestion ? (
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.08] p-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge size="sm" variant="warning">
+                  {feedbackStepIndex !== null ? `Step ${feedbackStepIndex + 1}` : "Plan input"}
+                </Badge>
+                {activePendingUserInput.questions.length > 1 ? (
+                  <Badge size="sm" variant="outline">
+                    {(activePendingProgress?.questionIndex ?? 0) + 1}/
+                    {activePendingUserInput.questions.length} questions
+                  </Badge>
+                ) : null}
+                <span className="text-[10px] font-semibold tracking-widest text-amber-900/80 uppercase dark:text-amber-200/80">
+                  {feedbackQuestion.header}
+                </span>
+              </div>
+              {feedbackStep ? (
+                <p className="mt-2 text-[12px] font-medium text-foreground/90">
+                  {feedbackStep.step}
+                </p>
+              ) : null}
+              <p className="mt-1.5 text-sm leading-relaxed text-foreground/90">
+                {feedbackQuestion.question}
+              </p>
+              <div className="mt-3 space-y-1.5">
+                {feedbackQuestion.options.map((option, index) => {
+                  const isSelected =
+                    !activePendingProgress?.usingCustomAnswer &&
+                    activePendingProgress?.selectedOptionLabel === option.label;
+                  return (
+                    <button
+                      key={`${feedbackQuestion.id}:${option.label}`}
+                      type="button"
+                      disabled={activePendingIsResponding}
+                      onClick={() => handleSelectPendingOption(feedbackQuestion.id, option.label)}
+                      className={cn(
+                        "group flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition-all duration-150",
+                        isSelected
+                          ? "border-amber-400/40 bg-amber-400/10 text-foreground"
+                          : "border-transparent bg-background/45 text-foreground/80 hover:border-amber-300/20 hover:bg-background/70",
+                        activePendingIsResponding && "cursor-not-allowed opacity-50",
+                      )}
+                    >
+                      {index < 9 ? (
+                        <kbd
+                          className={cn(
+                            "flex size-5 shrink-0 items-center justify-center rounded text-[11px] font-medium tabular-nums transition-colors duration-150",
+                            isSelected
+                              ? "bg-amber-400/20 text-amber-900 dark:text-amber-200"
+                              : "bg-background/60 text-muted-foreground/60 group-hover:bg-background/80",
+                          )}
+                        >
+                          {index + 1}
+                        </kbd>
+                      ) : null}
+                      <div className="min-w-0 flex-1">
+                        <span className="text-sm font-medium">{option.label}</span>
+                        {option.description && option.description !== option.label ? (
+                          <span className="ml-2 text-xs text-muted-foreground/70">
+                            {option.description}
+                          </span>
+                        ) : null}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="mt-3 flex items-center justify-between gap-3">
+                <p className="text-[11px] leading-relaxed text-amber-900/70 dark:text-amber-100/75">
+                  {activePendingProgress?.usingCustomAnswer
+                    ? "Custom answer ready in the composer."
+                    : "Choose an option here or type a custom answer in the composer."}
+                </p>
+                <Button
+                  size="xs"
+                  variant="outline"
+                  type="button"
+                  disabled={activePendingIsResponding}
+                  onClick={handlePendingAction}
+                >
+                  {activePendingProgress?.usingCustomAnswer && activePendingProgress.canAdvance
+                    ? activePendingProgress.isLastQuestion
+                      ? "Submit answer"
+                      : "Next question"
+                    : "Use composer"}
+                </Button>
+              </div>
+            </div>
           ) : null}
 
           {/* Checklist (primary view) */}

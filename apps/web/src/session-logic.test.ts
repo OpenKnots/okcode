@@ -326,7 +326,7 @@ describe("deriveActivePlanState", () => {
         turnId: "turn-1",
         payload: {
           explanation: "Refined plan",
-          plan: [{ step: "Implement Codex user input", status: "inProgress" }],
+          plan: [{ step: "Implement Codex user input", status: "in_progress" }],
         },
       }),
     ];

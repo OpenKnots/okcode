@@ -1329,9 +1329,26 @@ export default function Sidebar() {
           <SidebarMenuButton
             ref={isManualProjectSorting ? dragHandleProps?.setActivatorNodeRef : undefined}
             size="sm"
-            className={`min-w-0 flex-1 gap-2 rounded-lg border border-transparent px-2.5 py-2.5 text-left bg-accent/40 hover:bg-accent/70 group-hover/project-header:bg-accent/70 group-hover/project-header:text-sidebar-accent-foreground dark:bg-accent/30 dark:hover:bg-accent/50 dark:group-hover/project-header:bg-accent/50 ${
+            className={`min-w-0 flex-1 gap-2 rounded-lg border border-transparent px-2.5 py-2.5 text-left ${appSettings.sidebarAccentBgColorOverride ? "" : "bg-accent/40 hover:bg-accent/70 group-hover/project-header:bg-accent/70 dark:bg-accent/30 dark:hover:bg-accent/50 dark:group-hover/project-header:bg-accent/50"} group-hover/project-header:text-sidebar-accent-foreground ${
               isManualProjectSorting ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
             }`}
+            style={
+              appSettings.sidebarAccentBgColorOverride
+                ? {
+                    backgroundColor: `color-mix(in srgb, ${appSettings.sidebarAccentBgColorOverride} 15%, transparent)`,
+                  }
+                : undefined
+            }
+            onMouseEnter={(e) => {
+              if (appSettings.sidebarAccentBgColorOverride) {
+                e.currentTarget.style.backgroundColor = `color-mix(in srgb, ${appSettings.sidebarAccentBgColorOverride} 25%, transparent)`;
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (appSettings.sidebarAccentBgColorOverride) {
+                e.currentTarget.style.backgroundColor = `color-mix(in srgb, ${appSettings.sidebarAccentBgColorOverride} 15%, transparent)`;
+              }
+            }}
             {...(isManualProjectSorting && dragHandleProps ? dragHandleProps.attributes : {})}
             {...(isManualProjectSorting && dragHandleProps ? dragHandleProps.listeners : {})}
             onPointerDownCapture={handleProjectTitlePointerDownCapture}

@@ -87,6 +87,7 @@ import { PrReview } from "./prReview/Services/PrReview.ts";
 import { GitActionExecutionError } from "./git/Errors.ts";
 import { EnvironmentVariables } from "./persistence/Services/EnvironmentVariables.ts";
 import { SkillService } from "./skills/SkillService.ts";
+import { TokenManager } from "./tokenManager.ts";
 import { resolveRuntimeEnvironment } from "./runtimeEnvironment.ts";
 import { version as serverVersion } from "../package.json" with { type: "json" };
 
@@ -321,6 +322,7 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
     autoBootstrapProjectFromCwd,
   } = serverConfig;
   const availableEditors = resolveAvailableEditors();
+  const tokenManager = new TokenManager(authToken);
 
   const gitManager = yield* GitManager;
   const terminalManager = yield* TerminalManager;
@@ -532,6 +534,34 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
       Effect.gen(function* () {
         const url = new URL(req.url ?? "/", `http://localhost:${port}`);
         if (tryHandleProjectFaviconRequest(url, res)) {
+          return;
+        }
+
+        // ── Pairing API endpoint ──────────────────────────────────
+        if (url.pathname === "/api/pairing" && req.method === "GET") {
+          if (!authToken) {
+            respond(
+              200,
+              { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+              JSON.stringify({ error: "Auth is not enabled on this server." }),
+            );
+            return;
+          }
+
+          const ttlParam = url.searchParams.get("ttl");
+          const ttlSeconds = ttlParam ? Math.min(Math.max(Number(ttlParam), 30), 3600) : 300;
+          const record = tokenManager.generatePairingToken({ ttlSeconds, label: "http-api" });
+          const serverUrl = `http://${host ?? "localhost"}:${port}`;
+          const pairingUrl = `okcode://pair?server=${encodeURIComponent(serverUrl)}&token=${encodeURIComponent(record.tokenValue)}`;
+          respond(
+            200,
+            { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+            JSON.stringify({
+              pairingUrl,
+              expiresAt: record.expiresAt,
+              serverUrl,
+            }),
+          );
           return;
         }
 
@@ -1321,6 +1351,42 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
         return { path: pickedPath };
       }
 
+      case WS_METHODS.serverGeneratePairingLink: {
+        const body = stripRequestTag(request.body);
+        const record = tokenManager.generatePairingToken({
+          ttlSeconds: body.ttlSeconds,
+          label: body.label,
+        });
+        const serverUrl = `http://${host ?? "localhost"}:${port}`;
+        const pairingUrl = `okcode://pair?server=${encodeURIComponent(serverUrl)}&token=${encodeURIComponent(record.tokenValue)}`;
+        return {
+          pairingUrl,
+          token: record.tokenValue,
+          expiresAt: record.expiresAt!,
+        };
+      }
+
+      case WS_METHODS.serverRotateToken: {
+        const { previousTokenId, newRecord } = tokenManager.rotate();
+        return {
+          previousTokenId,
+          newToken: newRecord.tokenValue,
+          newTokenId: newRecord.tokenId,
+          issuedAt: newRecord.createdAt,
+        };
+      }
+
+      case WS_METHODS.serverRevokeToken: {
+        const body = stripRequestTag(request.body);
+        const revoked = tokenManager.revoke(body.tokenId);
+        return { tokenId: body.tokenId, revoked };
+      }
+
+      case WS_METHODS.serverListTokens: {
+        const tokens = tokenManager.list();
+        return { tokens };
+      }
+
       case WS_METHODS.skillList: {
         const body = stripRequestTag(request.body);
         return yield* skillService.list(body);
@@ -1448,7 +1514,7 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
         return;
       }
 
-      if (providedToken !== authToken) {
+      if (!tokenManager.validate(providedToken)) {
         rejectUpgrade(socket, 401, "Unauthorized WebSocket connection");
         return;
       }

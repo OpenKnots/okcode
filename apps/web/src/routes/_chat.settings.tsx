@@ -41,7 +41,7 @@ import { SidebarInset } from "../components/ui/sidebar";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../components/ui/tooltip";
 import { CustomThemeDialog } from "../components/CustomThemeDialog";
 import { resolveAndPersistPreferredEditor } from "../editorPreferences";
-import { isElectron } from "../env";
+import { isElectron, isMobileShell } from "../env";
 import { useTheme, COLOR_THEMES, DEFAULT_COLOR_THEME, FONT_FAMILIES } from "../hooks/useTheme";
 import {
   environmentVariablesQueryKeys,
@@ -65,6 +65,7 @@ import { serverConfigQueryOptions } from "../lib/serverReactQuery";
 import { cn } from "../lib/utils";
 import { ensureNativeApi, readNativeApi } from "../nativeApi";
 import { useStore } from "../store";
+import { PairingQrCode } from "../components/mobile/PairingQrCode";
 
 const THEME_OPTIONS = [
   {
@@ -1470,6 +1471,19 @@ function SettingsRouteView() {
                 </div>
               </SettingsRow>
             </SettingsSection>
+
+            {!isMobileShell && (
+              <SettingsSection title="Mobile Companion">
+                <SettingsRow
+                  title="Pair mobile device"
+                  description="Scan this QR code with the OK Code mobile app to pair your phone."
+                >
+                  <div className="mt-4 flex justify-center">
+                    <PairingQrCode />
+                  </div>
+                </SettingsRow>
+              </SettingsSection>
+            )}
 
             <SettingsSection title="Advanced">
               <SettingsRow

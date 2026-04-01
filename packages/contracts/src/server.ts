@@ -76,3 +76,59 @@ export const ServerUpdateInfo = Schema.Struct({
   updateAvailable: Schema.Boolean,
 });
 export type ServerUpdateInfo = typeof ServerUpdateInfo.Type;
+
+// ── Token Management ────────────────────────────────────────────────
+
+export const PairingTokenKind = Schema.Literals(["long-lived", "short-lived"]);
+export type PairingTokenKind = typeof PairingTokenKind.Type;
+
+export const PairingTokenInfo = Schema.Struct({
+  tokenId: TrimmedNonEmptyString,
+  kind: PairingTokenKind,
+  createdAt: IsoDateTime,
+  expiresAt: Schema.NullOr(IsoDateTime),
+  revoked: Schema.Boolean,
+  label: Schema.optional(TrimmedNonEmptyString),
+});
+export type PairingTokenInfo = typeof PairingTokenInfo.Type;
+
+export const GeneratePairingLinkInput = Schema.Struct({
+  /**
+   * Lifetime in seconds for the short-lived pairing token.
+   * Defaults to 300 (5 minutes) on the server when omitted.
+   */
+  ttlSeconds: Schema.optional(Schema.Number),
+  label: Schema.optional(TrimmedNonEmptyString),
+});
+export type GeneratePairingLinkInput = typeof GeneratePairingLinkInput.Type;
+
+export const GeneratePairingLinkResult = Schema.Struct({
+  pairingUrl: TrimmedNonEmptyString,
+  token: TrimmedNonEmptyString,
+  expiresAt: IsoDateTime,
+});
+export type GeneratePairingLinkResult = typeof GeneratePairingLinkResult.Type;
+
+export const RotateTokenResult = Schema.Struct({
+  previousTokenId: Schema.NullOr(TrimmedNonEmptyString),
+  newToken: TrimmedNonEmptyString,
+  newTokenId: TrimmedNonEmptyString,
+  issuedAt: IsoDateTime,
+});
+export type RotateTokenResult = typeof RotateTokenResult.Type;
+
+export const RevokeTokenInput = Schema.Struct({
+  tokenId: TrimmedNonEmptyString,
+});
+export type RevokeTokenInput = typeof RevokeTokenInput.Type;
+
+export const RevokeTokenResult = Schema.Struct({
+  tokenId: TrimmedNonEmptyString,
+  revoked: Schema.Boolean,
+});
+export type RevokeTokenResult = typeof RevokeTokenResult.Type;
+
+export const ListTokensResult = Schema.Struct({
+  tokens: Schema.Array(PairingTokenInfo),
+});
+export type ListTokensResult = typeof ListTokensResult.Type;

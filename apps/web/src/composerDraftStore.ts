@@ -948,35 +948,36 @@ function hydratePersistedComposerAttachmentFile(
 function hydrateAttachmentsFromPersisted(
   attachments: ReadonlyArray<PersistedComposerAttachment>,
 ): ComposerAttachment[] {
-  return attachments.flatMap((attachment) => {
+  const hydrated: ComposerAttachment[] = [];
+  for (const attachment of attachments) {
     const file = hydratePersistedComposerAttachmentFile(attachment);
-    if (!file) return [];
-
-    if (attachment.type === "image") {
-      return [
-        {
-          type: "image" as const,
-          id: attachment.id,
-          name: attachment.name,
-          mimeType: attachment.mimeType,
-          sizeBytes: attachment.sizeBytes,
-          previewUrl: attachment.dataUrl,
-          file,
-        } satisfies ComposerImageAttachment,
-      ];
+    if (!file) {
+      continue;
     }
 
-    return [
-      {
-        type: "file" as const,
+    if (attachment.type === "image") {
+      hydrated.push({
+        type: "image" as const,
         id: attachment.id,
         name: attachment.name,
         mimeType: attachment.mimeType,
         sizeBytes: attachment.sizeBytes,
+        previewUrl: attachment.dataUrl,
         file,
-      } satisfies ComposerFileAttachment,
-    ];
-  });
+      } satisfies ComposerImageAttachment);
+      continue;
+    }
+
+    hydrated.push({
+      type: "file" as const,
+      id: attachment.id,
+      name: attachment.name,
+      mimeType: attachment.mimeType,
+      sizeBytes: attachment.sizeBytes,
+      file,
+    } satisfies ComposerFileAttachment);
+  }
+  return hydrated;
 }
 
 function toHydratedThreadDraft(
@@ -1534,10 +1535,7 @@ export const useComposerDraftStore = create<ComposerDraftStoreState>()(
             const dedupKey = composerAttachmentDedupKey(attachment);
             if (existingIds.has(attachment.id) || existingDedupKeys.has(dedupKey)) {
               // Avoid revoking a blob URL that's still referenced by an accepted image.
-              if (
-                attachment.type === "image" &&
-                !acceptedPreviewUrls.has(attachment.previewUrl)
-              ) {
+              if (attachment.type === "image" && !acceptedPreviewUrls.has(attachment.previewUrl)) {
                 revokeObjectPreviewUrl(attachment.previewUrl);
               }
               continue;
@@ -1584,9 +1582,7 @@ export const useComposerDraftStore = create<ComposerDraftStoreState>()(
           }
           const nextDraft: ComposerThreadDraftState = {
             ...current,
-            attachments: current.attachments.filter(
-              (attachment) => attachment.id !== attachmentId,
-            ),
+            attachments: current.attachments.filter((attachment) => attachment.id !== attachmentId),
             nonPersistedAttachmentIds: current.nonPersistedAttachmentIds.filter(
               (id) => id !== attachmentId,
             ),

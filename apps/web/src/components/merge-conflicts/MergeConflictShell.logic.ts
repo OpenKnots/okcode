@@ -76,9 +76,9 @@ export function buildConflictRecommendation(input: {
       candidateId: null,
       recommendedAction: null,
       tone: "neutral",
-      title: "Resolve a pull request link to start.",
+      title: "Resolve a pull request to start.",
       detail:
-        "Paste a GitHub pull request URL to inspect mergeability, pull candidate resolutions, and stage a human-readable handoff note.",
+        "Paste a GitHub pull request URL or enter 123 / #123 to inspect mergeability, pull candidate resolutions, and stage a human-readable handoff note.",
     };
   }
 

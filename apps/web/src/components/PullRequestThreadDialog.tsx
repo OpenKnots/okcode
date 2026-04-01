@@ -191,7 +191,7 @@ export function PullRequestThreadDialog({
             <span className="text-xs font-medium text-foreground">Pull request</span>
             <Input
               ref={referenceInputRef}
-              placeholder="https://github.com/owner/repo/pull/42 or #42"
+              placeholder="https://github.com/owner/repo/pull/42, #42, or 42"
               value={reference}
               onChange={(event) => {
                 setReferenceDirty(true);

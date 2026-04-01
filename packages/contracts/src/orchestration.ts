@@ -938,6 +938,9 @@ export const ThreadTurnDiff = TurnCountRange.mapFields(
   { unsafePreserveChecks: true },
 );
 
+export const OrchestrationDiffContextMode = Schema.Literals(["patch", "full"]);
+export type OrchestrationDiffContextMode = typeof OrchestrationDiffContextMode.Type;
+
 export const ProviderSessionRuntimeStatus = Schema.Literals([
   "starting",
   "running",
@@ -983,7 +986,11 @@ const OrchestrationGetSnapshotResult = OrchestrationReadModel;
 export type OrchestrationGetSnapshotResult = typeof OrchestrationGetSnapshotResult.Type;
 
 export const OrchestrationGetTurnDiffInput = TurnCountRange.mapFields(
-  Struct.assign({ threadId: ThreadId }),
+  Struct.assign({
+    threadId: ThreadId,
+    relativePath: Schema.optional(TrimmedNonEmptyString),
+    contextMode: Schema.optional(OrchestrationDiffContextMode),
+  }),
   { unsafePreserveChecks: true },
 );
 export type OrchestrationGetTurnDiffInput = typeof OrchestrationGetTurnDiffInput.Type;
@@ -994,6 +1001,8 @@ export type OrchestrationGetTurnDiffResult = typeof OrchestrationGetTurnDiffResu
 export const OrchestrationGetFullThreadDiffInput = Schema.Struct({
   threadId: ThreadId,
   toTurnCount: NonNegativeInt,
+  relativePath: Schema.optional(TrimmedNonEmptyString),
+  contextMode: Schema.optional(OrchestrationDiffContextMode),
 });
 export type OrchestrationGetFullThreadDiffInput = typeof OrchestrationGetFullThreadDiffInput.Type;
 

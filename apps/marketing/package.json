@@ -7,7 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "preview": "next start",
-    "typecheck": "next typegen && mkdir -p .next/types && touch .next/types/cache-life.d.ts && tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit -p tsconfig.typecheck.json",
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {

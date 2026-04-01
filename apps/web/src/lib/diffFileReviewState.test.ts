@@ -76,6 +76,20 @@ describe("setDiffFileContextMode", () => {
       "src/a.ts": { accepted: true, collapsed: false, contextMode: "full" },
     });
   });
+
+  it("auto-expands a file when switching to full context", () => {
+    expect(
+      setDiffFileContextMode(
+        {
+          "src/a.ts": { accepted: false, collapsed: true, contextMode: "patch" },
+        },
+        "src/a.ts",
+        "full",
+      ),
+    ).toEqual({
+      "src/a.ts": { accepted: false, collapsed: false, contextMode: "full" },
+    });
+  });
 });
 
 describe("expandDiffFile", () => {

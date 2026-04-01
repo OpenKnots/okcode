@@ -66,6 +66,7 @@ export function setDiffFileContextMode(
     ...current,
     [path]: {
       ...previous,
+      collapsed: contextMode === "full" ? false : previous.collapsed,
       contextMode,
     },
   };

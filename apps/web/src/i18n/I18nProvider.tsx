@@ -88,8 +88,13 @@ export function I18nProvider({ children }: { children: ReactNode }) {
         locale={resolvedLocale}
         defaultLocale="en"
         messages={activeMessages}
-        onError={(error) => {
-          if ("code" in error && error.code === "MISSING_TRANSLATION") {
+        onError={(error: unknown) => {
+          if (
+            typeof error === "object" &&
+            error !== null &&
+            "code" in error &&
+            error.code === "MISSING_TRANSLATION"
+          ) {
             return;
           }
 

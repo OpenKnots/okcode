@@ -11,6 +11,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - CLI npm package name is `okcodes`. Install with `npm install -g okcodes`; the `okcode` binary name is unchanged.
 
+## [0.0.10] - 2026-04-01
+
+See [docs/releases/v0.0.10.md](docs/releases/v0.0.10.md) for full notes and [docs/releases/v0.0.10/assets.md](docs/releases/v0.0.10/assets.md) for release asset inventory.
+
+### Added
+
+- [codex] Add file tree context actions.
+- [codex] Add accept-all diff review action.
+
+### Changed
+
+- Replace File View sidebar link with Skills page.
+- Redesign marketing site with product-aligned landing page.
+- Unify git action flows and reduce sticky thread errors.
+- [codex] Use Carbon as default theme.
+- Redesign marketing site.
+- Replace marketing site with Next starter and refresh home placeholders.
+- Polish skill detail dialog layout.
+- Polish skill detail dialog and update Discord link.
+
+### Fixed
+
+- Fix marketing Vercel build script resolution.
+- Fix marketing Vercel output config.
+- Fix diff panel scrolling and polish skill dialogs.
+
+### Removed
+
+- Remove YouTube player.
+- [codex] remove midnight clarity theme.
+
 ## [0.0.9] - 2026-04-01
 
 See [docs/releases/v0.0.9.md](docs/releases/v0.0.9.md) for full notes and [docs/releases/v0.0.9/assets.md](docs/releases/v0.0.9/assets.md) for release asset inventory.
@@ -241,3 +272,4 @@ First public version tag. See [docs/releases/v0.0.1.md](docs/releases/v0.0.1.md)
 [0.0.6]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.6
 [0.0.8]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.8
 [0.0.9]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.9
+[0.0.10]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.10

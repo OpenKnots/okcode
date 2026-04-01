@@ -32,8 +32,8 @@ export function Footer() {
   };
 
   return (
-    <footer className="border-t border-border py-16 px-6 bg-background">
-      <div className="max-w-6xl mx-auto">
+    <footer className="border-t border-border py-20 px-6 bg-background">
+      <div className="max-w-7xl mx-auto">
         <div className="grid grid-cols-2 md:grid-cols-6 gap-8">
           {/* Logo - Use semantic token */}
           <div className="col-span-2 md:col-span-1">
@@ -58,8 +58,8 @@ export function Footer() {
           {/* Links */}
           {Object.entries(footerLinks).map(([category, links]) => (
             <div key={category}>
-              <h3 className="text-foreground font-medium text-sm mb-4">{category}</h3>
-              <ul className="space-y-3">
+              <h3 className="text-foreground font-bold text-base mb-5">{category}</h3>
+              <ul className="space-y-3.5">
                 {links.map((link) => (
                   <li key={link}>
                     <a

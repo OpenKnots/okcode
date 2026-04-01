@@ -14,7 +14,7 @@ const agents = [
 
 export function AISection() {
   return (
-    <div className="relative z-20 py-40 bg-background">
+    <div className="relative z-20 py-48 bg-background">
       <div
         className="absolute top-0 left-0 right-0 pointer-events-none"
         style={{
@@ -23,7 +23,7 @@ export function AISection() {
         }}
       />
       <div className="w-full flex justify-center px-6">
-        <div className="w-full max-w-5xl">
+        <div className="w-full max-w-7xl">
           {/* Section label - Use semantic tokens */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -43,12 +43,10 @@ export function AISection() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.1 }}
-            className="text-3xl sm:text-4xl md:text-5xl lg:text-[56px] text-foreground max-w-3xl mb-8"
+            className="text-4xl sm:text-5xl md:text-6xl lg:text-[68px] text-foreground max-w-4xl mb-10 font-bold"
             style={{
-              letterSpacing: "-0.0325em",
-              fontVariationSettings: '"opsz" 28',
-              fontWeight: 538,
-              lineHeight: 1.1,
+              letterSpacing: "-0.02em",
+              lineHeight: 1.08,
             }}
           >
             AI-assisted product development
@@ -60,7 +58,7 @@ export function AISection() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="text-muted-foreground max-w-md mb-8"
+            className="text-muted-foreground max-w-lg mb-10 text-lg"
           >
             <span className="text-foreground font-medium">Sprint for Agents.</span> Choose from a
             variety of AI agents and start delegating work, from code generation to other technical
@@ -73,7 +71,7 @@ export function AISection() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.3 }}
-            className="px-5 py-2.5 bg-secondary text-secondary-foreground rounded-lg border border-border hover:bg-accent transition-colors text-sm flex items-center gap-2 mb-16"
+            className="px-7 py-3.5 bg-secondary text-secondary-foreground rounded-2xl border border-border hover:bg-accent hover:scale-105 transition-all text-base font-semibold flex items-center gap-2 mb-16 shadow-sm"
           >
             Learn more
             <ChevronRight className="w-4 h-4" />
@@ -214,16 +212,16 @@ export function AISection() {
             <div className="grid grid-cols-1 md:grid-cols-2">
               {/* Left column - Use semantic tokens */}
               <div className="border-t border-r border-b border-border/60 pt-12 pr-12 pb-16">
-                <h3 className="text-secondary-foreground font-medium text-xl mb-3">
+                <h3 className="text-secondary-foreground font-bold text-2xl mb-4">
                   Self-driving product operations
                 </h3>
-                <p className="text-muted-foreground text-base mb-8">
+                <p className="text-muted-foreground text-lg mb-8">
                   Streamline your product development workflows with AI assistance for routine,
                   manual tasks.
                 </p>
 
                 {/* Triage Intelligence Card - Use semantic tokens */}
-                <div className="bg-card/30 border border-border/60 rounded-xl p-5">
+                <div className="bg-card/30 border border-border/60 rounded-3xl p-6">
                   <div className="flex items-center gap-2 mb-5">
                     <svg
                       className="w-4 h-4 text-muted-foreground"
@@ -303,13 +301,13 @@ export function AISection() {
 
               {/* Right column - Use semantic tokens */}
               <div className="border-t border-b border-border/60 pt-12 pl-12 pb-16">
-                <h3 className="text-secondary-foreground font-medium text-xl mb-3">Sprint MCP</h3>
-                <p className="text-muted-foreground text-base mb-8">
+                <h3 className="text-secondary-foreground font-bold text-2xl mb-4">Sprint MCP</h3>
+                <p className="text-muted-foreground text-lg mb-8">
                   Connect Sprint to your favorite tools including Cursor, Claude, ChatGPT, and more.
                 </p>
 
                 {/* MCP Code Snippet - Use semantic tokens for code syntax */}
-                <div className="bg-card/30 border border-border/60 rounded-xl p-5 font-mono text-sm">
+                <div className="bg-card/30 border border-border/60 rounded-3xl p-6 font-mono text-sm">
                   <p className="text-muted-foreground/70 mb-3">//mcp.sprint.app/sse</p>
                   <div className="space-y-1 mb-6">
                     <p>

@@ -208,7 +208,7 @@ jobs:
             printf '%s' "$APPLE_API_KEY" > "$key_path"
             export APPLE_API_KEY="$key_path"
             echo "macOS signing + notarization enabled."
-            args+=(--signed)
+            args+=(--signed --require-signed)
           elif [[ "${{ matrix.platform }}" == "win" ]]; then
             if has_all \
               "$AZURE_TENANT_ID" \

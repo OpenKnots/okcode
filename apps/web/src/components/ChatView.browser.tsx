@@ -994,6 +994,7 @@ describe("ChatView timeline estimator parity (full app)", () => {
         [THREAD_ID]: {
           projectId: PROJECT_ID,
           createdAt: NOW_ISO,
+          title: "New thread",
           runtimeMode: "full-access",
           interactionMode: "chat",
           branch: null,
@@ -1051,6 +1052,7 @@ describe("ChatView timeline estimator parity (full app)", () => {
         [THREAD_ID]: {
           projectId: PROJECT_ID,
           createdAt: NOW_ISO,
+          title: "New thread",
           runtimeMode: "full-access",
           interactionMode: "chat",
           branch: null,
@@ -1127,6 +1129,7 @@ describe("ChatView timeline estimator parity (full app)", () => {
         [THREAD_ID]: {
           projectId: PROJECT_ID,
           createdAt: NOW_ISO,
+          title: "New thread",
           runtimeMode: "full-access",
           interactionMode: "chat",
           branch: "feature/draft",
@@ -1476,6 +1479,31 @@ describe("ChatView timeline estimator parity (full app)", () => {
         .element(page.getByRole("button", { name: "Manage hotkeys" }))
         .toBeInTheDocument();
       await expect.element(page.getByTestId("composer-editor")).toBeInTheDocument();
+    } finally {
+      await mounted.cleanup();
+    }
+  });
+
+  it("shows a project quick-new button on desktop and creates a thread from it", async () => {
+    const mounted = await mountChatView({
+      viewport: DEFAULT_VIEWPORT,
+      snapshot: createSnapshotForTargetUser({
+        targetMessageId: "msg-user-project-quick-new-thread-test" as MessageId,
+        targetText: "project quick new thread test",
+      }),
+    });
+
+    try {
+      const quickNewThreadButton = page.getByTestId("project-quick-new-thread-button");
+      await expect.element(quickNewThreadButton).toBeInTheDocument();
+
+      await quickNewThreadButton.click();
+
+      await waitForURL(
+        mounted.router,
+        (path) => UUID_ROUTE_RE.test(path),
+        "Route should have changed to a new draft thread UUID from the project quick-new button.",
+      );
     } finally {
       await mounted.cleanup();
     }

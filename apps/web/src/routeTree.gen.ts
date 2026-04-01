@@ -16,6 +16,7 @@ import { Route as ChatSkillsRouteImport } from './routes/_chat.skills'
 import { Route as ChatSettingsRouteImport } from './routes/_chat.settings'
 import { Route as ChatPrReviewRouteImport } from './routes/_chat.pr-review'
 import { Route as ChatMergeConflictsRouteImport } from './routes/_chat.merge-conflicts'
+import { Route as ChatFileViewRouteImport } from './routes/_chat.file-view'
 import { Route as ChatThreadIdRouteImport } from './routes/_chat.$threadId'
 
 const ChatRoute = ChatRouteImport.update({
@@ -52,6 +53,11 @@ const ChatMergeConflictsRoute = ChatMergeConflictsRouteImport.update({
   path: '/merge-conflicts',
   getParentRoute: () => ChatRoute,
 } as any)
+const ChatFileViewRoute = ChatFileViewRouteImport.update({
+  id: '/file-view',
+  path: '/file-view',
+  getParentRoute: () => ChatRoute,
+} as any)
 const ChatThreadIdRoute = ChatThreadIdRouteImport.update({
   id: '/$threadId',
   path: '/$threadId',
@@ -61,6 +67,7 @@ const ChatThreadIdRoute = ChatThreadIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof ChatIndexRoute
   '/$threadId': typeof ChatThreadIdRoute
+  '/file-view': typeof ChatFileViewRoute
   '/merge-conflicts': typeof ChatMergeConflictsRoute
   '/plugins': typeof ChatPluginsRoute
   '/pr-review': typeof ChatPrReviewRoute
@@ -69,6 +76,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/$threadId': typeof ChatThreadIdRoute
+  '/file-view': typeof ChatFileViewRoute
   '/merge-conflicts': typeof ChatMergeConflictsRoute
   '/plugins': typeof ChatPluginsRoute
   '/pr-review': typeof ChatPrReviewRoute
@@ -80,6 +88,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_chat': typeof ChatRouteWithChildren
   '/_chat/$threadId': typeof ChatThreadIdRoute
+  '/_chat/file-view': typeof ChatFileViewRoute
   '/_chat/merge-conflicts': typeof ChatMergeConflictsRoute
   '/_chat/plugins': typeof ChatPluginsRoute
   '/_chat/pr-review': typeof ChatPrReviewRoute
@@ -92,17 +101,27 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/$threadId'
+    | '/file-view'
     | '/merge-conflicts'
     | '/plugins'
     | '/pr-review'
     | '/settings'
     | '/skills'
   fileRoutesByTo: FileRoutesByTo
-  to: '/$threadId' | '/merge-conflicts' | '/plugins' | '/pr-review' | '/settings' | '/skills' | '/'
+  to:
+    | '/$threadId'
+    | '/file-view'
+    | '/merge-conflicts'
+    | '/plugins'
+    | '/pr-review'
+    | '/settings'
+    | '/skills'
+    | '/'
   id:
     | '__root__'
     | '/_chat'
     | '/_chat/$threadId'
+    | '/_chat/file-view'
     | '/_chat/merge-conflicts'
     | '/_chat/plugins'
     | '/_chat/pr-review'
@@ -166,6 +185,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatMergeConflictsRouteImport
       parentRoute: typeof ChatRoute
     }
+    '/_chat/file-view': {
+      id: '/_chat/file-view'
+      path: '/file-view'
+      fullPath: '/file-view'
+      preLoaderRoute: typeof ChatFileViewRouteImport
+      parentRoute: typeof ChatRoute
+    }
     '/_chat/$threadId': {
       id: '/_chat/$threadId'
       path: '/$threadId'
@@ -178,6 +204,7 @@ declare module '@tanstack/react-router' {
 
 interface ChatRouteChildren {
   ChatThreadIdRoute: typeof ChatThreadIdRoute
+  ChatFileViewRoute: typeof ChatFileViewRoute
   ChatMergeConflictsRoute: typeof ChatMergeConflictsRoute
   ChatPluginsRoute: typeof ChatPluginsRoute
   ChatPrReviewRoute: typeof ChatPrReviewRoute
@@ -188,6 +215,7 @@ interface ChatRouteChildren {
 
 const ChatRouteChildren: ChatRouteChildren = {
   ChatThreadIdRoute: ChatThreadIdRoute,
+  ChatFileViewRoute: ChatFileViewRoute,
   ChatMergeConflictsRoute: ChatMergeConflictsRoute,
   ChatPluginsRoute: ChatPluginsRoute,
   ChatPrReviewRoute: ChatPrReviewRoute,

@@ -27,6 +27,7 @@ import { collectActiveTerminalThreadIds } from "../lib/terminalStateCleanup";
 import { OnboardingDialog } from "../components/onboarding/OnboardingDialog";
 import { MobilePairingScreen } from "../components/mobile/MobilePairingScreen";
 import { useMobilePairingState } from "../hooks/useMobilePairingState";
+import { I18nProvider } from "../i18n/I18nProvider";
 
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient;
@@ -39,6 +40,14 @@ export const Route = createRootRouteWithContext<{
 });
 
 function RootRouteView() {
+  return (
+    <I18nProvider>
+      <RootRouteContent />
+    </I18nProvider>
+  );
+}
+
+function RootRouteContent() {
   const { isMobileShell, isLoading, pairingState } = useMobilePairingState();
 
   if (isMobileShell && isLoading) {
@@ -80,6 +89,14 @@ function RootRouteView() {
 }
 
 function RootRouteErrorView({ error, reset }: ErrorComponentProps) {
+  return (
+    <I18nProvider>
+      <RootRouteErrorContent error={error} reset={reset} />
+    </I18nProvider>
+  );
+}
+
+function RootRouteErrorContent({ error, reset }: ErrorComponentProps) {
   const message = errorMessage(error);
   const details = errorDetails(error);
 

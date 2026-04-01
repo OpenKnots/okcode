@@ -21,6 +21,12 @@ const GitCoreTestLayer = GitCoreLive.pipe(
   Layer.provide(NodeServices.layer),
 );
 const TestLayer = Layer.mergeAll(NodeServices.layer, GitCoreTestLayer);
+const TEST_GIT_ENV = {
+  ...process.env,
+  GIT_CONFIG_COUNT: "1",
+  GIT_CONFIG_KEY_0: "commit.gpgsign",
+  GIT_CONFIG_VALUE_0: "false",
+};
 
 function makeTmpDir(
   prefix = "git-test-",
@@ -53,7 +59,7 @@ function git(
       operation: "GitCore.test.git",
       cwd,
       args,
-      ...(env ? { env } : {}),
+      env: env ? { ...TEST_GIT_ENV, ...env } : TEST_GIT_ENV,
       timeoutMs: 10_000,
     });
     return result.stdout.trim();
@@ -103,6 +109,7 @@ function initRepoWithCommit(
     yield* core.initRepo({ cwd });
     yield* git(cwd, ["config", "user.email", "test@test.com"]);
     yield* git(cwd, ["config", "user.name", "Test"]);
+    yield* git(cwd, ["config", "commit.gpgsign", "false"]);
     yield* writeTextFile(path.join(cwd, "README.md"), "# test\n");
     yield* git(cwd, ["add", "."]);
     yield* git(cwd, ["commit", "-m", "initial commit"]);
@@ -123,6 +130,7 @@ function initRepoWithCommitOnBranch(
     yield* git(cwd, ["init", `--initial-branch=${initialBranch}`]);
     yield* git(cwd, ["config", "user.email", "test@test.com"]);
     yield* git(cwd, ["config", "user.name", "Test"]);
+    yield* git(cwd, ["config", "commit.gpgsign", "false"]);
     yield* writeTextFile(path.join(cwd, "README.md"), "# test\n");
     yield* git(cwd, ["add", "."]);
     yield* git(cwd, ["commit", "-m", "initial commit"]);

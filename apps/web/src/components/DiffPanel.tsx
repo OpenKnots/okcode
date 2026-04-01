@@ -5,22 +5,25 @@ import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { ThreadId, type TurnId } from "@okcode/contracts";
 import { CheckIcon, ChevronDownIcon, Columns2Icon, Rows3Icon, TextWrapIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { RawPatchViewer } from "~/components/pr-review/RawPatchViewer";
 import { gitBranchesQueryOptions } from "~/lib/gitReactQuery";
 import { checkpointDiffQueryOptions } from "~/lib/providerReactQuery";
 import { cn } from "~/lib/utils";
-import { useCodeViewerStore } from "../codeViewerStore";
+import { useFileViewNavigation } from "~/hooks/useFileViewNavigation";
 import { parseDiffRouteSearch, stripDiffSearchParams } from "../diffRouteSearch";
 import { useTheme } from "../hooks/useTheme";
 import { buildPatchCacheKey } from "../lib/diffRendering";
 import {
   expandDiffFile,
   reconcileDiffFileReviewState,
+  setDiffFileContextMode,
   toggleDiffFileAccepted,
   toggleDiffFileCollapsed,
   type DiffFileReviewStateByPath,
 } from "../lib/diffFileReviewState";
 import { resolveDiffThemeName } from "../lib/diffRendering";
 import { useTurnDiffSummaries } from "../hooks/useTurnDiffSummaries";
+import { useI18n } from "../i18n/useI18n";
 import { useStore } from "../store";
 import { useAppSettings } from "../appSettings";
 import { formatShortTimestamp } from "../timestampFormat";
@@ -165,33 +168,92 @@ function summarizeFileDiffStats(fileDiff: FileDiffMetadata): {
   );
 }
 
+function resolveRenderableFileDiff(
+  renderablePatch: RenderablePatch | null,
+  filePath: string,
+): FileDiffMetadata | null {
+  if (!renderablePatch || renderablePatch.kind !== "files") {
+    return null;
+  }
+  return (
+    renderablePatch.files.find((candidate) => resolveFileDiffPath(candidate) === filePath) ?? null
+  );
+}
+
+interface FileScopedCheckpointDiffInput {
+  threadId: ThreadId | null;
+  fromTurnCount: number | null;
+  toTurnCount: number | null;
+  cacheScope?: string | null;
+  enabled: boolean;
+}
+
 function DiffFileSection(props: {
   fileDiff: FileDiffMetadata;
   filePath: string;
   fileKey: string;
+  checkpointDiffInput: FileScopedCheckpointDiffInput;
   diffRenderMode: DiffRenderMode;
   diffWordWrap: boolean;
   resolvedTheme: "light" | "dark";
   collapsed: boolean;
   accepted: boolean;
+  contextMode: "patch" | "full";
   onOpenInEditor: (filePath: string) => void;
   onToggleCollapsed: (filePath: string) => void;
   onToggleAccepted: (filePath: string) => void;
+  onContextModeChange: (filePath: string, contextMode: "patch" | "full") => void;
 }) {
   const {
     accepted,
+    checkpointDiffInput,
     collapsed,
+    contextMode,
     diffRenderMode,
     diffWordWrap,
     fileDiff,
     fileKey,
     filePath,
+    onContextModeChange,
     onOpenInEditor,
     onToggleAccepted,
     onToggleCollapsed,
     resolvedTheme,
   } = props;
   const stats = summarizeFileDiffStats(fileDiff);
+  const fullContextDiffQuery = useQuery(
+    checkpointDiffQueryOptions({
+      ...checkpointDiffInput,
+      relativePath: filePath,
+      contextMode: "full",
+      enabled: checkpointDiffInput.enabled && !collapsed && contextMode === "full",
+    }),
+  );
+  const fullContextPatch = useMemo(
+    () =>
+      getRenderablePatch(
+        contextMode === "full" ? fullContextDiffQuery.data?.diff : undefined,
+        `diff-panel:file:${resolvedTheme}:${filePath}:full`,
+      ),
+    [contextMode, filePath, fullContextDiffQuery.data?.diff, resolvedTheme],
+  );
+  const fullContextFileDiff =
+    contextMode === "full" ? resolveRenderableFileDiff(fullContextPatch, filePath) : null;
+  const resolvedFileDiff = contextMode === "full" ? (fullContextFileDiff ?? fileDiff) : fileDiff;
+  const fullContextError =
+    contextMode === "full" && fullContextDiffQuery.error
+      ? fullContextDiffQuery.error instanceof Error
+        ? fullContextDiffQuery.error.message
+        : "Failed to load full-file context."
+      : null;
+  const fullContextFallbackMessage =
+    contextMode === "full" &&
+    !fullContextError &&
+    !fullContextDiffQuery.isLoading &&
+    fullContextDiffQuery.data &&
+    fullContextFileDiff === null
+      ? "Full-file context is unavailable for this file. Showing patch context."
+      : null;
 
   return (
     <section
@@ -227,6 +289,25 @@ function DiffFileSection(props: {
             <DiffStatLabel additions={stats.additions} deletions={stats.deletions} />
           </span>
         )}
+        <ToggleGroup
+          className="shrink-0"
+          variant="outline"
+          size="xs"
+          value={[contextMode]}
+          onValueChange={(value) => {
+            const next = value[0];
+            if (next === "patch" || next === "full") {
+              onContextModeChange(filePath, next);
+            }
+          }}
+        >
+          <Toggle aria-label={`Show patch diff for ${filePath}`} value="patch">
+            Patch
+          </Toggle>
+          <Toggle aria-label={`Show full file context for ${filePath}`} value="full">
+            Full
+          </Toggle>
+        </ToggleGroup>
         <Button
           size="xs"
           variant={accepted ? "secondary" : "outline"}
@@ -242,8 +323,21 @@ function DiffFileSection(props: {
       </div>
       {!collapsed && (
         <div key={fileKey}>
+          {contextMode === "full" && fullContextDiffQuery.isLoading ? (
+            <DiffPanelLoadingState label="Loading full file..." />
+          ) : null}
+          {fullContextError ? (
+            <div className="border-b border-border/60 bg-destructive/8 px-3 py-2 text-[11px] text-destructive/80">
+              {fullContextError}
+            </div>
+          ) : null}
+          {fullContextFallbackMessage ? (
+            <div className="border-b border-border/60 bg-amber-500/8 px-3 py-2 text-[11px] text-amber-700 dark:text-amber-300/90">
+              {fullContextFallbackMessage}
+            </div>
+          ) : null}
           <FileDiff
-            fileDiff={fileDiff}
+            fileDiff={resolvedFileDiff}
             options={{
               diffStyle: diffRenderMode === "split" ? "split" : "unified",
               lineDiffType: "none",
@@ -268,6 +362,7 @@ export { DiffWorkerPoolProvider } from "./DiffWorkerPoolProvider";
 export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
   const navigate = useNavigate();
   const { resolvedTheme } = useTheme();
+  const { resolvedLocale } = useI18n();
   const { settings } = useAppSettings();
   const [diffRenderMode, setDiffRenderMode] = useState<DiffRenderMode>("stacked");
   const [diffWordWrap, setDiffWordWrap] = useState(settings.diffWordWrap);
@@ -474,7 +569,7 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
     target?.scrollIntoView({ block: "nearest" });
   }, [selectedFilePath, renderableFiles]);
 
-  const openFileInCodeViewer = useCodeViewerStore((state) => state.openFile);
+  const openFileInCodeViewer = useFileViewNavigation();
   const openDiffFileInCodeViewer = useCallback(
     (filePath: string) => {
       if (!activeCwd) return;
@@ -503,6 +598,12 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
   const onToggleFileCollapsed = useCallback(
     (filePath: string) => {
       updateActiveReviewState((current) => toggleDiffFileCollapsed(current, filePath));
+    },
+    [updateActiveReviewState],
+  );
+  const onChangeFileContextMode = useCallback(
+    (filePath: string, contextMode: "patch" | "full") => {
+      updateActiveReviewState((current) => setDiffFileContextMode(current, filePath, contextMode));
     },
     [updateActiveReviewState],
   );
@@ -554,14 +655,26 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
             {selectedTurnId === null
               ? "All changes"
               : selectedTurn?.turnId === latestSelectedTurnId
-                ? `Latest • ${formatShortTimestamp(selectedTurn.completedAt, settings.timestampFormat)}`
+                ? `Latest • ${formatShortTimestamp(
+                    selectedTurn.completedAt,
+                    settings.timestampFormat,
+                    resolvedLocale,
+                  )}`
                 : `Change ${
                     selectedTurn?.checkpointTurnCount ??
                     (selectedTurn
                       ? inferredCheckpointTurnCountByTurnId[selectedTurn.turnId]
                       : null) ??
                     "?"
-                  } • ${selectedTurn ? formatShortTimestamp(selectedTurn.completedAt, settings.timestampFormat) : ""}`}
+                  } • ${
+                    selectedTurn
+                      ? formatShortTimestamp(
+                          selectedTurn.completedAt,
+                          settings.timestampFormat,
+                          resolvedLocale,
+                        )
+                      : ""
+                  }`}
           </SelectButton>
           <SelectPopup>
             <SelectItem value="all">All changes</SelectItem>
@@ -578,7 +691,11 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
                         }`}
                   </span>
                   <span className="text-muted-foreground text-xs">
-                    {formatShortTimestamp(summary.completedAt, settings.timestampFormat)}
+                    {formatShortTimestamp(
+                      summary.completedAt,
+                      settings.timestampFormat,
+                      resolvedLocale,
+                    )}
                   </span>
                 </span>
               </SelectItem>
@@ -674,17 +791,29 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
                   const fileReviewState = activeReviewState[filePath] ?? {
                     accepted: false,
                     collapsed: true,
+                    contextMode: "patch" as const,
                   };
                   return (
                     <DiffFileSection
                       key={themedFileKey}
                       accepted={fileReviewState.accepted}
+                      checkpointDiffInput={{
+                        threadId: activeThreadId,
+                        fromTurnCount: activeCheckpointRange?.fromTurnCount ?? null,
+                        toTurnCount: activeCheckpointRange?.toTurnCount ?? null,
+                        cacheScope: selectedTurn
+                          ? `turn:${selectedTurn.turnId}`
+                          : conversationCacheScope,
+                        enabled: isGitRepo,
+                      }}
                       collapsed={fileReviewState.collapsed}
+                      contextMode={fileReviewState.contextMode}
                       diffRenderMode={diffRenderMode}
                       diffWordWrap={diffWordWrap}
                       fileDiff={fileDiff}
                       fileKey={themedFileKey}
                       filePath={filePath}
+                      onContextModeChange={onChangeFileContextMode}
                       onOpenInEditor={openDiffFileInCodeViewer}
                       onToggleAccepted={onToggleFileAccepted}
                       onToggleCollapsed={onToggleFileCollapsed}
@@ -694,21 +823,7 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
                 })}
               </Virtualizer>
             ) : (
-              <div className="h-full overflow-auto p-2">
-                <div className="space-y-2">
-                  <p className="text-[11px] text-muted-foreground/75">{renderablePatch.reason}</p>
-                  <pre
-                    className={cn(
-                      "max-h-[72vh] rounded-md border border-border/70 bg-background/70 p-3 font-mono text-[11px] leading-relaxed text-muted-foreground/90",
-                      diffWordWrap
-                        ? "overflow-auto whitespace-pre-wrap wrap-break-word"
-                        : "overflow-auto",
-                    )}
-                  >
-                    {renderablePatch.text}
-                  </pre>
-                </div>
-              </div>
+              <RawPatchViewer text={renderablePatch.text} reason={renderablePatch.reason} />
             )}
           </div>
         </>

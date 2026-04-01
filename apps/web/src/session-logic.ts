@@ -366,11 +366,9 @@ export function deriveActivePlanState(
       if (typeof record.step !== "string") {
         return null;
       }
-      const status =
-        record.status === "completed" || record.status === "inProgress" ? record.status : "pending";
       return {
         step: record.step,
-        status,
+        status: normalizePlanStepStatus(record.status),
       };
     })
     .filter(
@@ -392,6 +390,16 @@ export function deriveActivePlanState(
       : {}),
     steps,
   };
+}
+
+function normalizePlanStepStatus(status: unknown): "pending" | "inProgress" | "completed" {
+  if (status === "completed") {
+    return "completed";
+  }
+  if (status === "inProgress" || status === "in_progress") {
+    return "inProgress";
+  }
+  return "pending";
 }
 
 export function findLatestProposedPlan(

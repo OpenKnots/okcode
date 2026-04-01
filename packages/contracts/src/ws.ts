@@ -143,6 +143,7 @@ export const WS_METHODS = {
 
   // Server meta
   serverGetConfig: "server.getConfig",
+  serverCheckUpdate: "server.checkUpdate",
   serverGetGlobalEnvironmentVariables: "server.getGlobalEnvironmentVariables",
   serverSaveGlobalEnvironmentVariables: "server.saveGlobalEnvironmentVariables",
   serverGetProjectEnvironmentVariables: "server.getProjectEnvironmentVariables",
@@ -245,6 +246,7 @@ const WebSocketRequestBody = Schema.Union([
 
   // Server meta
   tagRequestBody(WS_METHODS.serverGetConfig, Schema.Struct({})),
+  tagRequestBody(WS_METHODS.serverCheckUpdate, Schema.Struct({})),
   tagRequestBody(WS_METHODS.serverGetGlobalEnvironmentVariables, Schema.Struct({})),
   tagRequestBody(
     WS_METHODS.serverSaveGlobalEnvironmentVariables,

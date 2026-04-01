@@ -9,8 +9,8 @@ import {
   TriangleAlertIcon,
 } from "lucide-react";
 import { memo, useCallback, useDeferredValue, useState } from "react";
-import { useCodeViewerStore } from "~/codeViewerStore";
 import { openInPreferredEditor } from "~/editorPreferences";
+import { useFileViewNavigation } from "~/hooks/useFileViewNavigation";
 import {
   projectListDirectoryQueryOptions,
   projectSearchEntriesQueryOptions,
@@ -48,7 +48,7 @@ export const WorkspaceFileTree = memo(function WorkspaceFileTree(props: {
     }));
   }, []);
 
-  const openFileInViewer = useCodeViewerStore((state) => state.openFile);
+  const openFileInViewer = useFileViewNavigation();
   const filtersHaveContent = includePattern.trim().length > 0 || excludePattern.trim().length > 0;
   const filtersVisible = filtersOpen || filtersHaveContent;
 

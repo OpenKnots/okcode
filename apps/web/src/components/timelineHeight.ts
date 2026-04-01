@@ -8,7 +8,8 @@ const ASSISTANT_BASE_HEIGHT_PX = 78;
 const USER_BASE_HEIGHT_PX = 96;
 const ATTACHMENTS_PER_ROW = 2;
 // Attachment thumbnails render with `max-h-[220px]` plus ~8px row gap.
-const USER_ATTACHMENT_ROW_HEIGHT_PX = 228;
+const USER_IMAGE_ATTACHMENT_ROW_HEIGHT_PX = 228;
+const USER_FILE_ATTACHMENT_ROW_HEIGHT_PX = 44;
 const USER_BUBBLE_WIDTH_RATIO = 0.8;
 const USER_BUBBLE_HORIZONTAL_PADDING_PX = 32;
 const ASSISTANT_MESSAGE_HORIZONTAL_PADDING_PX = 8;
@@ -20,7 +21,7 @@ const MIN_ASSISTANT_CHARS_PER_LINE = 20;
 interface TimelineMessageHeightInput {
   role: "user" | "assistant" | "system";
   text: string;
-  attachments?: ReadonlyArray<{ id: string }>;
+  attachments?: ReadonlyArray<{ id: string; type?: "image" | "file" }>;
 }
 
 interface TimelineHeightEstimateLayout {
@@ -89,9 +90,15 @@ export function estimateTimelineMessageHeight(
             .join(" ")
         : displayedUserMessage.visibleText;
     const estimatedLines = estimateWrappedLineCount(renderedText, charsPerLine);
-    const attachmentCount = message.attachments?.length ?? 0;
-    const attachmentRows = Math.ceil(attachmentCount / ATTACHMENTS_PER_ROW);
-    const attachmentHeight = attachmentRows * USER_ATTACHMENT_ROW_HEIGHT_PX;
+    const imageAttachmentCount =
+      message.attachments?.filter((attachment) => attachment.type !== "file").length ?? 0;
+    const fileAttachmentCount =
+      message.attachments?.filter((attachment) => attachment.type === "file").length ?? 0;
+    const imageAttachmentRows = Math.ceil(imageAttachmentCount / ATTACHMENTS_PER_ROW);
+    const fileAttachmentRows = Math.ceil(fileAttachmentCount / ATTACHMENTS_PER_ROW);
+    const attachmentHeight =
+      imageAttachmentRows * USER_IMAGE_ATTACHMENT_ROW_HEIGHT_PX +
+      fileAttachmentRows * USER_FILE_ATTACHMENT_ROW_HEIGHT_PX;
     return USER_BASE_HEIGHT_PX + estimatedLines * LINE_HEIGHT_PX + attachmentHeight;
   }
 

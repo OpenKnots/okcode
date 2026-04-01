@@ -27,6 +27,7 @@ import {
   EyeIcon,
   GlobeIcon,
   HammerIcon,
+  PaperclipIcon,
   type LucideIcon,
   SquarePenIcon,
   TerminalIcon,
@@ -53,6 +54,7 @@ import {
 import { cn } from "~/lib/utils";
 import { type TimestampFormat } from "../../appSettings";
 import { formatTimestamp } from "../../timestampFormat";
+import { useI18n } from "../../i18n/useI18n";
 import {
   buildInlineTerminalContextText,
   formatInlineTerminalContextLabel,
@@ -113,6 +115,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
   shortcutGuides,
   onOpenSettings,
 }: MessagesTimelineProps) {
+  const { resolvedLocale } = useI18n();
   const timelineRootRef = useRef<HTMLDivElement | null>(null);
   const [timelineWidthPx, setTimelineWidthPx] = useState<number | null>(null);
 
@@ -383,7 +386,19 @@ export const MessagesTimeline = memo(function MessagesTimeline({
       {row.kind === "message" &&
         row.message.role === "user" &&
         (() => {
-          const userImages = row.message.attachments ?? [];
+          const userAttachments = row.message.attachments ?? [];
+          const userImages = userAttachments.filter(
+            (
+              attachment,
+            ): attachment is Extract<(typeof userAttachments)[number], { type: "image" }> =>
+              attachment.type === "image",
+          );
+          const userFiles = userAttachments.filter(
+            (
+              attachment,
+            ): attachment is Extract<(typeof userAttachments)[number], { type: "file" }> =>
+              attachment.type === "file",
+          );
           const displayedUserMessage = deriveDisplayedUserMessageState(row.message.text);
           const terminalContexts = displayedUserMessage.contexts;
           const canRevertAgentWork = revertTurnCountByUserMessageId.has(row.message.id);
@@ -400,39 +415,67 @@ export const MessagesTimeline = memo(function MessagesTimeline({
               >
                 {userImages.length > 0 && (
                   <div className="mb-2 grid max-w-[420px] grid-cols-2 gap-2">
-                    {userImages.map(
-                      (image: NonNullable<TimelineMessage["attachments"]>[number]) => (
-                        <div
-                          key={image.id}
-                          className="overflow-hidden rounded-lg border border-border/80 bg-background/70"
+                    {userImages.map((image) => (
+                      <div
+                        key={image.id}
+                        className="overflow-hidden rounded-lg border border-border/80 bg-background/70"
+                      >
+                        {image.previewUrl ? (
+                          <button
+                            type="button"
+                            className="h-full w-full cursor-zoom-in"
+                            aria-label={`Preview ${image.name}`}
+                            onClick={() => {
+                              const preview = buildExpandedImagePreview(userImages, image.id);
+                              if (!preview) return;
+                              onImageExpand(preview);
+                            }}
+                          >
+                            <img
+                              src={image.previewUrl}
+                              alt={image.name}
+                              className="h-full max-h-[220px] w-full object-cover"
+                              onLoad={onTimelineImageLoad}
+                              onError={onTimelineImageLoad}
+                            />
+                          </button>
+                        ) : (
+                          <div className="flex min-h-[72px] items-center justify-center px-2 py-3 text-center text-[11px] text-muted-foreground/70">
+                            {image.name}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {userFiles.length > 0 && (
+                  <div className="mb-2 flex max-w-[420px] flex-wrap gap-2">
+                    {userFiles.map((attachment) => {
+                      const content = (
+                        <>
+                          <PaperclipIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                          <span className="truncate">{attachment.name}</span>
+                        </>
+                      );
+                      return attachment.url ? (
+                        <a
+                          key={attachment.id}
+                          href={attachment.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex max-w-full items-center gap-2 rounded-lg border border-border/80 bg-background/70 px-3 py-2 text-xs transition-colors hover:bg-background"
                         >
-                          {image.previewUrl ? (
-                            <button
-                              type="button"
-                              className="h-full w-full cursor-zoom-in"
-                              aria-label={`Preview ${image.name}`}
-                              onClick={() => {
-                                const preview = buildExpandedImagePreview(userImages, image.id);
-                                if (!preview) return;
-                                onImageExpand(preview);
-                              }}
-                            >
-                              <img
-                                src={image.previewUrl}
-                                alt={image.name}
-                                className="h-full max-h-[220px] w-full object-cover"
-                                onLoad={onTimelineImageLoad}
-                                onError={onTimelineImageLoad}
-                              />
-                            </button>
-                          ) : (
-                            <div className="flex min-h-[72px] items-center justify-center px-2 py-3 text-center text-[11px] text-muted-foreground/70">
-                              {image.name}
-                            </div>
-                          )}
+                          {content}
+                        </a>
+                      ) : (
+                        <div
+                          key={attachment.id}
+                          className="inline-flex max-w-full items-center gap-2 rounded-lg border border-border/80 bg-background/70 px-3 py-2 text-xs"
+                        >
+                          {content}
                         </div>
-                      ),
-                    )}
+                      );
+                    })}
                   </div>
                 )}
                 {(displayedUserMessage.visibleText.trim().length > 0 ||
@@ -467,7 +510,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
                       </span>
                     )}
                     <p className="text-right text-[10px] text-muted-foreground/30">
-                      {formatTimestamp(row.message.createdAt, timestampFormat)}
+                      {formatTimestamp(row.message.createdAt, timestampFormat, resolvedLocale)}
                     </p>
                   </div>
                 </div>
@@ -579,6 +622,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
                       ? formatElapsed(row.durationStart, nowIso)
                       : formatElapsed(row.durationStart, row.message.completedAt),
                     timestampFormat,
+                    resolvedLocale,
                   )}
                 </p>
               </div>
@@ -795,9 +839,10 @@ function formatMessageMeta(
   createdAt: string,
   duration: string | null,
   timestampFormat: TimestampFormat,
+  locale: ReturnType<typeof useI18n>["resolvedLocale"],
 ): string {
-  if (!duration) return formatTimestamp(createdAt, timestampFormat);
-  return `${formatTimestamp(createdAt, timestampFormat)} • ${duration}`;
+  if (!duration) return formatTimestamp(createdAt, timestampFormat, locale);
+  return `${formatTimestamp(createdAt, timestampFormat, locale)} • ${duration}`;
 }
 
 const UserMessageTerminalContextInlineLabel = memo(

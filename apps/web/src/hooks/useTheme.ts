@@ -92,30 +92,66 @@ const FONT_FAMILY_MAP: Record<FontFamily, string> = {
     '"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
 };
 
+function getRootElement(): HTMLElement | null {
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  const root = document.documentElement;
+  if (!root) {
+    return null;
+  }
+
+  return root;
+}
+
+function hasStyleTarget(
+  root: HTMLElement | null,
+): root is HTMLElement & { style: CSSStyleDeclaration } {
+  return typeof root?.style?.setProperty === "function";
+}
+
+function hasClassListTarget(
+  root: HTMLElement | null,
+): root is HTMLElement & { classList: DOMTokenList } {
+  return (
+    typeof root?.classList?.add === "function" &&
+    typeof root.classList.remove === "function" &&
+    typeof root.classList.toggle === "function"
+  );
+}
+
 function applyFont(fontFamily?: FontFamily) {
   const font = fontFamily ?? getStoredFontFamily();
-  document.documentElement.style.setProperty("--font-ui", FONT_FAMILY_MAP[font]);
+  const root = getRootElement();
+  if (!hasStyleTarget(root)) {
+    return;
+  }
+  root.style.setProperty("--font-ui", FONT_FAMILY_MAP[font]);
 }
 
 function applyTheme(theme: Theme, suppressTransitions = false) {
+  const root = getRootElement();
+  if (!hasClassListTarget(root)) {
+    return;
+  }
+
   if (suppressTransitions) {
-    document.documentElement.classList.add("no-transitions");
+    root.classList.add("no-transitions");
   }
   const isDark = theme === "dark" || (theme === "system" && getSystemDark());
-  document.documentElement.classList.toggle("dark", isDark);
+  root.classList.toggle("dark", isDark);
 
   // Apply color theme class
   const colorTheme = getStoredColorTheme();
   // Remove any existing theme-* classes
-  const existingThemeClasses = Array.from(document.documentElement.classList).filter((cls) =>
-    cls.startsWith("theme-"),
-  );
+  const existingThemeClasses = Array.from(root.classList).filter((cls) => cls.startsWith("theme-"));
   for (const cls of existingThemeClasses) {
-    document.documentElement.classList.remove(cls);
+    root.classList.remove(cls);
   }
   // Add the new theme class if not default
   if (colorTheme !== "default") {
-    document.documentElement.classList.add(`theme-${colorTheme}`);
+    root.classList.add(`theme-${colorTheme}`);
   }
 
   // Apply font family
@@ -125,9 +161,9 @@ function applyTheme(theme: Theme, suppressTransitions = false) {
   if (suppressTransitions) {
     // Force a reflow so the no-transitions class takes effect before removal
     // oxlint-disable-next-line no-unused-expressions
-    document.documentElement.offsetHeight;
+    root.offsetHeight;
     requestAnimationFrame(() => {
-      document.documentElement.classList.remove("no-transitions");
+      root.classList.remove("no-transitions");
     });
   }
 }

@@ -38,6 +38,10 @@ import {
   type CodexAppServerStartSessionInput,
 } from "../../codexAppServerManager.ts";
 import { resolveAttachmentPath } from "../../attachmentStore.ts";
+import {
+  buildFileAttachmentContextText,
+  extractTextAttachmentContents,
+} from "../../attachmentText.ts";
 import { ServerConfig } from "../../config.ts";
 import { type EventNdjsonLogger, makeEventNdjsonLogger } from "./EventNdjsonLogger.ts";
 
@@ -443,6 +447,16 @@ function extractProposedPlanMarkdown(text: string | undefined): string | undefin
   return planMarkdown && planMarkdown.length > 0 ? planMarkdown : undefined;
 }
 
+function normalizePlanStepStatus(status: unknown): "pending" | "inProgress" | "completed" {
+  if (status === "completed") {
+    return "completed";
+  }
+  if (status === "inProgress" || status === "in_progress") {
+    return "inProgress";
+  }
+  return "pending";
+}
+
 function asRuntimeItemId(itemId: ProviderItemId): RuntimeItemId {
   return RuntimeItemId.makeUnsafe(itemId);
 }
@@ -833,10 +847,7 @@ function mapToRuntimeEvents(
             .filter((entry): entry is Record<string, unknown> => entry !== undefined)
             .map((entry) => ({
               step: asString(entry.step) ?? "step",
-              status:
-                entry.status === "completed" || entry.status === "inProgress"
-                  ? entry.status
-                  : "pending",
+              status: normalizePlanStepStatus(entry.status),
             })),
         },
       },
@@ -1381,10 +1392,58 @@ const makeCodexAdapter = (options?: CodexAdapterLiveOptions) =>
 
     const sendTurn: CodexAdapterShape["sendTurn"] = (input) =>
       Effect.gen(function* () {
+        const textFileAttachments: Array<{
+          readonly attachment: Extract<
+            NonNullable<NonNullable<typeof input.attachments>[number]>,
+            { type: "file" }
+          >;
+          readonly text: string;
+        }> = [];
         const codexAttachments = yield* Effect.forEach(
           input.attachments ?? [],
           (attachment) =>
             Effect.gen(function* () {
+              if (attachment.type === "file") {
+                const attachmentPath = resolveAttachmentPath({
+                  attachmentsDir: serverConfig.attachmentsDir,
+                  attachment,
+                });
+                if (!attachmentPath) {
+                  return yield* toRequestError(
+                    input.threadId,
+                    "turn/start",
+                    new Error(`Invalid attachment id '${attachment.id}'.`),
+                  );
+                }
+                const bytes = yield* fileSystem.readFile(attachmentPath).pipe(
+                  Effect.mapError(
+                    (cause) =>
+                      new ProviderAdapterRequestError({
+                        provider: PROVIDER,
+                        method: "turn/start",
+                        detail: toMessage(cause, "Failed to read attachment file."),
+                        cause,
+                      }),
+                  ),
+                );
+                const text = extractTextAttachmentContents({
+                  mimeType: attachment.mimeType,
+                  fileName: attachment.name,
+                  bytes,
+                });
+                if (text === null) {
+                  return yield* toRequestError(
+                    input.threadId,
+                    "turn/start",
+                    new Error(
+                      `Unsupported file attachment '${attachment.name}'. Attach UTF-8 text files or images.`,
+                    ),
+                  );
+                }
+                textFileAttachments.push({ attachment, text });
+                return null;
+              }
+
               const attachmentPath = resolveAttachmentPath({
                 attachmentsDir: serverConfig.attachmentsDir,
                 attachment,
@@ -1413,13 +1472,20 @@ const makeCodexAdapter = (options?: CodexAdapterLiveOptions) =>
               };
             }),
           { concurrency: 1 },
+        ).pipe(
+          Effect.map((attachments) => attachments.filter((attachment) => attachment !== null)),
         );
+
+        const turnInputText = buildFileAttachmentContextText({
+          baseText: input.input?.trim() ?? "",
+          attachments: textFileAttachments,
+        });
 
         return yield* Effect.tryPromise({
           try: () => {
             const managerInput = {
               threadId: input.threadId,
-              ...(input.input !== undefined ? { input: input.input } : {}),
+              ...(turnInputText.length > 0 ? { input: turnInputText } : {}),
               ...(input.model !== undefined ? { model: input.model } : {}),
               ...(input.modelOptions?.codex?.reasoningEffort !== undefined
                 ? { effort: input.modelOptions.codex.reasoningEffort }

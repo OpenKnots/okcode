@@ -75,7 +75,11 @@ import type {
   TerminalSessionSnapshot,
   TerminalWriteInput,
 } from "./terminal";
-import type { ServerUpsertKeybindingInput, ServerUpsertKeybindingResult } from "./server";
+import type {
+  ServerUpsertKeybindingInput,
+  ServerUpsertKeybindingResult,
+  ServerUpdateInfo,
+} from "./server";
 import type {
   SkillListInput,
   SkillListResult,
@@ -348,6 +352,7 @@ export interface NativeApi {
   };
   server: {
     getConfig: () => Promise<ServerConfig>;
+    checkUpdate: () => Promise<ServerUpdateInfo>;
     getGlobalEnvironmentVariables: () => Promise<GlobalEnvironmentVariablesResult>;
     saveGlobalEnvironmentVariables: (
       input: SaveGlobalEnvironmentVariablesInput,

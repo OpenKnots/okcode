@@ -12,11 +12,13 @@ import type { Duplex } from "node:stream";
 import Mime from "@effect/platform-node/Mime";
 import {
   CommandId,
+  DEFAULT_CHAT_FILE_MIME_TYPE,
   DEFAULT_PROVIDER_INTERACTION_MODE,
   type ClientOrchestrationCommand,
   type OrchestrationCommand,
   ORCHESTRATION_WS_CHANNELS,
   ORCHESTRATION_WS_METHODS,
+  PROVIDER_SEND_TURN_MAX_FILE_BYTES,
   PROVIDER_SEND_TURN_MAX_IMAGE_BYTES,
   ProjectId,
   ThreadId,
@@ -75,6 +77,7 @@ import {
   resolveAttachmentPathById,
 } from "./attachmentStore.ts";
 import { parseBase64DataUrl } from "./imageMime.ts";
+import { extractTextAttachmentContents } from "./attachmentText.ts";
 import { AnalyticsService } from "./telemetry/Services/AnalyticsService.ts";
 import { expandHomePath } from "./os-jank.ts";
 import { makeServerPushBus } from "./wsServer/pushBus.ts";
@@ -85,6 +88,25 @@ import { GitActionExecutionError } from "./git/Errors.ts";
 import { EnvironmentVariables } from "./persistence/Services/EnvironmentVariables.ts";
 import { SkillService } from "./skills/SkillService.ts";
 import { resolveRuntimeEnvironment } from "./runtimeEnvironment.ts";
+import { version as serverVersion } from "../package.json" with { type: "json" };
+
+/**
+ * Returns true if `a` is a strictly higher semver than `b`.
+ * Only handles `major.minor.patch` numeric segments; pre-release suffixes
+ * (e.g. `-beta.1`) are ignored. The `okcodes` npm package uses plain
+ * `x.y.z` releases so this is sufficient for update-check purposes.
+ */
+function isNewerSemver(a: string, b: string): boolean {
+  const pa = a.split(".").map(Number);
+  const pb = b.split(".").map(Number);
+  for (let i = 0; i < 3; i++) {
+    const va = pa[i] ?? 0;
+    const vb = pb[i] ?? 0;
+    if (va > vb) return true;
+    if (va < vb) return false;
+  }
+  return false;
+}
 
 /**
  * Remote address from the HTTP upgrade (`request.socket`). The `ws` library often does not
@@ -391,17 +413,43 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
       (attachment) =>
         Effect.gen(function* () {
           const parsed = parseBase64DataUrl(attachment.dataUrl);
-          if (!parsed || !parsed.mimeType.startsWith("image/")) {
+          if (!parsed) {
             return yield* new RouteRequestError({
-              message: `Invalid image attachment payload for '${attachment.name}'.`,
+              message: `Invalid attachment payload for '${attachment.name}'.`,
             });
           }
 
           const bytes = Buffer.from(parsed.base64, "base64");
-          if (bytes.byteLength === 0 || bytes.byteLength > PROVIDER_SEND_TURN_MAX_IMAGE_BYTES) {
-            return yield* new RouteRequestError({
-              message: `Image attachment '${attachment.name}' is empty or too large.`,
+          const normalizedMimeType =
+            parsed.mimeType.trim().toLowerCase() || DEFAULT_CHAT_FILE_MIME_TYPE;
+
+          if (attachment.type === "image") {
+            if (!normalizedMimeType.startsWith("image/")) {
+              return yield* new RouteRequestError({
+                message: `Invalid image attachment payload for '${attachment.name}'.`,
+              });
+            }
+            if (bytes.byteLength === 0 || bytes.byteLength > PROVIDER_SEND_TURN_MAX_IMAGE_BYTES) {
+              return yield* new RouteRequestError({
+                message: `Image attachment '${attachment.name}' is empty or too large.`,
+              });
+            }
+          } else {
+            if (bytes.byteLength === 0 || bytes.byteLength > PROVIDER_SEND_TURN_MAX_FILE_BYTES) {
+              return yield* new RouteRequestError({
+                message: `File attachment '${attachment.name}' is empty or too large.`,
+              });
+            }
+            const extractedText = extractTextAttachmentContents({
+              mimeType: normalizedMimeType,
+              fileName: attachment.name,
+              bytes,
             });
+            if (extractedText === null) {
+              return yield* new RouteRequestError({
+                message: `Unsupported file attachment '${attachment.name}'. Attach UTF-8 text files or images.`,
+              });
+            }
           }
 
           const attachmentId = createAttachmentId(turnStartCommand.threadId);
@@ -411,13 +459,22 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
             });
           }
 
-          const persistedAttachment = {
-            type: "image" as const,
-            id: attachmentId,
-            name: attachment.name,
-            mimeType: parsed.mimeType.toLowerCase(),
-            sizeBytes: bytes.byteLength,
-          };
+          const persistedAttachment =
+            attachment.type === "image"
+              ? {
+                  type: "image" as const,
+                  id: attachmentId,
+                  name: attachment.name,
+                  mimeType: normalizedMimeType,
+                  sizeBytes: bytes.byteLength,
+                }
+              : {
+                  type: "file" as const,
+                  id: attachmentId,
+                  name: attachment.name,
+                  mimeType: normalizedMimeType,
+                  sizeBytes: bytes.byteLength,
+                };
 
           const attachmentPath = resolveAttachmentPath({
             attachmentsDir: serverConfig.attachmentsDir,
@@ -1206,6 +1263,21 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
           providers: providerStatuses,
           availableEditors,
         };
+
+      case WS_METHODS.serverCheckUpdate: {
+        const latestVersion = yield* Effect.tryPromise(async () => {
+          const res = await fetch("https://registry.npmjs.org/okcodes/latest", {
+            headers: { Accept: "application/json" },
+            signal: AbortSignal.timeout(10_000),
+          });
+          if (!res.ok) return null;
+          const data = (await res.json()) as Record<string, unknown>;
+          return typeof data["version"] === "string" ? data["version"] : null;
+        }).pipe(Effect.orElseSucceed(() => null as string | null));
+        const updateAvailable =
+          latestVersion !== null && isNewerSemver(latestVersion, serverVersion);
+        return { currentVersion: serverVersion, latestVersion, updateAvailable };
+      }
 
       case WS_METHODS.serverUpsertKeybinding: {
         const body = stripRequestTag(request.body);

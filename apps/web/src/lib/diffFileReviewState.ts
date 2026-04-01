@@ -1,6 +1,7 @@
 export interface DiffFileReviewState {
   collapsed: boolean;
   accepted: boolean;
+  contextMode: "patch" | "full";
 }
 
 export type DiffFileReviewStateByPath = Record<string, DiffFileReviewState>;
@@ -8,6 +9,7 @@ export type DiffFileReviewStateByPath = Record<string, DiffFileReviewState>;
 const DEFAULT_DIFF_FILE_REVIEW_STATE: DiffFileReviewState = {
   collapsed: true,
   accepted: false,
+  contextMode: "patch",
 };
 
 export function reconcileDiffFileReviewState(
@@ -32,6 +34,7 @@ export function toggleDiffFileAccepted(
     [path]: {
       accepted,
       collapsed: accepted,
+      contextMode: previous.contextMode,
     },
   };
 }
@@ -46,6 +49,25 @@ export function toggleDiffFileCollapsed(
     [path]: {
       ...previous,
       collapsed: !previous.collapsed,
+    },
+  };
+}
+
+export function setDiffFileContextMode(
+  current: DiffFileReviewStateByPath,
+  path: string,
+  contextMode: "patch" | "full",
+): DiffFileReviewStateByPath {
+  const previous = current[path] ?? DEFAULT_DIFF_FILE_REVIEW_STATE;
+  if (previous.contextMode === contextMode) {
+    return current;
+  }
+  return {
+    ...current,
+    [path]: {
+      ...previous,
+      collapsed: contextMode === "full" ? false : previous.collapsed,
+      contextMode,
     },
   };
 }

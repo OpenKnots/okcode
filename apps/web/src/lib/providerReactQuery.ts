@@ -1,4 +1,5 @@
 import {
+  type OrchestrationDiffContextMode,
   OrchestrationGetFullThreadDiffInput,
   OrchestrationGetTurnDiffInput,
   ThreadId,
@@ -11,6 +12,8 @@ interface CheckpointDiffQueryInput {
   threadId: ThreadId | null;
   fromTurnCount: number | null;
   toTurnCount: number | null;
+  relativePath?: string | null;
+  contextMode?: OrchestrationDiffContextMode | null;
   cacheScope?: string | null;
   enabled?: boolean;
 }
@@ -24,6 +27,8 @@ export const providerQueryKeys = {
       input.threadId,
       input.fromTurnCount,
       input.toTurnCount,
+      input.relativePath ?? null,
+      input.contextMode ?? null,
       input.cacheScope ?? null,
     ] as const,
 };
@@ -33,6 +38,8 @@ function decodeCheckpointDiffRequest(input: CheckpointDiffQueryInput) {
     return Schema.decodeUnknownOption(OrchestrationGetFullThreadDiffInput)({
       threadId: input.threadId,
       toTurnCount: input.toTurnCount,
+      ...(input.relativePath ? { relativePath: input.relativePath } : {}),
+      ...(input.contextMode ? { contextMode: input.contextMode } : {}),
     }).pipe(Option.map((fields) => ({ kind: "fullThreadDiff" as const, input: fields })));
   }
 
@@ -40,6 +47,8 @@ function decodeCheckpointDiffRequest(input: CheckpointDiffQueryInput) {
     threadId: input.threadId,
     fromTurnCount: input.fromTurnCount,
     toTurnCount: input.toTurnCount,
+    ...(input.relativePath ? { relativePath: input.relativePath } : {}),
+    ...(input.contextMode ? { contextMode: input.contextMode } : {}),
   }).pipe(Option.map((fields) => ({ kind: "turnDiff" as const, input: fields })));
 }
 

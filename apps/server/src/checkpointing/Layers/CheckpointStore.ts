@@ -240,10 +240,21 @@ const makeCheckpointStore = Effect.gen(function* () {
         });
       }
 
+      const args = [
+        "diff",
+        "--patch",
+        "--minimal",
+        "--no-color",
+        ...(input.contextMode === "full" ? ["--unified=999999"] : []),
+        fromCommitOid,
+        toCommitOid,
+        ...(input.relativePath ? ["--", input.relativePath] : []),
+      ];
+
       const result = yield* git.execute({
         operation,
         cwd: input.cwd,
-        args: ["diff", "--patch", "--minimal", "--no-color", fromCommitOid, toCommitOid],
+        args,
       });
 
       return result.stdout;

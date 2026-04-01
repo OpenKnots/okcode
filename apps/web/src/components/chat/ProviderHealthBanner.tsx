@@ -2,6 +2,10 @@ import { type ServerProviderStatus } from "@okcode/contracts";
 import { memo } from "react";
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 import { CircleAlertIcon } from "lucide-react";
+import {
+  getProviderStatusDescription,
+  getProviderStatusHeading,
+} from "./providerStatusPresentation";
 
 export const ProviderHealthBanner = memo(function ProviderHealthBanner({
   status,
@@ -12,25 +16,16 @@ export const ProviderHealthBanner = memo(function ProviderHealthBanner({
     return null;
   }
 
-  const providerLabel =
-    status.provider === "codex"
-      ? "Codex"
-      : status.provider === "claudeAgent"
-        ? "Anthropic"
-        : status.provider;
-  const defaultMessage =
-    status.status === "error"
-      ? `${providerLabel} provider is unavailable.`
-      : `${providerLabel} provider has limited availability.`;
-  const title = `${providerLabel} provider status`;
+  const title = getProviderStatusHeading(status);
+  const description = getProviderStatusDescription(status);
 
   return (
     <div className="pt-3 mx-auto max-w-7xl">
       <Alert variant={status.status === "error" ? "error" : "warning"}>
         <CircleAlertIcon />
         <AlertTitle>{title}</AlertTitle>
-        <AlertDescription className="line-clamp-3" title={status.message ?? defaultMessage}>
-          {status.message ?? defaultMessage}
+        <AlertDescription className="line-clamp-3" title={description}>
+          {description}
         </AlertDescription>
       </Alert>
     </div>

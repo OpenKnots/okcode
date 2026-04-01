@@ -1,8 +1,4 @@
 ---
-/**
- * Theme Showcase — tabbed visual identity section with CSS-driven crossfade between themes.
- */
-
 interface Theme {
   id: string;
   label: string;
@@ -58,7 +54,7 @@ const defaultId = themes[0]?.id ?? "";
         data-active={theme.id === defaultId ? "true" : "false"}
       >
         <div
-          class="theme-preview-card"
+          class="theme-preview-card kn-card"
           style={`--theme-gradient:${theme.gradient}; --theme-border:${theme.border}; --theme-accent:${theme.accent};`}
         >
           <div class="theme-preview-bar">
@@ -74,7 +70,7 @@ const defaultId = themes[0]?.id ?? "";
             </div>
           </div>
         </div>
-        <div class="theme-note">
+        <div class="theme-note kn-card">
           <h3>{theme.label}</h3>
           <p class="theme-vibe">{theme.vibe}</p>
           <p>{theme.body}</p>

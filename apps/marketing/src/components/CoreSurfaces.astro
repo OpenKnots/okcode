@@ -1,9 +1,4 @@
 ---
-/**
- * Core Surfaces — tabbed spotlight section showing Threads, Diffs, Preview, PR Review, Actions.
- * Uses CSS crossfade transitions and keyboard navigation.
- */
-
 interface Surface {
   id: string;
   label: string;
@@ -21,7 +16,7 @@ const { surfaces } = Astro.props;
 const defaultId = surfaces[0]?.id ?? "";
 ---
 
-<section class="spotlight" data-tab-group data-tab-default={defaultId} data-reveal>
+<section id="surfaces" class="spotlight" data-tab-group data-tab-default={defaultId} data-reveal>
   <div class="spotlight-copy">
     <p class="section-kicker">Core surfaces</p>
     <h2 class="section-title">Built for the way real AI coding sessions actually unfold.</h2>
@@ -51,7 +46,7 @@ const defaultId = surfaces[0]?.id ?? "";
   <div class="spotlight-panels">
     {surfaces.map((item) => (
       <article
-        class="spotlight-panel"
+        class="spotlight-panel kn-card"
         id={`panel-${item.id}`}
         data-tab-panel={item.id}
         role="tabpanel"

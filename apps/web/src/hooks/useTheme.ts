@@ -42,6 +42,7 @@ const STORAGE_KEY = "okcode:theme";
 const COLOR_THEME_STORAGE_KEY = "okcode:color-theme";
 const FONT_FAMILY_STORAGE_KEY = "okcode:font-family";
 const MEDIA_QUERY = "(prefers-color-scheme: dark)";
+export const DEFAULT_COLOR_THEME: ColorTheme = "carbon";
 
 let listeners: Array<() => void> = [];
 let lastSnapshot: ThemeSnapshot | null = null;
@@ -74,7 +75,7 @@ function getStoredColorTheme(): ColorTheme {
   ) {
     return raw;
   }
-  return "default";
+  return DEFAULT_COLOR_THEME;
 }
 
 function getStoredFontFamily(): FontFamily {

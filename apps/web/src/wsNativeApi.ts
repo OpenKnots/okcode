@@ -268,9 +268,13 @@ export function createWsNativeApi(): NativeApi {
     },
     skills: {
       list: (input) => transport.request(WS_METHODS.skillList, input ?? {}),
+      catalog: (input) => transport.request(WS_METHODS.skillCatalog, input ?? {}),
       read: (input) => transport.request(WS_METHODS.skillRead, input),
       create: (input) => transport.request(WS_METHODS.skillCreate, input),
       delete: (input) => transport.request(WS_METHODS.skillDelete, input),
+      install: (input) => transport.request(WS_METHODS.skillInstall, input),
+      uninstall: (input) => transport.request(WS_METHODS.skillUninstall, input),
+      import: (input) => transport.request(WS_METHODS.skillImport, input),
       search: (input) => transport.request(WS_METHODS.skillSearch, input),
     },
     contextMenu: {

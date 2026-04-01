@@ -6,6 +6,7 @@ import {
   detectComposerTrigger,
   expandCollapsedComposerCursor,
   isCollapsedCursorAdjacentToInlineToken,
+  parseSkillManagementCommand,
   parseStandaloneComposerSlashCommand,
   replaceTextRange,
 } from "./composer-logic";
@@ -254,5 +255,25 @@ describe("parseStandaloneComposerSlashCommand", () => {
 
   it("ignores slash commands with extra message text", () => {
     expect(parseStandaloneComposerSlashCommand("/plan explain this")).toBeNull();
+  });
+});
+
+describe("parseSkillManagementCommand", () => {
+  it("defaults bare /skill to browse", () => {
+    expect(parseSkillManagementCommand("/skill")).toEqual({
+      subcommand: "browse",
+      argument: "",
+    });
+  });
+
+  it("parses create command with an argument", () => {
+    expect(parseSkillManagementCommand("/skill create my-skill")).toEqual({
+      subcommand: "create",
+      argument: "my-skill",
+    });
+  });
+
+  it("rejects unknown subcommands", () => {
+    expect(parseSkillManagementCommand("/skill nope")).toBeNull();
   });
 });

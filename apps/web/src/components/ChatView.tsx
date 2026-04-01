@@ -32,9 +32,14 @@ import { useDebouncedValue } from "@tanstack/react-pacer";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { gitBranchesQueryOptions, gitCreateWorktreeMutationOptions } from "~/lib/gitReactQuery";
 import { projectSearchEntriesQueryOptions } from "~/lib/projectReactQuery";
-import { skillListQueryOptions } from "~/lib/skillReactQuery";
+import {
+  skillCatalogQueryOptions,
+  skillListQueryOptions,
+  skillQueryKeys,
+} from "~/lib/skillReactQuery";
 import { serverConfigQueryOptions, serverQueryKeys } from "~/lib/serverReactQuery";
 import { isElectron } from "../env";
+import { openFileReference } from "../fileOpen";
 import { parseDiffRouteSearch, stripDiffSearchParams } from "../diffRouteSearch";
 import {
   clampCollapsedComposerCursor,
@@ -42,6 +47,7 @@ import {
   collapseExpandedComposerCursor,
   detectComposerTrigger,
   expandCollapsedComposerCursor,
+  parseSkillManagementCommand,
   parseStandaloneComposerSlashCommand,
   replaceTextRange,
 } from "../composer-logic";
@@ -118,6 +124,7 @@ import {
 } from "./ui/dialog";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
+import { ensureNativeApi } from "../nativeApi";
 import { Separator } from "./ui/separator";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "./ui/menu";
 import { cn, randomUUID } from "~/lib/utils";
@@ -226,11 +233,19 @@ const isDragTreePath = (dataTransfer: DataTransfer) =>
   dataTransfer.types.includes("application/x-okcode-tree-path");
 const SKILL_SUBCOMMAND_ITEMS: Extract<ComposerCommandItem, { type: "skill-subcommand" }>[] = [
   {
+    id: "skill-sub:browse",
+    type: "skill-subcommand" as const,
+    subcommand: "browse",
+    label: "/skill browse",
+    description: "Open the skills library",
+    usage: "/skill browse",
+  },
+  {
     id: "skill-sub:create",
     type: "skill-subcommand" as const,
     subcommand: "create",
     label: "/skill create",
-    description: "Create a new skill with scaffold template",
+    description: "Create a new skill with a guided scaffold",
     usage: "/skill create <name>",
   },
   {
@@ -258,12 +273,20 @@ const SKILL_SUBCOMMAND_ITEMS: Extract<ComposerCommandItem, { type: "skill-subcom
     usage: "/skill read <name>",
   },
   {
-    id: "skill-sub:delete",
+    id: "skill-sub:install",
     type: "skill-subcommand" as const,
-    subcommand: "delete",
-    label: "/skill delete",
+    subcommand: "install",
+    label: "/skill install",
+    description: "Install a recommended skill",
+    usage: "/skill install <name>",
+  },
+  {
+    id: "skill-sub:uninstall",
+    type: "skill-subcommand" as const,
+    subcommand: "uninstall",
+    label: "/skill uninstall",
     description: "Remove an installed skill",
-    usage: "/skill delete <name>",
+    usage: "/skill uninstall <name>",
   },
   {
     id: "skill-sub:import",
@@ -1170,7 +1193,17 @@ export default function ChatView({ threadId }: ChatViewProps) {
       enabled: composerTriggerKind === "slash-skill" || composerTriggerKind === "slash-command",
     }),
   );
+  const skillCatalogQuery = useQuery(
+    skillCatalogQueryOptions({
+      cwd: gitCwd,
+      enabled: composerTriggerKind === "slash-skill",
+    }),
+  );
   const installedSkills = useMemo(() => skillsQuery.data?.skills ?? [], [skillsQuery.data?.skills]);
+  const catalogSkills = useMemo(
+    () => skillCatalogQuery.data?.skills ?? [],
+    [skillCatalogQuery.data?.skills],
+  );
   const composerMenuItems = useMemo<ComposerCommandItem[]>(() => {
     if (!composerTrigger) return [];
     if (composerTrigger.kind === "path") {
@@ -1192,14 +1225,24 @@ export default function ChatView({ threadId }: ChatViewProps) {
         const subcommandItems: ComposerCommandItem[] = SKILL_SUBCOMMAND_ITEMS;
         const skillItems: ComposerCommandItem[] = installedSkills.map((skill) => ({
           id: `skill:${skill.scope}:${skill.name}`,
-          type: "skill" as const,
+          type: "skill-installed" as const,
           skillName: skill.name,
           scope: skill.scope as "global" | "project",
           label: `/${skill.name}`,
           description: skill.description,
           tags: skill.tags,
         }));
-        return [...subcommandItems, ...skillItems];
+        const catalogItems: ComposerCommandItem[] = catalogSkills
+          .filter((skill) => !skill.installed && !skill.system)
+          .map((skill) => ({
+            id: `skill-catalog:${skill.id}`,
+            type: "skill-catalog" as const,
+            skillId: skill.id,
+            label: `/skill install ${skill.name.toLowerCase()}`,
+            description: skill.description,
+            tags: skill.tags,
+          }));
+        return [...subcommandItems, ...skillItems, ...catalogItems];
       }
 
       // Filter subcommands and skills by query
@@ -1216,15 +1259,32 @@ export default function ChatView({ threadId }: ChatViewProps) {
         )
         .map((skill) => ({
           id: `skill:${skill.scope}:${skill.name}`,
-          type: "skill" as const,
+          type: "skill-installed" as const,
           skillName: skill.name,
           scope: skill.scope as "global" | "project",
           label: `/${skill.name}`,
           description: skill.description,
           tags: skill.tags,
         }));
+      const catalogItems: ComposerCommandItem[] = catalogSkills
+        .filter(
+          (skill) =>
+            !skill.installed &&
+            !skill.system &&
+            (skill.name.toLowerCase().includes(query) ||
+              skill.description.toLowerCase().includes(query) ||
+              skill.tags.some((tag) => tag.toLowerCase().includes(query))),
+        )
+        .map((skill) => ({
+          id: `skill-catalog:${skill.id}`,
+          type: "skill-catalog" as const,
+          skillId: skill.id,
+          label: `/skill install ${skill.name.toLowerCase()}`,
+          description: skill.description,
+          tags: skill.tags,
+        }));
 
-      return [...subcommandItems, ...skillItems];
+      return [...subcommandItems, ...skillItems, ...catalogItems];
     }
 
     if (composerTrigger.kind === "slash-command") {
@@ -1268,7 +1328,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
 
       const skillItems: ComposerCommandItem[] = installedSkills.map((skill) => ({
         id: `skill:${skill.scope}:${skill.name}`,
-        type: "skill" as const,
+        type: "skill-installed" as const,
         skillName: skill.name,
         scope: skill.scope as "global" | "project",
         label: `/${skill.name}`,
@@ -1285,7 +1345,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
         if (item.type === "slash-command") {
           return item.command.includes(query) || item.label.slice(1).includes(query);
         }
-        if (item.type === "skill") {
+        if (item.type === "skill-installed") {
           return item.skillName.includes(query) || item.description.toLowerCase().includes(query);
         }
         return false;
@@ -1308,7 +1368,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
         label: name,
         description: `${providerLabel} · ${slug}`,
       }));
-  }, [composerTrigger, searchableModelOptions, workspaceEntries, installedSkills]);
+  }, [catalogSkills, composerTrigger, searchableModelOptions, workspaceEntries, installedSkills]);
   const composerMenuOpen = Boolean(composerTrigger);
   const activeComposerMenuItem = useMemo(
     () =>
@@ -2901,6 +2961,152 @@ export default function ChatView({ threadId }: ChatViewProps) {
       setComposerTrigger(null);
       return;
     }
+    const skillManagementCommand =
+      composerImagesForSend.length === 0 && sendableComposerTerminalContexts.length === 0
+        ? parseSkillManagementCommand(trimmed)
+        : null;
+    if (skillManagementCommand) {
+      const api = ensureNativeApi();
+      try {
+        if (skillManagementCommand.subcommand === "browse") {
+          void navigate({ to: "/skills", search: { create: undefined, name: undefined } });
+        } else if (skillManagementCommand.subcommand === "create") {
+          void navigate({
+            to: "/skills",
+            search: {
+              create: "1",
+              name: skillManagementCommand.argument
+                ? skillManagementCommand.argument.split(/\s+/)[0]
+                : undefined,
+            },
+          });
+        } else if (skillManagementCommand.subcommand === "list") {
+          const result = await api.skills.list(gitCwd ? { cwd: gitCwd } : {});
+          toastManager.add({
+            type: "info",
+            title: `Installed skills: ${result.skills.length}`,
+            description:
+              result.skills.length > 0
+                ? result.skills
+                    .slice(0, 8)
+                    .map((skill) => `/${skill.name}`)
+                    .join(", ")
+                : "No skills are currently installed for this context.",
+          });
+        } else if (skillManagementCommand.subcommand === "search") {
+          if (!skillManagementCommand.argument) {
+            throw new Error("Usage: /skill search <query>");
+          }
+          const result = await api.skills.search({
+            query: skillManagementCommand.argument,
+            ...(gitCwd ? { cwd: gitCwd } : {}),
+          });
+          toastManager.add({
+            type: "info",
+            title: `Matching skills: ${result.skills.length}`,
+            description:
+              result.skills.length > 0
+                ? result.skills
+                    .slice(0, 8)
+                    .map((skill) => `/${skill.name}`)
+                    .join(", ")
+                : "No skills matched that query.",
+          });
+        } else if (skillManagementCommand.subcommand === "read") {
+          if (!skillManagementCommand.argument) {
+            throw new Error("Usage: /skill read <name>");
+          }
+          const result = await api.skills.read({
+            name: skillManagementCommand.argument,
+            ...(gitCwd ? { cwd: gitCwd } : {}),
+          });
+          await openFileReference({
+            api,
+            cwd: gitCwd ?? undefined,
+            targetPath: result.path,
+            preferExternal: true,
+            openInViewer: () => undefined,
+          });
+        } else if (skillManagementCommand.subcommand === "install") {
+          if (!skillManagementCommand.argument) {
+            throw new Error("Usage: /skill install <name>");
+          }
+          const [skillName, scopeFlag] = skillManagementCommand.argument.split(/\s+--scope\s+/);
+          if (!skillName) {
+            throw new Error("Usage: /skill install <name>");
+          }
+          const scope = scopeFlag?.trim() === "project" && gitCwd ? "project" : "global";
+          const catalog = await api.skills.catalog(gitCwd ? { cwd: gitCwd } : {});
+          const target = catalog.skills.find(
+            (skill) =>
+              skill.id === skillName || skill.name.toLowerCase() === skillName.toLowerCase(),
+          );
+          if (!target) {
+            throw new Error(`Bundled skill "${skillName}" not found`);
+          }
+          await api.skills.install({
+            id: target.id,
+            scope,
+            ...(scope === "project" && gitCwd ? { cwd: gitCwd } : {}),
+          });
+          void queryClient.invalidateQueries({ queryKey: skillQueryKeys.all });
+          toastManager.add({
+            type: "success",
+            title: `Installed /${target.name.toLowerCase()}`,
+          });
+        } else if (skillManagementCommand.subcommand === "uninstall") {
+          if (!skillManagementCommand.argument) {
+            throw new Error("Usage: /skill uninstall <name>");
+          }
+          const [skillName, scopeFlag] = skillManagementCommand.argument.split(/\s+--scope\s+/);
+          if (!skillName) {
+            throw new Error("Usage: /skill uninstall <name>");
+          }
+          const scope = scopeFlag?.trim() === "project" && gitCwd ? "project" : "global";
+          await api.skills.uninstall({
+            name: skillName,
+            scope,
+            ...(scope === "project" && gitCwd ? { cwd: gitCwd } : {}),
+          });
+          void queryClient.invalidateQueries({ queryKey: skillQueryKeys.all });
+          toastManager.add({
+            type: "success",
+            title: `Removed /${skillName}`,
+          });
+        } else if (skillManagementCommand.subcommand === "import") {
+          if (!skillManagementCommand.argument) {
+            throw new Error("Usage: /skill import <path>");
+          }
+          const [importPath, scopeFlag] = skillManagementCommand.argument.split(/\s+--scope\s+/);
+          if (!importPath) {
+            throw new Error("Usage: /skill import <path>");
+          }
+          const scope = scopeFlag?.trim() === "project" && gitCwd ? "project" : "global";
+          const result = await api.skills.import({
+            path: importPath,
+            scope,
+            ...(scope === "project" && gitCwd ? { cwd: gitCwd } : {}),
+          });
+          void queryClient.invalidateQueries({ queryKey: skillQueryKeys.all });
+          toastManager.add({
+            type: "success",
+            title: `Imported /${result.name}`,
+          });
+        }
+      } catch (error) {
+        toastManager.add({
+          type: "error",
+          title: "Skill command failed",
+          description: error instanceof Error ? error.message : String(error),
+        });
+      }
+      promptRef.current = "";
+      clearComposerDraftContent(activeThread.id);
+      setComposerHighlightedItemId(null);
+      setComposerCursor(0);
+      setComposerTrigger(null);
+      return;
+    }
     if (!hasSendableContent) {
       if (expiredTerminalContextCount > 0) {
         const toastCopy = buildExpiredTerminalContextToastCopy(
@@ -3907,7 +4113,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
         }
         return;
       }
-      if (item.type === "skill") {
+      if (item.type === "skill-installed") {
         const replacement = `/${item.skillName} `;
         const replacementRangeEnd = extendReplacementRangeForTrailingSpace(
           snapshot.value,
@@ -3925,7 +4131,45 @@ export default function ChatView({ threadId }: ChatViewProps) {
         }
         return;
       }
+      if (item.type === "skill-catalog") {
+        const replacement = `/skill install ${item.skillId} `;
+        const replacementRangeEnd = extendReplacementRangeForTrailingSpace(
+          snapshot.value,
+          trigger.rangeEnd,
+          replacement,
+        );
+        const applied = applyPromptReplacement(
+          trigger.rangeStart,
+          replacementRangeEnd,
+          replacement,
+          { expectedText: snapshot.value.slice(trigger.rangeStart, replacementRangeEnd) },
+        );
+        if (applied) {
+          setComposerHighlightedItemId(null);
+        }
+        return;
+      }
       if (item.type === "skill-subcommand") {
+        if (item.subcommand === "browse") {
+          void navigate({ to: "/skills", search: { create: undefined, name: undefined } });
+          const applied = applyPromptReplacement(trigger.rangeStart, trigger.rangeEnd, "", {
+            expectedText: snapshot.value.slice(trigger.rangeStart, trigger.rangeEnd),
+          });
+          if (applied) {
+            setComposerHighlightedItemId(null);
+          }
+          return;
+        }
+        if (item.subcommand === "create") {
+          void navigate({ to: "/skills", search: { create: "1", name: undefined } });
+          const applied = applyPromptReplacement(trigger.rangeStart, trigger.rangeEnd, "", {
+            expectedText: snapshot.value.slice(trigger.rangeStart, trigger.rangeEnd),
+          });
+          if (applied) {
+            setComposerHighlightedItemId(null);
+          }
+          return;
+        }
         const replacement = `/skill ${item.subcommand} `;
         const replacementRangeEnd = extendReplacementRangeForTrailingSpace(
           snapshot.value,
@@ -3954,6 +4198,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
     [
       applyPromptReplacement,
       handleInteractionModeChange,
+      navigate,
       onProviderModelSelect,
       resolveActiveComposerTrigger,
     ],
@@ -3985,7 +4230,8 @@ export default function ChatView({ threadId }: ChatViewProps) {
         workspaceEntriesQuery.isLoading ||
         workspaceEntriesQuery.isFetching)) ||
     ((composerTriggerKind === "slash-skill" || composerTriggerKind === "slash-command") &&
-      skillsQuery.isLoading);
+      (skillsQuery.isLoading ||
+        (composerTriggerKind === "slash-skill" && skillCatalogQuery.isLoading)));
 
   const onPromptChange = useCallback(
     (

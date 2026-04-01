@@ -81,11 +81,18 @@ import type {
   SkillListResult,
   SkillReadInput,
   SkillReadResult,
+  SkillCatalogInput,
+  SkillCatalogResult,
   SkillCreateInput,
   SkillCreateResult,
   SkillDeleteInput,
+  SkillInstallInput,
+  SkillInstallResult,
+  SkillImportInput,
+  SkillImportResult,
   SkillSearchInput,
   SkillSearchResult,
+  SkillUninstallInput,
 } from "./skill";
 import type {
   ClientOrchestrationCommand,
@@ -324,9 +331,13 @@ export interface NativeApi {
   };
   skills: {
     list: (input?: SkillListInput) => Promise<SkillListResult>;
+    catalog: (input?: SkillCatalogInput) => Promise<SkillCatalogResult>;
     read: (input: SkillReadInput) => Promise<SkillReadResult>;
     create: (input: SkillCreateInput) => Promise<SkillCreateResult>;
     delete: (input: SkillDeleteInput) => Promise<void>;
+    install: (input: SkillInstallInput) => Promise<SkillInstallResult>;
+    uninstall: (input: SkillUninstallInput) => Promise<void>;
+    import: (input: SkillImportInput) => Promise<SkillImportResult>;
     search: (input: SkillSearchInput) => Promise<SkillSearchResult>;
   };
   contextMenu: {

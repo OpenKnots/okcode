@@ -43,6 +43,10 @@
     "./skill": {
       "types": "./src/skill.ts",
       "import": "./src/skill.ts"
+    },
+    "./skillCatalog": {
+      "types": "./src/skillCatalog.ts",
+      "import": "./src/skillCatalog.ts"
     }
   },
   "scripts": {

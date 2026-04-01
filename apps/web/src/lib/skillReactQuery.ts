@@ -1,14 +1,33 @@
-import type { SkillListResult, SkillSearchResult } from "@okcode/contracts";
+import type { SkillCatalogResult, SkillListResult, SkillSearchResult } from "@okcode/contracts";
 import { queryOptions } from "@tanstack/react-query";
 import { ensureNativeApi } from "~/nativeApi";
 
 export const skillQueryKeys = {
   all: ["skills"] as const,
+  catalog: (cwd: string | null) => ["skills", "catalog", cwd] as const,
   list: (cwd: string | null) => ["skills", "list", cwd] as const,
   search: (cwd: string | null, query: string) => ["skills", "search", cwd, query] as const,
 };
 
 const EMPTY_SKILL_LIST_RESULT: SkillListResult = { skills: [] };
+const EMPTY_SKILL_CATALOG_RESULT: SkillCatalogResult = { skills: [] };
+
+export function skillCatalogQueryOptions(input: {
+  cwd: string | null;
+  enabled?: boolean;
+  staleTime?: number;
+}) {
+  return queryOptions({
+    queryKey: skillQueryKeys.catalog(input.cwd),
+    queryFn: async () => {
+      const api = ensureNativeApi();
+      return api.skills.catalog(input.cwd ? { cwd: input.cwd } : {});
+    },
+    enabled: input.enabled !== false,
+    staleTime: input.staleTime ?? 30_000,
+    placeholderData: EMPTY_SKILL_CATALOG_RESULT,
+  });
+}
 
 export function skillListQueryOptions(input: {
   cwd: string | null;

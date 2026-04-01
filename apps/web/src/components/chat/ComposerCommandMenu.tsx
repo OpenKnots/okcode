@@ -33,9 +33,17 @@ export type ComposerCommandItem =
     }
   | {
       id: string;
-      type: "skill";
+      type: "skill-installed";
       skillName: string;
       scope: "global" | "project";
+      label: string;
+      description: string;
+      tags: readonly string[];
+    }
+  | {
+      id: string;
+      type: "skill-catalog";
+      skillId: string;
       label: string;
       description: string;
       tags: readonly string[];
@@ -132,11 +140,19 @@ const ComposerCommandMenuItem = memo(function ComposerCommandMenuItem(props: {
           model
         </Badge>
       ) : null}
-      {props.item.type === "skill" ? (
+      {props.item.type === "skill-installed" ? (
         <div className="flex items-center gap-1">
           <PuzzleIcon className="size-4 text-muted-foreground/80" />
           <Badge variant="outline" className="px-1 py-0 text-[9px] leading-tight">
             {props.item.scope}
+          </Badge>
+        </div>
+      ) : null}
+      {props.item.type === "skill-catalog" ? (
+        <div className="flex items-center gap-1">
+          <PuzzleIcon className="size-4 text-muted-foreground/80" />
+          <Badge variant="outline" className="px-1 py-0 text-[9px] leading-tight">
+            install
           </Badge>
         </div>
       ) : null}
@@ -147,7 +163,8 @@ const ComposerCommandMenuItem = memo(function ComposerCommandMenuItem(props: {
         <span className="truncate">{props.item.label}</span>
       </span>
       <span className="truncate text-muted-foreground/70 text-xs">{props.item.description}</span>
-      {props.item.type === "skill" && props.item.tags.length > 0 ? (
+      {(props.item.type === "skill-installed" || props.item.type === "skill-catalog") &&
+      props.item.tags.length > 0 ? (
         <span className="ml-auto flex gap-1">
           {props.item.tags.slice(0, 2).map((tag) => (
             <Badge key={tag} variant="secondary" className="px-1 py-0 text-[9px]">

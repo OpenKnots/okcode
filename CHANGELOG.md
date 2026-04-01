@@ -11,6 +11,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - CLI npm package name is `okcodes`. Install with `npm install -g okcodes`; the `okcode` binary name is unchanged.
 
+## [0.0.11] - 2026-04-01
+
+See [docs/releases/v0.0.11.md](docs/releases/v0.0.11.md) for full notes and [docs/releases/v0.0.11/assets.md](docs/releases/v0.0.11/assets.md) for release asset inventory.
+
+### Changed
+
+- Keep format enforcement out of release preflight.
+- Format web git action components.
+
+## [0.0.11] - 2026-04-01
+
+See [docs/releases/v0.0.11.md](docs/releases/v0.0.11.md) for full notes and [docs/releases/v0.0.11/assets.md](docs/releases/v0.0.11/assets.md) for release asset inventory.
+
+### Changed
+
+- Keep format enforcement out of release preflight.
+- Format web git action components.
+
+## [0.0.11] - 2026-04-01
+
+See [docs/releases/v0.0.11.md](docs/releases/v0.0.11.md) for full notes and [docs/releases/v0.0.11/assets.md](docs/releases/v0.0.11/assets.md) for release asset inventory.
+
+### Changed
+
+- Keep format enforcement out of release preflight.
+- Format web git action components.
+
 ## [0.0.10] - 2026-04-01
 
 See [docs/releases/v0.0.10.md](docs/releases/v0.0.10.md) for full notes and [docs/releases/v0.0.10/assets.md](docs/releases/v0.0.10/assets.md) for release asset inventory.
@@ -273,3 +300,6 @@ First public version tag. See [docs/releases/v0.0.1.md](docs/releases/v0.0.1.md)
 [0.0.8]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.8
 [0.0.9]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.9
 [0.0.10]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.10
+[0.0.11]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.11
+[0.0.11]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.11
+[0.0.11]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.11

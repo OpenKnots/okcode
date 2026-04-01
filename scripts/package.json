@@ -4,8 +4,6 @@
   "type": "module",
   "scripts": {
     "prepare": "node -e \"process.exit(process.env.CI ? 0 : 1)\" || node ./patch-effect-language-service.ts",
-    "claude-fast-mode-probe": "bun run claude-fast-mode-probe.ts",
-    "claude-haiku-thinking-probe": "bun run claude-haiku-thinking-probe.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },

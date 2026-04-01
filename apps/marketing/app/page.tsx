@@ -1,9 +1,19 @@
-import { Hero3DStage } from "@/components/hero-3d-stage";
+import { Nav } from "@/components/Nav";
+import { Hero } from "@/components/Hero";
+import { FeatureGrid } from "@/components/FeatureGrid";
+import { HowItWorks } from "@/components/HowItWorks";
+import { GetStarted } from "@/components/GetStarted";
+import { Footer } from "@/components/Footer";
 
 export default function Home() {
   return (
-    <main>
-      <Hero3DStage />
+    <main className="min-h-screen">
+      <Nav />
+      <Hero />
+      <FeatureGrid />
+      <HowItWorks />
+      <GetStarted />
+      <Footer />
     </main>
   );
 }

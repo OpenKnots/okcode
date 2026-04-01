@@ -17,3 +17,8 @@ export const OpenInEditorInput = Schema.Struct({
   editor: EditorId,
 });
 export type OpenInEditorInput = typeof OpenInEditorInput.Type;
+
+export const OpenPathInput = Schema.Struct({
+  path: TrimmedNonEmptyString,
+});
+export type OpenPathInput = typeof OpenPathInput.Type;

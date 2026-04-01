@@ -192,6 +192,9 @@ export function createWsNativeApi(): NativeApi {
     shell: {
       openInEditor: (cwd, editor) =>
         transport.request(WS_METHODS.shellOpenInEditor, { cwd, editor }),
+      openInFileManager: (path) => transport.request(WS_METHODS.shellOpenInFileManager, { path }),
+      revealInFileManager: (path) =>
+        transport.request(WS_METHODS.shellRevealInFileManager, { path }),
       openExternal: async (url) => {
         if (window.desktopBridge) {
           const opened = await window.desktopBridge.openExternal(url);

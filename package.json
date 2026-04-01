@@ -39,6 +39,7 @@
     "lint": "oxlint --report-unused-disable-directives",
     "test": "turbo run test",
     "test:desktop-smoke": "turbo run smoke-test --filter=@okcode/desktop",
+    "test:desktop-release-smoke": "turbo run release-smoke --filter=@okcode/desktop",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
     "build:contracts": "turbo run build --filter=@okcode/contracts",

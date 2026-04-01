@@ -1459,7 +1459,6 @@ export default function Sidebar() {
                 </SidebarMenuSubButton>
               </SidebarMenuSubItem>
             )}
-
           </SidebarMenuSub>
 
           {project.expanded && !appSettings.sidebarHideFiles ? (

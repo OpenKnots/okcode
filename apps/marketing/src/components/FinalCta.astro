@@ -10,6 +10,10 @@
     <div class="final-cta-orb final-cta-orb--2"></div>
   </div>
   <div class="final-cta-content">
+    <div class="final-cta-mark" aria-hidden="true">
+      <div class="final-cta-mark-glow"></div>
+      <img src="/icon.png" alt="" width="48" height="48" class="final-cta-mark-img" />
+    </div>
     <p class="section-kicker">Ready</p>
     <h2>Stop building through tab chaos.</h2>
     <p>
@@ -86,6 +90,30 @@
   .final-cta-content {
     position: relative;
     z-index: 1;
+  }
+
+  .final-cta-mark {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1rem;
+  }
+
+  .final-cta-mark-glow {
+    position: absolute;
+    width: 6rem;
+    height: 6rem;
+    border-radius: 999px;
+    background: radial-gradient(circle, rgba(202, 58, 41, 0.15), transparent 70%);
+    filter: blur(16px);
+    animation: float 6s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  .final-cta-mark-img {
+    position: relative;
+    border-radius: 1rem;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   }
 
   @keyframes float {

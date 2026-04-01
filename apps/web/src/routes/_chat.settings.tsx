@@ -928,8 +928,7 @@ function SettingsRouteView() {
                     <label
                       className="relative size-8 shrink-0 cursor-pointer overflow-hidden rounded-md border border-border"
                       style={{
-                        backgroundColor:
-                          settings.sidebarAccentBgColorOverride || "var(--accent)",
+                        backgroundColor: settings.sidebarAccentBgColorOverride || "var(--accent)",
                       }}
                     >
                       <input

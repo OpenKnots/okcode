@@ -40,7 +40,7 @@ const stars = Array.from({ length: starCount }, (_, i) => {
     <path d="M 600 490 C 460 590, 280 720, 60 940" class="kn-thread kn-thread-b" />
     <path d="M -40 180 C 200 160, 440 260, 560 340" class="kn-thread kn-thread-c" />
     <path d="M -60 780 C 300 740, 600 800, 900 720 S 1300 680, 1520 760" class="kn-thread kn-thread-d" />
-    <path d="M -40 320 C 200 300, 420 380, 640 340 S 960 260, 1480 380" class="kn-thread kn-thread-claw" />
+    <path id="thread-claw" d="M -40 320 C 200 300, 420 380, 640 340 S 960 260, 1480 380" class="kn-thread kn-thread-claw" />
     <path d="M 1100 -20 C 940 140, 780 300, 660 420" class="kn-thread kn-thread-claw-hi" />
     <path d="M 620 500 C 520 580, 380 700, 160 920" class="kn-thread kn-thread-claw-hi" />
     <path d="M 1520 200 C 1200 260, 900 180, 640 280 S 300 360, -40 240" class="kn-thread kn-thread-ocean" />
@@ -53,6 +53,23 @@ const stars = Array.from({ length: starCount }, (_, i) => {
     <circle cx="640" cy="462" r="30" fill="var(--kn-landing-accent-dim)" opacity="0.1" />
     <circle cx="800" cy="300" r="2" fill="var(--kn-landing-accent)" opacity="0.3" />
     <circle cx="800" cy="300" r="10" fill="var(--kn-landing-accent)" opacity="0.04" />
+
+    <!-- Thread energy pulse -->
+    <circle r="3" fill="var(--kn-landing-accent-bright)" opacity="0.6" class="kn-thread-pulse">
+      <animateMotion dur="12s" repeatCount="indefinite">
+        <mpath href="#thread-claw" />
+      </animateMotion>
+    </circle>
+    <circle r="8" fill="var(--kn-landing-accent)" opacity="0.12" class="kn-thread-pulse-glow">
+      <animateMotion dur="12s" repeatCount="indefinite">
+        <mpath href="#thread-claw" />
+      </animateMotion>
+    </circle>
+
+    <!-- Shooting stars -->
+    <line x1="200" y1="80" x2="320" y2="160" class="kn-shooting-star kn-shooting-star--1" />
+    <line x1="900" y1="120" x2="1020" y2="200" class="kn-shooting-star kn-shooting-star--2" />
+    <line x1="1200" y1="50" x2="1320" y2="130" class="kn-shooting-star kn-shooting-star--3" />
   </svg>
 </div>
 
@@ -65,6 +82,7 @@ const stars = Array.from({ length: starCount }, (_, i) => {
         r={star.r}
         fill="var(--kn-landing-star-color)"
         opacity={star.opacity}
+        data-star-index={star.id}
         class:list={{ "kn-star-twinkle": star.twinkle }}
         style={star.twinkle ? `animation-delay:${star.delay}s` : undefined}
       />

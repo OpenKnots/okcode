@@ -370,10 +370,43 @@ const faqs = [
     });
   }
 
+  /** Hero button shine sweep on page load */
+  function initHeroShine() {
+    const shine = document.querySelector<HTMLElement>(".hero-button-shine");
+    if (!shine) return;
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (prefersReducedMotion) return;
+    setTimeout(() => shine.classList.add("shine-entered"), 1500);
+  }
+
+  /** Subtle scroll parallax on the hero visual stage */
+  function initHeroParallax() {
+    const stage = document.querySelector<HTMLElement>(".hero-visual-stage");
+    if (!stage) return;
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (prefersReducedMotion) return;
+    const isMobile = window.matchMedia("(max-width: 720px)").matches;
+    if (isMobile) return;
+
+    let ticking = false;
+    window.addEventListener("scroll", () => {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          const y = window.scrollY * 0.15;
+          stage.style.transform = `perspective(2400px) rotateX(2deg) translateY(${y}px)`;
+          ticking = false;
+        });
+        ticking = true;
+      }
+    }, { passive: true });
+  }
+
   initDownloadButton();
   initTabGroups();
   initScrollReveal();
   initFaqAccordion();
+  initHeroShine();
+  initHeroParallax();
 </script>
 
 <style>
@@ -420,7 +453,7 @@ const faqs = [
   :global(.spotlight),
   :global(.theme-section),
   :global(.faq-section),
-  :global(.final-cta) {
+  :global(.final-cta-wrap) {
     content-visibility: auto;
     contain-intrinsic-size: auto 32rem;
   }
@@ -437,7 +470,8 @@ const faqs = [
   :global(.spotlight),
   :global(.theme-section),
   :global(.faq-section),
-  :global(.final-cta) {
+  :global(.final-cta),
+  :global(.final-cta-wrap) {
     width: 100%;
   }
 
@@ -1308,14 +1342,18 @@ const faqs = [
     margin-bottom: 0.7rem;
   }
 
+  :global(.final-cta-wrap) {
+    margin-bottom: 2rem;
+  }
+
   :global(.final-cta) {
     text-align: center;
     margin-inline: auto;
-    padding: 2.2rem 1.5rem 0;
+    padding: 2.5rem 1.5rem 2.5rem;
   }
 
   :global(.final-cta h2) {
-    font-size: clamp(2.15rem, 4vw, 3.75rem);
+    font-size: clamp(2.2rem, 3.5vw, 3.5rem);
     margin-top: 0.3rem;
   }
 
@@ -1326,8 +1364,8 @@ const faqs = [
 
   :global(.final-cta-actions) {
     justify-content: center;
-    gap: 0.95rem;
-    margin-top: 1.5rem;
+    gap: 1.1rem;
+    margin-top: 1.8rem;
     flex-wrap: wrap;
   }
 
@@ -1396,6 +1434,14 @@ const faqs = [
     :global(.theme-copy) {
       position: static;
     }
+
+    :global(.workflow-grid) {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    :global(.spotlight-panel-content) {
+      grid-template-columns: 1fr;
+    }
   }
 
   @media (max-width: 720px) {
@@ -1435,6 +1481,39 @@ const faqs = [
     :global(.glass-toolbar) {
       grid-template-columns: 1fr;
       justify-items: start;
+    }
+
+    :global(.workflow-grid) {
+      grid-template-columns: 1fr;
+    }
+
+    :global(.feature-grid) {
+      grid-template-columns: 1fr;
+    }
+
+    :global(.spotlight-nav),
+    :global(.tab-row) {
+      overflow-x: auto;
+      flex-wrap: nowrap;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+
+    :global(.spotlight-nav)::-webkit-scrollbar,
+    :global(.tab-row)::-webkit-scrollbar {
+      display: none;
+    }
+
+    :global(.spotlight-item),
+    :global(.tab-chip) {
+      flex-shrink: 0;
+      scroll-snap-align: start;
+      min-height: 44px;
+    }
+
+    :global(.theme-preview) {
+      grid-template-columns: 1fr;
     }
   }
 </style>

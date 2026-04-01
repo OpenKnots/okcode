@@ -5,6 +5,12 @@
 ---
 
 <section class="hero" data-reveal>
+  <div class="hero-gradient-mesh" aria-hidden="true">
+    <div class="hero-mesh-blob hero-mesh-blob--1"></div>
+    <div class="hero-mesh-blob hero-mesh-blob--2"></div>
+    <div class="hero-mesh-blob hero-mesh-blob--3"></div>
+  </div>
+
   <div class="hero-copy hero-copy--centered">
     <a href="https://github.com/OpenKnots/okcode/releases" class="kn-pill">
       <span class="kn-pill-badge">New</span>
@@ -20,7 +26,7 @@
       </div>
     </div>
 
-    <h1 class="tagline">The beautiful workspace for shipping with AI.</h1>
+    <h1 class="tagline">The beautiful workspace for shipping with <span class="gradient-text">AI</span>.</h1>
 
     <p class="subtagline">
       Chat, diffs, preview, PR review, and release actions in one glassy desktop + web
@@ -31,6 +37,7 @@
     <div class="hero-actions hero-actions--centered">
       <a id="download-btn" href="https://github.com/OpenKnots/okcode/releases" class="hero-button">
         <span class="hero-button-shine" aria-hidden="true"></span>
+        <span class="hero-button-shimmer" aria-hidden="true"></span>
         <span id="download-label">Download OK Code</span>
       </a>
 
@@ -44,6 +51,44 @@
       </a>
     </div>
 
+    <!-- Product visual mockup -->
+    <div class="hero-visual-stage" aria-hidden="true">
+      <div class="hero-stage-chrome">
+        <div class="hero-stage-dots"><span></span><span></span><span></span></div>
+        <span class="hero-stage-title">OK Code</span>
+        <div class="hero-stage-badge">Thread</div>
+      </div>
+      <div class="hero-stage-body">
+        <div class="hero-stage-sidebar">
+          <div class="hero-stage-sidebar-title"></div>
+          <div class="hero-stage-thread hero-stage-thread--active"></div>
+          <div class="hero-stage-thread"></div>
+          <div class="hero-stage-thread hero-stage-thread--short"></div>
+          <div class="hero-stage-thread"></div>
+        </div>
+        <div class="hero-stage-main">
+          <div class="hero-stage-msg hero-stage-msg--lg"></div>
+          <div class="hero-stage-msg"></div>
+          <div class="hero-stage-msg hero-stage-msg--sm"></div>
+          <div class="hero-stage-msg hero-stage-msg--lg"></div>
+          <div class="hero-stage-msg"></div>
+          <div class="hero-stage-msg hero-stage-msg--xs"></div>
+        </div>
+        <div class="hero-stage-panel">
+          <div class="hero-stage-panel-head">
+            <span class="hero-stage-panel-label">Diff</span>
+            <span class="hero-stage-panel-status">+3 −1</span>
+          </div>
+          <div class="hero-stage-line hero-stage-line--add"></div>
+          <div class="hero-stage-line hero-stage-line--add hero-stage-line--short"></div>
+          <div class="hero-stage-line hero-stage-line--remove"></div>
+          <div class="hero-stage-line"></div>
+          <div class="hero-stage-line hero-stage-line--add"></div>
+          <div class="hero-stage-line hero-stage-line--short"></div>
+        </div>
+      </div>
+    </div>
+
     <div class="hero-meta hero-meta--centered">
       <a href="/download" class="other-platforms">Other platforms</a>
       <div class="hero-pills" aria-label="Product highlights">
@@ -55,4 +100,68 @@
       </div>
     </div>
   </div>
+
+  <div class="hero-grid-pattern" aria-hidden="true"></div>
 </section>
+
+<style>
+  .hero-gradient-mesh {
+    position: absolute;
+    inset: -20% -10%;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .hero-mesh-blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.4;
+    animation: float var(--duration) ease-in-out infinite;
+  }
+  .hero-mesh-blob--1 {
+    width: 40rem;
+    height: 40rem;
+    top: -10%;
+    left: -5%;
+    background: radial-gradient(circle, rgba(202, 58, 41, 0.15), transparent 70%);
+    --duration: 18s;
+  }
+  .hero-mesh-blob--2 {
+    width: 35rem;
+    height: 35rem;
+    top: 20%;
+    right: -10%;
+    background: radial-gradient(circle, rgba(167, 139, 250, 0.12), transparent 70%);
+    --duration: 22s;
+    animation-delay: -5s;
+  }
+  .hero-mesh-blob--3 {
+    width: 30rem;
+    height: 30rem;
+    bottom: -15%;
+    left: 30%;
+    background: radial-gradient(circle, rgba(103, 232, 249, 0.1), transparent 70%);
+    --duration: 20s;
+    animation-delay: -10s;
+  }
+  .hero-button-shimmer {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent);
+    animation: shimmer 3s ease-in-out infinite;
+    pointer-events: none;
+  }
+  .hero-grid-pattern {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.03;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse 60% 50% at 50% 30%, black, transparent);
+  }
+</style>

@@ -16,13 +16,59 @@ const { steps } = Astro.props;
     </p>
   </div>
 
-  <div class="workflow-grid workflow-grid--cards">
-    {steps.map((item) => (
+  <div class="workflow-grid workflow-grid--cards" data-reveal-children>
+    {steps.map((item, index) => (
       <article class="workflow-card kn-card">
+        <span class="workflow-step-bg" aria-hidden="true">{item.step}</span>
         <span class="workflow-step">{item.step}</span>
         <h3>{item.title}</h3>
         <p>{item.body}</p>
+        {index < steps.length - 1 && <div class="workflow-connector" aria-hidden="true" />}
       </article>
     ))}
   </div>
 </section>
+
+<style>
+  .workflow-card {
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease, border-color 0.3s ease;
+  }
+
+  .workflow-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--kn-landing-border-hover, rgba(192, 200, 212, 0.16));
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  }
+
+  .workflow-step-bg {
+    position: absolute;
+    top: -0.75rem;
+    right: 0.5rem;
+    font-size: 5.5rem;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--kn-landing-text, #e8ecf0);
+    opacity: 0.03;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  .workflow-connector {
+    display: none;
+  }
+
+  @media (min-width: 721px) {
+    .workflow-connector {
+      display: block;
+      position: absolute;
+      top: 50%;
+      right: -0.6rem;
+      width: 1.2rem;
+      height: 1px;
+      background: linear-gradient(90deg, var(--kn-landing-border, rgba(192, 200, 212, 0.08)), transparent);
+      z-index: 2;
+    }
+  }
+</style>

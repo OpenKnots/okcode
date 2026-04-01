@@ -1329,9 +1329,26 @@ export default function Sidebar() {
           <SidebarMenuButton
             ref={isManualProjectSorting ? dragHandleProps?.setActivatorNodeRef : undefined}
             size="sm"
-            className={`min-w-0 flex-1 gap-2 rounded-lg border border-transparent px-2.5 py-2.5 text-left bg-accent/40 hover:bg-accent/70 group-hover/project-header:bg-accent/70 group-hover/project-header:text-sidebar-accent-foreground dark:bg-accent/30 dark:hover:bg-accent/50 dark:group-hover/project-header:bg-accent/50 ${
+            className={`min-w-0 flex-1 gap-2 rounded-lg border border-transparent px-2.5 py-2.5 text-left ${appSettings.sidebarAccentBgColorOverride ? "" : "bg-accent/40 hover:bg-accent/70 group-hover/project-header:bg-accent/70 dark:bg-accent/30 dark:hover:bg-accent/50 dark:group-hover/project-header:bg-accent/50"} group-hover/project-header:text-sidebar-accent-foreground ${
               isManualProjectSorting ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
             }`}
+            style={
+              appSettings.sidebarAccentBgColorOverride
+                ? {
+                    backgroundColor: `color-mix(in srgb, ${appSettings.sidebarAccentBgColorOverride} 15%, transparent)`,
+                  }
+                : undefined
+            }
+            onMouseEnter={(e) => {
+              if (appSettings.sidebarAccentBgColorOverride) {
+                e.currentTarget.style.backgroundColor = `color-mix(in srgb, ${appSettings.sidebarAccentBgColorOverride} 25%, transparent)`;
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (appSettings.sidebarAccentBgColorOverride) {
+                e.currentTarget.style.backgroundColor = `color-mix(in srgb, ${appSettings.sidebarAccentBgColorOverride} 15%, transparent)`;
+              }
+            }}
             {...(isManualProjectSorting && dragHandleProps ? dragHandleProps.attributes : {})}
             {...(isManualProjectSorting && dragHandleProps ? dragHandleProps.listeners : {})}
             onPointerDownCapture={handleProjectTitlePointerDownCapture}
@@ -1439,36 +1456,6 @@ export default function Sidebar() {
                   }}
                 >
                   <span>Show less</span>
-                </SidebarMenuSubButton>
-              </SidebarMenuSubItem>
-            )}
-
-            {project.expanded && (
-              <SidebarMenuSubItem className="w-full">
-                <SidebarMenuSubButton
-                  render={
-                    <button
-                      type="button"
-                      aria-label={`Create new thread in ${project.name}`}
-                      data-testid="new-thread-button"
-                      title={
-                        newThreadShortcutLabel
-                          ? `New thread (${newThreadShortcutLabel})`
-                          : "New thread"
-                      }
-                    />
-                  }
-                  data-thread-selection-safe
-                  size="sm"
-                  className="h-8 w-full translate-x-0 justify-start gap-2 rounded-md border border-primary/20 bg-linear-to-r from-primary/14 via-primary/10 to-transparent px-2.5 text-left text-[11px] font-medium text-primary shadow-[inset_0_1px_0_hsl(0_0%_100%/0.08)] transition-all duration-150 hover:border-primary/35 hover:from-primary/18 hover:via-primary/12 hover:text-primary"
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    void createNewThreadForProject(project.id);
-                  }}
-                >
-                  <PlusIcon className="size-3.5 shrink-0" />
-                  <span>New thread</span>
                 </SidebarMenuSubButton>
               </SidebarMenuSubItem>
             )}

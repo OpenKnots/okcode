@@ -24,8 +24,13 @@ const { faqs } = Astro.props;
             aria-controls={`${id}-panel`}
             data-faq-trigger
           >
-            <span>{item.question}</span>
-            <span class="faq-chevron" aria-hidden="true">⌄</span>
+            <span class="faq-question">
+              <span class="faq-number">{String(index + 1).padStart(2, '0')}</span>
+              {item.question}
+            </span>
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M6 9l6 6 6-6" />
+            </svg>
           </button>
           <div
             id={`${id}-panel`}
@@ -40,4 +45,44 @@ const { faqs } = Astro.props;
       );
     })}
   </div>
+
+  <div class="faq-extra kn-card" data-reveal style="transition-delay: 0.15s">
+    <p><strong>Still have questions?</strong></p>
+    <p>Join the community on Discord and talk to other builders using OK Code.</p>
+    <a href="https://discord.gg/jn4EGJjrvv" target="_blank" rel="noopener noreferrer" class="secondary-button faq-discord-btn">
+      Join Discord
+    </a>
+  </div>
 </section>
+
+<style>
+  .faq-trigger {
+    transition: background 0.2s ease;
+  }
+
+  .faq-trigger:hover {
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .faq-question {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .faq-number {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--kn-landing-accent, #ca3a29);
+    opacity: 0.6;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .faq-chevron {
+    width: 1.25rem;
+    height: 1.25rem;
+    flex-shrink: 0;
+    color: var(--kn-landing-text-muted, #8a94a4);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), color 0.3s ease;
+  }
+</style>

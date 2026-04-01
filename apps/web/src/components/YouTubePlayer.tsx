@@ -1,6 +1,7 @@
 import {
   ChevronDownIcon,
   ChevronUpIcon,
+  ListMusicIcon,
   MaximizeIcon,
   MinimizeIcon,
   Music2Icon,
@@ -12,7 +13,7 @@ import {
   VolumeXIcon,
   XIcon,
 } from "lucide-react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   buildYouTubeEmbedUrl,
   DEFAULT_PLAYLISTS,
@@ -21,6 +22,16 @@ import {
 } from "../youtubePlayerStore";
 import type { CustomSlot } from "../youtubePlayerStore";
 import { cn } from "~/lib/utils";
+
+// ---------------------------------------------------------------------------
+// YouTube IFrame postMessage helpers
+// ---------------------------------------------------------------------------
+
+/** Send a command to the YouTube IFrame Player API via postMessage. */
+function ytCommand(iframe: HTMLIFrameElement | null, func: string, args: unknown[] = []) {
+  if (!iframe?.contentWindow) return;
+  iframe.contentWindow.postMessage(JSON.stringify({ event: "command", func, args }), "*");
+}
 
 // ---------------------------------------------------------------------------
 // Compact mini-bar shown at the bottom of the sidebar
@@ -56,11 +67,23 @@ export function YouTubeToggleButton() {
 }
 
 // ---------------------------------------------------------------------------
-// Volume slider
+// Volume slider — controls the actual iframe player volume
 // ---------------------------------------------------------------------------
-function VolumeControl() {
+function VolumeControl({ iframeRef }: { iframeRef: React.RefObject<HTMLIFrameElement | null> }) {
   const { volume, setVolume } = useYouTubePlayerStore();
   const [premuteVolume, setPremuteVolume] = useState<number>(80);
+
+  // Sync volume to the YouTube iframe whenever it changes
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+    if (volume === 0) {
+      ytCommand(iframe, "mute");
+    } else {
+      ytCommand(iframe, "unMute");
+      ytCommand(iframe, "setVolume", [volume]);
+    }
+  }, [volume, iframeRef]);
 
   const toggleMute = useCallback(() => {
     if (volume > 0) {
@@ -83,19 +106,23 @@ function VolumeControl() {
       >
         <VolumeIcon className="size-3.5" />
       </button>
-      <input
-        type="range"
-        min={0}
-        max={100}
-        step={1}
-        value={volume}
-        onChange={(e) => setVolume(Number(e.target.value))}
-        className="h-1 w-16 cursor-pointer appearance-none rounded-full bg-muted-foreground/20 accent-red-400 [&::-webkit-slider-thumb]:size-2.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-red-400 [&::-webkit-slider-thumb]:transition-transform [&::-webkit-slider-thumb]:hover:scale-125 [&::-moz-range-thumb]:size-2.5 [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-red-400"
-        aria-label="Volume"
-      />
-      <span className="min-w-[2ch] text-[10px] tabular-nums text-muted-foreground/50">
-        {volume}
-      </span>
+      <div className="relative flex items-center">
+        {/* Filled track behind the slider */}
+        <div
+          className="pointer-events-none absolute left-0 h-1 rounded-full bg-red-400/80"
+          style={{ width: `${volume}%` }}
+        />
+        <input
+          type="range"
+          min={0}
+          max={100}
+          step={1}
+          value={volume}
+          onChange={(e) => setVolume(Number(e.target.value))}
+          className="relative h-1 w-16 cursor-pointer appearance-none rounded-full bg-muted-foreground/20 [&::-webkit-slider-thumb]:relative [&::-webkit-slider-thumb]:z-10 [&::-webkit-slider-thumb]:size-2.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-red-400 [&::-webkit-slider-thumb]:shadow-sm [&::-webkit-slider-thumb]:transition-transform [&::-webkit-slider-thumb]:hover:scale-125 [&::-moz-range-thumb]:size-2.5 [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-red-400 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-muted-foreground/20"
+          aria-label="Volume"
+        />
+      </div>
     </div>
   );
 }
@@ -115,14 +142,27 @@ function CustomSlotEditor({
   const { setCustomSlot } = useYouTubePlayerStore();
   const [name, setName] = useState(existingSlot?.name ?? "");
   const [url, setUrl] = useState(existingSlot?.url ?? "");
-  const nameRef = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState<string | null>(null);
+  const urlRef = useRef<HTMLInputElement>(null);
+
+  // Auto-focus the URL field on mount
+  useEffect(() => {
+    urlRef.current?.focus();
+  }, []);
 
   const handleSave = useCallback(() => {
     const trimmedName = name.trim() || `Custom ${slotIndex + 1}`;
     const trimmedUrl = url.trim();
-    if (!trimmedUrl) return;
+    if (!trimmedUrl) {
+      setError("Paste a YouTube URL");
+      return;
+    }
     const parsed = parseYouTubeUrl(trimmedUrl);
-    if (!parsed) return;
+    if (!parsed) {
+      setError("Not a valid YouTube URL or video ID");
+      return;
+    }
+    setError(null);
     setCustomSlot(slotIndex, trimmedName, trimmedUrl);
     onDone();
   }, [name, url, slotIndex, setCustomSlot, onDone]);
@@ -130,26 +170,39 @@ function CustomSlotEditor({
   return (
     <div className="flex flex-col gap-1.5 rounded-md border border-border/60 bg-muted/30 p-2">
       <input
-        ref={nameRef}
         type="text"
         value={name}
         onChange={(e) => setName(e.target.value)}
-        placeholder={`Custom ${slotIndex + 1} name...`}
+        placeholder={`Name (optional)`}
         className="rounded-md border border-border/60 bg-background px-2 py-1 text-[11px] text-foreground placeholder:text-muted-foreground/40 focus:border-red-500/50 focus:outline-none"
       />
       <input
+        ref={urlRef}
         type="text"
         value={url}
-        onChange={(e) => setUrl(e.target.value)}
+        onChange={(e) => {
+          setUrl(e.target.value);
+          if (error) setError(null);
+        }}
         onKeyDown={(e) => {
           if (e.key === "Enter") {
             e.preventDefault();
             handleSave();
           }
+          if (e.key === "Escape") {
+            e.preventDefault();
+            onDone();
+          }
         }}
         placeholder="Paste YouTube URL..."
-        className="rounded-md border border-border/60 bg-background px-2 py-1 text-[11px] text-foreground placeholder:text-muted-foreground/40 focus:border-red-500/50 focus:outline-none"
+        className={cn(
+          "rounded-md border bg-background px-2 py-1 text-[11px] text-foreground placeholder:text-muted-foreground/40 focus:outline-none",
+          error
+            ? "border-red-500/60 focus:border-red-500/80"
+            : "border-border/60 focus:border-red-500/50",
+        )}
       />
+      {error && <p className="text-[10px] text-red-400/80">{error}</p>}
       <div className="flex gap-1.5">
         <button
           type="button"
@@ -179,6 +232,7 @@ export function YouTubePlayerDrawer() {
     isOpen,
     minimized,
     selectedIndex,
+    volume,
     customSlots,
     setOpen,
     setMinimized,
@@ -187,6 +241,7 @@ export function YouTubePlayerDrawer() {
   } = useYouTubePlayerStore();
   const [expanded, setExpanded] = useState(false);
   const [editingSlot, setEditingSlot] = useState<0 | 1 | null>(null);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
   const activeName = useMemo(() => {
     if (selectedIndex === null) return null;
@@ -216,6 +271,49 @@ export function YouTubePlayerDrawer() {
     return buildYouTubeEmbedUrl(parsed.type, parsed.id);
   }, [selectedIndex, customSlots]);
 
+  // When the iframe loads (new video / playlist), apply the stored volume.
+  const handleIframeLoad = useCallback(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+    // Small delay to let the YT player initialise its JS API listener
+    const timer = setTimeout(() => {
+      if (volume === 0) {
+        ytCommand(iframe, "mute");
+      } else {
+        ytCommand(iframe, "unMute");
+        ytCommand(iframe, "setVolume", [volume]);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [volume]);
+
+  // Listen for the YouTube player's "onReady" info-delivery message
+  // so we can set volume as soon as it's truly ready.
+  useEffect(() => {
+    function onMessage(e: MessageEvent) {
+      if (typeof e.data !== "string") return;
+      try {
+        const msg = JSON.parse(e.data);
+        // YouTube fires { event: "onReady" } and also
+        // { event: "initialDelivery", info: { ... } }
+        if (msg?.event === "onReady" || msg?.event === "initialDelivery") {
+          const iframe = iframeRef.current;
+          if (!iframe) return;
+          if (volume === 0) {
+            ytCommand(iframe, "mute");
+          } else {
+            ytCommand(iframe, "unMute");
+            ytCommand(iframe, "setVolume", [volume]);
+          }
+        }
+      } catch {
+        // Not a JSON message — ignore.
+      }
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [volume]);
+
   if (!isOpen) return null;
 
   return (
@@ -232,22 +330,22 @@ export function YouTubePlayerDrawer() {
         {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Volume */}
-        <VolumeControl />
+        {/* Volume — wired to the iframe */}
+        <VolumeControl iframeRef={iframeRef} />
 
-        {/* Playlist picker toggle (only when not minimized) */}
+        {/* Playlist picker toggle */}
         {!minimized && (
           <button
             type="button"
             onClick={() => setExpanded(!expanded)}
-            className="rounded p-0.5 text-muted-foreground/60 transition-colors hover:bg-accent hover:text-foreground"
-            aria-label={expanded ? "Collapse playlist picker" : "Expand playlist picker"}
-          >
-            {expanded ? (
-              <ChevronDownIcon className="size-3.5" />
-            ) : (
-              <ChevronUpIcon className="size-3.5" />
+            className={cn(
+              "rounded p-0.5 transition-colors hover:bg-accent hover:text-foreground",
+              expanded ? "text-red-400" : "text-muted-foreground/60",
             )}
+            aria-label={expanded ? "Hide playlists" : "Show playlists"}
+            title={expanded ? "Hide playlists" : "Show playlists"}
+          >
+            <ListMusicIcon className="size-3.5" />
           </button>
         )}
 
@@ -260,6 +358,7 @@ export function YouTubePlayerDrawer() {
           }}
           className="rounded p-0.5 text-muted-foreground/60 transition-colors hover:bg-accent hover:text-foreground"
           aria-label={minimized ? "Restore player" : "Minimize player"}
+          title={minimized ? "Restore player" : "Minimize player"}
         >
           {minimized ? (
             <MaximizeIcon className="size-3.5" />
@@ -274,6 +373,7 @@ export function YouTubePlayerDrawer() {
           onClick={() => setOpen(false)}
           className="rounded p-0.5 text-muted-foreground/60 transition-colors hover:bg-accent hover:text-foreground"
           aria-label="Close YouTube player"
+          title="Close player"
         >
           <XIcon className="size-3.5" />
         </button>
@@ -300,7 +400,13 @@ export function YouTubePlayerDrawer() {
                     : "text-muted-foreground/70 hover:bg-accent hover:text-foreground",
                 )}
               >
-                <PlayIcon className="size-3 shrink-0" />
+                {selectedIndex === idx ? (
+                  <span className="flex size-3 items-center justify-center">
+                    <span className="size-1.5 rounded-full bg-red-400 animate-pulse" />
+                  </span>
+                ) : (
+                  <PlayIcon className="size-3 shrink-0" />
+                )}
                 <span className="truncate">{pl.name}</span>
               </button>
             ))}
@@ -343,7 +449,13 @@ export function YouTubePlayerDrawer() {
                         setExpanded(false);
                       }}
                     >
-                      <PlayIcon className="size-3 shrink-0" />
+                      {selectedIndex === globalIdx ? (
+                        <span className="flex size-3 items-center justify-center">
+                          <span className="size-1.5 rounded-full bg-red-400 animate-pulse" />
+                        </span>
+                      ) : (
+                        <PlayIcon className="size-3 shrink-0" />
+                      )}
                       <span className="truncate">{slot.name}</span>
                     </button>
                     <button
@@ -380,7 +492,7 @@ export function YouTubePlayerDrawer() {
                   className="flex items-center gap-2 rounded-md border border-dashed border-border/40 px-2 py-1.5 text-[11px] text-muted-foreground/40 transition-colors hover:border-border/60 hover:text-muted-foreground/60"
                 >
                   <PlayIcon className="size-3 shrink-0" />
-                  <span>+ Set Custom {slotIdx + 1}</span>
+                  <span>+ Add custom URL</span>
                 </button>
               );
             })}
@@ -398,27 +510,27 @@ export function YouTubePlayerDrawer() {
           aria-hidden={minimized}
         >
           <iframe
+            ref={iframeRef}
             title="YouTube Player"
             src={embedUrl}
             width="100%"
             height="260"
             allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-            sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-presentation"
+            sandbox="allow-same-origin allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms allow-presentation allow-storage-access-by-user-activation"
             loading="lazy"
             className="rounded-xl border-0"
+            onLoad={handleIframeLoad}
           />
         </div>
       ) : !minimized ? (
         <div className="flex flex-col items-center gap-2 px-3 pb-3 pt-1">
-          <p className="text-[11px] text-muted-foreground/50">
-            Pick a playlist above to start listening
-          </p>
+          <p className="text-[11px] text-muted-foreground/50">Pick a playlist to start listening</p>
           <button
             type="button"
             onClick={() => setExpanded(true)}
             className="rounded-md bg-red-500/15 px-3 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/25"
           >
-            <PlayIcon className="mr-1.5 inline size-3.5" />
+            <ListMusicIcon className="mr-1.5 inline size-3.5" />
             Browse Playlists
           </button>
         </div>

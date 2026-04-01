@@ -109,6 +109,8 @@ import {
 } from "./Sidebar.logic";
 import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
 import { WorkspaceFileTree } from "~/components/WorkspaceFileTree";
+import { EditableThreadTitle } from "~/components/EditableThreadTitle";
+import { useThreadTitleEditor } from "~/hooks/useThreadTitleEditor";
 import {
   buildProjectScriptDraftsFromPackageScripts,
   materializeProjectScripts,
@@ -400,14 +402,10 @@ export default function Sidebar() {
   const [addProjectError, setAddProjectError] = useState<string | null>(null);
   const [manualProjectPathEntry, setManualProjectPathEntry] = useState(false);
   const addProjectInputRef = useRef<HTMLInputElement | null>(null);
-  const [renamingThreadId, setRenamingThreadId] = useState<ThreadId | null>(null);
-  const [renamingTitle, setRenamingTitle] = useState("");
   const [expandedThreadListsByProject, setExpandedThreadListsByProject] = useState<
     ReadonlySet<ProjectId>
   >(() => new Set());
   const [filesExpanded, setFilesExpanded] = useState(true);
-  const renamingCommittedRef = useRef(false);
-  const renamingInputRef = useRef<HTMLInputElement | null>(null);
   const dragInProgressRef = useRef(false);
   const suppressProjectClickAfterDragRef = useRef(false);
   const [desktopUpdateState, setDesktopUpdateState] = useState<DesktopUpdateState | null>(null);
@@ -426,6 +424,15 @@ export default function Sidebar() {
   const isLinuxDesktop = isElectron && isLinuxPlatform(navigator.platform);
   const shouldBrowseForProjectImmediately = isElectron && !isLinuxDesktop;
   const shouldShowProjectPathEntry = addingProject && !shouldBrowseForProjectImmediately;
+  const {
+    editingThreadId,
+    draftTitle: editingThreadTitle,
+    bindInputRef,
+    cancelEditing,
+    commitEditing,
+    setDraftTitle,
+    startEditing,
+  } = useThreadTitleEditor();
   const projectCwdById = useMemo(
     () => new Map(projects.map((project) => [project.id, project.cwd] as const)),
     [projects],
@@ -618,6 +625,17 @@ export default function Sidebar() {
 
   const canAddProject = newCwd.trim().length > 0 && !isAddingProject;
 
+  const createNewThreadForProject = useCallback(
+    (projectId: ProjectId) => {
+      return handleNewThread(projectId, {
+        envMode: resolveSidebarNewThreadEnvMode({
+          defaultEnvMode: appSettings.defaultThreadEnvMode,
+        }),
+      });
+    },
+    [appSettings.defaultThreadEnvMode, handleNewThread],
+  );
+
   const handlePickFolder = async () => {
     const api = readNativeApi();
     if (!api || isPickingFolder) return;
@@ -649,55 +667,6 @@ export default function Sidebar() {
     setManualProjectPathEntry(false);
     setAddingProject((prev) => !prev);
   };
-
-  const cancelRename = useCallback(() => {
-    setRenamingThreadId(null);
-    renamingInputRef.current = null;
-  }, []);
-
-  const commitRename = useCallback(
-    async (threadId: ThreadId, newTitle: string, originalTitle: string) => {
-      const finishRename = () => {
-        setRenamingThreadId((current) => {
-          if (current !== threadId) return current;
-          renamingInputRef.current = null;
-          return null;
-        });
-      };
-
-      const trimmed = newTitle.trim();
-      if (trimmed.length === 0) {
-        toastManager.add({ type: "warning", title: "Thread title cannot be empty" });
-        finishRename();
-        return;
-      }
-      if (trimmed === originalTitle) {
-        finishRename();
-        return;
-      }
-      const api = readNativeApi();
-      if (!api) {
-        finishRename();
-        return;
-      }
-      try {
-        await api.orchestration.dispatchCommand({
-          type: "thread.meta.update",
-          commandId: newCommandId(),
-          threadId,
-          title: trimmed,
-        });
-      } catch (error) {
-        toastManager.add({
-          type: "error",
-          title: "Failed to rename thread",
-          description: error instanceof Error ? error.message : "An error occurred.",
-        });
-      }
-      finishRename();
-    },
-    [],
-  );
 
   /**
    * Delete a single thread: stop session, close terminal, dispatch delete,
@@ -868,9 +837,10 @@ export default function Sidebar() {
       );
 
       if (clicked === "rename") {
-        setRenamingThreadId(threadId);
-        setRenamingTitle(thread.title);
-        renamingCommittedRef.current = false;
+        startEditing({
+          threadId,
+          title: thread.title,
+        });
         return;
       }
 
@@ -915,6 +885,7 @@ export default function Sidebar() {
       deleteThread,
       markThreadUnread,
       projectCwdById,
+      startEditing,
       threads,
     ],
   );
@@ -1303,40 +1274,24 @@ export default function Sidebar() {
                   <span className="hidden md:inline">{threadStatus.label}</span>
                 </span>
               )}
-              {renamingThreadId === thread.id ? (
-                <input
-                  ref={(el) => {
-                    if (el && renamingInputRef.current !== el) {
-                      renamingInputRef.current = el;
-                      el.focus();
-                      el.select();
-                    }
-                  }}
-                  className="min-w-0 flex-1 truncate text-xs bg-accent/30 outline-none rounded px-1 py-px ring-1 ring-ring/40 transition-[box-shadow] duration-150 focus:ring-ring/70"
-                  value={renamingTitle}
-                  onChange={(e) => setRenamingTitle(e.target.value)}
-                  onKeyDown={(e) => {
-                    e.stopPropagation();
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      renamingCommittedRef.current = true;
-                      void commitRename(thread.id, renamingTitle, thread.title);
-                    } else if (e.key === "Escape") {
-                      e.preventDefault();
-                      renamingCommittedRef.current = true;
-                      cancelRename();
-                    }
-                  }}
-                  onBlur={() => {
-                    if (!renamingCommittedRef.current) {
-                      void commitRename(thread.id, renamingTitle, thread.title);
-                    }
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                />
-              ) : (
-                <span className="min-w-0 flex-1 truncate text-xs">{thread.title}</span>
-              )}
+              <EditableThreadTitle
+                title={thread.title}
+                isEditing={editingThreadId === thread.id}
+                draftTitle={editingThreadTitle}
+                inputRef={bindInputRef}
+                containerClassName="min-w-0 flex-1"
+                titleClassName="min-w-0 flex-1 truncate text-xs"
+                inputClassName="h-6 px-1 text-xs"
+                onStartEditing={() => {
+                  startEditing({
+                    threadId: thread.id,
+                    title: thread.title,
+                  });
+                }}
+                onDraftTitleChange={setDraftTitle}
+                onCommit={() => void commitEditing()}
+                onCancel={cancelEditing}
+              />
             </div>
             <div
               className={`ml-auto flex items-center gap-1.5${appSettings.sidebarWideThreadNames ? "" : " shrink-0"}`}
@@ -1370,11 +1325,11 @@ export default function Sidebar() {
 
     return (
       <Collapsible className="group/collapsible" open={shouldShowThreadPanel}>
-        <div className="group/project-header relative">
+        <div className="group/project-header relative flex items-center gap-1.5">
           <SidebarMenuButton
             ref={isManualProjectSorting ? dragHandleProps?.setActivatorNodeRef : undefined}
             size="sm"
-            className={`gap-2 rounded-lg border border-transparent px-2.5 py-2.5 text-left bg-accent/40 hover:bg-accent/70 group-hover/project-header:bg-accent/70 group-hover/project-header:text-sidebar-accent-foreground dark:bg-accent/30 dark:hover:bg-accent/50 dark:group-hover/project-header:bg-accent/50 ${
+            className={`min-w-0 flex-1 gap-2 rounded-lg border border-transparent px-2.5 py-2.5 text-left bg-accent/40 hover:bg-accent/70 group-hover/project-header:bg-accent/70 group-hover/project-header:text-sidebar-accent-foreground dark:bg-accent/30 dark:hover:bg-accent/50 dark:group-hover/project-header:bg-accent/50 ${
               isManualProjectSorting ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
             }`}
             {...(isManualProjectSorting && dragHandleProps ? dragHandleProps.attributes : {})}
@@ -1424,6 +1379,30 @@ export default function Sidebar() {
               {project.name}
             </span>
           </SidebarMenuButton>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-xs"
+                  aria-label={`Create new thread in ${project.name}`}
+                  data-testid="project-quick-new-thread-button"
+                  className="hidden shrink-0 border-primary/25 bg-background/85 text-primary shadow-[0_10px_24px_-18px_color-mix(in_srgb,var(--primary)_70%,transparent)] transition-all duration-150 hover:border-primary/45 hover:bg-primary/10 hover:text-primary lg:inline-flex"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    void createNewThreadForProject(project.id);
+                  }}
+                >
+                  <PlusIcon className="size-3.5" />
+                </Button>
+              }
+            />
+            <TooltipPopup side="right">
+              {newThreadShortcutLabel ? `New thread (${newThreadShortcutLabel})` : "New thread"}
+            </TooltipPopup>
+          </Tooltip>
         </div>
 
         <CollapsibleContent>
@@ -1481,18 +1460,14 @@ export default function Sidebar() {
                   }
                   data-thread-selection-safe
                   size="sm"
-                  className="h-6 w-full translate-x-0 justify-start gap-1.5 px-2 text-left text-[11px] text-muted-foreground/35 transition-colors duration-150 hover:bg-accent/50 hover:text-muted-foreground/65"
+                  className="h-8 w-full translate-x-0 justify-start gap-2 rounded-md border border-primary/20 bg-linear-to-r from-primary/14 via-primary/10 to-transparent px-2.5 text-left text-[11px] font-medium text-primary shadow-[inset_0_1px_0_hsl(0_0%_100%/0.08)] transition-all duration-150 hover:border-primary/35 hover:from-primary/18 hover:via-primary/12 hover:text-primary"
                   onClick={(event) => {
                     event.preventDefault();
                     event.stopPropagation();
-                    void handleNewThread(project.id, {
-                      envMode: resolveSidebarNewThreadEnvMode({
-                        defaultEnvMode: appSettings.defaultThreadEnvMode,
-                      }),
-                    });
+                    void createNewThreadForProject(project.id);
                   }}
                 >
-                  <PlusIcon className="size-3 shrink-0" />
+                  <PlusIcon className="size-3.5 shrink-0" />
                   <span>New thread</span>
                 </SidebarMenuSubButton>
               </SidebarMenuSubItem>

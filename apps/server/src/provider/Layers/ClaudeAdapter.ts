@@ -18,6 +18,7 @@ import {
   type SettingSource,
   type SDKUserMessage,
 } from "@anthropic-ai/claude-agent-sdk";
+import type { ContentBlockParam, MessageParam } from "@anthropic-ai/sdk/resources";
 import {
   ApprovalRequestId,
   type CanonicalItemType,
@@ -65,6 +66,10 @@ import {
 } from "effect";
 
 import { resolveAttachmentPath } from "../../attachmentStore.ts";
+import {
+  buildFileAttachmentContextText,
+  extractTextAttachmentContents,
+} from "../../attachmentText.ts";
 import { ServerConfig } from "../../config.ts";
 import {
   ProviderAdapterProcessError,
@@ -506,6 +511,11 @@ const SUPPORTED_CLAUDE_IMAGE_MIME_TYPES = new Set([
   "image/png",
   "image/webp",
 ]);
+type ClaudeImageMimeType = "image/gif" | "image/jpeg" | "image/png" | "image/webp";
+
+function isClaudeImageMimeType(value: string): value is ClaudeImageMimeType {
+  return SUPPORTED_CLAUDE_IMAGE_MIME_TYPES.has(value as ClaudeImageMimeType);
+}
 const CLAUDE_SETTING_SOURCES = [
   "user",
   "project",
@@ -528,23 +538,24 @@ function buildPromptText(input: ProviderSendTurnInput): string {
 }
 
 function buildUserMessage(input: {
-  readonly sdkContent: Array<Record<string, unknown>>;
+  readonly sdkContent: Array<ContentBlockParam>;
 }): SDKUserMessage {
+  const message: MessageParam = {
+    role: "user",
+    content: input.sdkContent,
+  };
   return {
     type: "user",
     session_id: "",
     parent_tool_use_id: null,
-    message: {
-      role: "user",
-      content: input.sdkContent,
-    },
-  } as SDKUserMessage;
+    message,
+  };
 }
 
 function buildClaudeImageContentBlock(input: {
-  readonly mimeType: string;
+  readonly mimeType: ClaudeImageMimeType;
   readonly bytes: Uint8Array;
-}): Record<string, unknown> {
+}): ContentBlockParam {
   return {
     type: "image",
     source: {
@@ -563,19 +574,75 @@ function buildUserMessageEffect(
   },
 ): Effect.Effect<SDKUserMessage, ProviderAdapterRequestError> {
   return Effect.gen(function* () {
-    const text = buildPromptText(input);
-    const sdkContent: Array<Record<string, unknown>> = [];
+    const imageAttachments: Array<
+      Extract<NonNullable<ProviderSendTurnInput["attachments"]>[number], { type: "image" }>
+    > = [];
+    const fileAttachments: Array<{
+      readonly attachment: Extract<
+        NonNullable<ProviderSendTurnInput["attachments"]>[number],
+        { type: "file" }
+      >;
+      readonly text: string;
+    }> = [];
+
+    for (const attachment of input.attachments ?? []) {
+      if (attachment.type === "image") {
+        imageAttachments.push(attachment);
+        continue;
+      }
+
+      const attachmentPath = resolveAttachmentPath({
+        attachmentsDir: dependencies.attachmentsDir,
+        attachment,
+      });
+      if (!attachmentPath) {
+        return yield* new ProviderAdapterRequestError({
+          provider: PROVIDER,
+          method: "turn/start",
+          detail: `Invalid attachment id '${attachment.id}'.`,
+        });
+      }
+
+      const bytes = yield* dependencies.fileSystem.readFile(attachmentPath).pipe(
+        Effect.mapError(
+          (cause) =>
+            new ProviderAdapterRequestError({
+              provider: PROVIDER,
+              method: "turn/start",
+              detail: toMessage(cause, "Failed to read attachment file."),
+              cause,
+            }),
+        ),
+      );
+
+      const text = extractTextAttachmentContents({
+        mimeType: attachment.mimeType,
+        fileName: attachment.name,
+        bytes,
+      });
+      if (text === null) {
+        return yield* new ProviderAdapterRequestError({
+          provider: PROVIDER,
+          method: "turn/start",
+          detail: `Unsupported file attachment '${attachment.name}'. Attach UTF-8 text files or images.`,
+        });
+      }
+
+      fileAttachments.push({ attachment, text });
+    }
+
+    const text = buildFileAttachmentContextText({
+      baseText: buildPromptText(input),
+      attachments: fileAttachments,
+    });
+    const sdkContent: Array<ContentBlockParam> = [];
 
     if (text.length > 0) {
       sdkContent.push({ type: "text", text });
     }
 
-    for (const attachment of input.attachments ?? []) {
-      if (attachment.type !== "image") {
-        continue;
-      }
-
-      if (!SUPPORTED_CLAUDE_IMAGE_MIME_TYPES.has(attachment.mimeType)) {
+    for (const attachment of imageAttachments) {
+      if (!isClaudeImageMimeType(attachment.mimeType)) {
         return yield* new ProviderAdapterRequestError({
           provider: PROVIDER,
           method: "turn/start",

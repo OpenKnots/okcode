@@ -3,7 +3,7 @@ import {
   type ThreadId,
   type ResolvedKeybindingsConfig,
 } from "@okcode/contracts";
-import { memo } from "react";
+import { memo, useEffect } from "react";
 import type { ProjectScriptDraft } from "~/projectScriptDefaults";
 import GitActionsControl from "../GitActionsControl";
 import {
@@ -13,11 +13,13 @@ import {
   MonitorIcon,
   TerminalSquareIcon,
 } from "lucide-react";
+import { EditableThreadTitle } from "../EditableThreadTitle";
 import { Badge } from "../ui/badge";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import ProjectScriptsControl, { type NewProjectScriptInput } from "../ProjectScriptsControl";
 import { Toggle } from "../ui/toggle";
 import { SidebarTrigger } from "../ui/sidebar";
+import { useThreadTitleEditor } from "~/hooks/useThreadTitleEditor";
 import { OpenInPicker } from "./OpenInPicker";
 import { useCodeViewerStore } from "~/codeViewerStore";
 import type { ClientMode } from "~/lib/clientMode";
@@ -30,6 +32,7 @@ interface ChatHeaderProps {
   activeProjectName: string | undefined;
   activeProjectCwd: string | undefined;
   isGitRepo: boolean;
+  isLocalDraftThread: boolean;
   openInCwd: string | null;
   activeProjectScripts: ProjectScript[] | undefined;
   preferredScriptId: string | null;
@@ -44,6 +47,7 @@ interface ChatHeaderProps {
   gitCwd: string | null;
   diffOpen: boolean;
   clientMode: ClientMode;
+  onRenameDraftThreadTitle: (title: string) => void;
   onRunProjectScript: (script: ProjectScript) => void;
   onAddProjectScript: (input: NewProjectScriptInput) => Promise<void>;
   onUpdateProjectScript: (scriptId: string, input: NewProjectScriptInput) => Promise<void>;
@@ -62,6 +66,7 @@ export const ChatHeader = memo(function ChatHeader({
   activeProjectName,
   activeProjectCwd,
   isGitRepo,
+  isLocalDraftThread,
   openInCwd: _openInCwd,
   activeProjectScripts,
   preferredScriptId,
@@ -76,6 +81,7 @@ export const ChatHeader = memo(function ChatHeader({
   gitCwd,
   diffOpen,
   clientMode,
+  onRenameDraftThreadTitle,
   onRunProjectScript,
   onAddProjectScript,
   onUpdateProjectScript,
@@ -90,17 +96,50 @@ export const ChatHeader = memo(function ChatHeader({
   const isMobileCompanion = clientMode === "mobile";
   const codeViewerOpen = useCodeViewerStore((state) => state.isOpen);
   const hasCodeViewerTabs = useCodeViewerStore((state) => state.tabs.length > 0);
+  const {
+    editingThreadId,
+    draftTitle,
+    bindInputRef,
+    cancelEditing,
+    commitEditing,
+    setDraftTitle,
+    startEditing,
+  } = useThreadTitleEditor({
+    onRenameDraftThread: (_threadId, title) => {
+      onRenameDraftThreadTitle(title);
+    },
+  });
+  const isEditingTitle = editingThreadId === activeThreadId;
+
+  useEffect(() => {
+    cancelEditing();
+  }, [activeThreadId, cancelEditing]);
 
   return (
     <div className="flex min-w-0 flex-1 items-center gap-2">
       <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden sm:gap-3">
         <SidebarTrigger className="size-7 shrink-0 md:hidden" />
-        <h2
-          className="min-w-0 shrink truncate text-sm font-medium text-foreground"
+        <EditableThreadTitle
           title={activeThreadTitle}
-        >
-          {activeThreadTitle}
-        </h2>
+          isEditing={isEditingTitle}
+          draftTitle={draftTitle}
+          inputRef={bindInputRef}
+          containerClassName="min-w-0 shrink [-webkit-app-region:no-drag]"
+          titleClassName="min-w-0 truncate text-sm font-medium text-foreground"
+          inputClassName="h-7 text-sm"
+          showEditButton
+          editButtonClassName="size-6"
+          onStartEditing={() => {
+            startEditing({
+              threadId: activeThreadId,
+              title: activeThreadTitle,
+              isDraft: isLocalDraftThread,
+            });
+          }}
+          onDraftTitleChange={setDraftTitle}
+          onCommit={() => void commitEditing()}
+          onCancel={cancelEditing}
+        />
         {activeProjectName && (
           <Badge variant="outline" className="min-w-0 shrink truncate">
             {activeProjectName}

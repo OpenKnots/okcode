@@ -1,13 +1,14 @@
 import { type MessageId, ProjectId, type ThreadId } from "@okcode/contracts";
 import { type ChatMessage, type Thread } from "../types";
 import { randomUUID } from "~/lib/utils";
-import { type ComposerImageAttachment, type DraftThreadState } from "../composerDraftStore";
+import { type ComposerAttachment, type DraftThreadState } from "../composerDraftStore";
 import { Schema } from "effect";
 import {
   filterTerminalContextsWithText,
   stripInlineTerminalContextPlaceholders,
   type TerminalContextDraft,
 } from "../lib/terminalContext";
+import { normalizeThreadTitle } from "../threadTitle";
 
 export const LAST_INVOKED_SCRIPT_BY_PROJECT_KEY = "okcode:last-invoked-script-by-project";
 const WORKTREE_BRANCH_PREFIX = "okcode";
@@ -24,7 +25,7 @@ export function buildLocalDraftThread(
     id: threadId,
     codexThreadId: null,
     projectId: draftThread.projectId,
-    title: "New thread",
+    title: normalizeThreadTitle(draftThread.title),
     model: fallbackModel,
     runtimeMode: draftThread.runtimeMode,
     interactionMode: draftThread.interactionMode,
@@ -81,7 +82,7 @@ export type SendPhase = "idle" | "preparing-worktree" | "sending-turn";
 export interface QueuedMessage {
   id: MessageId;
   text: string;
-  images: ComposerImageAttachment[];
+  attachments: ComposerAttachment[];
   terminalContexts: TerminalContextDraft[];
   createdAt: string;
 }
@@ -114,25 +115,29 @@ export function buildTemporaryWorktreeBranchName(): string {
   return `${WORKTREE_BRANCH_PREFIX}/${token}`;
 }
 
-export function cloneComposerImageForRetry(
-  image: ComposerImageAttachment,
-): ComposerImageAttachment {
-  if (typeof URL === "undefined" || !image.previewUrl.startsWith("blob:")) {
-    return image;
+export function cloneComposerAttachmentForRetry(
+  attachment: ComposerAttachment,
+): ComposerAttachment {
+  if (
+    attachment.type !== "image" ||
+    typeof URL === "undefined" ||
+    !attachment.previewUrl.startsWith("blob:")
+  ) {
+    return attachment;
   }
   try {
     return {
-      ...image,
-      previewUrl: URL.createObjectURL(image.file),
+      ...attachment,
+      previewUrl: URL.createObjectURL(attachment.file),
     };
   } catch {
-    return image;
+    return attachment;
   }
 }
 
 export function deriveComposerSendState(options: {
   prompt: string;
-  imageCount: number;
+  attachmentCount: number;
   terminalContexts: ReadonlyArray<TerminalContextDraft>;
 }): {
   trimmedPrompt: string;
@@ -149,7 +154,9 @@ export function deriveComposerSendState(options: {
     sendableTerminalContexts,
     expiredTerminalContextCount,
     hasSendableContent:
-      trimmedPrompt.length > 0 || options.imageCount > 0 || sendableTerminalContexts.length > 0,
+      trimmedPrompt.length > 0 ||
+      options.attachmentCount > 0 ||
+      sendableTerminalContexts.length > 0,
   };
 }
 

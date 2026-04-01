@@ -16,15 +16,15 @@ const companies = [
 
 export function LogoCloud() {
   return (
-    <div id="customers" className="relative z-20 pb-24 pt-8 bg-background">
+    <div id="customers" className="relative z-20 pb-32 pt-12 bg-background">
       <div className="w-full flex justify-center px-6">
-        <div className="w-full max-w-4xl text-center">
+        <div className="w-full max-w-6xl text-center">
           <motion.p
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
-            className="text-lg text-secondary-foreground mb-2"
+            className="text-xl md:text-2xl text-secondary-foreground font-semibold mb-3"
           >
             Powering the world's best product teams.
           </motion.p>
@@ -33,7 +33,7 @@ export function LogoCloud() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.1 }}
-            className="text-lg text-muted-foreground mb-16"
+            className="text-lg md:text-xl text-muted-foreground mb-16"
           >
             From next-gen startups to established enterprises.
           </motion.p>
@@ -56,7 +56,7 @@ export function LogoCloud() {
                     whileInView={{ opacity: 1, scale: 1 }}
                     viewport={{ once: true }}
                     transition={{ duration: 0.4, delay: companyIndex * 0.05 }}
-                    className="text-foreground font-semibold text-xl flex items-center gap-2"
+                    className="text-foreground font-bold text-2xl flex items-center gap-3"
                   >
                     <Icon className="w-5 h-5 fill-current" />
                     {company.name}
@@ -67,7 +67,7 @@ export function LogoCloud() {
 
             {/* Hover overlay button - Use semantic tokens */}
             <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
-              <div className="px-5 py-2.5 bg-secondary/80 backdrop-blur-sm border border-border rounded-full text-sm text-secondary-foreground flex items-center gap-2">
+              <div className="px-7 py-3.5 bg-secondary/80 backdrop-blur-sm border border-border rounded-2xl text-base font-semibold text-secondary-foreground flex items-center gap-2 shadow-lg">
                 Meet our customers
                 <span aria-hidden="true">›</span>
               </div>

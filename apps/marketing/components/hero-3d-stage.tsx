@@ -57,12 +57,12 @@ export function Hero3DStage() {
         <div className="relative z-10 pt-28 flex flex-col">
           {/* Hero text - contained and centered */}
           <div className="w-full flex justify-center px-6 mt-16">
-            <div className="w-full max-w-4xl">
+            <div className="w-full max-w-6xl">
               <motion.h1
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6 }}
-                className="text-4xl md:text-5xl lg:text-[56px] font-medium text-foreground leading-[1.1] text-balance"
+                className="text-5xl md:text-6xl lg:text-[72px] font-bold text-foreground leading-[1.08] text-balance"
               >
                 Sprint is a purpose-built tool for planning and building products
               </motion.h1>
@@ -70,7 +70,7 @@ export function Hero3DStage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.1 }}
-                className="mt-6 text-lg text-muted-foreground"
+                className="mt-8 text-xl md:text-2xl text-muted-foreground leading-relaxed"
               >
                 Meet the system for modern software development.
                 <br />
@@ -80,14 +80,14 @@ export function Hero3DStage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.2 }}
-                className="mt-8 flex items-center gap-6"
+                className="mt-10 flex items-center gap-6"
               >
                 <a href="/dashboard">
-                  <button className="px-5 py-2.5 bg-foreground text-background font-medium rounded-lg hover:bg-foreground/90 transition-colors text-sm">
-                    Start building
+                  <button className="px-8 py-3.5 bg-foreground text-background font-bold rounded-2xl hover:bg-foreground/90 hover:scale-105 transition-all text-base shadow-lg">
+                    Start building ✨
                   </button>
                 </a>
-                <button className="text-secondary-foreground font-medium hover:text-foreground transition-colors flex items-center gap-2 text-sm">
+                <button className="text-secondary-foreground font-semibold hover:text-foreground transition-colors flex items-center gap-2 text-base">
                   <span className="text-muted-foreground">New:</span> Sprint agent for Slack
                   <span aria-hidden="true">→</span>
                 </button>

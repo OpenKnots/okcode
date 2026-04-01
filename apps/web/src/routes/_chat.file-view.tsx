@@ -4,7 +4,7 @@ import { FileCodeIcon } from "lucide-react";
 import { FileViewShell } from "~/components/file-view/FileViewShell";
 import { ProjectSubpageShell } from "~/components/review/ProjectSubpageShell";
 
-interface FileViewSearch {
+export interface FileViewSearch {
   cwd?: string;
   path?: string;
 }
@@ -26,9 +26,17 @@ function FileViewRouteView() {
 }
 
 export const Route = createFileRoute("/_chat/file-view")({
-  validateSearch: (search: Record<string, unknown>): FileViewSearch => ({
-    cwd: typeof search.cwd === "string" ? search.cwd : undefined,
-    path: typeof search.path === "string" ? search.path : undefined,
-  }),
+  validateSearch: (search: Record<string, unknown>): FileViewSearch => {
+    const validatedSearch: FileViewSearch = {};
+
+    if (typeof search.cwd === "string") {
+      validatedSearch.cwd = search.cwd;
+    }
+    if (typeof search.path === "string") {
+      validatedSearch.path = search.path;
+    }
+
+    return validatedSearch;
+  },
   component: FileViewRouteView,
 });

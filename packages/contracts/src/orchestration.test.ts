@@ -40,6 +40,20 @@ it.effect("parses turn diff input when fromTurnCount <= toTurnCount", () =>
   }),
 );
 
+it.effect("accepts optional turn diff file scope and full context mode", () =>
+  Effect.gen(function* () {
+    const parsed = yield* decodeTurnDiffInput({
+      threadId: "thread-1",
+      fromTurnCount: 1,
+      toTurnCount: 2,
+      relativePath: " src/index.ts ",
+      contextMode: "full",
+    });
+    assert.strictEqual(parsed.relativePath, "src/index.ts");
+    assert.strictEqual(parsed.contextMode, "full");
+  }),
+);
+
 it.effect("rejects turn diff input when fromTurnCount > toTurnCount", () =>
   Effect.gen(function* () {
     const result = yield* Effect.exit(

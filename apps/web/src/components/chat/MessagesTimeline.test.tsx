@@ -1,8 +1,10 @@
 import { MessageId } from "@okcode/contracts";
+import type { ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { buildChatShortcutGuides } from "~/lib/chatShortcutGuidance";
+import { I18nProvider } from "~/i18n/I18nProvider";
 
 function matchMedia() {
   return {
@@ -36,6 +38,9 @@ beforeAll(() => {
     documentElement: {
       classList,
       offsetHeight: 0,
+      style: {
+        setProperty: () => {},
+      },
     },
   });
   vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
@@ -46,10 +51,14 @@ beforeAll(() => {
 
 const EMPTY_SHORTCUT_GUIDES = buildChatShortcutGuides([], "Win32");
 
+function renderWithI18n(element: ReactElement) {
+  return renderToStaticMarkup(<I18nProvider>{element}</I18nProvider>);
+}
+
 describe("MessagesTimeline", () => {
   it("renders inline terminal labels with the composer chip UI", async () => {
     const { MessagesTimeline } = await import("./MessagesTimeline");
-    const markup = renderToStaticMarkup(
+    const markup = renderWithI18n(
       <MessagesTimeline
         hasMessages
         isWorking={false}
@@ -105,7 +114,7 @@ describe("MessagesTimeline", () => {
 
   it("renders context compaction entries in the normal work log", async () => {
     const { MessagesTimeline } = await import("./MessagesTimeline");
-    const markup = renderToStaticMarkup(
+    const markup = renderWithI18n(
       <MessagesTimeline
         hasMessages
         isWorking={false}
@@ -151,7 +160,7 @@ describe("MessagesTimeline", () => {
 
   it("renders shortcut guidance when the timeline is empty", async () => {
     const { MessagesTimeline } = await import("./MessagesTimeline");
-    const markup = renderToStaticMarkup(
+    const markup = renderWithI18n(
       <MessagesTimeline
         hasMessages={false}
         isWorking={false}

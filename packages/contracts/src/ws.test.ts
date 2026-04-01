@@ -22,6 +22,23 @@ it.effect("accepts getTurnDiff requests when fromTurnCount <= toTurnCount", () =
   }),
 );
 
+it.effect("accepts getTurnDiff requests with file scope and full context mode", () =>
+  Effect.gen(function* () {
+    const parsed = yield* decodeWebSocketRequest({
+      id: "req-1",
+      body: {
+        _tag: ORCHESTRATION_WS_METHODS.getTurnDiff,
+        threadId: "thread-1",
+        fromTurnCount: 1,
+        toTurnCount: 2,
+        relativePath: "src/index.ts",
+        contextMode: "full",
+      },
+    });
+    assert.strictEqual(parsed.body._tag, ORCHESTRATION_WS_METHODS.getTurnDiff);
+  }),
+);
+
 it.effect("rejects getTurnDiff requests when fromTurnCount > toTurnCount", () =>
   Effect.gen(function* () {
     const result = yield* Effect.exit(

@@ -18,7 +18,7 @@
     "dev": "bun run src/index.ts",
     "build": "node scripts/cli.ts build",
     "start": "node dist/index.mjs",
-    "prepare": "node -e \"process.exit(process.env.CI ? 0 : 1)\" || (node ../../scripts/patch-effect-language-service.ts && node ../../scripts/dedupe-effect-install.mjs)",
+    "prepare": "node -e \"process.exit(process.env.CI ? 0 : 1)\" || (node ../../scripts/patch-effect-language-service.ts && node ../../scripts/patch-effect-smol-peer-installs.mjs)",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },

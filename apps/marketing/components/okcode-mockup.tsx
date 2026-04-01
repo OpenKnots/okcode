@@ -21,7 +21,6 @@ import {
   Monitor,
   MessageSquare,
   Code,
-  Check,
   Clock,
 } from "lucide-react";
 import { useState } from "react";
@@ -149,7 +148,6 @@ export function OKCodeMockup() {
           <div className="flex items-center gap-1 px-2 py-1 text-[10px] text-[#666] uppercase tracking-wider mb-1">
             <span>Files</span>
           </div>
-          <NavItem icon={FileText} label="YouTube" />
           <NavItem icon={GitBranch} label="PR Review" />
           <NavItem icon={MessageSquare} label="Merge Conflicts" />
           <NavItem icon={File} label="File View" />

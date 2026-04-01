@@ -8,7 +8,7 @@
  */
 import { spawn } from "node:child_process";
 import { accessSync, constants, statSync } from "node:fs";
-import { extname, join } from "node:path";
+import { dirname, extname, join } from "node:path";
 
 import { EDITORS, type EditorId } from "@okcode/contracts";
 import { ServiceMap, Schema, Effect, Layer } from "effect";
@@ -25,6 +25,10 @@ export class OpenError extends Schema.TaggedErrorClass<OpenError>()("OpenError",
 export interface OpenInEditorInput {
   readonly cwd: string;
   readonly editor: EditorId;
+}
+
+export interface OpenPathInput {
+  readonly path: string;
 }
 
 interface EditorLaunch {
@@ -192,6 +196,16 @@ export interface OpenShape {
    * Launches the editor as a detached process so server startup is not blocked.
    */
   readonly openInEditor: (input: OpenInEditorInput) => Effect.Effect<void, OpenError>;
+
+  /**
+   * Open a path in the OS file manager.
+   */
+  readonly openInFileManager: (input: OpenPathInput) => Effect.Effect<void, OpenError>;
+
+  /**
+   * Reveal a path in the OS file manager.
+   */
+  readonly revealInFileManager: (input: OpenPathInput) => Effect.Effect<void, OpenError>;
 }
 
 /**
@@ -224,6 +238,28 @@ export const resolveEditorLaunch = Effect.fnUntraced(function* (
 
   return { command: fileManagerCommandForPlatform(platform), args: [input.cwd] };
 });
+
+export const resolveOpenInFileManagerLaunch = (
+  input: OpenPathInput,
+  platform: NodeJS.Platform = process.platform,
+): EditorLaunch => ({
+  command: fileManagerCommandForPlatform(platform),
+  args: [input.path],
+});
+
+export const resolveRevealInFileManagerLaunch = (
+  input: OpenPathInput,
+  platform: NodeJS.Platform = process.platform,
+): EditorLaunch => {
+  switch (platform) {
+    case "darwin":
+      return { command: "open", args: ["-R", input.path] };
+    case "win32":
+      return { command: "explorer", args: ["/select,", input.path] };
+    default:
+      return { command: "xdg-open", args: [dirname(input.path)] };
+  }
+};
 
 export const launchDetached = (launch: EditorLaunch) =>
   Effect.gen(function* () {
@@ -270,6 +306,8 @@ const make = Effect.gen(function* () {
         catch: (cause) => new OpenError({ message: "Browser auto-open failed", cause }),
       }),
     openInEditor: (input) => Effect.flatMap(resolveEditorLaunch(input), launchDetached),
+    openInFileManager: (input) => launchDetached(resolveOpenInFileManagerLaunch(input)),
+    revealInFileManager: (input) => launchDetached(resolveRevealInFileManagerLaunch(input)),
   } satisfies OpenShape;
 });
 

@@ -8,6 +8,8 @@ import {
   launchDetached,
   resolveAvailableEditors,
   resolveEditorLaunch,
+  resolveOpenInFileManagerLaunch,
+  resolveRevealInFileManagerLaunch,
 } from "./open";
 
 it.layer(NodeServices.layer)("resolveEditorLaunch", (it) => {
@@ -121,6 +123,45 @@ it.layer(NodeServices.layer)("resolveEditorLaunch", (it) => {
       });
     }),
   );
+
+  it("maps direct file-manager launches for directories", () => {
+    assert.deepEqual(resolveOpenInFileManagerLaunch({ path: "/tmp/workspace" }, "darwin"), {
+      command: "open",
+      args: ["/tmp/workspace"],
+    });
+    assert.deepEqual(resolveOpenInFileManagerLaunch({ path: "C:\\workspace" }, "win32"), {
+      command: "explorer",
+      args: ["C:\\workspace"],
+    });
+    assert.deepEqual(resolveOpenInFileManagerLaunch({ path: "/tmp/workspace" }, "linux"), {
+      command: "xdg-open",
+      args: ["/tmp/workspace"],
+    });
+  });
+
+  it("maps reveal launches to platform-specific file-manager commands", () => {
+    assert.deepEqual(
+      resolveRevealInFileManagerLaunch({ path: "/tmp/workspace/file.ts" }, "darwin"),
+      {
+        command: "open",
+        args: ["-R", "/tmp/workspace/file.ts"],
+      },
+    );
+    assert.deepEqual(
+      resolveRevealInFileManagerLaunch({ path: "C:\\workspace\\file.ts" }, "win32"),
+      {
+        command: "explorer",
+        args: ["/select,", "C:\\workspace\\file.ts"],
+      },
+    );
+    assert.deepEqual(
+      resolveRevealInFileManagerLaunch({ path: "/tmp/workspace/file.ts" }, "linux"),
+      {
+        command: "xdg-open",
+        args: ["/tmp/workspace"],
+      },
+    );
+  });
 });
 
 it.layer(NodeServices.layer)("launchDetached", (it) => {

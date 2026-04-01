@@ -128,12 +128,34 @@ describe("resolveThreadStatusPill", () => {
       resolveThreadStatusPill({
         thread: {
           ...baseThread,
-          error: "Socket disconnected",
+          session: {
+            ...baseThread.session,
+            status: "error",
+            orchestrationStatus: "error",
+          },
         },
         hasPendingApprovals: true,
         hasPendingUserInput: true,
       }),
     ).toMatchObject({ label: "Error", pulse: false });
+  });
+
+  it("ignores historical error text when the session is no longer errored", () => {
+    expect(
+      resolveThreadStatusPill({
+        thread: {
+          ...baseThread,
+          error: "Socket disconnected",
+          session: {
+            ...baseThread.session,
+            status: "ready",
+            orchestrationStatus: "ready",
+          },
+        },
+        hasPendingApprovals: false,
+        hasPendingUserInput: false,
+      }),
+    ).not.toMatchObject({ label: "Error" });
   });
 
   it("shows awaiting input when plan mode is blocked on user answers", () => {

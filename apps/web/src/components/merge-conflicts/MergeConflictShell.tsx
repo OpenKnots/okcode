@@ -38,6 +38,7 @@ import {
 import { cn } from "~/lib/utils";
 import { ensureNativeApi } from "~/nativeApi";
 import { parsePullRequestReference } from "~/pullRequestReference";
+import { findProjectMatchingPullRequestReference } from "~/pullRequestProjectMatch";
 import type { Project } from "~/types";
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { toastManager } from "~/components/ui/toast";
@@ -409,6 +410,11 @@ export function MergeConflictShell({
     (debouncerState) => ({ isPending: debouncerState.isPending }),
   );
 
+  const matchedProjectForReference = useMemo(
+    () => findProjectMatchingPullRequestReference(projects, reference),
+    [projects, reference],
+  );
+  const matchedProjectIdForReference = matchedProjectForReference?.id ?? null;
   const parsedReference = parsePullRequestReference(reference);
   const parsedDebouncedReference = parsePullRequestReference(debouncedReference);
   const resolvedPullRequestQuery = useQuery(
@@ -493,8 +499,13 @@ export function MergeConflictShell({
   });
 
   useEffect(() => {
-    setReference("");
-    setReferenceDirty(false);
+    if (matchedProjectIdForReference && matchedProjectIdForReference !== project.id) {
+      onProjectChange(matchedProjectIdForReference);
+      return;
+    }
+  }, [matchedProjectIdForReference, onProjectChange, project.id]);
+
+  useEffect(() => {
     setPreparedWorkspace(null);
     setSelectedCandidateId(null);
     setInspectorOpen(false);
@@ -547,9 +558,9 @@ export function MergeConflictShell({
   const validationMessage = !referenceDirty
     ? null
     : reference.trim().length === 0
-      ? "Paste a GitHub pull request URL."
+      ? "Paste a GitHub pull request URL or enter 123 / #123."
       : parsedReference === null
-        ? "Use a GitHub pull request URL."
+        ? "Use a GitHub pull request URL, 123, or #123."
         : null;
   const resolveErrorMessage =
     validationMessage ??
@@ -570,10 +581,10 @@ export function MergeConflictShell({
             : null;
   const steps = [
     {
-      title: "Resolve pull request link",
+      title: "Resolve pull request",
       detail: resolvedPullRequest
         ? `PR #${resolvedPullRequest.number} is resolved against ${projectLabel(project)}.`
-        : "Paste a GitHub pull request URL to fetch metadata and conflict status.",
+        : "Paste a GitHub pull request URL or enter 123 / #123 to fetch metadata and conflict status.",
       status: resolvedPullRequest
         ? ("done" as const)
         : isResolvingPullRequest
@@ -674,8 +685,8 @@ export function MergeConflictShell({
                         <InfoIcon className="size-3.5" />
                       </TooltipTrigger>
                       <TooltipPopup side="right" className="max-w-56">
-                        Resolve conflicts from a GitHub PR link, then let OK Code guide the safest
-                        next action.
+                        Resolve conflicts from a GitHub PR URL or PR number. A full URL auto-matches
+                        the repository before OK Code prepares the workspace.
                       </TooltipPopup>
                     </Tooltip>
                   }
@@ -706,9 +717,9 @@ export function MergeConflictShell({
                   </label>
 
                   <label className="mt-3 block space-y-1.5">
-                    <span className="text-xs font-medium text-foreground">Pull request link</span>
+                    <span className="text-xs font-medium text-foreground">Pull request</span>
                     <Input
-                      placeholder="https://github.com/owner/repo/pull/42"
+                      placeholder="https://github.com/owner/repo/pull/42, #42, or 42"
                       value={reference}
                       onChange={(event) => {
                         setReferenceDirty(true);
@@ -722,6 +733,10 @@ export function MergeConflictShell({
                         }
                       }}
                     />
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      A GitHub PR URL auto-selects the matching repo. Use `#42` or `42` against the
+                      selected repo.
+                    </p>
                   </label>
 
                   {isResolvingPullRequest ? (
@@ -877,11 +892,11 @@ export function MergeConflictShell({
               <div className="flex h-full items-center justify-center px-6">
                 <div className="max-w-lg space-y-3 text-center">
                   <LinkIcon className="mx-auto size-8 text-muted-foreground/30" />
-                  <p className="font-medium text-sm text-foreground">Paste a pull request link</p>
+                  <p className="font-medium text-sm text-foreground">Enter a pull request</p>
                   <p className="text-sm text-muted-foreground">
-                    This panel is intentionally narrow: it resolves one GitHub PR link, checks
-                    whether conflicts exist, and walks you through the safest conflict resolution
-                    path.
+                    Paste a GitHub PR URL to auto-match the repository, or use `#42` / `42` against
+                    the selected repo. This panel resolves one PR, checks whether conflicts exist,
+                    and walks you through the safest conflict resolution path.
                   </p>
                 </div>
               </div>

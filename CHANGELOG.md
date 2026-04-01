@@ -11,6 +11,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - CLI npm package name is `okcodes`. Install with `npm install -g okcodes`; the `okcode` binary name is unchanged.
 
+## [0.0.9] - 2026-04-01
+
+See [docs/releases/v0.0.9.md](docs/releases/v0.0.9.md) for full notes and [docs/releases/v0.0.9/assets.md](docs/releases/v0.0.9/assets.md) for release asset inventory.
+
+### Added
+
+- Add accent background override for project headers.
+
+### Changed
+
+- Refresh the marketing hero with layered glow effects.
+- Polish the skill detail dialog layout.
+- Update Turbo schema URLs to v2.9.3.
+
+### Fixed
+
+- Fix YouTube player volume and custom URL handling.
+- Restore patch-only diff review state.
+- Raise toast notifications above the app chrome.
+- Hide visible merge conflict markers in PR review.
+
+### Removed
+
+- Remove the project quick-new thread sidebar button.
+
 ## [0.0.8] - 2026-03-31
 
 See [docs/releases/v0.0.8.md](docs/releases/v0.0.8.md) for full notes and [docs/releases/v0.0.8/assets.md](docs/releases/v0.0.8/assets.md) for release asset inventory.
@@ -215,3 +240,4 @@ First public version tag. See [docs/releases/v0.0.1.md](docs/releases/v0.0.1.md)
 [0.0.5]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.5
 [0.0.6]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.6
 [0.0.8]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.8
+[0.0.9]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.9

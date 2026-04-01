@@ -190,15 +190,11 @@ async function readCandidatesForConflicts(
       } else {
         // Marker parsing failed (diff3 style, multiple blocks, etc.) – fall
         // back to full-file ours/theirs from the git index.
-        candidates.push(
-          ...(await buildFallbackCandidatesFromIndex(gitCore, cwd, relativePath)),
-        );
+        candidates.push(...(await buildFallbackCandidatesFromIndex(gitCore, cwd, relativePath)));
       }
     } catch {
       // File unreadable from disk – still try index-based fallback.
-      candidates.push(
-        ...(await buildFallbackCandidatesFromIndex(gitCore, cwd, relativePath)),
-      );
+      candidates.push(...(await buildFallbackCandidatesFromIndex(gitCore, cwd, relativePath)));
     }
   }
   return candidates;

@@ -37,14 +37,14 @@ Generates publication-quality PNG architecture diagrams using Python + matplotli
 
 Determine which diagram pattern fits the request:
 
-| Pattern | When to use | Example |
-|---------|-------------|---------|
-| **High-level architecture** | Full system overview with all components | `high-level-architecture.png` |
-| **Request/event flow** | Show how data moves through a pipeline | `server-request-flow.png` |
-| **Package dependencies** | Show import/dependency relationships | `package-dependencies.png` |
-| **Event flow** | Show event sourcing or pub/sub patterns | `orchestration-event-flow.png` |
-| **Tech stack** | Layered technology overview | `tech-stack.png` |
-| **Architecture comparison** | Compare N alternatives with scores | telemetry-style comparison grid |
+| Pattern                     | When to use                              | Example                         |
+| --------------------------- | ---------------------------------------- | ------------------------------- |
+| **High-level architecture** | Full system overview with all components | `high-level-architecture.png`   |
+| **Request/event flow**      | Show how data moves through a pipeline   | `server-request-flow.png`       |
+| **Package dependencies**    | Show import/dependency relationships     | `package-dependencies.png`      |
+| **Event flow**              | Show event sourcing or pub/sub patterns  | `orchestration-event-flow.png`  |
+| **Tech stack**              | Layered technology overview              | `tech-stack.png`                |
+| **Architecture comparison** | Compare N alternatives with scores       | telemetry-style comparison grid |
 
 ### Step 2: Use or extend the generator script
 
@@ -77,6 +77,7 @@ python3 -m venv /tmp/diag-venv 2>/dev/null
 ```
 
 Output lands in `assets/diagrams/`. Reference from markdown as:
+
 ```markdown
 ![Alt text](assets/diagrams/diagram-name.png)
 ```
@@ -89,25 +90,25 @@ Add diagram references to the relevant README.md using relative paths. Place dia
 
 ### Color palette (THEME dict)
 
-| Role | Color | Hex | Use for |
-|------|-------|-----|---------|
-| Client | Blue | `#4A90D9` | UI, browser, external clients |
-| Server | Green | `#2ECC71` | Server components, orchestration |
-| Provider | Orange | `#E67E22` | External provider processes |
-| Contracts | Purple | `#9B59B6` | Shared type/schema packages |
-| Shared | Light blue | `#3498DB` | Shared runtime utilities |
-| Storage | Amber | `#F39C12` | Persistence, checkpoints |
-| External | Gray | `#95A5A6` | External/third-party processes |
-| Desktop | Dark gray | `#34495E` | Desktop/Electron shell |
+| Role      | Color      | Hex       | Use for                          |
+| --------- | ---------- | --------- | -------------------------------- |
+| Client    | Blue       | `#4A90D9` | UI, browser, external clients    |
+| Server    | Green      | `#2ECC71` | Server components, orchestration |
+| Provider  | Orange     | `#E67E22` | External provider processes      |
+| Contracts | Purple     | `#9B59B6` | Shared type/schema packages      |
+| Shared    | Light blue | `#3498DB` | Shared runtime utilities         |
+| Storage   | Amber      | `#F39C12` | Persistence, checkpoints         |
+| External  | Gray       | `#95A5A6` | External/third-party processes   |
+| Desktop   | Dark gray  | `#34495E` | Desktop/Electron shell           |
 
 ### Arrow styles
 
-| Style | Color | Meaning |
-|-------|-------|---------|
-| Solid green | `arrow_ws` | WebSocket connection |
-| Solid orange | `arrow_stdio` | JSON-RPC stdio pipe |
-| Solid purple | `arrow_event` | Event stream / push |
-| Dashed | any | Import / dependency reference |
+| Style        | Color         | Meaning                       |
+| ------------ | ------------- | ----------------------------- |
+| Solid green  | `arrow_ws`    | WebSocket connection          |
+| Solid orange | `arrow_stdio` | JSON-RPC stdio pipe           |
+| Solid purple | `arrow_event` | Event stream / push           |
+| Dashed       | any           | Import / dependency reference |
 
 ### Component primitives
 

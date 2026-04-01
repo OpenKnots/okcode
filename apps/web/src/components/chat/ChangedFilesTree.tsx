@@ -132,7 +132,10 @@ export const ChangedFilesTree = memo(function ChangedFilesTree(props: {
   }, []);
 
   const handleDirectoryContextMenu = useCallback(
-    async (event: MouseEvent<HTMLButtonElement>, node: TurnDiffTreeNode & { kind: "directory" }) => {
+    async (
+      event: MouseEvent<HTMLButtonElement>,
+      node: TurnDiffTreeNode & { kind: "directory" },
+    ) => {
       event.preventDefault();
       const api = readNativeApi();
       if (!api || !cwd) return;

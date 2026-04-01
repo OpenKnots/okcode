@@ -589,7 +589,9 @@ export default function ProjectScriptsControl({
             <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogClose render={<Button variant="outline" size="sm" />}>Cancel</AlertDialogClose>
+            <AlertDialogClose render={<Button variant="outline" size="sm" />}>
+              Cancel
+            </AlertDialogClose>
             <Button variant="destructive" size="sm" onClick={confirmDeleteScript}>
               Delete action
             </Button>
@@ -671,7 +673,12 @@ export default function ProjectScriptsControl({
             ) : null}
           </DialogPanel>
           <DialogFooter>
-            <Button type="button" variant="outline" size="sm" onClick={() => setImportDialogOpen(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setImportDialogOpen(false)}
+            >
               Cancel
             </Button>
             <Button

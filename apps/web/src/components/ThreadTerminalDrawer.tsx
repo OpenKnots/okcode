@@ -1,5 +1,12 @@
 import { FitAddon } from "@xterm/addon-fit";
-import { ChevronDown, Plus, SquareSplitHorizontal, TerminalSquare, Trash2, XIcon } from "lucide-react";
+import {
+  ChevronDown,
+  Plus,
+  SquareSplitHorizontal,
+  TerminalSquare,
+  Trash2,
+  XIcon,
+} from "lucide-react";
 import { type ThreadId } from "@okcode/contracts";
 import { Terminal, type ITheme } from "@xterm/xterm";
 import {
@@ -12,7 +19,14 @@ import {
   useRef,
   useState,
 } from "react";
-import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuShortcut, MenuTrigger } from "~/components/ui/menu";
+import {
+  Menu,
+  MenuItem,
+  MenuPopup,
+  MenuSeparator,
+  MenuShortcut,
+  MenuTrigger,
+} from "~/components/ui/menu";
 import { Popover, PopoverPopup, PopoverTrigger } from "~/components/ui/popover";
 import { type TerminalContextSelection } from "~/lib/terminalContext";
 import { openInPreferredEditor } from "../editorPreferences";
@@ -868,13 +882,7 @@ function TerminalDropdownMenu({
   return (
     <Menu>
       <MenuTrigger
-        render={
-          <button
-            type="button"
-            className={triggerClassName}
-            aria-label="Terminal actions"
-          />
-        }
+        render={<button type="button" className={triggerClassName} aria-label="Terminal actions" />}
       >
         <ChevronDown className="size-3.25" />
       </MenuTrigger>

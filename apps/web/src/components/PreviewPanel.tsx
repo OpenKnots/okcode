@@ -337,7 +337,10 @@ export function PreviewPanel({ threadId, onClose }: PreviewPanelProps) {
             <RefreshCwIcon className="size-3.5" />
           </Button>
         </div>
-        <form className="order-last min-w-0 basis-full lg:order-none lg:flex-1 lg:basis-auto" onSubmit={onSubmit}>
+        <form
+          className="order-last min-w-0 basis-full lg:order-none lg:flex-1 lg:basis-auto"
+          onSubmit={onSubmit}
+        >
           <Input
             value={inputUrl}
             onChange={(event) => {

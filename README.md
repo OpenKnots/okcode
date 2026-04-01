@@ -78,6 +78,15 @@ bun dev:desktop    # Electron desktop + web
 bun dev:marketing  # Astro marketing site
 ```
 
+Build marketing directly:
+
+```bash
+bun install
+bun run build:marketing
+```
+
+If `bun run build:marketing` fails with `next: command not found`, run `bun install` first to restore workspace dependencies.
+
 Quality checks:
 
 ```bash

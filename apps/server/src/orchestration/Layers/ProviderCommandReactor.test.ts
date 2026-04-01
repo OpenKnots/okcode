@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -95,6 +96,7 @@ describe("ProviderCommandReactor", () => {
   async function createHarness(input?: {
     readonly baseDir?: string;
     readonly threadModel?: string;
+    readonly worktreePath?: string | null;
   }) {
     const now = new Date().toISOString();
     const baseDir = input?.baseDir ?? fs.mkdtempSync(path.join(os.tmpdir(), "okcode-reactor-"));
@@ -102,6 +104,8 @@ describe("ProviderCommandReactor", () => {
     const { stateDir } = deriveServerPathsSync(baseDir, undefined);
     createdStateDirs.add(stateDir);
     const threadModel = input?.threadModel ?? "gpt-5-codex";
+    const projectWorkspaceRoot = path.join(baseDir, "project");
+    fs.mkdirSync(projectWorkspaceRoot, { recursive: true });
     const runtimeEventPubSub = Effect.runSync(PubSub.unbounded<ProviderRuntimeEvent>());
     let nextSessionIndex = 1;
     const runtimeSessions: Array<ProviderSession> = [];
@@ -244,7 +248,7 @@ describe("ProviderCommandReactor", () => {
         commandId: CommandId.makeUnsafe("cmd-project-create"),
         projectId: asProjectId("project-1"),
         title: "Provider Project",
-        workspaceRoot: "/tmp/provider-project",
+        workspaceRoot: projectWorkspaceRoot,
         defaultModel: threadModel,
         createdAt: now,
       }),
@@ -260,7 +264,7 @@ describe("ProviderCommandReactor", () => {
         interactionMode: DEFAULT_PROVIDER_INTERACTION_MODE,
         runtimeMode: "approval-required",
         branch: null,
-        worktreePath: null,
+        worktreePath: input?.worktreePath ?? null,
         createdAt: now,
       }),
     );
@@ -275,6 +279,7 @@ describe("ProviderCommandReactor", () => {
       stopSession,
       renameBranch,
       generateBranchName,
+      projectWorkspaceRoot,
       stateDir,
       drain,
     };
@@ -305,7 +310,7 @@ describe("ProviderCommandReactor", () => {
     await waitFor(() => harness.sendTurn.mock.calls.length === 1);
     expect(harness.startSession.mock.calls[0]?.[0]).toEqual(ThreadId.makeUnsafe("thread-1"));
     expect(harness.startSession.mock.calls[0]?.[1]).toMatchObject({
-      cwd: "/tmp/provider-project",
+      cwd: harness.projectWorkspaceRoot,
       model: "gpt-5-codex",
       runtimeMode: "approval-required",
     });
@@ -314,6 +319,47 @@ describe("ProviderCommandReactor", () => {
     const thread = readModel.threads.find((entry) => entry.id === ThreadId.makeUnsafe("thread-1"));
     expect(thread?.session?.threadId).toBe("thread-1");
     expect(thread?.session?.runtimeMode).toBe("approval-required");
+  });
+
+  it("falls back to the project root and clears stale worktree paths before session start", async () => {
+    const missingWorktreePath = path.join(
+      os.tmpdir(),
+      `okcode-missing-worktree-${crypto.randomUUID()}`,
+    );
+    const harness = await createHarness({
+      worktreePath: missingWorktreePath,
+    });
+    const now = new Date().toISOString();
+
+    await Effect.runPromise(
+      harness.engine.dispatch({
+        type: "thread.turn.start",
+        commandId: CommandId.makeUnsafe("cmd-turn-start-stale-worktree"),
+        threadId: ThreadId.makeUnsafe("thread-1"),
+        message: {
+          messageId: asMessageId("user-message-stale-worktree"),
+          role: "user",
+          text: "recover stale worktree",
+          attachments: [],
+        },
+        interactionMode: DEFAULT_PROVIDER_INTERACTION_MODE,
+        runtimeMode: "approval-required",
+        createdAt: now,
+      }),
+    );
+
+    await waitFor(() => harness.startSession.mock.calls.length === 1);
+    expect(harness.startSession.mock.calls[0]?.[1]).toMatchObject({
+      cwd: harness.projectWorkspaceRoot,
+      model: "gpt-5-codex",
+      runtimeMode: "approval-required",
+    });
+
+    const readModel = await Effect.runPromise(harness.engine.getReadModel());
+    const thread = readModel.threads.find(
+      (entry) => entry.id === ThreadId.makeUnsafe("thread-1"),
+    );
+    expect(thread?.worktreePath).toBeNull();
   });
 
   it("forwards codex model options through session start and turn send", async () => {

@@ -1,3 +1,5 @@
+import fs from "node:fs";
+
 import {
   type ChatAttachment,
   CommandId,
@@ -140,6 +142,44 @@ function buildGeneratedWorktreeBranchName(raw: string): string {
   return `${WORKTREE_BRANCH_PREFIX}/${safeFragment}`;
 }
 
+function resolveSessionCwd(input: {
+  readonly thread: {
+    readonly id: ThreadId;
+    readonly projectId: string;
+    readonly worktreePath: string | null;
+  };
+  readonly projects: ReadonlyArray<{
+    readonly id: string;
+    readonly workspaceRoot: string;
+  }>;
+}): {
+  readonly cwd: string | undefined;
+  readonly staleWorktreePath: string | null;
+} {
+  const worktreePath = input.thread.worktreePath;
+  if (worktreePath) {
+    if (fs.existsSync(worktreePath)) {
+      return {
+        cwd: worktreePath,
+        staleWorktreePath: null,
+      };
+    }
+
+    const workspaceRoot = input.projects.find(
+      (project) => project.id === input.thread.projectId,
+    )?.workspaceRoot;
+    return {
+      cwd: workspaceRoot,
+      staleWorktreePath: worktreePath,
+    };
+  }
+
+  return {
+    cwd: resolveThreadWorkspaceCwd(input),
+    staleWorktreePath: null,
+  };
+}
+
 const make = Effect.gen(function* () {
   const orchestrationEngine = yield* OrchestrationEngineService;
   const providerService = yield* ProviderService;
@@ -254,10 +294,24 @@ const make = Effect.gen(function* () {
     }
     const preferredProvider: ProviderKind = currentProvider ?? threadProvider;
     const desiredModel = options?.model ?? thread.model;
-    const effectiveCwd = resolveThreadWorkspaceCwd({
+    const { cwd: effectiveCwd, staleWorktreePath } = resolveSessionCwd({
       thread,
       projects: readModel.projects,
     });
+
+    if (staleWorktreePath) {
+      yield* Effect.logWarning("provider command reactor clearing stale worktree path", {
+        threadId,
+        staleWorktreePath,
+        fallbackCwd: effectiveCwd ?? null,
+      });
+      yield* orchestrationEngine.dispatch({
+        type: "thread.meta.update",
+        commandId: serverCommandId("clear-stale-worktree-path"),
+        threadId,
+        worktreePath: null,
+      });
+    }
 
     const resolveActiveSession = (threadId: ThreadId) =>
       providerService

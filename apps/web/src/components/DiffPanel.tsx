@@ -418,9 +418,11 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
     () => renderableFiles.map((fileDiff) => resolveFileDiffPath(fileDiff)),
     [renderableFiles],
   );
-  const activeReviewState = patchReviewSelectionKey
-    ? (reviewStateBySelectionKey[patchReviewSelectionKey] ?? {})
-    : {};
+  const activeReviewState = useMemo(() => {
+    return patchReviewSelectionKey
+      ? (reviewStateBySelectionKey[patchReviewSelectionKey] ?? {})
+      : {};
+  }, [patchReviewSelectionKey, reviewStateBySelectionKey]);
   const acceptedFileCount = useMemo(
     () =>
       renderableFilePaths.reduce(

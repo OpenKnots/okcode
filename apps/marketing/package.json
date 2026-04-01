@@ -4,18 +4,21 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "astro dev",
-    "build": "astro build",
-    "preview": "astro preview",
-    "typecheck": "astro sync && astro check",
-    "test": "vitest run"
+    "dev": "next dev",
+    "build": "next build",
+    "preview": "next start",
+    "typecheck": "next typegen && tsc --noEmit -p tsconfig.typecheck.json",
+    "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@fontsource-variable/dm-sans": "^5.2.8",
-    "astro": "^6.0.4"
+    "next": "^15.4.6",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
   },
   "devDependencies": {
-    "@astrojs/check": "^0.9.7",
+    "@types/node": "catalog:",
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

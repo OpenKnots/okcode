@@ -2,6 +2,9 @@
   "$schema": "https://v2-9-3.turborepo.dev/schema.json",
   "extends": ["//"],
   "tasks": {
+    "build": {
+      "outputs": [".next/**", "!.next/cache/**"],
+    },
     "preview": {
       "dependsOn": ["build"],
       "cache": false,

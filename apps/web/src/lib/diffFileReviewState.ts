@@ -1,6 +1,9 @@
+import { type OrchestrationDiffContextMode } from "@okcode/contracts";
+
 export interface DiffFileReviewState {
   collapsed: boolean;
   accepted: boolean;
+  contextMode: OrchestrationDiffContextMode;
 }
 
 export type DiffFileReviewStateByPath = Record<string, DiffFileReviewState>;
@@ -8,6 +11,7 @@ export type DiffFileReviewStateByPath = Record<string, DiffFileReviewState>;
 const DEFAULT_DIFF_FILE_REVIEW_STATE: DiffFileReviewState = {
   collapsed: true,
   accepted: false,
+  contextMode: "patch",
 };
 
 export function reconcileDiffFileReviewState(
@@ -30,6 +34,7 @@ export function toggleDiffFileAccepted(
   return {
     ...current,
     [path]: {
+      contextMode: previous.contextMode,
       accepted,
       collapsed: accepted,
     },

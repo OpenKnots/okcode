@@ -11,17 +11,17 @@ describe("reconcileDiffFileReviewState", () => {
   it("preserves existing state for known files and drops removed files", () => {
     expect(
       reconcileDiffFileReviewState(["src/a.ts"], {
-        "src/a.ts": { accepted: true, collapsed: true },
-        "src/b.ts": { accepted: false, collapsed: true },
+        "src/a.ts": { accepted: true, collapsed: true, contextMode: "patch" },
+        "src/b.ts": { accepted: false, collapsed: true, contextMode: "full" },
       }),
     ).toEqual({
-      "src/a.ts": { accepted: true, collapsed: true },
+      "src/a.ts": { accepted: true, collapsed: true, contextMode: "patch" },
     });
   });
 
   it("initializes new files as unaccepted and collapsed", () => {
     expect(reconcileDiffFileReviewState(["src/a.ts"], undefined)).toEqual({
-      "src/a.ts": { accepted: false, collapsed: true },
+      "src/a.ts": { accepted: false, collapsed: true, contextMode: "patch" },
     });
   });
 });
@@ -29,7 +29,7 @@ describe("reconcileDiffFileReviewState", () => {
 describe("toggleDiffFileAccepted", () => {
   it("marks a file accepted and collapses it", () => {
     expect(toggleDiffFileAccepted({}, "src/a.ts")).toEqual({
-      "src/a.ts": { accepted: true, collapsed: true },
+      "src/a.ts": { accepted: true, collapsed: true, contextMode: "patch" },
     });
   });
 
@@ -37,12 +37,12 @@ describe("toggleDiffFileAccepted", () => {
     expect(
       toggleDiffFileAccepted(
         {
-          "src/a.ts": { accepted: true, collapsed: true },
+          "src/a.ts": { accepted: true, collapsed: true, contextMode: "patch" },
         },
         "src/a.ts",
       ),
     ).toEqual({
-      "src/a.ts": { accepted: false, collapsed: false },
+      "src/a.ts": { accepted: false, collapsed: false, contextMode: "patch" },
     });
   });
 });
@@ -77,12 +77,12 @@ describe("toggleDiffFileCollapsed", () => {
     expect(
       toggleDiffFileCollapsed(
         {
-          "src/a.ts": { accepted: true, collapsed: true },
+          "src/a.ts": { accepted: true, collapsed: true, contextMode: "patch" },
         },
         "src/a.ts",
       ),
     ).toEqual({
-      "src/a.ts": { accepted: true, collapsed: false },
+      "src/a.ts": { accepted: true, collapsed: false, contextMode: "patch" },
     });
   });
 });
@@ -92,19 +92,19 @@ describe("expandDiffFile", () => {
     expect(
       expandDiffFile(
         {
-          "src/a.ts": { accepted: true, collapsed: true },
+          "src/a.ts": { accepted: true, collapsed: true, contextMode: "patch" },
         },
         "src/a.ts",
       ),
     ).toEqual({
-      "src/a.ts": { accepted: true, collapsed: false },
+      "src/a.ts": { accepted: true, collapsed: false, contextMode: "patch" },
     });
   });
 
   it("returns the same object when the file is already expanded", () => {
     const state = {
-      "src/a.ts": { accepted: false, collapsed: false },
-    } satisfies Record<string, { accepted: boolean; collapsed: boolean }>;
+      "src/a.ts": { accepted: false, collapsed: false, contextMode: "patch" },
+    } satisfies Record<string, { accepted: boolean; collapsed: boolean; contextMode: "patch" }>;
     // File is already expanded, so the same object reference is returned.
     expect(expandDiffFile(state, "src/a.ts")).toBe(state);
   });

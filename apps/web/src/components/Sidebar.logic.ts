@@ -119,7 +119,7 @@ export function resolveThreadStatusPill(input: {
 }): ThreadStatusPill | null {
   const { hasPendingApprovals, hasPendingUserInput, thread } = input;
 
-  if (thread.error || thread.session?.status === "error") {
+  if (thread.session?.status === "error") {
     return {
       label: "Error",
       colorClass: "text-rose-600 dark:text-rose-300/90",

@@ -63,7 +63,7 @@ import {
   ProjectSearchEntriesInput,
   ProjectWriteFileInput,
 } from "./project";
-import { OpenInEditorInput } from "./editor";
+import { OpenInEditorInput, OpenPathInput } from "./editor";
 import { ServerConfigUpdatedPayload } from "./server";
 import {
   SkillListInput,
@@ -91,6 +91,8 @@ export const WS_METHODS = {
 
   // Shell methods
   shellOpenInEditor: "shell.openInEditor",
+  shellOpenInFileManager: "shell.openInFileManager",
+  shellRevealInFileManager: "shell.revealInFileManager",
 
   // Git methods
   gitPull: "git.pull",
@@ -194,6 +196,8 @@ const WebSocketRequestBody = Schema.Union([
 
   // Shell methods
   tagRequestBody(WS_METHODS.shellOpenInEditor, OpenInEditorInput),
+  tagRequestBody(WS_METHODS.shellOpenInFileManager, OpenPathInput),
+  tagRequestBody(WS_METHODS.shellRevealInFileManager, OpenPathInput),
 
   // Git methods
   tagRequestBody(WS_METHODS.gitPull, GitPullInput),

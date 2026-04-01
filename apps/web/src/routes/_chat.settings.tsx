@@ -909,6 +909,59 @@ function SettingsRouteView() {
               />
 
               <SettingsRow
+                title="Accent background override"
+                description="Set a custom background color for project headers instead of the theme default."
+                resetAction={
+                  settings.sidebarAccentBgColorOverride ? (
+                    <SettingResetButton
+                      label="accent background override"
+                      onClick={() =>
+                        updateSettings({
+                          sidebarAccentBgColorOverride: undefined,
+                        })
+                      }
+                    />
+                  ) : null
+                }
+                control={
+                  <div className="flex items-center gap-2">
+                    <label
+                      className="relative size-8 shrink-0 cursor-pointer overflow-hidden rounded-md border border-border"
+                      style={{
+                        backgroundColor:
+                          settings.sidebarAccentBgColorOverride || "var(--accent)",
+                      }}
+                    >
+                      <input
+                        type="color"
+                        value={settings.sidebarAccentBgColorOverride || "#000000"}
+                        onChange={(e) =>
+                          updateSettings({
+                            sidebarAccentBgColorOverride: e.target.value,
+                          })
+                        }
+                        className="absolute inset-0 cursor-pointer opacity-0"
+                        aria-label="Accent background color picker"
+                      />
+                    </label>
+                    <input
+                      type="text"
+                      value={settings.sidebarAccentBgColorOverride ?? ""}
+                      placeholder="Theme default"
+                      onChange={(e) => {
+                        const value = e.target.value.trim();
+                        updateSettings({
+                          sidebarAccentBgColorOverride: value || undefined,
+                        });
+                      }}
+                      className="h-8 w-28 rounded-md border border-border bg-background px-2 text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-ring sm:w-32"
+                      aria-label="Accent background color value"
+                    />
+                  </div>
+                }
+              />
+
+              <SettingsRow
                 title="Wide thread names"
                 description="Give thread names more room by allowing timestamps to compress."
                 resetAction={

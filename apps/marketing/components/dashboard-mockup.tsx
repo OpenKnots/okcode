@@ -14,7 +14,6 @@ import {
   FileText,
   ChevronDown,
   ChevronRight,
-  CirclePower,
   Search,
   Plus,
   Link2,
@@ -23,6 +22,7 @@ import {
   Settings,
   HelpCircle,
 } from "lucide-react";
+import { OkCodeMark } from "./OkCodeLogo";
 
 export function DashboardMockup() {
   const containerVariants = {
@@ -67,8 +67,8 @@ export function DashboardMockup() {
         {/* Logo */}
         <div className="p-3 border-b border-border/50">
           <div className="flex items-center gap-2 px-2 py-1.5">
-            <CirclePower className="w-5 h-5 text-foreground" />
-            <span className="text-foreground font-semibold text-sm">Sprint</span>
+            <OkCodeMark className="w-5 h-5 text-foreground" />
+            <span className="text-foreground font-semibold text-sm">OK Code</span>
             <ChevronDown className="w-3.5 h-3.5 text-muted-foreground ml-auto" />
           </div>
         </div>

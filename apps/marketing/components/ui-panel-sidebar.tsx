@@ -16,8 +16,8 @@ import {
   ChevronRight,
   Sparkles,
   RotateCcw,
-  CirclePower,
 } from "lucide-react";
+import { OkCodeMark } from "./OkCodeLogo";
 
 export function UIPanelSidebar() {
   return (
@@ -38,10 +38,8 @@ export function UIPanelSidebar() {
 
       {/* Logo area */}
       <div className="flex items-center gap-2 px-2 py-2 mb-1">
-        <div className="w-5 h-5 rounded bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center">
-          <CirclePower className="w-3 h-3 text-white" />
-        </div>
-        <span className="text-white font-medium">Sprint</span>
+        <OkCodeMark className="w-5 h-5 text-white" />
+        <span className="text-white font-medium">OK Code</span>
         <ChevronDown className="w-3.5 h-3.5 text-zinc-500 ml-auto" />
       </div>
 

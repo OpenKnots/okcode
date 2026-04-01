@@ -87,9 +87,9 @@ export function UIPanelInbox() {
 
       {/* List */}
       <div className="divide-y divide-zinc-800/30">
-        {items.map((item, index) => (
+        {items.map((item) => (
           <div
-            key={index}
+            key={`${item.id}-${item.title}-${item.time || "0"}`}
             className="px-4 py-2.5 hover:bg-zinc-800/30 transition-colors cursor-pointer"
           >
             <div className="flex items-start gap-3">

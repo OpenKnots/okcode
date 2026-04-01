@@ -20,13 +20,13 @@ import {
   Plus,
   Settings,
   Bell,
-  CirclePower,
   PanelLeftClose,
   PanelLeft,
   Command,
   Home,
   X,
 } from "lucide-react";
+import { OkCodeMark } from "../OkCodeLogo";
 
 interface DashboardSidebarProps {
   activeView: string;
@@ -60,9 +60,9 @@ export function DashboardSidebar({
 
         <Link
           href="/"
-          className="w-8 h-8 rounded bg-gradient-to-br from-brand to-highlight flex items-center justify-center mt-2 hover:opacity-90 transition-opacity"
+          className="w-8 h-8 rounded mt-2 hover:opacity-90 transition-opacity inline-flex items-center justify-center text-foreground"
         >
-          <CirclePower className="w-4 h-4 text-brand-foreground" />
+          <OkCodeMark className="w-5 h-5" />
         </Link>
 
         <div className="flex-1 flex flex-col items-center gap-1 mt-4">
@@ -123,10 +123,8 @@ export function DashboardSidebar({
       <div className="p-3">
         <div className="flex items-center justify-between mb-3">
           <Link href="/" className="flex items-center gap-2 hover:opacity-90 transition-opacity">
-            <div className="w-6 h-6 rounded bg-gradient-to-br from-brand to-highlight flex items-center justify-center">
-              <CirclePower className="w-3.5 h-3.5 text-brand-foreground" />
-            </div>
-            <span className="text-foreground font-medium">Sprint</span>
+            <OkCodeMark className="w-6 h-6 text-foreground" />
+            <span className="text-foreground font-medium">OK Code</span>
             <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
           </Link>
           {isMobile ? (
@@ -298,7 +296,7 @@ function NavItem({
   color,
   teamColor,
   onClick,
-  isMobile,
+  isMobile: _isMobile,
 }: {
   icon: React.ElementType;
   label: string;

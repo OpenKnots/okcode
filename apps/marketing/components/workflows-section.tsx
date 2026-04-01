@@ -30,22 +30,22 @@ const carouselCards = [
   },
   {
     id: 3,
-    category: "Sprint Mobile",
+    category: "OK Code Mobile",
     title: "Move product work forward from anywhere",
     icon: ArrowRight,
     mockup: "mobile",
   },
   {
     id: 4,
-    category: "Sprint Asks",
+    category: "OK Code Asks",
     title: "Turn workplace requests into actionable issues",
     icon: ArrowRight,
     mockup: "asks",
   },
   {
     id: 5,
-    category: "Sprint Integrations",
-    title: "100+ ways to enhance your Sprint experience",
+    category: "OK Code Integrations",
+    title: "100+ ways to enhance your OK Code experience",
     icon: ArrowRight,
     mockup: "integrations",
   },
@@ -59,7 +59,7 @@ const carouselCards = [
   {
     id: 7,
     category: "Built for developers",
-    title: "Build your own add-ons with the Sprint API",
+    title: "Build your own add-ons with the OK Code API",
     icon: ArrowRight,
     mockup: "api",
   },
@@ -203,7 +203,7 @@ function ApiMockup() {
   return (
     <div className="flex items-center justify-center h-full">
       <div className="bg-secondary/50 rounded-lg px-4 py-2 border border-border/50">
-        <span className="text-xs font-mono text-muted-foreground">SPRINT API</span>
+        <span className="text-xs font-mono text-muted-foreground">OK CODE API</span>
       </div>
     </div>
   );
@@ -242,7 +242,7 @@ export function WorkflowsSection() {
   };
 
   return (
-    <section className="relative py-24 bg-background">
+    <section className="relative py-32 bg-background">
       {/* Top gradient */}
       <div
         className="absolute top-0 left-0 right-0 pointer-events-none"
@@ -264,7 +264,7 @@ export function WorkflowsSection() {
             </div>
 
             {/* Heading */}
-            <h2 className="text-4xl md:text-5xl font-medium text-foreground leading-[1.1]">
+            <h2 className="text-5xl md:text-6xl lg:text-[68px] font-bold text-foreground leading-[1.08]">
               Collaborate across
               <br />
               tools and teams
@@ -273,7 +273,7 @@ export function WorkflowsSection() {
 
           {/* Description */}
           <p className="text-muted-foreground lg:max-w-sm lg:pt-12">
-            Expand the capabilities of the Sprint system with a wide variety of integrations that
+            Expand the capabilities of the OK Code system with a wide variety of integrations that
             keep everyone in your organization aligned and focused.
           </p>
         </div>
@@ -286,7 +286,7 @@ export function WorkflowsSection() {
           >
             {carouselCards.map((card) => (
               <div key={card.id} className="flex-shrink-0 w-[calc(25%-12px)] min-w-[280px]">
-                <div className="bg-card/50 border border-border/50 rounded-xl overflow-hidden h-[340px] flex flex-col">
+                <div className="bg-card/50 border border-border/50 rounded-3xl overflow-hidden h-[380px] flex flex-col hover:shadow-xl hover:scale-[1.02] transition-all">
                   {/* Mockup area */}
                   <div className="flex-1 relative overflow-hidden">
                     <CardMockup type={card.mockup} />
@@ -305,8 +305,10 @@ export function WorkflowsSection() {
                     <div className="flex items-center justify-between gap-3">
                       {/* Text content */}
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs text-muted-foreground mb-1">{card.category}</p>
-                        <p className="text-sm text-secondary-foreground leading-snug">
+                        <p className="text-sm text-muted-foreground mb-1 font-medium">
+                          {card.category}
+                        </p>
+                        <p className="text-base text-secondary-foreground leading-snug font-semibold">
                           {card.title}
                         </p>
                       </div>
@@ -326,14 +328,14 @@ export function WorkflowsSection() {
         <div className="flex items-center justify-center gap-2 mt-8">
           <button
             onClick={scrollLeft}
-            className="w-10 h-10 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-ring transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            className="w-12 h-12 rounded-full border-2 border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-ring hover:scale-110 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
             disabled={scrollPosition === 0}
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
           <button
             onClick={scrollRight}
-            className="w-10 h-10 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-ring transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            className="w-12 h-12 rounded-full border-2 border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-ring hover:scale-110 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
             disabled={scrollPosition >= carouselCards.length - 4}
           >
             <ChevronRight className="w-5 h-5" />

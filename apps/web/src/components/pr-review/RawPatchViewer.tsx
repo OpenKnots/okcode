@@ -446,14 +446,27 @@ export function RawPatchViewer({ text, reason }: { text: string; reason: string 
         ) : (
           /* Fallback: no file structure detected, render all lines with highlighting */
           <div className="overflow-hidden rounded-xl border border-border/70">
-            {lines.map((line, index) => (
-              <RawPatchLine
-                key={index}
-                line={line}
-                lineNumber={index + 1}
-                kind={classifyLine(line)}
-              />
-            ))}
+            {lines
+              .reduce<Array<{ line: string; key: string; lineNumber: number }>>(
+                (items, line, lineIndex) => {
+                  const lineNumber = lineIndex + 1;
+                  items.push({
+                    line,
+                    lineNumber,
+                    key: `${lineNumber}-${line}`,
+                  });
+                  return items;
+                },
+                [],
+              )
+              .map(({ key, line, lineNumber }) => (
+                <RawPatchLine
+                  key={key}
+                  line={line}
+                  lineNumber={lineNumber}
+                  kind={classifyLine(line)}
+                />
+              ))}
           </div>
         )}
       </div>

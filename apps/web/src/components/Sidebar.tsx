@@ -15,6 +15,7 @@ import {
   TriangleAlertIcon,
 } from "lucide-react";
 import { ThemeModeSwitcher } from "./ThemeModeSwitcher";
+import { OkCodeMark } from "./OkCodeMark";
 import { autoAnimate } from "@formkit/auto-animate";
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import {
@@ -202,14 +203,6 @@ function prStatusIndicator(pr: ThreadPr): PrStatusIndicator | null {
     };
   }
   return null;
-}
-
-function OKWordmark() {
-  return (
-    <span aria-label="OK" className="shrink-0 text-sm font-bold tracking-tight text-foreground">
-      OK
-    </span>
-  );
 }
 
 /**
@@ -1707,9 +1700,9 @@ export default function Sidebar() {
         <TooltipTrigger
           render={
             <div className="flex min-w-0 flex-1 items-center gap-1 ml-1 cursor-pointer">
-              <OKWordmark />
-              <span className="truncate text-sm font-medium tracking-tight text-muted-foreground">
-                Code
+              <OkCodeMark className="size-5 text-foreground" />
+              <span className="truncate text-sm font-medium tracking-tight text-foreground">
+                OK Code
               </span>
             </div>
           }

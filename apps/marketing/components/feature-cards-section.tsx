@@ -74,7 +74,7 @@ const featureCards = [
 
 export function FeatureCardsSection() {
   return (
-    <div className="relative z-20 py-40 bg-background">
+    <div className="relative z-20 py-48 bg-background">
       <div
         className="absolute top-0 left-0 right-0 pointer-events-none"
         style={{
@@ -83,7 +83,7 @@ export function FeatureCardsSection() {
         }}
       />
       <div className="w-full flex justify-center px-6">
-        <div className="w-full max-w-5xl">
+        <div className="w-full max-w-7xl">
           {/* Header row */}
           <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-8 mb-16">
             <motion.h2
@@ -91,12 +91,10 @@ export function FeatureCardsSection() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6 }}
-              className="text-3xl sm:text-4xl md:text-5xl lg:text-[56px] text-foreground max-w-md"
+              className="text-4xl sm:text-5xl md:text-6xl lg:text-[68px] text-foreground max-w-lg font-bold"
               style={{
-                letterSpacing: "-0.0325em",
-                fontVariationSettings: '"opsz" 28',
-                fontWeight: 538,
-                lineHeight: 1.1,
+                letterSpacing: "-0.02em",
+                lineHeight: 1.08,
               }}
             >
               Made for modern product teams
@@ -109,7 +107,7 @@ export function FeatureCardsSection() {
               className="max-w-md"
             >
               <p className="text-muted-foreground leading-relaxed">
-                Sprint is shaped by the practices and principles that distinguish world-class
+                OK Code is shaped by the practices and principles that distinguish world-class
                 product teams from the rest: relentless focus, fast execution, and a commitment to
                 the quality of craft.{" "}
                 <a
@@ -131,11 +129,11 @@ export function FeatureCardsSection() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.6, delay: 0.2 + index * 0.1 }}
-                className="bg-card/50 border border-border hover:border-ring transition-colors cursor-pointer group overflow-hidden relative flex flex-col justify-end"
+                className="bg-card/50 border border-border hover:border-ring hover:shadow-xl transition-all cursor-pointer group overflow-hidden relative flex flex-col justify-end"
                 style={{
-                  aspectRatio: "336 / 360",
-                  borderRadius: "30px",
-                  height: "360px",
+                  aspectRatio: "336 / 420",
+                  borderRadius: "36px",
+                  height: "420px",
                   isolation: "isolate",
                 }}
               >
@@ -150,12 +148,10 @@ export function FeatureCardsSection() {
                 </div>
                 <div
                   className="relative z-10 flex items-center justify-between w-full"
-                  style={{ padding: "0 24px 40px", gap: "16px" }}
+                  style={{ padding: "0 28px 44px", gap: "16px" }}
                 >
-                  <h3 className="text-foreground font-medium text-lg leading-tight">
-                    {card.title}
-                  </h3>
-                  <div className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-muted-foreground group-hover:border-ring group-hover:text-secondary-foreground transition-colors flex-shrink-0">
+                  <h3 className="text-foreground font-bold text-xl leading-tight">{card.title}</h3>
+                  <div className="w-10 h-10 rounded-full border-2 border-border flex items-center justify-center text-muted-foreground group-hover:border-ring group-hover:text-secondary-foreground group-hover:scale-110 transition-all flex-shrink-0">
                     <Plus className="w-4 h-4" />
                   </div>
                 </div>

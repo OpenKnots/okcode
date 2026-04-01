@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { CirclePower, Menu, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import { OkCodeLogo } from "./OkCodeLogo";
 
 export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -63,14 +64,13 @@ export function Navbar() {
       } backdrop-blur-md`}
     >
       <div className="w-full flex justify-center px-6 py-4">
-        <div className="w-full max-w-4xl flex items-center justify-between">
+        <div className="w-full max-w-6xl flex items-center justify-between">
           {/* Logo */}
           <button
             onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
             className="flex items-center gap-2 hover:opacity-80 transition-opacity"
           >
-            <CirclePower className="w-5 h-5 text-foreground" />
-            <span className="text-foreground font-semibold">Sprint</span>
+            <OkCodeLogo className="w-5 h-5" textClassName="text-foreground font-semibold" />
           </button>
 
           {/* Desktop Navigation */}
@@ -95,7 +95,7 @@ export function Navbar() {
             </Link>
             <Link
               href="/dashboard"
-              className="text-sm text-foreground bg-secondary hover:bg-accent px-3.5 py-1.5 rounded-md border border-border transition-colors"
+              className="text-sm font-semibold text-foreground bg-secondary hover:bg-accent px-5 py-2 rounded-xl border border-border transition-all hover:scale-105"
             >
               Sign up
             </Link>

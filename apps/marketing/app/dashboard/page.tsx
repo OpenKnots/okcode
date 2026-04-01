@@ -1,7 +1,7 @@
 import { DashboardLayout } from "@/components/dashboard/dashboard-layout";
 
 export const metadata = {
-  title: "Dashboard | Sprint",
+  title: "Dashboard | OK Code",
   description: "Manage your projects, issues, and workflows in one place.",
 };
 

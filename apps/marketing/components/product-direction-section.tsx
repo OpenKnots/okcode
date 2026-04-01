@@ -4,7 +4,7 @@ import { ChevronRight } from "lucide-react";
 
 export function ProductDirectionSection() {
   return (
-    <section className="relative py-40 px-6 md:px-12 lg:px-24">
+    <section className="relative py-48 px-6 md:px-12 lg:px-24">
       {/* Gradient overlay at top */}
       <div
         className="absolute inset-x-0 top-0 pointer-events-none"
@@ -14,33 +14,31 @@ export function ProductDirectionSection() {
         }}
       />
 
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         {/* Section label */}
         <div className="flex items-center gap-2 mb-6">
           <div className="w-3 h-3 rounded-full bg-green-500" />
-          <span className="text-zinc-400 text-sm">Project and long-term planning</span>
+          <span className="text-zinc-400 text-base">Project and long-term planning</span>
           <ChevronRight className="w-4 h-4 text-zinc-500" />
         </div>
 
         {/* Section heading */}
         <h2
-          className="text-3xl sm:text-4xl md:text-5xl lg:text-[56px] font-medium text-white mb-8 max-w-3xl"
+          className="text-4xl sm:text-5xl md:text-6xl lg:text-[68px] font-bold text-white mb-10 max-w-4xl"
           style={{
-            letterSpacing: "-0.0325em",
-            fontVariationSettings: '"opsz" 28',
-            fontWeight: 538,
-            lineHeight: 1.1,
+            letterSpacing: "-0.02em",
+            lineHeight: 1.08,
           }}
         >
           Set the product direction
         </h2>
 
         {/* Description */}
-        <p className="text-zinc-400 text-lg max-w-md mb-16">
+        <p className="text-zinc-400 text-xl max-w-lg mb-16">
           <span className="text-white font-medium">
             Align your team around a unified product timeline.
           </span>{" "}
-          Plan, manage, and track all product initiatives with Sprint's visual planning tools.
+          Plan, manage, and track all product initiatives with OK Code's visual planning tools.
         </p>
 
         {/* 3D Timeline Visualization */}
@@ -77,13 +75,13 @@ export function ProductDirectionSection() {
               <div className="absolute top-0 left-0 right-0 flex items-end">
                 {/* Tick marks row */}
                 <div className="flex items-end gap-[3px] absolute bottom-0 left-[5%] right-0">
-                  {Array.from({ length: 60 }).map((_, i) => (
+                  {Array.from({ length: 60 }, (_, tickIndex) => tickIndex).map((tickIndex) => (
                     <div
-                      key={i}
+                      key={tickIndex}
                       className="bg-zinc-600/60"
                       style={{
                         width: "1px",
-                        height: i % 7 === 0 ? "16px" : "8px",
+                        height: tickIndex % 7 === 0 ? "16px" : "8px",
                       }}
                     />
                   ))}
@@ -194,14 +192,14 @@ export function ProductDirectionSection() {
         <div className="grid grid-cols-1 md:grid-cols-2">
           {/* Left column - Manage projects end-to-end */}
           <div className="border-t border-r border-b border-zinc-800 pt-10 pr-10 pb-16">
-            <h3 className="text-xl font-medium text-zinc-200 mb-3">Manage projects end-to-end</h3>
-            <p className="text-zinc-500 text-base leading-relaxed mb-8">
+            <h3 className="text-2xl font-bold text-zinc-200 mb-4">Manage projects end-to-end</h3>
+            <p className="text-zinc-500 text-lg leading-relaxed mb-8">
               Consolidate specs, milestones, tasks, and other documentation in one centralized
               location.
             </p>
 
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-5">
-              <h4 className="text-lg font-medium text-zinc-200 mb-5">Project Overview</h4>
+            <div className="rounded-3xl border border-zinc-800 bg-zinc-900/50 p-6">
+              <h4 className="text-xl font-bold text-zinc-200 mb-5">Project Overview</h4>
 
               {/* Properties row */}
               <div className="flex items-center gap-4 mb-4">
@@ -263,8 +261,8 @@ export function ProductDirectionSection() {
 
           {/* Right column - Project updates */}
           <div className="border-t border-b border-zinc-800 pt-10 pl-10 pb-16">
-            <h3 className="text-xl font-medium text-zinc-200 mb-3">Project updates</h3>
-            <p className="text-zinc-500 text-base leading-relaxed mb-8">
+            <h3 className="text-2xl font-bold text-zinc-200 mb-4">Project updates</h3>
+            <p className="text-zinc-500 text-lg leading-relaxed mb-8">
               Communicate progress and project health with built-in project updates.
             </p>
 
@@ -314,7 +312,7 @@ export function ProductDirectionSection() {
         <div className="grid grid-cols-1 md:grid-cols-2 border-b border-zinc-800">
           {/* Left column - Feature list */}
           <div className="border-r border-zinc-800 pt-16 pr-10 pb-16 flex flex-col justify-center">
-            <h3 className="text-2xl font-medium text-zinc-200 mb-8 leading-tight">
+            <h3 className="text-3xl font-bold text-zinc-200 mb-8 leading-tight">
               Ideate and specify
               <br />
               what to build next
@@ -322,22 +320,22 @@ export function ProductDirectionSection() {
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-3">
                 <div className="w-1 h-5 rounded-full bg-green-500" />
-                <span className="text-zinc-200 font-medium">Collaborative documents</span>
+                <span className="text-zinc-200 font-semibold text-lg">Collaborative documents</span>
               </div>
               <div className="flex items-center gap-3">
                 <div className="w-1 h-5 rounded-full bg-green-500/50" />
-                <span className="text-zinc-400">Inline comments</span>
+                <span className="text-zinc-400 text-lg">Inline comments</span>
               </div>
               <div className="flex items-center gap-3">
                 <div className="w-1 h-5 rounded-full bg-green-500/30" />
-                <span className="text-zinc-500">Text-to-issue commands</span>
+                <span className="text-zinc-500 text-lg">Text-to-issue commands</span>
               </div>
             </div>
           </div>
 
           {/* Right column - Document mockup */}
           <div className="pt-10 pl-10 pb-16">
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 overflow-hidden">
+            <div className="rounded-3xl border border-zinc-800 bg-zinc-900/50 overflow-hidden">
               {/* Header */}
               <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-800 text-zinc-400 text-sm">
                 <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor">
@@ -444,9 +442,9 @@ export function ProductDirectionSection() {
                 <circle cx="10" cy="10" r="4" />
                 <circle cx="10" cy="10" r="1" fill="currentColor" />
               </svg>
-              <span className="text-zinc-200 font-medium">Initiatives</span>
+              <span className="text-zinc-200 font-bold text-lg">Initiatives</span>
             </div>
-            <p className="text-zinc-500 text-sm leading-relaxed">
+            <p className="text-zinc-500 text-base leading-relaxed">
               Coordinate strategic product efforts.
             </p>
           </div>
@@ -464,9 +462,9 @@ export function ProductDirectionSection() {
                 <circle cx="10" cy="10" r="8" />
                 <path d="M2 10h16M10 2a15 15 0 010 16M10 2a15 15 0 000 16" />
               </svg>
-              <span className="text-zinc-200 font-medium">Cross-team projects</span>
+              <span className="text-zinc-200 font-bold text-lg">Cross-team projects</span>
             </div>
-            <p className="text-zinc-500 text-sm leading-relaxed">
+            <p className="text-zinc-500 text-base leading-relaxed">
               Collaborate across teams and departments.
             </p>
           </div>
@@ -475,9 +473,9 @@ export function ProductDirectionSection() {
           <div>
             <div className="flex items-center gap-2 mb-3">
               <div className="w-4 h-4 rotate-45 bg-zinc-400" />
-              <span className="text-zinc-200 font-medium">Milestones</span>
+              <span className="text-zinc-200 font-bold text-lg">Milestones</span>
             </div>
-            <p className="text-zinc-500 text-sm leading-relaxed">
+            <p className="text-zinc-500 text-base leading-relaxed">
               Break projects down into concrete phases.
             </p>
           </div>
@@ -491,9 +489,9 @@ export function ProductDirectionSection() {
                 <rect x="12" y="8" width="3" height="10" rx="1" />
                 <rect x="17" y="4" width="3" height="14" rx="1" />
               </svg>
-              <span className="text-zinc-200 font-medium">Progress insights</span>
+              <span className="text-zinc-200 font-bold text-lg">Progress insights</span>
             </div>
-            <p className="text-zinc-500 text-sm leading-relaxed">
+            <p className="text-zinc-500 text-base leading-relaxed">
               Track scope, velocity, and progress over time.
             </p>
           </div>

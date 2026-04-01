@@ -68,10 +68,18 @@ interface FakeGitTextGeneration {
 
 type FakePullRequest = NonNullable<FakeGhScenario["pullRequest"]>;
 
+const TEST_GIT_ENV = {
+  ...process.env,
+  GIT_CONFIG_COUNT: "1",
+  GIT_CONFIG_KEY_0: "commit.gpgsign",
+  GIT_CONFIG_VALUE_0: "false",
+};
+
 function runGitSyncForFakeGh(cwd: string, args: readonly string[]): void {
   const result = spawnSync("git", args, {
     cwd,
     encoding: "utf8",
+    env: TEST_GIT_ENV,
   });
   if (result.status === 0) {
     return;
@@ -132,6 +140,7 @@ function initRepo(
     yield* runGit(cwd, ["init", "--initial-branch=main"]);
     yield* runGit(cwd, ["config", "user.email", "test@example.com"]);
     yield* runGit(cwd, ["config", "user.name", "Test User"]);
+    yield* runGit(cwd, ["config", "commit.gpgsign", "false"]);
     yield* fs.writeFileString(path.join(cwd, "README.md"), "hello\n");
     yield* runGit(cwd, ["add", "README.md"]);
     yield* runGit(cwd, ["commit", "-m", "Initial commit"]);

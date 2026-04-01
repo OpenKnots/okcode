@@ -1,11 +1,13 @@
 import { spawn } from "node:child_process";
+import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const desktopDir = resolve(__dirname, "..");
-const electronBin = resolve(desktopDir, "node_modules/.bin/electron");
 const mainJs = resolve(desktopDir, "dist-electron/main.js");
+const require = createRequire(import.meta.url);
+const electronBin = require("electron");
 
 console.log("\nLaunching Electron smoke test...");
 
@@ -24,6 +26,13 @@ child.stdout.on("data", (chunk) => {
 });
 child.stderr.on("data", (chunk) => {
   output += chunk.toString();
+});
+
+child.on("error", (error) => {
+  clearTimeout(timeout);
+  console.error("\nDesktop smoke test failed to launch Electron:");
+  console.error(error);
+  process.exit(1);
 });
 
 const timeout = setTimeout(() => {

@@ -670,6 +670,46 @@ describe("sortProjectsForSidebar", () => {
     ]);
   });
 
+  it("sorts a newly created project (no threads) above an older project with thread activity", () => {
+    const sorted = sortProjectsForSidebar(
+      [
+        makeProject({
+          id: ProjectId.makeUnsafe("project-1"),
+          name: "Old active project",
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+        }),
+        makeProject({
+          id: ProjectId.makeUnsafe("project-2"),
+          name: "New project",
+          createdAt: "2026-03-09T10:10:00.000Z",
+          updatedAt: "2026-03-09T10:10:00.000Z",
+        }),
+      ],
+      [
+        makeThread({
+          projectId: ProjectId.makeUnsafe("project-1"),
+          messages: [
+            {
+              id: "message-1" as never,
+              role: "user",
+              text: "recent activity",
+              createdAt: "2026-03-09T10:05:00.000Z",
+              streaming: false,
+              completedAt: "2026-03-09T10:05:00.000Z",
+            },
+          ],
+        }),
+      ],
+      "updated_at",
+    );
+
+    expect(sorted.map((project) => project.id)).toEqual([
+      ProjectId.makeUnsafe("project-2"),
+      ProjectId.makeUnsafe("project-1"),
+    ]);
+  });
+
   it("returns the project timestamp when no threads are present", () => {
     const timestamp = getProjectSortTimestamp(
       makeProject({ updatedAt: "2026-03-09T10:10:00.000Z" }),

@@ -14,7 +14,7 @@ import { ServiceMap } from "effect";
 import type { Effect } from "effect";
 
 import type { CheckpointStoreError } from "../Errors.ts";
-import { CheckpointRef } from "@okcode/contracts";
+import { CheckpointRef, type OrchestrationDiffContextMode } from "@okcode/contracts";
 
 export interface CaptureCheckpointInput {
   readonly cwd: string;
@@ -32,6 +32,8 @@ export interface DiffCheckpointsInput {
   readonly fromCheckpointRef: CheckpointRef;
   readonly toCheckpointRef: CheckpointRef;
   readonly fallbackFromToHead?: boolean;
+  readonly relativePath?: string;
+  readonly contextMode?: OrchestrationDiffContextMode;
 }
 
 export interface DeleteCheckpointRefsInput {

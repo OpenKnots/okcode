@@ -828,6 +828,115 @@ function SettingsRouteView() {
               />
 
               <SettingsRow
+                title="Accent project names"
+                description="Use the theme's accent color for project names in the sidebar."
+                resetAction={
+                  settings.sidebarAccentProjectNames !== defaults.sidebarAccentProjectNames ? (
+                    <SettingResetButton
+                      label="accent project names"
+                      onClick={() =>
+                        updateSettings({
+                          sidebarAccentProjectNames: defaults.sidebarAccentProjectNames,
+                        })
+                      }
+                    />
+                  ) : null
+                }
+                control={
+                  <Switch
+                    checked={settings.sidebarAccentProjectNames}
+                    onCheckedChange={(checked) =>
+                      updateSettings({
+                        sidebarAccentProjectNames: Boolean(checked),
+                      })
+                    }
+                    aria-label="Accent project names"
+                  />
+                }
+              />
+
+              <SettingsRow
+                title="Accent color override"
+                description="Set a custom color for accented project names instead of the theme default."
+                resetAction={
+                  settings.sidebarAccentColorOverride ? (
+                    <SettingResetButton
+                      label="accent color override"
+                      onClick={() =>
+                        updateSettings({
+                          sidebarAccentColorOverride: undefined,
+                        })
+                      }
+                    />
+                  ) : null
+                }
+                control={
+                  <div className="flex items-center gap-2">
+                    <label
+                      className="relative size-8 shrink-0 cursor-pointer overflow-hidden rounded-md border border-border"
+                      style={{
+                        backgroundColor:
+                          settings.sidebarAccentColorOverride || "var(--accent-foreground)",
+                      }}
+                    >
+                      <input
+                        type="color"
+                        value={settings.sidebarAccentColorOverride || "#000000"}
+                        onChange={(e) =>
+                          updateSettings({
+                            sidebarAccentColorOverride: e.target.value,
+                          })
+                        }
+                        className="absolute inset-0 cursor-pointer opacity-0"
+                        aria-label="Accent color picker"
+                      />
+                    </label>
+                    <input
+                      type="text"
+                      value={settings.sidebarAccentColorOverride ?? ""}
+                      placeholder="Theme default"
+                      onChange={(e) => {
+                        const value = e.target.value.trim();
+                        updateSettings({
+                          sidebarAccentColorOverride: value || undefined,
+                        });
+                      }}
+                      className="h-8 w-28 rounded-md border border-border bg-background px-2 text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-ring sm:w-32"
+                      aria-label="Accent color value"
+                    />
+                  </div>
+                }
+              />
+
+              <SettingsRow
+                title="Wide thread names"
+                description="Give thread names more room by allowing timestamps to compress."
+                resetAction={
+                  settings.sidebarWideThreadNames !== defaults.sidebarWideThreadNames ? (
+                    <SettingResetButton
+                      label="wide thread names"
+                      onClick={() =>
+                        updateSettings({
+                          sidebarWideThreadNames: defaults.sidebarWideThreadNames,
+                        })
+                      }
+                    />
+                  ) : null
+                }
+                control={
+                  <Switch
+                    checked={settings.sidebarWideThreadNames}
+                    onCheckedChange={(checked) =>
+                      updateSettings({
+                        sidebarWideThreadNames: Boolean(checked),
+                      })
+                    }
+                    aria-label="Wide thread names"
+                  />
+                }
+              />
+
+              <SettingsRow
                 title="Time format"
                 description="System default follows your browser or OS clock preference."
                 resetAction={

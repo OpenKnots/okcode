@@ -1,0 +1,52 @@
+---
+const navLinks = [
+  { href: "#capabilities", label: "Capabilities" },
+  { href: "#workflow", label: "How It Works" },
+  { href: "#global", label: "Infrastructure" },
+  { href: "#pricing", label: "Pricing" },
+];
+---
+
+<header class="fixed top-0 left-0 right-0 z-50 glass">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="flex items-center justify-between h-16">
+      <!-- Logo -->
+      <a href="/" class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-violet-400 flex items-center justify-center">
+          <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+          </svg>
+        </div>
+        <span class="font-semibold text-lg text-foreground">OK Code</span>
+      </a>
+
+      <!-- Navigation -->
+      <nav class="hidden md:flex items-center gap-8">
+        {navLinks.map((link) => (
+          <a
+            href={link.href}
+            class="text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {link.label}
+          </a>
+        ))}
+      </nav>
+
+      <!-- CTA -->
+      <div class="flex items-center gap-4">
+        <a
+          href="#"
+          class="hidden sm:inline-flex text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          Sign in
+        </a>
+        <a
+          href="#"
+          class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+        >
+          Get Started
+        </a>
+      </div>
+    </div>
+  </div>
+</header>

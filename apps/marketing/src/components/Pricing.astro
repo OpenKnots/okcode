@@ -1,0 +1,134 @@
+---
+const plans = [
+  {
+    name: "Free",
+    price: "$0",
+    description: "Perfect for trying out OK Code",
+    features: [
+      "50 AI generations per month",
+      "Basic code completion",
+      "Community support",
+      "Single project",
+    ],
+    cta: "Get Started",
+    highlighted: false,
+  },
+  {
+    name: "Pro",
+    price: "$20",
+    period: "/month",
+    description: "For professional developers",
+    features: [
+      "Unlimited AI generations",
+      "Advanced code analysis",
+      "Priority support",
+      "Unlimited projects",
+      "Team collaboration",
+      "Custom integrations",
+    ],
+    cta: "Start Free Trial",
+    highlighted: true,
+  },
+  {
+    name: "Enterprise",
+    price: "Custom",
+    description: "For organizations at scale",
+    features: [
+      "Everything in Pro",
+      "SSO & SAML",
+      "Dedicated support",
+      "Custom AI training",
+      "On-premise deployment",
+      "SLA guarantee",
+    ],
+    cta: "Contact Sales",
+    highlighted: false,
+  },
+];
+---
+
+<section id="pricing" class="relative py-24 sm:py-32">
+  <!-- Background -->
+  <div class="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent"></div>
+  
+  <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <!-- Section Header -->
+    <div class="text-center mb-16">
+      <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-primary/10 text-primary mb-4">
+        Pricing
+      </span>
+      <h2 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-4 text-balance">
+        Simple, transparent pricing
+      </h2>
+      <p class="max-w-2xl mx-auto text-lg text-muted-foreground text-balance">
+        Start free and scale as you grow. No hidden fees, no surprises.
+      </p>
+    </div>
+
+    <!-- Pricing Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+      {plans.map((plan) => (
+        <div class={`relative p-8 rounded-2xl ${plan.highlighted ? 'bg-gradient-to-b from-primary/20 to-primary/5 border-2 border-primary/50 glow-subtle' : 'glass'} transition-all duration-300 hover:-translate-y-1`}>
+          {plan.highlighted && (
+            <div class="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-primary text-primary-foreground text-sm font-medium">
+              Most Popular
+            </div>
+          )}
+          
+          <div class="text-center mb-8">
+            <h3 class="text-xl font-semibold text-foreground mb-2">{plan.name}</h3>
+            <div class="flex items-baseline justify-center gap-1">
+              <span class="text-4xl font-bold text-foreground">{plan.price}</span>
+              {plan.period && <span class="text-muted-foreground">{plan.period}</span>}
+            </div>
+            <p class="text-sm text-muted-foreground mt-2">{plan.description}</p>
+          </div>
+
+          <ul class="space-y-4 mb-8">
+            {plan.features.map((feature) => (
+              <li class="flex items-center gap-3 text-sm text-foreground">
+                <svg class="w-5 h-5 text-primary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                {feature}
+              </li>
+            ))}
+          </ul>
+
+          <a
+            href="#"
+            class={`block w-full py-3 px-6 rounded-xl text-center font-medium transition-all ${
+              plan.highlighted
+                ? 'bg-primary text-primary-foreground hover:bg-primary/90 glow-primary'
+                : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+            }`}
+          >
+            {plan.cta}
+          </a>
+        </div>
+      ))}
+    </div>
+
+    <!-- Trust badges -->
+    <div class="flex flex-wrap items-center justify-center gap-8 mt-16 text-muted-foreground">
+      <div class="flex items-center gap-2">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+        </svg>
+        <span class="text-sm">SOC 2 Compliant</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+        </svg>
+        <span class="text-sm">Enterprise Security</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+        </svg>
+        <span class="text-sm">Cancel Anytime</span>
+      </div>
+    </div>
+  </div>
+</section>

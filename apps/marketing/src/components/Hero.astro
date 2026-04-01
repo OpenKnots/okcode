@@ -1,167 +1,106 @@
 ---
-/**
- * Hero section — ClawDash-style centered hero with OK Code content.
- */
 ---
 
-<section class="hero" data-reveal>
-  <div class="hero-gradient-mesh" aria-hidden="true">
-    <div class="hero-mesh-blob hero-mesh-blob--1"></div>
-    <div class="hero-mesh-blob hero-mesh-blob--2"></div>
-    <div class="hero-mesh-blob hero-mesh-blob--3"></div>
+<section class="relative min-h-screen flex items-center justify-center overflow-hidden pt-16">
+  <!-- Background Effects -->
+  <div class="absolute inset-0 overflow-hidden">
+    <!-- Gradient orbs -->
+    <div class="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-3xl animate-pulse-slow"></div>
+    <div class="absolute bottom-1/4 right-1/4 w-80 h-80 bg-violet-500/15 rounded-full blur-3xl animate-pulse-slow" style="animation-delay: 1s;"></div>
+    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-purple-600/10 rounded-full blur-3xl"></div>
+    
+    <!-- Grid pattern -->
+    <div class="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:64px_64px]"></div>
   </div>
 
-  <div class="hero-copy hero-copy--centered">
-    <a href="https://github.com/OpenKnots/okcode/releases" class="kn-pill">
-      <span class="kn-pill-badge">New</span>
-      <span class="kn-pill-text">Premium AI coding workspace for desktop + web</span>
-      <span class="kn-pill-arrow" aria-hidden="true">&rarr;</span>
-    </a>
-
-    <div class="hero-mark" aria-hidden="true">
-      <div class="hero-mark-glow hero-mark-glow--violet"></div>
-      <div class="hero-mark-glow hero-mark-glow--cyan"></div>
-      <div class="hero-mark-core">
-        <img src="/icon.png" alt="" width="88" height="88" />
-      </div>
+  <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+    <!-- Badge -->
+    <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full glass mb-8 animate-fade-in">
+      <span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
+      <span class="text-sm text-muted-foreground">Now available for all platforms</span>
     </div>
 
-    <h1 class="tagline">The beautiful workspace for shipping with <span class="gradient-text">AI</span>.</h1>
+    <!-- Headline -->
+    <h1 class="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-6 animate-slide-up text-balance">
+      <span class="text-foreground">The AI Platform to</span>
+      <br />
+      <span class="text-gradient">Build & Ship Code</span>
+    </h1>
 
-    <p class="subtagline">
-      Chat, diffs, preview, PR review, and release actions in one glassy desktop + web
-      workspace — so you can stay in flow instead of juggling tabs, terminals, and disposable
-      prompts.
+    <!-- Subheadline -->
+    <p class="max-w-2xl mx-auto text-lg sm:text-xl text-muted-foreground mb-10 animate-slide-up text-balance" style="animation-delay: 0.1s;">
+      Transform your development workflow with AI-powered code generation, intelligent debugging, and seamless collaboration. Ship faster than ever.
     </p>
 
-    <div class="hero-actions hero-actions--centered">
-      <a id="download-btn" href="https://github.com/OpenKnots/okcode/releases" class="hero-button">
-        <span class="hero-button-shine" aria-hidden="true"></span>
-        <span class="hero-button-shimmer" aria-hidden="true"></span>
-        <span id="download-label">Download OK Code</span>
-      </a>
-
+    <!-- CTA Buttons -->
+    <div class="flex flex-col sm:flex-row items-center justify-center gap-4 animate-slide-up" style="animation-delay: 0.2s;">
       <a
-        href="https://github.com/OpenKnots/okcode"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="secondary-button"
+        href="#"
+        class="inline-flex items-center justify-center px-8 py-4 text-base font-medium rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all glow-primary hover:scale-105"
       >
-        View on GitHub
+        Start Building Free
+        <svg class="ml-2 w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+        </svg>
+      </a>
+      <a
+        href="#"
+        class="inline-flex items-center justify-center px-8 py-4 text-base font-medium rounded-xl glass text-foreground hover:bg-white/10 transition-all"
+      >
+        <svg class="mr-2 w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        Watch Demo
       </a>
     </div>
 
-    <!-- Product visual mockup -->
-    <div class="hero-visual-stage" aria-hidden="true">
-      <div class="hero-stage-chrome">
-        <div class="hero-stage-dots"><span></span><span></span><span></span></div>
-        <span class="hero-stage-title">OK Code</span>
-        <div class="hero-stage-badge">Thread</div>
+    <!-- Stats -->
+    <div class="flex flex-wrap items-center justify-center gap-8 sm:gap-16 mt-16 animate-fade-in" style="animation-delay: 0.4s;">
+      <div class="text-center">
+        <div class="text-3xl sm:text-4xl font-bold text-foreground">50K+</div>
+        <div class="text-sm text-muted-foreground mt-1">Developers</div>
       </div>
-      <div class="hero-stage-body">
-        <div class="hero-stage-sidebar">
-          <div class="hero-stage-sidebar-title"></div>
-          <div class="hero-stage-thread hero-stage-thread--active"></div>
-          <div class="hero-stage-thread"></div>
-          <div class="hero-stage-thread hero-stage-thread--short"></div>
-          <div class="hero-stage-thread"></div>
-        </div>
-        <div class="hero-stage-main">
-          <div class="hero-stage-msg hero-stage-msg--lg"></div>
-          <div class="hero-stage-msg"></div>
-          <div class="hero-stage-msg hero-stage-msg--sm"></div>
-          <div class="hero-stage-msg hero-stage-msg--lg"></div>
-          <div class="hero-stage-msg"></div>
-          <div class="hero-stage-msg hero-stage-msg--xs"></div>
-        </div>
-        <div class="hero-stage-panel">
-          <div class="hero-stage-panel-head">
-            <span class="hero-stage-panel-label">Diff</span>
-            <span class="hero-stage-panel-status">+3 −1</span>
-          </div>
-          <div class="hero-stage-line hero-stage-line--add"></div>
-          <div class="hero-stage-line hero-stage-line--add hero-stage-line--short"></div>
-          <div class="hero-stage-line hero-stage-line--remove"></div>
-          <div class="hero-stage-line"></div>
-          <div class="hero-stage-line hero-stage-line--add"></div>
-          <div class="hero-stage-line hero-stage-line--short"></div>
-        </div>
+      <div class="text-center">
+        <div class="text-3xl sm:text-4xl font-bold text-foreground">10M+</div>
+        <div class="text-sm text-muted-foreground mt-1">Lines Generated</div>
+      </div>
+      <div class="text-center">
+        <div class="text-3xl sm:text-4xl font-bold text-foreground">99.9%</div>
+        <div class="text-sm text-muted-foreground mt-1">Uptime</div>
       </div>
     </div>
 
-    <div class="hero-meta hero-meta--centered">
-      <a href="/download" class="other-platforms">Other platforms</a>
-      <div class="hero-pills" aria-label="Product highlights">
-        <span>Desktop + web</span>
-        <span>Persistent threads</span>
-        <span>Built-in diffs</span>
-        <span>Local preview</span>
-        <span>Open source</span>
+    <!-- Hero Image/Preview -->
+    <div class="relative mt-16 animate-slide-up" style="animation-delay: 0.3s;">
+      <div class="relative rounded-2xl overflow-hidden glass glow-subtle p-1">
+        <div class="rounded-xl overflow-hidden bg-card">
+          <!-- Mock IDE interface -->
+          <div class="flex items-center gap-2 px-4 py-3 border-b border-border">
+            <div class="flex gap-1.5">
+              <div class="w-3 h-3 rounded-full bg-red-500/80"></div>
+              <div class="w-3 h-3 rounded-full bg-yellow-500/80"></div>
+              <div class="w-3 h-3 rounded-full bg-green-500/80"></div>
+            </div>
+            <div class="flex-1 text-center text-sm text-muted-foreground">app.tsx</div>
+          </div>
+          <div class="p-6 font-mono text-sm text-left">
+            <div class="flex gap-4">
+              <div class="text-muted-foreground select-none">1<br/>2<br/>3<br/>4<br/>5<br/>6<br/>7<br/>8</div>
+              <div>
+                <span class="text-purple-400">import</span> <span class="text-foreground">{"{"} useState {"}"}</span> <span class="text-purple-400">from</span> <span class="text-green-400">&apos;react&apos;</span><br/>
+                <br/>
+                <span class="text-purple-400">export function</span> <span class="text-yellow-400">App</span><span class="text-foreground">() {"{"}</span><br/>
+                <span class="text-foreground">  </span><span class="text-purple-400">const</span> <span class="text-foreground">[count, setCount] = </span><span class="text-yellow-400">useState</span><span class="text-foreground">(0)</span><br/>
+                <br/>
+                <span class="text-foreground">  </span><span class="text-purple-400">return</span> <span class="text-foreground">(</span><br/>
+                <span class="text-foreground">    </span><span class="text-muted-foreground">{"// AI: generating optimized component..."}</span><br/>
+                <span class="text-foreground">  )</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
-
-  <div class="hero-grid-pattern" aria-hidden="true"></div>
 </section>
-
-<style>
-  .hero-gradient-mesh {
-    position: absolute;
-    inset: -20% -10%;
-    z-index: 0;
-    pointer-events: none;
-    overflow: hidden;
-  }
-  .hero-mesh-blob {
-    position: absolute;
-    border-radius: 50%;
-    filter: blur(80px);
-    opacity: 0.4;
-    animation: float var(--duration) ease-in-out infinite;
-  }
-  .hero-mesh-blob--1 {
-    width: 40rem;
-    height: 40rem;
-    top: -10%;
-    left: -5%;
-    background: radial-gradient(circle, rgba(202, 58, 41, 0.15), transparent 70%);
-    --duration: 18s;
-  }
-  .hero-mesh-blob--2 {
-    width: 35rem;
-    height: 35rem;
-    top: 20%;
-    right: -10%;
-    background: radial-gradient(circle, rgba(167, 139, 250, 0.12), transparent 70%);
-    --duration: 22s;
-    animation-delay: -5s;
-  }
-  .hero-mesh-blob--3 {
-    width: 30rem;
-    height: 30rem;
-    bottom: -15%;
-    left: 30%;
-    background: radial-gradient(circle, rgba(103, 232, 249, 0.1), transparent 70%);
-    --duration: 20s;
-    animation-delay: -10s;
-  }
-  .hero-button-shimmer {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent);
-    animation: shimmer 3s ease-in-out infinite;
-    pointer-events: none;
-  }
-  .hero-grid-pattern {
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-    opacity: 0.03;
-    background-image:
-      linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px);
-    background-size: 48px 48px;
-    mask-image: radial-gradient(ellipse 60% 50% at 50% 30%, black, transparent);
-  }
-</style>

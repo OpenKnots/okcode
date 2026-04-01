@@ -14,7 +14,6 @@ import {
   TerminalIcon,
   TriangleAlertIcon,
 } from "lucide-react";
-import { YouTubeToggleButton } from "./YouTubePlayer";
 import { ThemeModeSwitcher } from "./ThemeModeSwitcher";
 import { autoAnimate } from "@formkit/auto-animate";
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
@@ -2065,9 +2064,6 @@ export default function Sidebar() {
       <SidebarSeparator />
       <SidebarFooter className="p-2">
         <SidebarMenu>
-          <SidebarMenuItem>
-            <YouTubeToggleButton />
-          </SidebarMenuItem>
           {isOnSubPage ? (
             <SidebarMenuItem>
               <SidebarMenuButton

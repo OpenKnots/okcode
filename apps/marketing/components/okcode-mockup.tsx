@@ -198,70 +198,126 @@ export function OKCodeMockup() {
         {/* Chat Content */}
         <div className="flex-1 overflow-auto scrollbar-hide p-4">
           {/* Task Title */}
-          <div className="flex justify-end mb-6">
+          <motion.div
+            className="flex justify-end mb-6"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 1.8 }}
+          >
             <div className="bg-[#1a1a1a] rounded-lg px-4 py-2 max-w-[200px]">
               <div className="text-[#e5e5e5] text-sm font-medium">install deps</div>
               <div className="text-[#666] text-[10px] mt-0.5">2:47:33 AM</div>
             </div>
-          </div>
+          </motion.div>
 
           {/* AI Response */}
           <div className="space-y-4">
-            <p className="text-[#b3b3b3] text-sm leading-relaxed">
-              {
-                "I'm checking the repo for its package manager and lockfiles first, then I'll install dependencies with the project's intended tool."
-              }
-            </p>
-            <div className="text-[#666] text-[10px]">2:47:44 AM • 11s</div>
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 2.6 }}
+            >
+              <p className="text-[#b3b3b3] text-sm leading-relaxed">
+                {
+                  "I'm checking the repo for its package manager and lockfiles first, then I'll install dependencies with the project's intended tool."
+                }
+              </p>
+              <div className="text-[#666] text-[10px] mt-4">2:47:44 AM • 11s</div>
+            </motion.div>
 
             {/* Collapsed Command */}
-            <CollapsedCommand label="Ran command x3" />
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 3.4 }}
+            >
+              <CollapsedCommand label="Ran command x3" />
+            </motion.div>
 
-            <p className="text-[#b3b3b3] text-sm leading-relaxed">
-              The repo is pinned to <InlineCode>pnpm</InlineCode> via{" "}
-              <InlineCode>pnpm-lock.yaml</InlineCode>. {"I'm installing with"}{" "}
-              <InlineCode>pnpm install</InlineCode> from the workspace root now.
-            </p>
-            <div className="text-[#666] text-[10px]">2:47:46 AM • 2.5s</div>
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 4.2 }}
+            >
+              <p className="text-[#b3b3b3] text-sm leading-relaxed">
+                The repo is pinned to <InlineCode>pnpm</InlineCode> via{" "}
+                <InlineCode>pnpm-lock.yaml</InlineCode>. {"I'm installing with"}{" "}
+                <InlineCode>pnpm install</InlineCode> from the workspace root now.
+              </p>
+              <div className="text-[#666] text-[10px] mt-4">2:47:46 AM • 2.5s</div>
+            </motion.div>
 
-            <p className="text-[#b3b3b3] text-sm leading-relaxed">
-              <InlineCode>pnpm</InlineCode> has started linking packages from the lockfile.{" "}
-              {"I'm waiting for it to finish and checking for any postinstall failures."}
-            </p>
-            <div className="text-[#666] text-[10px]">2:47:50 AM • 4.1s</div>
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 5.0 }}
+            >
+              <p className="text-[#b3b3b3] text-sm leading-relaxed">
+                <InlineCode>pnpm</InlineCode> has started linking packages from the lockfile.{" "}
+                {"I'm waiting for it to finish and checking for any postinstall failures."}
+              </p>
+              <div className="text-[#666] text-[10px] mt-4">2:47:50 AM • 4.1s</div>
+            </motion.div>
 
             {/* Expanded Command */}
-            <div className="bg-[#111111] rounded-lg border border-[#1e1e1e] overflow-hidden">
-              <div className="px-3 py-2 flex items-center gap-2">
-                <ChevronDown className="w-4 h-4 text-[#666]" />
-                <span className="text-[#b3b3b3] text-xs">
-                  {"Ran command - /bin/zsh -lc 'pnpm install'"}
-                </span>
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 5.8 }}
+            >
+              <div className="bg-[#111111] rounded-lg border border-[#1e1e1e] overflow-hidden">
+                <div className="px-3 py-2 flex items-center gap-2">
+                  <ChevronDown className="w-4 h-4 text-[#666]" />
+                  <span className="text-[#b3b3b3] text-xs">
+                    {"Ran command - /bin/zsh -lc 'pnpm install'"}
+                  </span>
+                </div>
               </div>
-            </div>
+            </motion.div>
 
             {/* Response Status */}
-            <div className="flex items-center justify-center py-2">
-              <div className="px-3 py-1 bg-[#1a1a1a] rounded-full text-[#666] text-[10px] flex items-center gap-1.5">
-                <Clock className="w-3 h-3" />
-                RESPONSE • WORKED FOR 22S
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.4, delay: 6.6 }}
+            >
+              <div className="flex items-center justify-center py-2">
+                <div className="px-3 py-1 bg-[#1a1a1a] rounded-full text-[#666] text-[10px] flex items-center gap-1.5">
+                  <Clock className="w-3 h-3" />
+                  RESPONSE • WORKED FOR 22S
+                </div>
               </div>
-            </div>
+            </motion.div>
 
-            <p className="text-[#b3b3b3] text-sm leading-relaxed">
-              Dependencies are installed with <InlineCode>pnpm</InlineCode>.
-            </p>
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 7.2 }}
+            >
+              <p className="text-[#b3b3b3] text-sm leading-relaxed">
+                Dependencies are installed with <InlineCode>pnpm</InlineCode>.
+              </p>
+            </motion.div>
 
-            <p className="text-[#b3b3b3] text-sm leading-relaxed">
-              <InlineCode>pnpm install</InlineCode> completed successfully in{" "}
-              <InlineCode>/Users/buns/.okcode/worktrees/psi-claw/okcode-ad7415a3</InlineCode>, and{" "}
-              <InlineCode>node_modules</InlineCode> is now populated. One note:{" "}
-              <InlineCode>pnpm</InlineCode> ignored the <InlineCode>msw</InlineCode> build script
-              under its build-approval policy. If this app depends on <InlineCode>msw</InlineCode>
-              {"'s"} postinstall behavior, run <InlineCode>pnpm approve-builds</InlineCode> and
-              allow it.
-            </p>
-            <div className="text-[#666] text-[10px]">2:47:55 AM • 4.2s</div>
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 7.8 }}
+            >
+              <p className="text-[#b3b3b3] text-sm leading-relaxed">
+                <InlineCode>pnpm install</InlineCode> completed successfully in{" "}
+                <InlineCode>/Users/buns/.okcode/worktrees/psi-claw/okcode-ad7415a3</InlineCode>, and{" "}
+                <InlineCode>node_modules</InlineCode> is now populated. One note:{" "}
+                <InlineCode>pnpm</InlineCode> ignored the <InlineCode>msw</InlineCode> build script
+                under its build-approval policy. If this app depends on <InlineCode>msw</InlineCode>
+                {"'s"} postinstall behavior, run <InlineCode>pnpm approve-builds</InlineCode> and
+                allow it.
+              </p>
+              <div className="text-[#666] text-[10px] mt-4">2:47:55 AM • 4.2s</div>
+            </motion.div>
+
+            {/* Typing indicator - appears while messages are loading, fades out after last message */}
+            <TypingIndicator />
           </div>
         </div>
 
@@ -298,9 +354,19 @@ export function OKCodeMockup() {
                 <button className="p-1.5 text-[#666] hover:text-[#999]">
                   <Plus className="w-4 h-4" />
                 </button>
-                <button className="p-2 bg-[#4ade80] rounded-full text-[#0d0d0d]">
+                <motion.button
+                  className="p-2 bg-[#4ade80] rounded-full text-[#0d0d0d]"
+                  animate={{
+                    boxShadow: [
+                      "0 0 0px rgba(74,222,128,0.0)",
+                      "0 0 12px rgba(74,222,128,0.4)",
+                      "0 0 0px rgba(74,222,128,0.0)",
+                    ],
+                  }}
+                  transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+                >
                   <ChevronRight className="w-4 h-4" />
-                </button>
+                </motion.button>
               </div>
             </div>
           </div>
@@ -467,8 +533,10 @@ function FileTreeItem({
   const iconColor =
     type === "doc" ? "text-[#f59e0b]" : type === "config" ? "text-[#666]" : "text-[#999]";
 
+  const El = active ? motion.div : ("div" as unknown as typeof motion.div);
+
   return (
-    <div
+    <El
       className={`flex items-center gap-1 px-2 py-0.5 text-xs cursor-pointer rounded ${
         active
           ? "bg-[#1e3a5f] text-[#60a5fa]"
@@ -477,11 +545,19 @@ function FileTreeItem({
             : "text-[#999] hover:bg-[#1a1a1a]"
       }`}
       style={{ paddingLeft: `${8 + indent * 12}px` }}
+      {...(active
+        ? {
+            animate: {
+              backgroundColor: ["rgba(30,58,95,0.5)", "rgba(30,58,95,1)", "rgba(30,58,95,0.5)"],
+            },
+            transition: { duration: 3, repeat: Infinity, ease: "easeInOut" as const },
+          }
+        : {})}
     >
       <span className="w-3 h-3" /> {/* Spacer for alignment */}
       <FileText className={`w-3.5 h-3.5 ${iconColor}`} />
       <span>{name}</span>
-    </div>
+    </El>
   );
 }
 
@@ -521,6 +597,35 @@ function TabButton({ label, active = false }: { label: string; active?: boolean 
     >
       {label}
     </button>
+  );
+}
+
+function TypingIndicator() {
+  return (
+    <motion.div
+      className="flex items-center gap-1.5 py-2"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: [0, 1, 1, 0] }}
+      transition={{
+        duration: 8,
+        delay: 2.0,
+        times: [0, 0.02, 0.95, 1],
+      }}
+    >
+      {[0, 1, 2].map((i) => (
+        <motion.div
+          key={i}
+          className="w-1.5 h-1.5 rounded-full bg-[#4ade80]"
+          animate={{ opacity: [0.3, 1, 0.3] }}
+          transition={{
+            duration: 1.2,
+            repeat: Infinity,
+            delay: i * 0.2,
+            ease: "easeInOut",
+          }}
+        />
+      ))}
+    </motion.div>
   );
 }
 

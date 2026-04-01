@@ -88,7 +88,13 @@ export interface FileRouteTypes {
     | '/pr-review'
     | '/settings'
   fileRoutesByTo: FileRoutesByTo
-  to: '/$threadId' | '/file-view' | '/merge-conflicts' | '/pr-review' | '/settings' | '/'
+  to:
+    | '/$threadId'
+    | '/file-view'
+    | '/merge-conflicts'
+    | '/pr-review'
+    | '/settings'
+    | '/'
   id:
     | '__root__'
     | '/_chat'

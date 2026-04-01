@@ -1,5 +1,5 @@
 import { type ProjectDirectoryEntry, type ProjectEntry } from "@okcode/contracts";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ChevronRightIcon,
   FolderClosedIcon,
@@ -27,9 +27,9 @@ import { toastManager } from "./ui/toast";
 
 const TREE_ROW_LEFT_PADDING = 8;
 const TREE_ROW_DEPTH_OFFSET = 14;
-type WorkspaceFileAction = "open" | "open-in-editor" | "reveal-in-finder" | "copy-path";
-type WorkspaceDirectoryAction = "expand" | "collapse" | "open-in-finder" | "copy-path";
-type WorkspaceSearchDirectoryAction = "reveal-in-tree" | "open-in-finder" | "copy-path";
+type WorkspaceFileAction = "open" | "open-in-editor" | "reveal-in-finder" | "copy-path" | "delete";
+type WorkspaceDirectoryAction = "expand" | "collapse" | "open-in-finder" | "copy-path" | "delete";
+type WorkspaceSearchDirectoryAction = "reveal-in-tree" | "open-in-finder" | "copy-path" | "delete";
 
 export const WorkspaceFileTree = memo(function WorkspaceFileTree(props: {
   cwd: string;
@@ -205,6 +205,30 @@ export const WorkspaceFileTree = memo(function WorkspaceFileTree(props: {
     setFiltersOpen(false);
   }, []);
 
+  const queryClient = useQueryClient();
+  const deleteEntry = useCallback(
+    async (pathValue: string) => {
+      const api = readNativeApi();
+      if (!api) return;
+      const name = basenameOfPath(pathValue);
+      const confirmed = await api.dialog.confirm(`Are you sure you want to delete "${name}"?`);
+      if (!confirmed) return;
+      try {
+        await api.projects.deleteEntry({ cwd: props.cwd, relativePath: pathValue });
+        toastManager.add({ type: "success", title: `Deleted ${name}` });
+        void queryClient.invalidateQueries({ queryKey: ["projectListDirectory"] });
+        void queryClient.invalidateQueries({ queryKey: ["projectSearchEntries"] });
+      } catch (error) {
+        toastManager.add({
+          type: "error",
+          title: "Failed to delete",
+          description: error instanceof Error ? error.message : "An error occurred.",
+        });
+      }
+    },
+    [props.cwd, queryClient],
+  );
+
   return (
     <div className={cn("space-y-2", props.className)}>
       <div className="space-y-1.5 px-2">
@@ -273,6 +297,7 @@ export const WorkspaceFileTree = memo(function WorkspaceFileTree(props: {
           isLoading={searchResultsQuery.isLoading}
           fileManagerName={fileManagerName}
           onCopyPath={copyWorkspacePath}
+          onDeleteEntry={deleteEntry}
           onOpenDirectoryInFileManager={openDirectoryInFileManager}
           onOpenFileInEditor={openFileInNativeEditor}
           onOpenFile={openFile}
@@ -288,6 +313,7 @@ export const WorkspaceFileTree = memo(function WorkspaceFileTree(props: {
           expandedDirectories={expandedDirectories}
           fileManagerName={fileManagerName}
           onCopyPath={copyWorkspacePath}
+          onDeleteEntry={deleteEntry}
           onOpenDirectoryInFileManager={openDirectoryInFileManager}
           onOpenFileInEditor={openFileInNativeEditor}
           onOpenFile={openFile}
@@ -310,6 +336,7 @@ const WorkspaceSearchResults = memo(function WorkspaceSearchResults(props: {
   truncated: boolean;
   resolvedTheme: "light" | "dark";
   onCopyPath: (pathValue: string) => void;
+  onDeleteEntry: (pathValue: string) => void;
   onOpenDirectoryInFileManager: (pathValue: string) => void;
   onOpenFileInEditor: (pathValue: string) => void;
   onOpenFile: (pathValue: string, event?: { metaKey?: boolean; ctrlKey?: boolean }) => void;
@@ -344,6 +371,7 @@ const WorkspaceSearchResults = memo(function WorkspaceSearchResults(props: {
           entry={entry}
           fileManagerName={props.fileManagerName}
           onCopyPath={props.onCopyPath}
+          onDeleteEntry={props.onDeleteEntry}
           onOpenDirectoryInFileManager={props.onOpenDirectoryInFileManager}
           onOpenFileInEditor={props.onOpenFileInEditor}
           onOpenFile={props.onOpenFile}
@@ -367,6 +395,7 @@ const WorkspaceSearchResultRow = memo(function WorkspaceSearchResultRow(props: {
   fileManagerName: string;
   resolvedTheme: "light" | "dark";
   onCopyPath: (pathValue: string) => void;
+  onDeleteEntry: (pathValue: string) => void;
   onOpenDirectoryInFileManager: (pathValue: string) => void;
   onOpenFileInEditor: (pathValue: string) => void;
   onOpenFile: (pathValue: string, event?: { metaKey?: boolean; ctrlKey?: boolean }) => void;
@@ -387,6 +416,7 @@ const WorkspaceSearchResultRow = memo(function WorkspaceSearchResultRow(props: {
             { id: "reveal-in-tree", label: "Reveal in tree" },
             { id: "open-in-finder", label: `Open in ${props.fileManagerName}` },
             { id: "copy-path", label: "Copy path" },
+            { id: "delete", label: "Delete", destructive: true },
           ],
           { x: event.clientX, y: event.clientY },
         );
@@ -396,6 +426,8 @@ const WorkspaceSearchResultRow = memo(function WorkspaceSearchResultRow(props: {
           props.onOpenDirectoryInFileManager(props.entry.path);
         } else if (clicked === "copy-path") {
           props.onCopyPath(props.entry.path);
+        } else if (clicked === "delete") {
+          props.onDeleteEntry(props.entry.path);
         }
         return;
       }
@@ -406,6 +438,7 @@ const WorkspaceSearchResultRow = memo(function WorkspaceSearchResultRow(props: {
           { id: "open-in-editor", label: "Open in editor" },
           { id: "reveal-in-finder", label: `Reveal in ${props.fileManagerName}` },
           { id: "copy-path", label: "Copy path" },
+          { id: "delete", label: "Delete", destructive: true },
         ],
         { x: event.clientX, y: event.clientY },
       );
@@ -418,6 +451,8 @@ const WorkspaceSearchResultRow = memo(function WorkspaceSearchResultRow(props: {
         props.onRevealFileInFileManager(props.entry.path);
       } else if (clicked === "copy-path") {
         props.onCopyPath(props.entry.path);
+      } else if (clicked === "delete") {
+        props.onDeleteEntry(props.entry.path);
       }
     },
     [isDirectory, props],
@@ -468,6 +503,7 @@ const WorkspaceFileTreeDirectory = memo(function WorkspaceFileTreeDirectory(prop
   fileManagerName: string;
   resolvedTheme: "light" | "dark";
   onCopyPath: (pathValue: string) => void;
+  onDeleteEntry: (pathValue: string) => void;
   onOpenDirectoryInFileManager: (pathValue: string) => void;
   onOpenFileInEditor: (pathValue: string) => void;
   onToggleDirectory: (pathValue: string) => void;
@@ -521,6 +557,7 @@ const WorkspaceFileTreeDirectory = memo(function WorkspaceFileTreeDirectory(prop
                 fileManagerName={props.fileManagerName}
                 isExpanded={isExpanded}
                 onCopyPath={props.onCopyPath}
+                onDeleteEntry={props.onDeleteEntry}
                 onOpenDirectoryInFileManager={props.onOpenDirectoryInFileManager}
                 onToggleDirectory={props.onToggleDirectory}
               />
@@ -532,6 +569,7 @@ const WorkspaceFileTreeDirectory = memo(function WorkspaceFileTreeDirectory(prop
                   expandedDirectories={props.expandedDirectories}
                   fileManagerName={props.fileManagerName}
                   onCopyPath={props.onCopyPath}
+                  onDeleteEntry={props.onDeleteEntry}
                   onOpenDirectoryInFileManager={props.onOpenDirectoryInFileManager}
                   onOpenFileInEditor={props.onOpenFileInEditor}
                   onOpenFile={props.onOpenFile}
@@ -551,6 +589,7 @@ const WorkspaceFileTreeDirectory = memo(function WorkspaceFileTreeDirectory(prop
             entry={entry}
             fileManagerName={props.fileManagerName}
             onCopyPath={props.onCopyPath}
+            onDeleteEntry={props.onDeleteEntry}
             onOpenFileInEditor={props.onOpenFileInEditor}
             onOpenFile={props.onOpenFile}
             onRevealFileInFileManager={props.onRevealFileInFileManager}
@@ -573,6 +612,7 @@ const WorkspaceDirectoryRow = memo(function WorkspaceDirectoryRow(props: {
   fileManagerName: string;
   isExpanded: boolean;
   onCopyPath: (pathValue: string) => void;
+  onDeleteEntry: (pathValue: string) => void;
   onOpenDirectoryInFileManager: (pathValue: string) => void;
   onToggleDirectory: (pathValue: string) => void;
 }) {
@@ -590,6 +630,7 @@ const WorkspaceDirectoryRow = memo(function WorkspaceDirectoryRow(props: {
           },
           { id: "open-in-finder", label: `Open in ${props.fileManagerName}` },
           { id: "copy-path", label: "Copy path" },
+          { id: "delete", label: "Delete", destructive: true },
         ],
         { x: event.clientX, y: event.clientY },
       );
@@ -599,6 +640,8 @@ const WorkspaceDirectoryRow = memo(function WorkspaceDirectoryRow(props: {
         props.onOpenDirectoryInFileManager(props.entry.path);
       } else if (clicked === "copy-path") {
         props.onCopyPath(props.entry.path);
+      } else if (clicked === "delete") {
+        props.onDeleteEntry(props.entry.path);
       }
     },
     [props],
@@ -649,6 +692,7 @@ const WorkspaceFileRow = memo(function WorkspaceFileRow(props: {
   fileManagerName: string;
   resolvedTheme: "light" | "dark";
   onCopyPath: (pathValue: string) => void;
+  onDeleteEntry: (pathValue: string) => void;
   onOpenFileInEditor: (pathValue: string) => void;
   onOpenFile: (pathValue: string, event?: { metaKey?: boolean; ctrlKey?: boolean }) => void;
   onRevealFileInFileManager: (pathValue: string) => void;
@@ -665,6 +709,7 @@ const WorkspaceFileRow = memo(function WorkspaceFileRow(props: {
           { id: "open-in-editor", label: "Open in editor" },
           { id: "reveal-in-finder", label: `Reveal in ${props.fileManagerName}` },
           { id: "copy-path", label: "Copy path" },
+          { id: "delete", label: "Delete", destructive: true },
         ],
         { x: event.clientX, y: event.clientY },
       );
@@ -676,6 +721,8 @@ const WorkspaceFileRow = memo(function WorkspaceFileRow(props: {
         props.onRevealFileInFileManager(props.entry.path);
       } else if (clicked === "copy-path") {
         props.onCopyPath(props.entry.path);
+      } else if (clicked === "delete") {
+        props.onDeleteEntry(props.entry.path);
       }
     },
     [props],

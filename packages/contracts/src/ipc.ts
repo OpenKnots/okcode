@@ -24,6 +24,7 @@ import type {
   GitStatusResult,
 } from "./git";
 import type {
+  ProjectDeleteEntryInput,
   ProjectListDirectoryInput,
   ProjectListDirectoryResult,
   ProjectReadFileInput,
@@ -313,6 +314,7 @@ export interface NativeApi {
     listDirectory: (input: ProjectListDirectoryInput) => Promise<ProjectListDirectoryResult>;
     writeFile: (input: ProjectWriteFileInput) => Promise<ProjectWriteFileResult>;
     readFile: (input: ProjectReadFileInput) => Promise<ProjectReadFileResult>;
+    deleteEntry: (input: ProjectDeleteEntryInput) => Promise<void>;
   };
   shell: {
     openInEditor: (cwd: string, editor: EditorId) => Promise<void>;

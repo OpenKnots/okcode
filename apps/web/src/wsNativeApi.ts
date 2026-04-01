@@ -193,6 +193,7 @@ export function createWsNativeApi(): NativeApi {
       listDirectory: (input) => transport.request(WS_METHODS.projectsListDirectory, input),
       writeFile: (input) => transport.request(WS_METHODS.projectsWriteFile, input),
       readFile: (input) => transport.request(WS_METHODS.projectsReadFile, input),
+      deleteEntry: (input) => transport.request(WS_METHODS.projectsDeleteEntry, input),
     },
     shell: {
       openInEditor: (cwd, editor) =>

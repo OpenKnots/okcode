@@ -1035,6 +1035,24 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
         };
       }
 
+      case WS_METHODS.projectsDeleteEntry: {
+        const body = stripRequestTag(request.body);
+        const target = yield* resolveWorkspaceWritePath({
+          workspaceRoot: body.cwd,
+          relativePath: body.relativePath,
+          path,
+        });
+        yield* fileSystem.remove(target.absolutePath, { recursive: true }).pipe(
+          Effect.mapError(
+            (cause) =>
+              new RouteRequestError({
+                message: `Failed to delete entry: ${String(cause)}`,
+              }),
+          ),
+        );
+        return {};
+      }
+
       case WS_METHODS.shellOpenInEditor: {
         const body = stripRequestTag(request.body);
         return yield* openInEditor(body);

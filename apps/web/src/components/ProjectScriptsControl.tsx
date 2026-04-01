@@ -558,6 +558,7 @@ export default function ProjectScriptsControl({
               <Button
                 type="button"
                 variant="outline"
+                size="sm"
                 className="mr-auto"
                 onClick={() => setDeleteConfirmOpen(true)}
               >
@@ -567,13 +568,14 @@ export default function ProjectScriptsControl({
             <Button
               type="button"
               variant="outline"
+              size="sm"
               onClick={() => {
                 setDialogOpen(false);
               }}
             >
               Cancel
             </Button>
-            <Button form={addScriptFormId} type="submit">
+            <Button form={addScriptFormId} type="submit" size="sm">
               {isEditing ? "Save changes" : "Save action"}
             </Button>
           </DialogFooter>
@@ -587,8 +589,8 @@ export default function ProjectScriptsControl({
             <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogClose render={<Button variant="outline" />}>Cancel</AlertDialogClose>
-            <Button variant="destructive" onClick={confirmDeleteScript}>
+            <AlertDialogClose render={<Button variant="outline" size="sm" />}>Cancel</AlertDialogClose>
+            <Button variant="destructive" size="sm" onClick={confirmDeleteScript}>
               Delete action
             </Button>
           </AlertDialogFooter>
@@ -669,11 +671,12 @@ export default function ProjectScriptsControl({
             ) : null}
           </DialogPanel>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setImportDialogOpen(false)}>
+            <Button type="button" variant="outline" size="sm" onClick={() => setImportDialogOpen(false)}>
               Cancel
             </Button>
             <Button
               type="button"
+              size="sm"
               onClick={() => void handleImportScripts()}
               disabled={importLoading || availableImportDrafts.length === 0}
             >

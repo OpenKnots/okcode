@@ -192,14 +192,14 @@ function SkillDetailDialog(props: {
           {isCatalog && !skill.installed ? (
             <>
               {props.cwd ? (
-                <Button variant="outline" onClick={() => props.onInstallProject(skill.id)}>
+                <Button variant="outline" size="sm" onClick={() => props.onInstallProject(skill.id)}>
                   Install to project
                 </Button>
               ) : null}
-              <Button onClick={() => props.onInstallGlobal(skill.id)}>Install globally</Button>
+              <Button size="sm" onClick={() => props.onInstallGlobal(skill.id)}>Install globally</Button>
             </>
           ) : !isCatalog && mutable ? (
-            <Button variant="destructive" onClick={() => props.onDelete(skill)}>
+            <Button variant="destructive" size="sm" onClick={() => props.onDelete(skill)}>
               Delete
             </Button>
           ) : null}

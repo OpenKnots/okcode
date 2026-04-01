@@ -5605,11 +5605,12 @@ export default function ChatView({ threadId }: ChatViewProps) {
             <Button
               type="button"
               variant="outline"
+              size="sm"
               onClick={() => setPendingProjectScriptRun(null)}
             >
               Cancel
             </Button>
-            <Button type="button" onClick={() => void submitPendingProjectScriptRun()}>
+            <Button type="button" size="sm" onClick={() => void submitPendingProjectScriptRun()}>
               Run action
             </Button>
           </DialogFooter>

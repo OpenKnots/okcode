@@ -26,6 +26,7 @@ import {
 } from "../diffRouteSearch";
 import { useCodeViewerStore } from "../codeViewerStore";
 import { usePreviewStateStore } from "../previewStateStore";
+import { useSimulationViewerStore } from "../simulationViewerStore";
 import { useMutuallyExclusivePanels } from "../mutuallyExclusivePanels";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import { useClientMode } from "../hooks/useClientMode";
@@ -35,6 +36,11 @@ import { Sidebar, SidebarInset, SidebarProvider, SidebarRail } from "~/component
 
 const DiffPanel = lazy(() => import("../components/DiffPanel"));
 const CodeViewerPanel = lazy(() => import("../components/CodeViewerPanel"));
+const SimulationViewerLazy = lazy(() =>
+  import("../components/simulation/SimulationViewer").then((m) => ({
+    default: m.SimulationViewer,
+  })),
+);
 
 const DIFF_INLINE_LAYOUT_MEDIA_QUERY = "(max-width: 1180px)";
 const DIFF_INLINE_SIDEBAR_WIDTH_STORAGE_KEY = "chat_diff_sidebar_width";
@@ -127,6 +133,22 @@ const LazyCodeViewerPanel = () => {
   return (
     <Suspense fallback={<CodeViewerLoadingFallback />}>
       <CodeViewerPanel />
+    </Suspense>
+  );
+};
+
+const SimulationLoadingFallback = () => {
+  return (
+    <div className="flex h-full w-full items-center justify-center bg-background">
+      <DiffPanelLoadingState label="Loading simulation viewer..." />
+    </div>
+  );
+};
+
+const LazySimulationViewer = ({ onClose }: { onClose: () => void }) => {
+  return (
+    <Suspense fallback={<SimulationLoadingFallback />}>
+      <SimulationViewerLazy onClose={onClose} />
     </Suspense>
   );
 };
@@ -288,10 +310,15 @@ function ChatThreadRouteView() {
   const previewOpen = usePreviewStateStore((state) => state.globalOpen);
   const setPreviewOpen = usePreviewStateStore((state) => state.setGlobalOpen);
 
+  // Simulation viewer state from Zustand store
+  const simulationOpen = useSimulationViewerStore((state) => state.isOpen);
+  const closeSimulationStore = useSimulationViewerStore((state) => state.close);
+
   // TanStack Router keeps active route components mounted across param-only navigations
   // unless remountDeps are configured, so this stays warm across thread switches.
   const [hasOpenedDiff, setHasOpenedDiff] = useState(diffOpen);
   const [hasOpenedCodeViewer, setHasOpenedCodeViewer] = useState(codeViewerOpen);
+  const [hasOpenedSimulation, setHasOpenedSimulation] = useState(simulationOpen);
 
   const closeDiff = useCallback(() => {
     void navigate({
@@ -319,6 +346,10 @@ function ChatThreadRouteView() {
     setPreviewOpen(false);
   }, [setPreviewOpen]);
 
+  const closeSimulation = useCallback(() => {
+    closeSimulationStore();
+  }, [closeSimulationStore]);
+
   // Enforce mutual exclusivity: only one right-side panel open at a time.
   useMutuallyExclusivePanels(
     diffOpen,
@@ -327,6 +358,8 @@ function ChatThreadRouteView() {
     closeDiff,
     closeCodeViewer,
     closePreview,
+    simulationOpen,
+    closeSimulation,
   );
 
   useEffect(() => {
@@ -340,6 +373,12 @@ function ChatThreadRouteView() {
       setHasOpenedCodeViewer(true);
     }
   }, [codeViewerOpen]);
+
+  useEffect(() => {
+    if (simulationOpen) {
+      setHasOpenedSimulation(true);
+    }
+  }, [simulationOpen]);
 
   useEffect(() => {
     if (!threadsHydrated) {
@@ -358,6 +397,52 @@ function ChatThreadRouteView() {
 
   const shouldRenderDiffContent = diffOpen || hasOpenedDiff;
   const shouldRenderCodeViewerContent = codeViewerOpen || hasOpenedCodeViewer;
+  const shouldRenderSimulation = simulationOpen || hasOpenedSimulation;
+
+  // Simulation viewer: on mobile, use a sheet; otherwise render as an
+  // inline sidebar-like panel that fills the right portion of the screen.
+  const simulationNode = shouldRenderSimulation ? (
+    clientMode === "mobile" ? (
+      <Sheet
+        open={simulationOpen}
+        onOpenChange={(open) => {
+          if (!open) closeSimulation();
+        }}
+      >
+        <SheetPopup
+          side="right"
+          showCloseButton={false}
+          keepMounted
+          className="w-full max-w-full p-0 sm:w-[min(92vw,860px)] sm:max-w-[860px]"
+        >
+          <LazySimulationViewer onClose={closeSimulation} />
+        </SheetPopup>
+      </Sheet>
+    ) : (
+      <SidebarProvider
+        defaultOpen={false}
+        open={simulationOpen}
+        onOpenChange={(open) => {
+          if (!open) closeSimulation();
+        }}
+        className="w-auto min-h-0 flex-none bg-transparent"
+        style={{ "--sidebar-width": "clamp(32rem,55vw,52rem)" } as CSSProperties}
+      >
+        <Sidebar
+          side="right"
+          collapsible="offcanvas"
+          className="border-l border-border bg-card text-foreground"
+          resizable={{
+            minWidth: 28 * 16,
+            storageKey: "chat_simulation_sidebar_width",
+          }}
+        >
+          <LazySimulationViewer onClose={closeSimulation} />
+          <SidebarRail />
+        </Sidebar>
+      </SidebarProvider>
+    )
+  ) : null;
 
   if (!shouldUseDiffSheet) {
     return (
@@ -376,6 +461,7 @@ function ChatThreadRouteView() {
           onOpenDiff={openDiff}
           renderDiffContent={shouldRenderDiffContent}
         />
+        {simulationNode}
       </>
     );
   }
@@ -399,6 +485,7 @@ function ChatThreadRouteView() {
       <DiffPanelSheet diffOpen={diffOpen} onCloseDiff={closeDiff}>
         {shouldRenderDiffContent ? <LazyDiffPanel mode="sheet" /> : null}
       </DiffPanelSheet>
+      {simulationNode}
     </>
   );
 }

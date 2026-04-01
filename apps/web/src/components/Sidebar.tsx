@@ -109,6 +109,8 @@ import {
 } from "./Sidebar.logic";
 import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
 import { WorkspaceFileTree } from "~/components/WorkspaceFileTree";
+import { EditableThreadTitle } from "~/components/EditableThreadTitle";
+import { useThreadTitleEditor } from "~/hooks/useThreadTitleEditor";
 import {
   buildProjectScriptDraftsFromPackageScripts,
   materializeProjectScripts,
@@ -400,14 +402,10 @@ export default function Sidebar() {
   const [addProjectError, setAddProjectError] = useState<string | null>(null);
   const [manualProjectPathEntry, setManualProjectPathEntry] = useState(false);
   const addProjectInputRef = useRef<HTMLInputElement | null>(null);
-  const [renamingThreadId, setRenamingThreadId] = useState<ThreadId | null>(null);
-  const [renamingTitle, setRenamingTitle] = useState("");
   const [expandedThreadListsByProject, setExpandedThreadListsByProject] = useState<
     ReadonlySet<ProjectId>
   >(() => new Set());
   const [filesExpanded, setFilesExpanded] = useState(true);
-  const renamingCommittedRef = useRef(false);
-  const renamingInputRef = useRef<HTMLInputElement | null>(null);
   const dragInProgressRef = useRef(false);
   const suppressProjectClickAfterDragRef = useRef(false);
   const [desktopUpdateState, setDesktopUpdateState] = useState<DesktopUpdateState | null>(null);
@@ -426,6 +424,15 @@ export default function Sidebar() {
   const isLinuxDesktop = isElectron && isLinuxPlatform(navigator.platform);
   const shouldBrowseForProjectImmediately = isElectron && !isLinuxDesktop;
   const shouldShowProjectPathEntry = addingProject && !shouldBrowseForProjectImmediately;
+  const {
+    editingThreadId,
+    draftTitle: editingThreadTitle,
+    bindInputRef,
+    cancelEditing,
+    commitEditing,
+    setDraftTitle,
+    startEditing,
+  } = useThreadTitleEditor();
   const projectCwdById = useMemo(
     () => new Map(projects.map((project) => [project.id, project.cwd] as const)),
     [projects],
@@ -661,55 +668,6 @@ export default function Sidebar() {
     setAddingProject((prev) => !prev);
   };
 
-  const cancelRename = useCallback(() => {
-    setRenamingThreadId(null);
-    renamingInputRef.current = null;
-  }, []);
-
-  const commitRename = useCallback(
-    async (threadId: ThreadId, newTitle: string, originalTitle: string) => {
-      const finishRename = () => {
-        setRenamingThreadId((current) => {
-          if (current !== threadId) return current;
-          renamingInputRef.current = null;
-          return null;
-        });
-      };
-
-      const trimmed = newTitle.trim();
-      if (trimmed.length === 0) {
-        toastManager.add({ type: "warning", title: "Thread title cannot be empty" });
-        finishRename();
-        return;
-      }
-      if (trimmed === originalTitle) {
-        finishRename();
-        return;
-      }
-      const api = readNativeApi();
-      if (!api) {
-        finishRename();
-        return;
-      }
-      try {
-        await api.orchestration.dispatchCommand({
-          type: "thread.meta.update",
-          commandId: newCommandId(),
-          threadId,
-          title: trimmed,
-        });
-      } catch (error) {
-        toastManager.add({
-          type: "error",
-          title: "Failed to rename thread",
-          description: error instanceof Error ? error.message : "An error occurred.",
-        });
-      }
-      finishRename();
-    },
-    [],
-  );
-
   /**
    * Delete a single thread: stop session, close terminal, dispatch delete,
    * clean up drafts/state, and optionally remove orphaned worktree.
@@ -879,9 +837,10 @@ export default function Sidebar() {
       );
 
       if (clicked === "rename") {
-        setRenamingThreadId(threadId);
-        setRenamingTitle(thread.title);
-        renamingCommittedRef.current = false;
+        startEditing({
+          threadId,
+          title: thread.title,
+        });
         return;
       }
 
@@ -926,6 +885,7 @@ export default function Sidebar() {
       deleteThread,
       markThreadUnread,
       projectCwdById,
+      startEditing,
       threads,
     ],
   );
@@ -1314,40 +1274,24 @@ export default function Sidebar() {
                   <span className="hidden md:inline">{threadStatus.label}</span>
                 </span>
               )}
-              {renamingThreadId === thread.id ? (
-                <input
-                  ref={(el) => {
-                    if (el && renamingInputRef.current !== el) {
-                      renamingInputRef.current = el;
-                      el.focus();
-                      el.select();
-                    }
-                  }}
-                  className="min-w-0 flex-1 truncate text-xs bg-accent/30 outline-none rounded px-1 py-px ring-1 ring-ring/40 transition-[box-shadow] duration-150 focus:ring-ring/70"
-                  value={renamingTitle}
-                  onChange={(e) => setRenamingTitle(e.target.value)}
-                  onKeyDown={(e) => {
-                    e.stopPropagation();
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      renamingCommittedRef.current = true;
-                      void commitRename(thread.id, renamingTitle, thread.title);
-                    } else if (e.key === "Escape") {
-                      e.preventDefault();
-                      renamingCommittedRef.current = true;
-                      cancelRename();
-                    }
-                  }}
-                  onBlur={() => {
-                    if (!renamingCommittedRef.current) {
-                      void commitRename(thread.id, renamingTitle, thread.title);
-                    }
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                />
-              ) : (
-                <span className="min-w-0 flex-1 truncate text-xs">{thread.title}</span>
-              )}
+              <EditableThreadTitle
+                title={thread.title}
+                isEditing={editingThreadId === thread.id}
+                draftTitle={editingThreadTitle}
+                inputRef={bindInputRef}
+                containerClassName="min-w-0 flex-1"
+                titleClassName="min-w-0 flex-1 truncate text-xs"
+                inputClassName="h-6 px-1 text-xs"
+                onStartEditing={() => {
+                  startEditing({
+                    threadId: thread.id,
+                    title: thread.title,
+                  });
+                }}
+                onDraftTitleChange={setDraftTitle}
+                onCommit={() => void commitEditing()}
+                onCancel={cancelEditing}
+              />
             </div>
             <div
               className={`ml-auto flex items-center gap-1.5${appSettings.sidebarWideThreadNames ? "" : " shrink-0"}`}

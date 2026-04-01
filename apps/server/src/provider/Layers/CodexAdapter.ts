@@ -1472,7 +1472,9 @@ const makeCodexAdapter = (options?: CodexAdapterLiveOptions) =>
               };
             }),
           { concurrency: 1 },
-        ).pipe(Effect.map((attachments) => attachments.filter((attachment) => attachment !== null)));
+        ).pipe(
+          Effect.map((attachments) => attachments.filter((attachment) => attachment !== null)),
+        );
 
         const turnInputText = buildFileAttachmentContextText({
           baseText: input.input?.trim() ?? "",

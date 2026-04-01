@@ -29,6 +29,7 @@ import {
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { createDebouncedStorage, createMemoryStorage } from "./lib/storage";
+import { normalizeThreadTitle } from "./threadTitle";
 
 function normalizePersistedInteractionModeValue(raw: unknown): ProviderInteractionMode | null {
   if (raw === "plan" || raw === "chat" || raw === "code") {
@@ -115,6 +116,7 @@ type LegacyPersistedCodexThreadDraftState = PersistedComposerThreadDraftState & 
 const PersistedDraftThreadState = Schema.Struct({
   projectId: ProjectId,
   createdAt: Schema.String,
+  title: Schema.optionalKey(Schema.String),
   runtimeMode: RuntimeMode,
   interactionMode: ProviderInteractionMode,
   branch: Schema.NullOr(Schema.String),
@@ -153,6 +155,7 @@ interface ComposerThreadDraftState {
 export interface DraftThreadState {
   projectId: ProjectId;
   createdAt: string;
+  title: string;
   runtimeMode: RuntimeMode;
   interactionMode: ProviderInteractionMode;
   branch: string | null;
@@ -192,11 +195,13 @@ interface ComposerDraftStoreState {
       worktreePath?: string | null;
       projectId?: ProjectId;
       createdAt?: string;
+      title?: string;
       envMode?: DraftThreadEnvMode;
       runtimeMode?: RuntimeMode;
       interactionMode?: ProviderInteractionMode;
     },
   ) => void;
+  setDraftThreadTitle: (threadId: ThreadId, title: string) => void;
   clearProjectDraftThreadId: (projectId: ProjectId) => void;
   clearProjectDraftThreadById: (projectId: ProjectId, threadId: ThreadId) => void;
   clearDraftThread: (threadId: ThreadId) => void;
@@ -558,11 +563,8 @@ function normalizeDraftThreadEnvMode(
 function normalizePersistedDraftThreads(
   rawDraftThreadsByThreadId: unknown,
   rawProjectDraftThreadIdByProjectId: unknown,
-): Pick<
-  PersistedComposerDraftStoreState,
-  "draftThreadsByThreadId" | "projectDraftThreadIdByProjectId"
-> {
-  const draftThreadsByThreadId: Record<ThreadId, PersistedDraftThreadState> = {};
+): Pick<ComposerDraftStoreState, "draftThreadsByThreadId" | "projectDraftThreadIdByProjectId"> {
+  const draftThreadsByThreadId: Record<ThreadId, DraftThreadState> = {};
   if (rawDraftThreadsByThreadId && typeof rawDraftThreadsByThreadId === "object") {
     for (const [threadId, rawDraftThread] of Object.entries(
       rawDraftThreadsByThreadId as Record<string, unknown>,
@@ -576,6 +578,7 @@ function normalizePersistedDraftThreads(
       const candidateDraftThread = rawDraftThread as Record<string, unknown>;
       const projectId = candidateDraftThread.projectId;
       const createdAt = candidateDraftThread.createdAt;
+      const title = candidateDraftThread.title;
       const branch = candidateDraftThread.branch;
       const worktreePath = candidateDraftThread.worktreePath;
       const normalizedWorktreePath = typeof worktreePath === "string" ? worktreePath : null;
@@ -588,6 +591,7 @@ function normalizePersistedDraftThreads(
           typeof createdAt === "string" && createdAt.length > 0
             ? createdAt
             : new Date().toISOString(),
+        title: normalizeThreadTitle(typeof title === "string" ? title : null),
         runtimeMode:
           candidateDraftThread.runtimeMode === "approval-required" ||
           candidateDraftThread.runtimeMode === "full-access"
@@ -622,6 +626,7 @@ function normalizePersistedDraftThreads(
           draftThreadsByThreadId[threadId as ThreadId] = {
             projectId: projectId as ProjectId,
             createdAt: new Date().toISOString(),
+            title: normalizeThreadTitle(null),
             runtimeMode: DEFAULT_RUNTIME_MODE,
             interactionMode: DEFAULT_INTERACTION_MODE,
             branch: null,
@@ -814,11 +819,20 @@ function partializeComposerDraftStoreState(
   };
 }
 
-function normalizeCurrentPersistedComposerDraftStoreState(
-  persistedState: unknown,
-): PersistedComposerDraftStoreState {
+function normalizeCurrentPersistedComposerDraftStoreState(persistedState: unknown): Omit<
+  PersistedComposerDraftStoreState,
+  "draftThreadsByThreadId"
+> & {
+  draftThreadsByThreadId: Record<ThreadId, DraftThreadState>;
+} {
   if (!persistedState || typeof persistedState !== "object") {
-    return EMPTY_PERSISTED_DRAFT_STORE_STATE;
+    return {
+      draftsByThreadId: {},
+      draftThreadsByThreadId: {},
+      projectDraftThreadIdByProjectId: {},
+      stickyModel: null,
+      stickyModelOptions: EMPTY_PROVIDER_MODEL_OPTIONS,
+    };
   }
   const normalizedPersistedState = persistedState as Record<string, unknown>;
   const { draftThreadsByThreadId, projectDraftThreadIdByProjectId } =
@@ -1045,6 +1059,7 @@ export const useComposerDraftStore = create<ComposerDraftStoreState>()(
           const nextDraftThread: DraftThreadState = {
             projectId,
             createdAt: options?.createdAt ?? existingThread?.createdAt ?? new Date().toISOString(),
+            title: existingThread?.title ?? normalizeThreadTitle(null),
             runtimeMode:
               options?.runtimeMode ?? existingThread?.runtimeMode ?? DEFAULT_RUNTIME_MODE,
             interactionMode:
@@ -1065,6 +1080,7 @@ export const useComposerDraftStore = create<ComposerDraftStoreState>()(
             existingThread &&
             existingThread.projectId === nextDraftThread.projectId &&
             existingThread.createdAt === nextDraftThread.createdAt &&
+            existingThread.title === nextDraftThread.title &&
             existingThread.runtimeMode === nextDraftThread.runtimeMode &&
             existingThread.interactionMode === nextDraftThread.interactionMode &&
             existingThread.branch === nextDraftThread.branch &&
@@ -1123,6 +1139,8 @@ export const useComposerDraftStore = create<ComposerDraftStoreState>()(
               options.createdAt === undefined
                 ? existing.createdAt
                 : options.createdAt || existing.createdAt,
+            title:
+              options.title === undefined ? existing.title : normalizeThreadTitle(options.title),
             runtimeMode: options.runtimeMode ?? existing.runtimeMode,
             interactionMode: options.interactionMode ?? existing.interactionMode,
             branch: options.branch === undefined ? existing.branch : (options.branch ?? null),
@@ -1133,6 +1151,7 @@ export const useComposerDraftStore = create<ComposerDraftStoreState>()(
           const isUnchanged =
             nextDraftThread.projectId === existing.projectId &&
             nextDraftThread.createdAt === existing.createdAt &&
+            nextDraftThread.title === existing.title &&
             nextDraftThread.runtimeMode === existing.runtimeMode &&
             nextDraftThread.interactionMode === existing.interactionMode &&
             nextDraftThread.branch === existing.branch &&
@@ -1156,6 +1175,30 @@ export const useComposerDraftStore = create<ComposerDraftStoreState>()(
               [threadId]: nextDraftThread,
             },
             projectDraftThreadIdByProjectId: nextProjectDraftThreadIdByProjectId,
+          };
+        });
+      },
+      setDraftThreadTitle: (threadId, title) => {
+        if (threadId.length === 0) {
+          return;
+        }
+        set((state) => {
+          const existing = state.draftThreadsByThreadId[threadId];
+          if (!existing) {
+            return state;
+          }
+          const nextTitle = normalizeThreadTitle(title);
+          if (existing.title === nextTitle) {
+            return state;
+          }
+          return {
+            draftThreadsByThreadId: {
+              ...state.draftThreadsByThreadId,
+              [threadId]: {
+                ...existing,
+                title: nextTitle,
+              },
+            },
           };
         });
       },
@@ -1534,10 +1577,7 @@ export const useComposerDraftStore = create<ComposerDraftStoreState>()(
             const dedupKey = composerAttachmentDedupKey(attachment);
             if (existingIds.has(attachment.id) || existingDedupKeys.has(dedupKey)) {
               // Avoid revoking a blob URL that's still referenced by an accepted image.
-              if (
-                attachment.type === "image" &&
-                !acceptedPreviewUrls.has(attachment.previewUrl)
-              ) {
+              if (attachment.type === "image" && !acceptedPreviewUrls.has(attachment.previewUrl)) {
                 revokeObjectPreviewUrl(attachment.previewUrl);
               }
               continue;
@@ -1584,9 +1624,7 @@ export const useComposerDraftStore = create<ComposerDraftStoreState>()(
           }
           const nextDraft: ComposerThreadDraftState = {
             ...current,
-            attachments: current.attachments.filter(
-              (attachment) => attachment.id !== attachmentId,
-            ),
+            attachments: current.attachments.filter((attachment) => attachment.id !== attachmentId),
             nonPersistedAttachmentIds: current.nonPersistedAttachmentIds.filter(
               (id) => id !== attachmentId,
             ),

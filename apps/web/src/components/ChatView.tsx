@@ -99,7 +99,6 @@ import { resolveShortcutCommand, shortcutLabelForCommand } from "../keybindings"
 import { buildChatShortcutGuides } from "~/lib/chatShortcutGuidance";
 import PlanSidebar from "./PlanSidebar";
 import ThreadTerminalDrawer from "./ThreadTerminalDrawer";
-import { YouTubePlayerDrawer } from "./YouTubePlayer";
 import {
   AtSignIcon,
   BotIcon,
@@ -5537,8 +5536,6 @@ export default function ChatView({ threadId }: ChatViewProps) {
           />
         );
       })()}
-
-      <YouTubePlayerDrawer />
 
       <Dialog
         open={pendingProjectScriptRun !== null}

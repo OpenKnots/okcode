@@ -264,15 +264,15 @@ function getMenuActionDisabledReason({
   return "Create PR is currently unavailable.";
 }
 
-function dialogIncludesCommit(action: GitDialogAction | null, gitStatus: GitStatusResult | null): boolean {
+function dialogIncludesCommit(
+  action: GitDialogAction | null,
+  gitStatus: GitStatusResult | null,
+): boolean {
   if (!action) return false;
   return action === "commit" || !!gitStatus?.hasWorkingTreeChanges;
 }
 
-function resolveDialogCopy(input: {
-  action: GitDialogAction | null;
-  includesCommit: boolean;
-}): {
+function resolveDialogCopy(input: { action: GitDialogAction | null; includesCommit: boolean }): {
   title: string;
   description: string;
   confirmLabel: string;
@@ -1073,13 +1073,7 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
       setIsEditingFiles(false);
       setActiveDialogAction(quickAction.action);
     }
-  }, [
-    openConflictedFilesInEditor,
-    openExistingPr,
-    quickAction,
-    runPullWithToast,
-    threadToastData,
-  ]);
+  }, [openConflictedFilesInEditor, openExistingPr, quickAction, runPullWithToast, threadToastData]);
 
   const openDialogForMenuItem = useCallback(
     (item: GitActionMenuItem) => {

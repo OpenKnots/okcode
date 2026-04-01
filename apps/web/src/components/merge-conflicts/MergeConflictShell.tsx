@@ -36,6 +36,7 @@ import {
   prReviewConflictsQueryOptions,
   prReviewDashboardQueryOptions,
 } from "~/lib/prReviewReactQuery";
+import { projectReadFileQueryOptions } from "~/lib/projectReactQuery";
 import { cn } from "~/lib/utils";
 import { ensureNativeApi } from "~/nativeApi";
 import { parsePullRequestReference } from "~/pullRequestReference";
@@ -82,6 +83,7 @@ import {
   pullRequestStateBadgeClassName,
   workspaceModeLabel,
 } from "./MergeConflictShell.logic";
+import { ConflictMarkerViewer, hasConflictMarkers } from "./ConflictMarkerViewer";
 import { ExpandableSummary } from "./ExpandableSummary";
 
 const FEEDBACK_DISPOSITION_SCHEMA = Schema.Literals(["accept", "review", "escalate", "blocked"]);
@@ -441,6 +443,7 @@ export function MergeConflictShell({
   const [referenceDirty, setReferenceDirty] = useState(false);
   const [preparedWorkspace, setPreparedWorkspace] = useState<PreparedWorkspace | null>(null);
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
+  const [selectedConflictFile, setSelectedConflictFile] = useState<string | null>(null);
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [debouncedReference, referenceDebouncer] = useDebouncedValue(
     reference,
@@ -496,6 +499,22 @@ export function MergeConflictShell({
   const statusQuery = useQuery(
     gitStatusQueryOptions(resolvedPullRequest ? activeWorkspaceCwd : null),
   );
+
+  // Auto-select the first conflicted file when none is picked yet.
+  const conflictedFiles = statusQuery.data?.conflictedFiles ?? [];
+  const activeConflictFile =
+    selectedConflictFile && conflictedFiles.includes(selectedConflictFile)
+      ? selectedConflictFile
+      : (conflictedFiles[0] ?? null);
+
+  const conflictFileContentQuery = useQuery(
+    projectReadFileQueryOptions({
+      cwd: preparedWorkspace ? activeWorkspaceCwd : null,
+      relativePath: activeConflictFile,
+      enabled: !!preparedWorkspace && activeConflictFile !== null,
+    }),
+  );
+
   const preparePullRequestThreadMutation = useMutation(
     gitPreparePullRequestThreadMutationOptions({ cwd: project.cwd, queryClient }),
   );
@@ -1023,7 +1042,8 @@ export function MergeConflictShell({
                     <div
                       className={cn(
                         "grid gap-4",
-                        candidateGroups.length > 0 &&
+                        (candidateGroups.length > 0 ||
+                          (preparedWorkspace && conflictedFiles.length > 0)) &&
                           "2xl:grid-cols-[minmax(0,360px)_minmax(0,1fr)]",
                       )}
                     >
@@ -1069,6 +1089,36 @@ export function MergeConflictShell({
                               </div>
                             </div>
                           ))
+                        ) : preparedWorkspace && conflictedFiles.length > 0 ? (
+                          <div className="space-y-3">
+                            <div className="rounded-2xl border border-border/70 bg-background/92 p-4">
+                              <p className="font-medium text-sm text-foreground">
+                                Conflicted files
+                              </p>
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                OK Code could not derive a safe patch. Resolve the markers manually
+                                or use the viewer below.
+                              </p>
+                              <div className="mt-3 space-y-1.5">
+                                {conflictedFiles.map((filePath) => (
+                                  <button
+                                    key={filePath}
+                                    type="button"
+                                    className={cn(
+                                      "flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs transition-colors",
+                                      activeConflictFile === filePath
+                                        ? "border-amber-500/30 bg-amber-500/10 text-foreground"
+                                        : "border-border/50 bg-background/80 text-muted-foreground hover:bg-muted/30 hover:text-foreground",
+                                    )}
+                                    onClick={() => setSelectedConflictFile(filePath)}
+                                  >
+                                    <FileCode2Icon className="size-3.5 shrink-0" />
+                                    <span className="min-w-0 truncate">{filePath}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
                         ) : (
                           <Empty>
                             <EmptyMedia variant="icon">
@@ -1097,6 +1147,47 @@ export function MergeConflictShell({
                           </Empty>
                         )}
                       </div>
+
+                      {candidateGroups.length === 0 &&
+                      preparedWorkspace &&
+                      activeConflictFile &&
+                      conflictFileContentQuery.data ? (
+                        <div className="min-h-[420px] rounded-[28px] border border-border/70 bg-background/94">
+                          <div className="flex items-start justify-between gap-3 border-b border-border/70 px-5 py-4">
+                            <div>
+                              <p className="font-medium text-sm text-foreground">
+                                {activeConflictFile}
+                              </p>
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                Resolve the conflict markers below or open the file in your editor.
+                              </p>
+                            </div>
+                            <Button
+                              onClick={() => {
+                                void openPathInEditor(
+                                  joinPath(activeWorkspaceCwd, activeConflictFile),
+                                );
+                              }}
+                              size="xs"
+                              variant="outline"
+                            >
+                              <FileCode2Icon className="size-3.5" />
+                              Open file
+                            </Button>
+                          </div>
+                          <div className="px-5 py-5">
+                            {hasConflictMarkers(conflictFileContentQuery.data.contents) ? (
+                              <ConflictMarkerViewer
+                                content={conflictFileContentQuery.data.contents}
+                              />
+                            ) : (
+                              <pre className="overflow-auto whitespace-pre-wrap text-xs leading-6 text-foreground/88">
+                                {conflictFileContentQuery.data.contents}
+                              </pre>
+                            )}
+                          </div>
+                        </div>
+                      ) : null}
 
                       {candidateGroups.length > 0 ? (
                         <div className="min-h-[420px] rounded-[28px] border border-border/70 bg-background/94">
@@ -1140,13 +1231,19 @@ export function MergeConflictShell({
                             </div>
                           </div>
                           <div className="grid gap-4 px-5 py-5 lg:grid-cols-[minmax(0,1fr)_280px]">
-                            <div className="min-h-[320px] rounded-3xl border border-border/70 bg-muted/22 p-4">
+                            <div className="min-h-[320px]">
                               {selectedCandidate ? (
-                                <pre className="overflow-auto whitespace-pre-wrap text-xs leading-6 text-foreground/88">
-                                  {selectedCandidate.previewPatch}
-                                </pre>
+                                hasConflictMarkers(selectedCandidate.previewPatch) ? (
+                                  <ConflictMarkerViewer content={selectedCandidate.previewPatch} />
+                                ) : (
+                                  <div className="rounded-3xl border border-border/70 bg-muted/22 p-4">
+                                    <pre className="overflow-auto whitespace-pre-wrap text-xs leading-6 text-foreground/88">
+                                      {selectedCandidate.previewPatch}
+                                    </pre>
+                                  </div>
+                                )
                               ) : (
-                                <div className="flex h-full min-h-[280px] items-center justify-center text-sm text-muted-foreground">
+                                <div className="flex h-full min-h-[280px] items-center justify-center rounded-3xl border border-border/70 bg-muted/22 p-4 text-sm text-muted-foreground">
                                   Select a candidate to preview the merge patch.
                                 </div>
                               )}

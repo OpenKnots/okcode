@@ -20,12 +20,7 @@
     },
     "@okcode/marketing#build": {
       "dependsOn": ["^build"],
-      "outputs": [
-        ".next/**",
-        "apps/marketing/.next/**",
-        "!.next/cache/**",
-        "!apps/marketing/.next/cache/**"
-      ]
+      "outputs": [".next/**", "!.next/cache/**"]
     },
     "dev": {
       "dependsOn": ["@okcode/contracts#build"],

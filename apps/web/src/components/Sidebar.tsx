@@ -4,7 +4,7 @@ import {
   ChevronRightIcon,
   EyeIcon,
   EyeOffIcon,
-  FileCodeIcon,
+  ZapIcon,
   FolderIcon,
   GitMergeIcon,
   GitPullRequestIcon,
@@ -2101,10 +2101,10 @@ export default function Sidebar() {
                 <SidebarMenuButton
                   size="sm"
                   className="gap-2 px-2 py-1.5 text-muted-foreground/70 hover:bg-accent hover:text-foreground"
-                  onClick={() => void navigate({ to: "/file-view" })}
+                  onClick={() => void navigate({ to: "/skills" })}
                 >
-                  <FileCodeIcon className="size-3.5" />
-                  <span className="text-xs">File View</span>
+                  <ZapIcon className="size-3.5" />
+                  <span className="text-xs">Skills</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>

@@ -6,7 +6,7 @@ export function Nav() {
     <nav className="fixed top-0 z-40 w-full">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
         <a href="/" className="flex items-center gap-2 text-foreground no-underline">
-          <img src="/icon.png" alt="OK Code" width={24} height={24} className="rounded-md" />
+          <img src="/icon.svg" alt="OK Code" width={24} height={24} className="rounded-md" />
           <span className="text-[15px] font-semibold tracking-tight">OK Code</span>
         </a>
 

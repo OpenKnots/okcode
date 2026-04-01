@@ -374,8 +374,7 @@ export default function Sidebar() {
   const isOnSubPage =
     pathname === "/settings" ||
     pathname === "/pr-review" ||
-    pathname === "/merge-conflicts" ||
-    pathname === "/file-view";
+    pathname === "/merge-conflicts";
   const { settings: appSettings, updateSettings } = useAppSettings();
   const { resolvedTheme } = useTheme();
   const { handleNewThread } = useHandleNewThread();

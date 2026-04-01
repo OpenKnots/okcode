@@ -6,7 +6,8 @@
     "node_modules",
     "bun.lock",
     "*.tsbuildinfo",
-    "**/routeTree.gen.ts"
+    "**/routeTree.gen.ts",
+    "**/next-env.d.ts"
   ],
   "plugins": ["eslint", "oxc", "react", "unicorn", "typescript"],
   "categories": {

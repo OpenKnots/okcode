@@ -5,6 +5,7 @@ node_modules
 *.log
 *.tsbuildinfo
 apps/*/dist
+.next
 .astro
 packages/*/dist
 .env

@@ -2,6 +2,9 @@
   "$schema": "https://turbo.build/schema.json",
   "extends": ["//"],
   "tasks": {
+    "build": {
+      "outputs": [".next/**", "!.next/cache/**"],
+    },
     "preview": {
       "dependsOn": ["build"],
       "cache": false,

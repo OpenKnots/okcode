@@ -443,6 +443,16 @@ function extractProposedPlanMarkdown(text: string | undefined): string | undefin
   return planMarkdown && planMarkdown.length > 0 ? planMarkdown : undefined;
 }
 
+function normalizePlanStepStatus(status: unknown): "pending" | "inProgress" | "completed" {
+  if (status === "completed") {
+    return "completed";
+  }
+  if (status === "inProgress" || status === "in_progress") {
+    return "inProgress";
+  }
+  return "pending";
+}
+
 function asRuntimeItemId(itemId: ProviderItemId): RuntimeItemId {
   return RuntimeItemId.makeUnsafe(itemId);
 }
@@ -833,10 +843,7 @@ function mapToRuntimeEvents(
             .filter((entry): entry is Record<string, unknown> => entry !== undefined)
             .map((entry) => ({
               step: asString(entry.step) ?? "step",
-              status:
-                entry.status === "completed" || entry.status === "inProgress"
-                  ? entry.status
-                  : "pending",
+              status: normalizePlanStepStatus(entry.status),
             })),
         },
       },

@@ -3,7 +3,7 @@ import { promises as fsPromises } from "node:fs";
 
 import { Effect, Layer } from "effect";
 import type { PrConflictCandidateResolution, PrReviewSummary } from "@okcode/contracts";
-import { GitCore } from "../../git/Services/GitCore.ts";
+import { GitCore, type GitCoreShape } from "../../git/Services/GitCore.ts";
 import {
   MergeConflictResolver,
   type MergeConflictResolverShape,
@@ -114,15 +114,91 @@ function buildCandidatesForFile(input: {
   return candidates;
 }
 
-async function readCandidatesForConflicts(cwd: string, conflictedFiles: readonly string[]) {
+/**
+ * Read the "ours" (stage 2) and "theirs" (stage 3) versions of a conflicted
+ * file directly from the git index.  This works even when the working-tree
+ * copy has no parseable conflict markers (e.g. binary files, diff3 style,
+ * already-partially-resolved markers, or multiple conflict blocks).
+ */
+async function buildFallbackCandidatesFromIndex(
+  gitCore: GitCoreShape,
+  cwd: string,
+  relativePath: string,
+): Promise<PrConflictCandidateResolution[]> {
+  const candidates: PrConflictCandidateResolution[] = [];
+  const tryStage = async (
+    stage: "2" | "3",
+    label: "ours" | "theirs",
+    title: string,
+    description: string,
+  ) => {
+    try {
+      const result = await Effect.runPromise(
+        gitCore.execute({
+          operation: "showConflictStage",
+          cwd,
+          args: ["show", `:${stage}:${relativePath}`],
+          allowNonZeroExit: true,
+        }),
+      );
+      if (result.code === 0) {
+        candidates.push(
+          buildCandidate({
+            id: `${relativePath}:${label}`,
+            path: relativePath,
+            title,
+            description,
+            confidence: "review",
+            replacement: result.stdout,
+          }),
+        );
+      }
+    } catch {
+      // Stage does not exist in the index; skip this side.
+    }
+  };
+
+  await tryStage(
+    "2",
+    "ours",
+    "Prefer current side (full file)",
+    "Review-required candidate using the full current-branch version from the git index.",
+  );
+  await tryStage(
+    "3",
+    "theirs",
+    "Prefer incoming side (full file)",
+    "Review-required candidate using the full incoming-branch version from the git index.",
+  );
+
+  return candidates;
+}
+
+async function readCandidatesForConflicts(
+  cwd: string,
+  conflictedFiles: readonly string[],
+  gitCore: GitCoreShape,
+) {
   const candidates: PrConflictCandidateResolution[] = [];
   for (const relativePath of conflictedFiles) {
     try {
       const absolutePath = path.join(cwd, relativePath);
       const contents = await fsPromises.readFile(absolutePath, "utf8");
-      candidates.push(...buildCandidatesForFile({ relativePath, contents }));
+      const fileCandidates = buildCandidatesForFile({ relativePath, contents });
+      if (fileCandidates.length > 0) {
+        candidates.push(...fileCandidates);
+      } else {
+        // Marker parsing failed (diff3 style, multiple blocks, etc.) – fall
+        // back to full-file ours/theirs from the git index.
+        candidates.push(
+          ...(await buildFallbackCandidatesFromIndex(gitCore, cwd, relativePath)),
+        );
+      }
     } catch {
-      // Ignore unreadable files; they remain unresolved and will be surfaced in summary text.
+      // File unreadable from disk – still try index-based fallback.
+      candidates.push(
+        ...(await buildFallbackCandidatesFromIndex(gitCore, cwd, relativePath)),
+      );
     }
   }
   return candidates;
@@ -136,7 +212,7 @@ const makeMergeConflictResolver = Effect.gen(function* () {
       try: async () => {
         const status = await Effect.runPromise(gitCore.statusDetails(cwd));
         if (status.hasConflicts) {
-          const candidates = await readCandidatesForConflicts(cwd, status.conflictedFiles);
+          const candidates = await readCandidatesForConflicts(cwd, status.conflictedFiles, gitCore);
           return {
             status: "conflicted" as const,
             mergeableState: pullRequest.mergeable,
@@ -193,10 +269,12 @@ const makeMergeConflictResolver = Effect.gen(function* () {
               const absolutePath = path.join(cwd, candidate.path);
               const contents = await fsPromises.readFile(absolutePath, "utf8");
               const parsed = parseFirstConflictBlock(contents);
-              if (!parsed) {
-                throw new Error("Conflict markers were not found in the target file.");
-              }
-              const nextContents = `${parsed.before}${candidate.previewPatch}${parsed.after}`;
+              // When markers are parseable, splice the candidate into the
+              // surrounding context.  Otherwise the candidate contains the
+              // full file content (index-based fallback) – write it directly.
+              const nextContents = parsed
+                ? `${parsed.before}${candidate.previewPatch}${parsed.after}`
+                : candidate.previewPatch;
               await fsPromises.writeFile(absolutePath, nextContents, "utf8");
               return {
                 candidateId,

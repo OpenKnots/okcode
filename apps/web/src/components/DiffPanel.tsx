@@ -14,6 +14,7 @@ import { parseDiffRouteSearch, stripDiffSearchParams } from "../diffRouteSearch"
 import { useTheme } from "../hooks/useTheme";
 import { buildPatchCacheKey } from "../lib/diffRendering";
 import {
+  acceptAllDiffFiles,
   expandDiffFile,
   reconcileDiffFileReviewState,
   toggleDiffFileAccepted,
@@ -420,6 +421,16 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
   const activeReviewState = patchReviewSelectionKey
     ? (reviewStateBySelectionKey[patchReviewSelectionKey] ?? {})
     : {};
+  const acceptedFileCount = useMemo(
+    () =>
+      renderableFilePaths.reduce(
+        (count, filePath) => count + (activeReviewState[filePath]?.accepted ? 1 : 0),
+        0,
+      ),
+    [activeReviewState, renderableFilePaths],
+  );
+  const hasUnacceptedFiles =
+    renderableFilePaths.length > 0 && acceptedFileCount < renderableFilePaths.length;
 
   useEffect(() => {
     if (diffOpen && !previousDiffOpenRef.current) {
@@ -503,6 +514,12 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
     },
     [updateActiveReviewState],
   );
+  const onAcceptAllFiles = useCallback(() => {
+    if (renderableFilePaths.length === 0) {
+      return;
+    }
+    updateActiveReviewState((current) => acceptAllDiffFiles(current, renderableFilePaths));
+  }, [renderableFilePaths, updateActiveReviewState]);
   const onToggleFileCollapsed = useCallback(
     (filePath: string) => {
       updateActiveReviewState((current) => toggleDiffFileCollapsed(current, filePath));
@@ -605,6 +622,18 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
         </Select>
       </div>
       <div className="flex shrink-0 items-center gap-1 [-webkit-app-region:no-drag]">
+        {renderablePatch?.kind === "files" ? (
+          <Button
+            size="xs"
+            variant="outline"
+            onClick={onAcceptAllFiles}
+            disabled={!hasUnacceptedFiles}
+            className="gap-1.5"
+          >
+            <CheckIcon className="size-3.5" />
+            {hasUnacceptedFiles ? "Accept All" : "All Accepted"}
+          </Button>
+        ) : null}
         <ToggleGroup
           className="shrink-0"
           variant="outline"

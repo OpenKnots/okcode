@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  acceptAllDiffFiles,
   expandDiffFile,
   reconcileDiffFileReviewState,
   toggleDiffFileAccepted,
@@ -43,6 +44,31 @@ describe("toggleDiffFileAccepted", () => {
     ).toEqual({
       "src/a.ts": { accepted: false, collapsed: false },
     });
+  });
+});
+
+describe("acceptAllDiffFiles", () => {
+  it("marks every listed file accepted and collapsed", () => {
+    expect(
+      acceptAllDiffFiles(
+        {
+          "src/a.ts": { accepted: false, collapsed: false, contextMode: "full" },
+        },
+        ["src/a.ts", "src/b.ts"],
+      ),
+    ).toEqual({
+      "src/a.ts": { accepted: true, collapsed: true, contextMode: "full" },
+      "src/b.ts": { accepted: true, collapsed: true, contextMode: "patch" },
+    });
+  });
+
+  it("returns the same object when every listed file is already accepted", () => {
+    const state = {
+      "src/a.ts": { accepted: true, collapsed: true, contextMode: "patch" as const },
+      "src/b.ts": { accepted: true, collapsed: true, contextMode: "full" as const },
+    };
+
+    expect(acceptAllDiffFiles(state, ["src/a.ts", "src/b.ts"])).toBe(state);
   });
 });
 

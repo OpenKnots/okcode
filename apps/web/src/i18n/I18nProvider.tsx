@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { IntlErrorCode, IntlProvider } from "react-intl";
+import { IntlProvider } from "react-intl";
 import { useAppSettings } from "../appSettings";
 import { getNavigatorLocaleSnapshot, resolveAppLocale } from "./locale";
 import { EN_MESSAGES, loadMessages } from "./loadMessages";
@@ -89,7 +89,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
         defaultLocale="en"
         messages={activeMessages}
         onError={(error) => {
-          if (error.code === IntlErrorCode.MISSING_TRANSLATION) {
+          if ("code" in error && error.code === "MISSING_TRANSLATION") {
             return;
           }
 

@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useCallback, useRef, useEffect } from "react";
 
 const svgProps = {
@@ -31,7 +33,7 @@ interface CodeBlockProps {
 
 export function CodeBlock({ code, label }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     return () => {

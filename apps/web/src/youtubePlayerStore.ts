@@ -192,7 +192,6 @@ export function buildYouTubeEmbedUrl(type: "video" | "playlist", id: string): st
     enablejsapi: "1",
     origin,
     rel: "0",
-    modestbranding: "1",
   });
 
   if (type === "playlist") {

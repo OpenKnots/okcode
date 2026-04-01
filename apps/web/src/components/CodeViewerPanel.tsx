@@ -13,7 +13,7 @@ import { MarkdownPreview } from "./MarkdownPreview";
 import { isElectron } from "~/env";
 import { Button } from "./ui/button";
 
-function CodeViewerTabStrip(props: {
+export function CodeViewerTabStrip(props: {
   tabs: CodeViewerTab[];
   activeTabPath: string | null;
   onSelectTab: (relativePath: string) => void;
@@ -60,7 +60,7 @@ function CodeViewerTabStrip(props: {
   );
 }
 
-const CodeViewerFileContent = memo(function CodeViewerFileContent(props: {
+export const CodeViewerFileContent = memo(function CodeViewerFileContent(props: {
   cwd: string;
   relativePath: string;
   resolvedTheme: "light" | "dark";

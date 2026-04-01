@@ -3292,6 +3292,16 @@ export default function ChatView({ threadId }: ChatViewProps) {
     });
   };
 
+  const onClearQueue = useCallback(() => {
+    setOptimisticUserMessages((existing) => {
+      for (const msg of existing) {
+        if (msg.queued) revokeUserMessagePreviewUrls(msg);
+      }
+      return existing.filter((msg) => !msg.queued);
+    });
+    setQueuedMessages([]);
+  }, []);
+
   const onRespondToApproval = useCallback(
     async (requestId: ApprovalRequestId, decision: ProviderApprovalDecision) => {
       const api = readNativeApi();
@@ -4788,9 +4798,30 @@ export default function ChatView({ threadId }: ChatViewProps) {
                             </span>
                           ) : null}
                           {queuedMessages.length > 0 && phase === "running" ? (
-                            <span className="text-muted-foreground/60 text-xs">
+                            <button
+                              type="button"
+                              className="flex items-center gap-1 text-muted-foreground/60 text-xs transition-colors hover:text-destructive"
+                              onClick={onClearQueue}
+                              title="Clear queued messages"
+                              aria-label="Clear queued messages"
+                            >
                               {queuedMessages.length} queued
-                            </span>
+                              <svg
+                                width="10"
+                                height="10"
+                                viewBox="0 0 10 10"
+                                fill="currentColor"
+                                aria-hidden="true"
+                              >
+                                <path
+                                  d="M2 2l6 6M8 2l-6 6"
+                                  stroke="currentColor"
+                                  strokeWidth="1.5"
+                                  strokeLinecap="round"
+                                  fill="none"
+                                />
+                              </svg>
+                            </button>
                           ) : null}
                           {activePendingProgress ? (
                             <div className="flex items-center gap-2">

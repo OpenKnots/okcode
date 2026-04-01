@@ -1,6 +1,7 @@
 import type { GitResolvedPullRequest, PrConflictCandidateResolution } from "@okcode/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDebouncedValue } from "@tanstack/react-pacer";
+import { useNavigate } from "@tanstack/react-router";
 import { Schema } from "effect";
 import {
   AlertTriangleIcon,
@@ -242,6 +243,7 @@ function MergeConflictGuidanceRail({
     status: "done" | "active" | "todo" | "blocked";
   }>;
 }) {
+  const navigateToFileView = useNavigate();
   return (
     <div className="flex min-h-0 min-w-0 flex-col bg-background/96">
       <div className="border-b border-border/70 px-4 py-4">
@@ -346,15 +348,51 @@ function MergeConflictGuidanceRail({
               title="Focused file context"
             />
             <div className="mt-4 space-y-3 text-sm">
-              <div className="rounded-2xl border border-border/70 bg-muted/24 p-3">
+              <div
+                className="cursor-pointer rounded-2xl border border-border/70 bg-muted/24 p-3 transition-colors hover:border-border hover:bg-muted/40"
+                role="button"
+                tabIndex={0}
+                onClick={() =>
+                  void navigateToFileView({
+                    to: "/file-view",
+                    search: { cwd: project.cwd },
+                  })
+                }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    void navigateToFileView({
+                      to: "/file-view",
+                      search: { cwd: project.cwd },
+                    });
+                  }
+                }}
+              >
                 <p className="font-medium text-foreground">{projectLabel(project)}</p>
-                <p className="mt-1 text-muted-foreground">{project.cwd}</p>
+                <p className="mt-1 break-all text-muted-foreground">{project.cwd}</p>
               </div>
-              <div className="rounded-2xl border border-border/70 bg-muted/24 p-3">
+              <div
+                className="cursor-pointer rounded-2xl border border-border/70 bg-muted/24 p-3 transition-colors hover:border-border hover:bg-muted/40"
+                role="button"
+                tabIndex={0}
+                onClick={() =>
+                  void navigateToFileView({
+                    to: "/file-view",
+                    search: { cwd: preparedWorkspace?.cwd ?? project.cwd },
+                  })
+                }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    void navigateToFileView({
+                      to: "/file-view",
+                      search: { cwd: preparedWorkspace?.cwd ?? project.cwd },
+                    });
+                  }
+                }}
+              >
                 <p className="font-medium text-foreground">
                   {workspaceModeLabel(preparedWorkspace)}
                 </p>
-                <p className="mt-1 text-muted-foreground">
+                <p className="mt-1 break-all text-muted-foreground">
                   {preparedWorkspace?.cwd ?? project.cwd}
                 </p>
               </div>

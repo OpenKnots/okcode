@@ -378,28 +378,13 @@ export function readSkill(
   const nameValidation = validateSkillName(name);
   if (!nameValidation.valid) return null;
 
-  // Direct path lookup instead of scanning all directories
-  const candidates: Array<{ dir: string; mdPath: string; scope: "global" | "project" }> = [];
-
-  if (projectRoot) {
-    const dir = path.join(projectSkillsDir(projectRoot), name);
-    candidates.push({ dir, mdPath: skillMdPath(dir), scope: "project" });
-  }
-  candidates.push({
-    dir: path.join(globalSkillsDir(), name),
-    mdPath: skillMdPath(path.join(globalSkillsDir(), name)),
-    scope: "global",
-  });
-  candidates.push({
-    dir: path.join(legacyGlobalSkillsDir(), name),
-    mdPath: skillMdPath(path.join(legacyGlobalSkillsDir(), name)),
-    scope: "global",
-  });
-
-  for (const candidate of candidates) {
-    if (!fs.existsSync(candidate.mdPath)) continue;
-
+  const tryReadCandidate = (candidate: {
+    dir: string;
+    mdPath: string;
+    scope: "global" | "project";
+  }): (SkillEntry & { content: SkillContent }) | null => {
     try {
+      if (!fs.existsSync(candidate.mdPath)) return null;
       const raw = fs.readFileSync(candidate.mdPath, "utf-8");
       const content = parseSkillContent(raw, name);
       return {
@@ -412,11 +397,37 @@ export function readSkill(
         content,
       };
     } catch {
-      if (candidate.dir.startsWith(globalSkillsDir())) {
-        return null;
-      }
-      continue;
+      return null;
     }
+  };
+
+  if (projectRoot) {
+    const projectDir = path.join(projectSkillsDir(projectRoot), name);
+    if (fs.existsSync(projectDir)) {
+      return tryReadCandidate({
+        dir: projectDir,
+        mdPath: skillMdPath(projectDir),
+        scope: "project",
+      });
+    }
+  }
+
+  const canonicalGlobalDir = path.join(globalSkillsDir(), name);
+  if (fs.existsSync(canonicalGlobalDir)) {
+    return tryReadCandidate({
+      dir: canonicalGlobalDir,
+      mdPath: skillMdPath(canonicalGlobalDir),
+      scope: "global",
+    });
+  }
+
+  const legacyGlobalDir = path.join(legacyGlobalSkillsDir(), name);
+  if (fs.existsSync(legacyGlobalDir)) {
+    return tryReadCandidate({
+      dir: legacyGlobalDir,
+      mdPath: skillMdPath(legacyGlobalDir),
+      scope: "global",
+    });
   }
 
   return null;
@@ -461,14 +472,18 @@ export function skillExists(
 ): { exists: boolean; scope?: "global" | "project" } {
   if (projectRoot) {
     const projectDir = path.join(projectSkillsDir(projectRoot), name);
-    if (fs.existsSync(skillMdPath(projectDir))) {
-      return { exists: true, scope: "project" };
+    if (fs.existsSync(projectDir)) {
+      return fs.existsSync(skillMdPath(projectDir))
+        ? { exists: true, scope: "project" }
+        : { exists: false };
     }
   }
 
   const globalDir = path.join(globalSkillsDir(), name);
-  if (fs.existsSync(skillMdPath(globalDir))) {
-    return { exists: true, scope: "global" };
+  if (fs.existsSync(globalDir)) {
+    return fs.existsSync(skillMdPath(globalDir))
+      ? { exists: true, scope: "global" }
+      : { exists: false };
   }
 
   const legacyGlobalDir = path.join(legacyGlobalSkillsDir(), name);

@@ -64,10 +64,10 @@ export function CreateSkillDialog(props: {
     if (!name.trim())
       return scope === "project" && props.cwd
         ? `${props.cwd}/.claude/skills/<name>/SKILL.md`
-        : "~/.claude/skills/<name>/SKILL.md";
+        : "~/.okcode/skills/<name>/SKILL.md";
     if (scope === "project" && props.cwd)
       return `${props.cwd}/.claude/skills/${name.trim()}/SKILL.md`;
-    return `~/.claude/skills/${name.trim()}/SKILL.md`;
+    return `~/.okcode/skills/${name.trim()}/SKILL.md`;
   }, [name, props.cwd, scope]);
 
   const createMutation = useMutation({

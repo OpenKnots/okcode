@@ -1,5 +1,6 @@
 {
   "lockfileVersion": 1,
+  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "@okcode/monorepo",
@@ -15,7 +16,7 @@
     },
     "apps/desktop": {
       "name": "@okcode/desktop",
-      "version": "0.0.7",
+      "version": "0.0.8",
       "dependencies": {
         "effect": "catalog:",
         "electron": "40.6.0",
@@ -65,7 +66,7 @@
     },
     "apps/server": {
       "name": "okcodes",
-      "version": "0.0.7",
+      "version": "0.0.8",
       "bin": {
         "okcode": "./dist/index.mjs",
       },
@@ -96,7 +97,7 @@
     },
     "apps/web": {
       "name": "@okcode/web",
-      "version": "0.0.7",
+      "version": "0.0.8",
       "dependencies": {
         "@base-ui/react": "^1.2.0",
         "@codemirror/language": "^6.12.3",
@@ -156,7 +157,7 @@
     },
     "packages/contracts": {
       "name": "@okcode/contracts",
-      "version": "0.0.7",
+      "version": "0.0.8",
       "dependencies": {
         "effect": "catalog:",
       },

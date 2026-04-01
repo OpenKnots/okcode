@@ -82,6 +82,7 @@ export const AppSettingsSchema = Schema.Struct({
   sidebarHideFiles: Schema.Boolean.pipe(withDefaults(() => false)),
   sidebarAccentProjectNames: Schema.Boolean.pipe(withDefaults(() => true)),
   sidebarAccentColorOverride: Schema.optional(Schema.String.check(Schema.isMaxLength(64))),
+  sidebarAccentBgColorOverride: Schema.optional(Schema.String.check(Schema.isMaxLength(64))),
   sidebarWideThreadNames: Schema.Boolean.pipe(withDefaults(() => true)),
   customCodexModels: Schema.Array(Schema.String).pipe(withDefaults(() => [])),
   customClaudeModels: Schema.Array(Schema.String).pipe(withDefaults(() => [])),

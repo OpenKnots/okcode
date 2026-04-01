@@ -90,7 +90,13 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
 }
 
 function DialogPanel({ className, ...props }: React.ComponentProps<"div">) {
-  return <div className={cn("px-6 pb-6", className)} data-slot="dialog-panel" {...props} />;
+  return (
+    <div
+      className={cn("min-h-0 overflow-y-auto px-6 pb-6", className)}
+      data-slot="dialog-panel"
+      {...props}
+    />
+  );
 }
 
 function DialogFooter({

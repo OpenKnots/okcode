@@ -1,13 +1,22 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import Hero from "../components/Hero.astro";
+import LogoCloud from "../components/LogoCloud.astro";
 import TrustStrip from "../components/TrustStrip.astro";
+import StatsBar from "../components/StatsBar.astro";
 import FeatureGrid from "../components/FeatureGrid.astro";
 import WorkflowSection from "../components/WorkflowSection.astro";
 import CoreSurfaces from "../components/CoreSurfaces.astro";
 import ThemeShowcase from "../components/ThemeShowcase.astro";
 import FaqSection from "../components/FaqSection.astro";
 import FinalCta from "../components/FinalCta.astro";
+
+const metrics = [
+  { value: "100%", label: "Open Source" },
+  { value: "5", label: "Core Surfaces" },
+  { value: "3", label: "Premium Themes" },
+  { value: "<1s", label: "Thread Restore" },
+] as const;
 
 const description =
   "OK Code is the premium dark workspace for AI coding flows — persistent threads, diffs, preview, PR review, and release actions in one calm desktop + web product.";
@@ -170,21 +179,15 @@ const faqs = [
 
 <Layout title="OK Code" {description}>
   <Hero />
+  <LogoCloud />
   <TrustStrip />
+  <StatsBar metrics={metrics} />
   <FeatureGrid pillars={pillars} />
   <WorkflowSection steps={workflowSteps} />
   <CoreSurfaces surfaces={surfaces} />
   <ThemeShowcase themes={themes} />
   <FaqSection faqs={faqs} />
   <FinalCta />
-  <div class="section-divider" aria-hidden="true">
-    <svg viewBox="0 0 32 32" fill="none">
-      <path d="M8 16 C8 10, 14 8, 16 14 S24 10, 24 16" stroke="currentColor" stroke-width="1" />
-      <path d="M16 8 C10 8, 8 14, 14 16 S10 24, 16 24" stroke="var(--kn-landing-accent)" stroke-width="1" />
-      <path d="M24 16 C24 22, 18 24, 16 18 S8 22, 8 16" stroke="currentColor" stroke-width="0.85" opacity="0.7" />
-      <circle cx="16" cy="16" r="1.4" fill="var(--kn-landing-accent)" opacity="0.5" />
-    </svg>
-  </div>
 </Layout>
 
 <script>
@@ -478,8 +481,8 @@ const faqs = [
     gap: 2rem;
     align-items: center;
     justify-items: center;
-    margin-bottom: 2.75rem;
-    padding-top: clamp(1rem, 3vw, 2.25rem);
+    margin-bottom: clamp(4rem, 8vw, 7rem);
+    padding-top: clamp(3rem, 8vw, 6rem);
   }
 
   :global(.hero-copy) {
@@ -1004,7 +1007,7 @@ const faqs = [
 
   :global(.trust-strip) {
     gap: 1rem;
-    margin-bottom: 4rem;
+    margin-bottom: var(--kn-landing-section-gap, clamp(5rem, 8vw, 8rem));
     flex-wrap: wrap;
   }
 
@@ -1044,7 +1047,7 @@ const faqs = [
   }
 
   :global(.feature-grid) {
-    margin-bottom: 4rem;
+    margin-bottom: var(--kn-landing-section-gap, clamp(5rem, 8vw, 8rem));
   }
 
   :global(.feature-card),
@@ -1073,7 +1076,7 @@ const faqs = [
 
   :global(.workflow-section),
   :global(.faq-section) {
-    margin-bottom: 4rem;
+    margin-bottom: var(--kn-landing-section-gap, clamp(5rem, 8vw, 8rem));
   }
 
   :global(.section-heading),
@@ -1112,9 +1115,9 @@ const faqs = [
   :global(.spotlight),
   :global(.theme-section) {
     grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
-    gap: 1.25rem;
+    gap: 2rem;
     align-items: start;
-    margin-bottom: 4rem;
+    margin-bottom: var(--kn-landing-section-gap, clamp(5rem, 8vw, 8rem));
   }
 
   :global(.spotlight-copy),

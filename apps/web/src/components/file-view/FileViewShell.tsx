@@ -87,11 +87,17 @@ export function FileViewShell(props: { initialCwd: string; initialPath: string |
           onCloseTab={onCloseTab}
           onCloseAll={onCloseAll}
         />
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2 [-webkit-app-region:no-drag]">
           <span className="hidden text-[10px] text-muted-foreground/50 sm:inline">
             Select code + {modKey}L to add context
           </span>
-          <Button size="icon-xs" variant="ghost" onClick={onCloseAll} aria-label="Close all tabs">
+          <Button
+            size="icon-xs"
+            variant="ghost"
+            onClick={onCloseAll}
+            aria-label="Close all open files"
+            title="Close all open files"
+          >
             <XIcon className="size-4" />
           </Button>
         </div>

@@ -53,13 +53,13 @@
 
 The logo SVG is a **mark on a black (#000000) background**, rendered at 1024×1024.
 
-| Property                  | Value                                              |
-| ------------------------- | -------------------------------------------------- |
-| **Logo Mark Description** | `[TBD — describe the mark/symbol]`                 |
-| **Logo Colors**           | Black background (#000000) + `[TBD — mark colors]` |
-| **Minimum Size**          | `[TBD]`                                            |
-| **Clear Space**           | `[TBD]`                                            |
-| **Usage Guidelines**      | `[TBD]`                                            |
+| Property                  | Value                                                                            |
+| ------------------------- | -------------------------------------------------------------------------------- |
+| **Logo Mark Description** | Interlaced white knot mark on a black square background                          |
+| **Logo Colors**           | Black background (#000000) + white mark (#FFFFFF)                                |
+| **Minimum Size**          | 24px for the mark alone                                                          |
+| **Clear Space**           | At least one mark width on all sides                                             |
+| **Usage Guidelines**      | Use the mark asset for brand surfaces; avoid generic icons or placeholder glyphs |
 
 ---
 

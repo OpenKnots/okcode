@@ -11,7 +11,7 @@ describe("deriveComposerSendState", () => {
   it("treats expired terminal pills as non-sendable content", () => {
     const state = deriveComposerSendState({
       prompt: "\uFFFC",
-      imageCount: 0,
+      attachmentCount: 0,
       terminalContexts: [
         {
           id: "ctx-expired",
@@ -35,7 +35,7 @@ describe("deriveComposerSendState", () => {
   it("keeps text sendable while excluding expired terminal pills", () => {
     const state = deriveComposerSendState({
       prompt: `yoo \uFFFC waddup`,
-      imageCount: 0,
+      attachmentCount: 0,
       terminalContexts: [
         {
           id: "ctx-expired",
@@ -52,6 +52,16 @@ describe("deriveComposerSendState", () => {
 
     expect(state.trimmedPrompt).toBe("yoo  waddup");
     expect(state.expiredTerminalContextCount).toBe(1);
+    expect(state.hasSendableContent).toBe(true);
+  });
+
+  it("treats file attachments as sendable content", () => {
+    const state = deriveComposerSendState({
+      prompt: "",
+      attachmentCount: 1,
+      terminalContexts: [],
+    });
+
     expect(state.hasSendableContent).toBe(true);
   });
 });

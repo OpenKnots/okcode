@@ -28,16 +28,24 @@ export interface ThreadTerminalGroup {
   terminalIds: string[];
 }
 
-export interface ChatImageAttachment {
-  type: "image";
+interface ChatAttachmentBase {
   id: string;
   name: string;
   mimeType: string;
   sizeBytes: number;
+  url?: string;
+}
+
+export interface ChatImageAttachment extends ChatAttachmentBase {
+  type: "image";
   previewUrl?: string;
 }
 
-export type ChatAttachment = ChatImageAttachment;
+export interface ChatFileAttachment extends ChatAttachmentBase {
+  type: "file";
+}
+
+export type ChatAttachment = ChatImageAttachment | ChatFileAttachment;
 
 export interface ChatMessage {
   id: MessageId;

@@ -27,6 +27,7 @@ import {
   EyeIcon,
   GlobeIcon,
   HammerIcon,
+  PaperclipIcon,
   type LucideIcon,
   SquarePenIcon,
   TerminalIcon,
@@ -385,7 +386,9 @@ export const MessagesTimeline = memo(function MessagesTimeline({
       {row.kind === "message" &&
         row.message.role === "user" &&
         (() => {
-          const userImages = row.message.attachments ?? [];
+          const userAttachments = row.message.attachments ?? [];
+          const userImages = userAttachments.filter((attachment) => attachment.type === "image");
+          const userFiles = userAttachments.filter((attachment) => attachment.type === "file");
           const displayedUserMessage = deriveDisplayedUserMessageState(row.message.text);
           const terminalContexts = displayedUserMessage.contexts;
           const canRevertAgentWork = revertTurnCountByUserMessageId.has(row.message.id);
@@ -403,7 +406,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
                 {userImages.length > 0 && (
                   <div className="mb-2 grid max-w-[420px] grid-cols-2 gap-2">
                     {userImages.map(
-                      (image: NonNullable<TimelineMessage["attachments"]>[number]) => (
+                      (image) => (
                         <div
                           key={image.id}
                           className="overflow-hidden rounded-lg border border-border/80 bg-background/70"
@@ -435,6 +438,36 @@ export const MessagesTimeline = memo(function MessagesTimeline({
                         </div>
                       ),
                     )}
+                  </div>
+                )}
+                {userFiles.length > 0 && (
+                  <div className="mb-2 flex max-w-[420px] flex-wrap gap-2">
+                    {userFiles.map((attachment) => {
+                      const content = (
+                        <>
+                          <PaperclipIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                          <span className="truncate">{attachment.name}</span>
+                        </>
+                      );
+                      return attachment.url ? (
+                        <a
+                          key={attachment.id}
+                          href={attachment.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex max-w-full items-center gap-2 rounded-lg border border-border/80 bg-background/70 px-3 py-2 text-xs transition-colors hover:bg-background"
+                        >
+                          {content}
+                        </a>
+                      ) : (
+                        <div
+                          key={attachment.id}
+                          className="inline-flex max-w-full items-center gap-2 rounded-lg border border-border/80 bg-background/70 px-3 py-2 text-xs"
+                        >
+                          {content}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
                 {(displayedUserMessage.visibleText.trim().length > 0 ||

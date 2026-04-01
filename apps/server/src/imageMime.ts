@@ -1,5 +1,7 @@
 import Mime from "@effect/platform-node/Mime";
 
+const SAFE_ATTACHMENT_FILE_EXTENSION_PATTERN = /^[a-z0-9]{1,12}$/i;
+
 export const IMAGE_EXTENSION_BY_MIME_TYPE: Record<string, string> = {
   "image/avif": ".avif",
   "image/bmp": ".bmp",
@@ -28,6 +30,10 @@ export const SAFE_IMAGE_FILE_EXTENSIONS = new Set([
   ".tiff",
   ".webp",
 ]);
+
+export function isImageMimeType(mimeType: string): boolean {
+  return mimeType.trim().toLowerCase().startsWith("image/");
+}
 
 export function parseBase64DataUrl(
   dataUrl: string,
@@ -73,6 +79,28 @@ export function inferImageExtension(input: { mimeType: string; fileName?: string
   const fileNameExtension = extensionMatch ? `.${extensionMatch[1]!.toLowerCase()}` : "";
   if (SAFE_IMAGE_FILE_EXTENSIONS.has(fileNameExtension)) {
     return fileNameExtension;
+  }
+
+  return ".bin";
+}
+
+export function inferAttachmentExtension(input: { mimeType: string; fileName?: string }): string {
+  if (isImageMimeType(input.mimeType)) {
+    return inferImageExtension(input);
+  }
+
+  const mimeExtension = Mime.getExtension(input.mimeType);
+  if (
+    typeof mimeExtension === "string" &&
+    SAFE_ATTACHMENT_FILE_EXTENSION_PATTERN.test(mimeExtension.replace(/^\./, ""))
+  ) {
+    return mimeExtension.startsWith(".") ? mimeExtension : `.${mimeExtension}`;
+  }
+
+  const fileName = input.fileName?.trim() ?? "";
+  const extensionMatch = /\.([a-z0-9]{1,12})$/i.exec(fileName);
+  if (extensionMatch?.[1]) {
+    return `.${extensionMatch[1].toLowerCase()}`;
   }
 
   return ".bin";

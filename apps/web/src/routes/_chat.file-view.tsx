@@ -1,28 +1,46 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { FileCodeIcon } from "lucide-react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
 
-import { FileViewShell } from "~/components/file-view/FileViewShell";
-import { ProjectSubpageShell } from "~/components/review/ProjectSubpageShell";
+import { useCodeViewerStore } from "~/codeViewerStore";
+import { useStore } from "~/store";
 
 export interface FileViewSearch {
   cwd?: string;
   path?: string;
 }
 
-function FileViewRouteView() {
+/**
+ * Legacy route — the standalone file-view page has been removed.
+ * If a file was requested via search params, open it in the code-viewer
+ * side panel and redirect to the most recent thread.
+ */
+function FileViewRouteRedirect() {
   const { cwd, path } = Route.useSearch();
+  const openFile = useCodeViewerStore((s) => s.openFile);
+  const navigate = useNavigate();
+  const threads = useStore((s) => s.threads);
 
-  return (
-    <ProjectSubpageShell
-      emptyMessage="Open a file to view it here."
-      icon={FileCodeIcon}
-      title="File View"
-    >
-      {({ project }) => (
-        <FileViewShell initialCwd={cwd ?? project.cwd} initialPath={path ?? null} />
-      )}
-    </ProjectSubpageShell>
-  );
+  useEffect(() => {
+    // Open the requested file in the side-panel store
+    if (cwd && path) {
+      openFile(cwd, path);
+    }
+
+    // Navigate to the most recent thread (or home)
+    const sorted = [...threads].sort((a, b) =>
+      (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt),
+    );
+    const latest = sorted[0];
+    if (latest) {
+      void navigate({ to: "/$threadId", params: { threadId: latest.id }, replace: true });
+    } else {
+      void navigate({ to: "/", replace: true });
+    }
+    // Only run on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return null;
 }
 
 export const Route = createFileRoute("/_chat/file-view")({
@@ -38,5 +56,5 @@ export const Route = createFileRoute("/_chat/file-view")({
 
     return validatedSearch;
   },
-  component: FileViewRouteView,
+  component: FileViewRouteRedirect,
 });

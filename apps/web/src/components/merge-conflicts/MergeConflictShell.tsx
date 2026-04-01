@@ -20,8 +20,9 @@ import {
   ShieldCheckIcon,
   WorkflowIcon,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { useCodeViewerStore } from "~/codeViewerStore";
 import { openInPreferredEditor } from "~/editorPreferences";
 import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
 import { useLocalStorage } from "~/hooks/useLocalStorage";
@@ -41,6 +42,7 @@ import { cn } from "~/lib/utils";
 import { ensureNativeApi } from "~/nativeApi";
 import { parsePullRequestReference } from "~/pullRequestReference";
 import { findProjectMatchingPullRequestReference } from "~/pullRequestProjectMatch";
+import { useStore } from "~/store";
 import type { Project } from "~/types";
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { toastManager } from "~/components/ui/toast";
@@ -246,7 +248,26 @@ function MergeConflictGuidanceRail({
     status: "done" | "active" | "todo" | "blocked";
   }>;
 }) {
-  const navigateToFileView = useNavigate();
+  const navigate = useNavigate();
+  const threads = useStore((s) => s.threads);
+  const openCodeViewer = useCodeViewerStore((s) => s.open);
+
+  const navigateToLatestThread = useCallback(
+    () => {
+      openCodeViewer();
+      const sorted = [...threads].sort((a, b) =>
+        (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt),
+      );
+      const latest = sorted[0];
+      if (latest) {
+        void navigate({ to: "/$threadId", params: { threadId: latest.id } });
+      } else {
+        void navigate({ to: "/" });
+      }
+    },
+    [navigate, openCodeViewer, threads],
+  );
+
   return (
     <div className="flex min-h-0 min-w-0 flex-col bg-background/96">
       <div className="border-b border-border/70 px-4 py-4">
@@ -355,18 +376,10 @@ function MergeConflictGuidanceRail({
                 className="cursor-pointer rounded-2xl border border-border/70 bg-muted/24 p-3 transition-colors hover:border-border hover:bg-muted/40"
                 role="button"
                 tabIndex={0}
-                onClick={() =>
-                  void navigateToFileView({
-                    to: "/file-view",
-                    search: { cwd: project.cwd },
-                  })
-                }
+                onClick={navigateToLatestThread}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
-                    void navigateToFileView({
-                      to: "/file-view",
-                      search: { cwd: project.cwd },
-                    });
+                    navigateToLatestThread();
                   }
                 }}
               >
@@ -377,18 +390,10 @@ function MergeConflictGuidanceRail({
                 className="cursor-pointer rounded-2xl border border-border/70 bg-muted/24 p-3 transition-colors hover:border-border hover:bg-muted/40"
                 role="button"
                 tabIndex={0}
-                onClick={() =>
-                  void navigateToFileView({
-                    to: "/file-view",
-                    search: { cwd: preparedWorkspace?.cwd ?? project.cwd },
-                  })
-                }
+                onClick={navigateToLatestThread}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
-                    void navigateToFileView({
-                      to: "/file-view",
-                      search: { cwd: preparedWorkspace?.cwd ?? project.cwd },
-                    });
+                    navigateToLatestThread();
                   }
                 }}
               >

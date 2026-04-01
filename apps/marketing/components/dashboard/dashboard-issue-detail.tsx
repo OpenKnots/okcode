@@ -484,9 +484,9 @@ export function DashboardIssueDetail({
             </div>
 
             <div className="space-y-4">
-              {issue.activity.map((activity) => (
+              {issue.activity.map((activity, index) => (
                 <ActivityItem
-                  key={`${activity.time}-${activity.user}-${activity.action}`}
+                  key={index}
                   user={activity.user}
                   action={activity.action}
                   time={activity.time}

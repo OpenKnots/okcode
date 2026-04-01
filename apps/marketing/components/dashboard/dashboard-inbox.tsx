@@ -184,7 +184,7 @@ function IssueRow({
   issue,
   selected,
   onClick,
-  isMobile: _isMobile,
+  isMobile,
 }: {
   issue: Issue;
   selected: boolean;

@@ -78,10 +78,10 @@
 }
 
 @theme inline {
-  --font-sans:
-    var(--font-dm-sans), "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui,
-    sans-serif;
-  --font-mono: "SF Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  --font-sans: var(--font-dm-sans), "DM Sans", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", system-ui, sans-serif;
+  --font-mono: "SF Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo,
+    monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);

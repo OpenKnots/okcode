@@ -197,10 +197,11 @@ export function CreateSkillDialog(props: {
           </div>
         </DialogPanel>
         <DialogFooter>
-          <Button variant="outline" onClick={() => props.onOpenChange(false)}>
+          <Button variant="outline" size="sm" onClick={() => props.onOpenChange(false)}>
             Cancel
           </Button>
           <Button
+            size="sm"
             onClick={() => createMutation.mutate()}
             disabled={Boolean(nameError) || !description.trim() || createMutation.isPending}
           >

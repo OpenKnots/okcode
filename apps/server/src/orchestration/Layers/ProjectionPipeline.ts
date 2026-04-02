@@ -564,12 +564,11 @@ const makeOrchestrationProjectionPipeline = Effect.gen(function* () {
     Effect.gen(function* () {
       switch (event.type) {
         case "thread.message-sent": {
-          const existingRows = yield* projectionThreadMessageRepository.listByThreadId({
-            threadId: event.payload.threadId,
-          });
-          const existingMessage = existingRows.find(
-            (row) => row.messageId === event.payload.messageId,
-          );
+          const existingMessage = yield* projectionThreadMessageRepository
+            .getByMessageId({
+              messageId: event.payload.messageId,
+            })
+            .pipe(Effect.map(Option.getOrUndefined));
           const nextText =
             existingMessage && event.payload.streaming
               ? `${existingMessage.text}${event.payload.text}`

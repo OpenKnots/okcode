@@ -23,7 +23,7 @@ import {
   EmptyTitle,
 } from "./ui/empty";
 import { Button } from "./ui/button";
-import { SidebarTrigger } from "./ui/sidebar";
+import { SidebarTrigger, useSidebar } from "./ui/sidebar";
 import { toastManager } from "./ui/toast";
 
 export function ChatHomeEmptyState() {
@@ -36,6 +36,7 @@ export function ChatHomeEmptyState() {
   const threads = useStore((store) => store.threads);
   const { handleNewThread } = useHandleNewThread();
   const [isOpeningProject, setIsOpeningProject] = useState(false);
+  const { open: sidebarOpen, isMobile: sidebarIsMobile } = useSidebar();
 
   const latestProject = useMemo(
     () => sortProjectsForSidebar(projects, threads, appSettings.sidebarProjectSortOrder)[0] ?? null,
@@ -118,8 +119,8 @@ export function ChatHomeEmptyState() {
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-background">
-      {!isElectron && (
-        <header className="border-b border-border px-3 py-2 md:hidden">
+      {!isElectron && (sidebarIsMobile || !sidebarOpen) && (
+        <header className="border-b border-border px-3 py-2">
           <div className="flex items-center gap-2">
             <SidebarTrigger className="size-7 shrink-0" />
             <span className="text-sm font-medium text-foreground">Home</span>

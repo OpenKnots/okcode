@@ -190,7 +190,7 @@ export function CustomThemeDialog({
             Import Custom Theme
           </DialogTitle>
           <DialogDescription>
-            Paste CSS or a{" "}
+            Paste a theme name, CSS, or a{" "}
             <a
               href="https://tweakcn.com"
               target="_blank"
@@ -220,7 +220,7 @@ export function CustomThemeDialog({
                   handleParse();
                 }, 50);
               }}
-              placeholder={`Paste theme CSS, JSON, or a tweakcn.com URL...\n\nExample:\nhttps://tweakcn.com/themes/catppuccin\n\nor\n\n:root {\n  --background: oklch(1 0 0);\n  --primary: oklch(0.58 0.2 277);\n  ...\n}`}
+              placeholder={`Paste a theme name, URL, CSS, or JSON...\n\nExamples:\ncatppuccin\nhttps://tweakcn.com/editor/theme?theme=catppuccin\nhttps://tweakcn.com/themes/catppuccin\n\nor\n\n:root {\n  --background: oklch(1 0 0);\n  --primary: oklch(0.58 0.2 277);\n  ...\n}`}
               className="min-h-36 w-full resize-y rounded-lg border border-input bg-background p-3 font-mono text-xs text-foreground placeholder:text-muted-foreground/50 focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/24"
               spellCheck={false}
             />

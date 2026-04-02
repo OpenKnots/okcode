@@ -17,6 +17,7 @@ import { useStore } from "../store";
 import { resolveSidebarNewThreadEnvMode } from "~/components/Sidebar.logic";
 import { useAppSettings } from "~/appSettings";
 import { Sidebar, SidebarProvider, SidebarRail } from "~/components/ui/sidebar";
+import { useAutoDeleteMergedThreads } from "~/hooks/useAutoDeleteMergedThreads";
 import { useClientMode } from "~/hooks/useClientMode";
 
 const EMPTY_KEYBINDINGS: ResolvedKeybindingsConfig = [];
@@ -197,6 +198,9 @@ function ChatRouteLayout() {
       unsubscribe?.();
     };
   }, [navigate]);
+
+  // Auto-delete threads whose PR has been merged (when enabled in settings).
+  useAutoDeleteMergedThreads(settings);
 
   // Apply window opacity via the desktop bridge when the setting changes
   useEffect(() => {

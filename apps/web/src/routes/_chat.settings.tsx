@@ -342,6 +342,13 @@ function SettingsRouteView() {
     ...(settings.confirmThreadDelete !== defaults.confirmThreadDelete
       ? ["Delete confirmation"]
       : []),
+    ...(settings.autoDeleteMergedThreads !== defaults.autoDeleteMergedThreads
+      ? ["Auto-delete merged threads"]
+      : []),
+    ...(settings.autoDeleteMergedThreadsDelayMinutes !==
+    defaults.autoDeleteMergedThreadsDelayMinutes
+      ? ["Auto-delete delay"]
+      : []),
     ...(isGitTextGenerationModelDirty ? ["Git writing model"] : []),
     ...(settings.customCodexModels.length > 0 || settings.customClaudeModels.length > 0
       ? ["Custom models"]
@@ -1187,6 +1194,92 @@ function SettingsRouteView() {
                   />
                 }
               />
+
+              <SettingsRow
+                title="Auto-delete after merge"
+                description="Automatically delete a thread after its associated PR is merged."
+                resetAction={
+                  settings.autoDeleteMergedThreads !== defaults.autoDeleteMergedThreads ? (
+                    <SettingResetButton
+                      label="auto-delete merged threads"
+                      onClick={() =>
+                        updateSettings({
+                          autoDeleteMergedThreads: defaults.autoDeleteMergedThreads,
+                        })
+                      }
+                    />
+                  ) : null
+                }
+                control={
+                  <Switch
+                    checked={settings.autoDeleteMergedThreads}
+                    onCheckedChange={(checked) =>
+                      updateSettings({
+                        autoDeleteMergedThreads: Boolean(checked),
+                      })
+                    }
+                    aria-label="Auto-delete merged threads"
+                  />
+                }
+              />
+
+              {settings.autoDeleteMergedThreads ? (
+                <SettingsRow
+                  title="Auto-delete delay"
+                  description="How long to wait after a PR merge before deleting the thread."
+                  resetAction={
+                    settings.autoDeleteMergedThreadsDelayMinutes !==
+                    defaults.autoDeleteMergedThreadsDelayMinutes ? (
+                      <SettingResetButton
+                        label="auto-delete delay"
+                        onClick={() =>
+                          updateSettings({
+                            autoDeleteMergedThreadsDelayMinutes:
+                              defaults.autoDeleteMergedThreadsDelayMinutes,
+                          })
+                        }
+                      />
+                    ) : null
+                  }
+                  control={
+                    <Select
+                      value={String(settings.autoDeleteMergedThreadsDelayMinutes)}
+                      onValueChange={(value) =>
+                        updateSettings({
+                          autoDeleteMergedThreadsDelayMinutes: Number(value),
+                        })
+                      }
+                    >
+                      <SelectTrigger className="w-32">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectPopup align="end" alignItemWithTrigger={false}>
+                        <SelectItem hideIndicator value="1">
+                          1 minute
+                        </SelectItem>
+                        <SelectItem hideIndicator value="2">
+                          2 minutes
+                        </SelectItem>
+                        <SelectItem hideIndicator value="5">
+                          5 minutes
+                        </SelectItem>
+                        <SelectItem hideIndicator value="10">
+                          10 minutes
+                        </SelectItem>
+                        <SelectItem hideIndicator value="15">
+                          15 minutes
+                        </SelectItem>
+                        <SelectItem hideIndicator value="30">
+                          30 minutes
+                        </SelectItem>
+                        <SelectItem hideIndicator value="60">
+                          1 hour
+                        </SelectItem>
+                      </SelectPopup>
+                    </Select>
+                  }
+                />
+              ) : null}
             </SettingsSection>
 
             <SettingsSection title="Environment">

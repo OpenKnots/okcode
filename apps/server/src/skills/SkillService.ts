@@ -150,7 +150,17 @@ function toSkillEntry(entry: ReturnType<typeof listSkills>[number]) {
 }
 
 const catalogEntries = listBundledSkills();
-ensureSystemSkillsInstalled();
+
+// Deferred initialization — avoid crashing the module if bundled skill assets
+// are missing (e.g. the skills-catalog directory wasn't copied into dist/).
+try {
+  ensureSystemSkillsInstalled();
+} catch (error) {
+  console.warn(
+    "[SkillService] Failed to bootstrap system skills — bundled skill assets may be missing:",
+    error instanceof Error ? error.message : String(error),
+  );
+}
 
 export const SkillServiceLive = Layer.succeed(SkillService, {
   catalog: (input) =>

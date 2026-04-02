@@ -26,6 +26,7 @@ export function skillCatalogQueryOptions(input: {
     enabled: input.enabled !== false,
     staleTime: input.staleTime ?? 30_000,
     placeholderData: EMPTY_SKILL_CATALOG_RESULT,
+    retry: 2,
   });
 }
 
@@ -44,6 +45,7 @@ export function skillListQueryOptions(input: {
     enabled: input.enabled !== false,
     staleTime: input.staleTime ?? 30_000,
     placeholderData: EMPTY_SKILL_LIST_RESULT,
+    retry: 2,
   });
 }
 

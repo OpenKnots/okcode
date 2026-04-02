@@ -1,6 +1,6 @@
 import { MessageId, ThreadId } from "@okcode/contracts";
 import { assert, it } from "@effect/vitest";
-import { Effect, Layer } from "effect";
+import { Effect, Layer, Option } from "effect";
 
 import { ProjectionThreadMessageRepository } from "../Services/ProjectionThreadMessages.ts";
 import { ProjectionThreadMessageRepositoryLive } from "./ProjectionThreadMessages.ts";
@@ -11,6 +11,44 @@ const layer = it.layer(
 );
 
 layer("ProjectionThreadMessageRepository", (it) => {
+  it.effect("getByMessageId returns none when no row exists", () =>
+    Effect.gen(function* () {
+      const repository = yield* ProjectionThreadMessageRepository;
+      const result = yield* repository.getByMessageId({
+        messageId: MessageId.makeUnsafe("nonexistent-message"),
+      });
+      assert.isTrue(Option.isNone(result));
+    }),
+  );
+
+  it.effect("getByMessageId returns the matching message after upsert", () =>
+    Effect.gen(function* () {
+      const repository = yield* ProjectionThreadMessageRepository;
+      const threadId = ThreadId.makeUnsafe("thread-get-by-id");
+      const messageId = MessageId.makeUnsafe("message-get-by-id");
+      const createdAt = "2026-02-28T20:00:00.000Z";
+      const updatedAt = "2026-02-28T20:00:01.000Z";
+
+      yield* repository.upsert({
+        messageId,
+        threadId,
+        turnId: null,
+        role: "user",
+        text: "hello",
+        isStreaming: false,
+        createdAt,
+        updatedAt,
+      });
+
+      const result = yield* repository.getByMessageId({ messageId });
+      assert.isTrue(Option.isSome(result));
+      const message = Option.getOrThrow(result);
+      assert.equal(message.messageId, messageId);
+      assert.equal(message.text, "hello");
+      assert.equal(message.isStreaming, false);
+    }),
+  );
+
   it.effect("preserves existing attachments when upsert omits attachments", () =>
     Effect.gen(function* () {
       const repository = yield* ProjectionThreadMessageRepository;

@@ -15,7 +15,7 @@ import {
   IsoDateTime,
 } from "@okcode/contracts";
 import { Schema, ServiceMap } from "effect";
-import type { Effect } from "effect";
+import type { Effect, Option } from "effect";
 
 import type { ProjectionRepositoryError } from "../Errors.ts";
 
@@ -37,6 +37,12 @@ export const ListProjectionThreadMessagesInput = Schema.Struct({
 });
 export type ListProjectionThreadMessagesInput = typeof ListProjectionThreadMessagesInput.Type;
 
+export const GetProjectionThreadMessageByMessageIdInput = Schema.Struct({
+  messageId: MessageId,
+});
+export type GetProjectionThreadMessageByMessageIdInput =
+  typeof GetProjectionThreadMessageByMessageIdInput.Type;
+
 export const DeleteProjectionThreadMessagesInput = Schema.Struct({
   threadId: ThreadId,
 });
@@ -54,6 +60,15 @@ export interface ProjectionThreadMessageRepositoryShape {
   readonly upsert: (
     message: ProjectionThreadMessage,
   ) => Effect.Effect<void, ProjectionRepositoryError>;
+
+  /**
+   * Look up a single projected thread message by its message ID.
+   *
+   * Returns `Option.none()` when no matching row exists.
+   */
+  readonly getByMessageId: (
+    input: GetProjectionThreadMessageByMessageIdInput,
+  ) => Effect.Effect<Option.Option<ProjectionThreadMessage>, ProjectionRepositoryError>;
 
   /**
    * List projected thread messages for a thread.

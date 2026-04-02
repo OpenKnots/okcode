@@ -398,7 +398,9 @@ export default function Sidebar() {
   const [expandedThreadListsByProject, setExpandedThreadListsByProject] = useState<
     ReadonlySet<ProjectId>
   >(() => new Set());
-  const [filesExpanded, setFilesExpanded] = useState(true);
+  const [filesCollapsedByProject, setFilesCollapsedByProject] = useState<
+    ReadonlySet<ProjectId>
+  >(() => new Set());
   const dragInProgressRef = useRef(false);
   const suppressProjectClickAfterDragRef = useRef(false);
   const [desktopUpdateState, setDesktopUpdateState] = useState<DesktopUpdateState | null>(null);
@@ -1480,18 +1482,28 @@ export default function Sidebar() {
               <button
                 type="button"
                 className="mb-1.5 flex w-full items-center gap-1.5 px-2 text-[10px] uppercase tracking-[0.14em] text-muted-foreground/58 hover:text-muted-foreground/80"
-                onClick={() => setFilesExpanded((prev) => !prev)}
+                onClick={() =>
+                  setFilesCollapsedByProject((current) => {
+                    const next = new Set(current);
+                    if (next.has(project.id)) {
+                      next.delete(project.id);
+                    } else {
+                      next.add(project.id);
+                    }
+                    return next;
+                  })
+                }
               >
                 <ChevronRightIcon
                   className={cn(
                     "size-3 shrink-0 transition-transform",
-                    filesExpanded && "rotate-90",
+                    !filesCollapsedByProject.has(project.id) && "rotate-90",
                   )}
                 />
                 <FolderIcon className="size-3 shrink-0" />
                 <span>Files</span>
               </button>
-              {filesExpanded && (
+              {!filesCollapsedByProject.has(project.id) && (
                 <WorkspaceFileTree cwd={activeWorkspaceCwd} resolvedTheme={resolvedTheme} />
               )}
             </div>

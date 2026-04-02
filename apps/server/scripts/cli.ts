@@ -140,6 +140,16 @@ const buildCmd = Command.make(
         })`bun tsdown`,
       );
 
+      // Copy bundled skill catalog assets so import.meta.url resolution works at runtime.
+      const sharedSkillsCatalog = path.join(repoRoot, "packages/shared/src/skills-catalog");
+      const distSkillsCatalog = path.join(serverDir, "dist/skills-catalog");
+      if (yield* fs.exists(sharedSkillsCatalog)) {
+        yield* fs.copy(sharedSkillsCatalog, distSkillsCatalog);
+        yield* Effect.log("[cli] Copied skills-catalog into dist/skills-catalog");
+      } else {
+        yield* Effect.logWarning("[cli] skills-catalog not found — skipping.");
+      }
+
       const webDist = path.join(repoRoot, "apps/web/dist");
       const clientTarget = path.join(serverDir, "dist/client");
 

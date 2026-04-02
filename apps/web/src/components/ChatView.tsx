@@ -4623,7 +4623,6 @@ export default function ChatView({ threadId }: ChatViewProps) {
           onToggleDiff={onToggleDiff}
           onTogglePreview={() => togglePreviewOpen()}
           onTogglePreviewLayout={() => togglePreviewLayout(activeThread.id)}
-          onToggleCodeViewer={toggleCodeViewer}
         />
       </header>
 

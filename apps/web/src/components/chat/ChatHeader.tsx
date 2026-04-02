@@ -12,7 +12,6 @@ import { Badge } from "../ui/badge";
 import ProjectScriptsControl, { type NewProjectScriptInput } from "../ProjectScriptsControl";
 import { SidebarTrigger } from "../ui/sidebar";
 import { useThreadTitleEditor } from "~/hooks/useThreadTitleEditor";
-import { useCodeViewerStore } from "~/codeViewerStore";
 import { useProjectColor } from "~/projectColors";
 import { useTheme } from "~/hooks/useTheme";
 import type { ClientMode } from "~/lib/clientMode";
@@ -51,7 +50,6 @@ interface ChatHeaderProps {
   onToggleDiff: () => void;
   onTogglePreview: () => void;
   onTogglePreviewLayout: () => void;
-  onToggleCodeViewer: () => void;
 }
 
 export const ChatHeader = memo(function ChatHeader({
@@ -86,11 +84,8 @@ export const ChatHeader = memo(function ChatHeader({
   onToggleDiff,
   onTogglePreview,
   onTogglePreviewLayout: _onTogglePreviewLayout,
-  onToggleCodeViewer,
 }: ChatHeaderProps) {
   const isMobileCompanion = clientMode === "mobile";
-  const codeViewerOpen = useCodeViewerStore((state) => state.isOpen);
-  const hasCodeViewerTabs = useCodeViewerStore((state) => state.tabs.length > 0);
   const projectColor = useProjectColor(activeProjectId);
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
@@ -186,13 +181,9 @@ export const ChatHeader = memo(function ChatHeader({
             diffOpen={diffOpen}
             diffToggleShortcutLabel={diffToggleShortcutLabel}
             isGitRepo={isGitRepo}
-            codeViewerOpen={codeViewerOpen}
-            hasCodeViewerTabs={hasCodeViewerTabs}
-            hasProject={activeProjectName !== undefined}
             onToggleTerminal={onToggleTerminal}
             onTogglePreview={onTogglePreview}
             onToggleDiff={onToggleDiff}
-            onToggleCodeViewer={onToggleCodeViewer}
           />
         )}
         {/* Mobile: only diff toggle */}
@@ -206,13 +197,9 @@ export const ChatHeader = memo(function ChatHeader({
             diffOpen={diffOpen}
             diffToggleShortcutLabel={diffToggleShortcutLabel}
             isGitRepo={isGitRepo}
-            codeViewerOpen={false}
-            hasCodeViewerTabs={false}
-            hasProject={false}
             onToggleTerminal={() => {}}
             onTogglePreview={() => {}}
             onToggleDiff={onToggleDiff}
-            onToggleCodeViewer={() => {}}
           />
         )}
       </div>

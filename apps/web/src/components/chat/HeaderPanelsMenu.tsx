@@ -1,14 +1,11 @@
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import {
   DiffIcon,
-  EllipsisIcon,
-  FileCodeIcon,
   MonitorIcon,
   TerminalSquareIcon,
 } from "lucide-react";
-import { Button } from "../ui/button";
-import { Menu, MenuCheckboxItem, MenuPopup, MenuSeparator, MenuTrigger } from "../ui/menu";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
+import { ToggleGroup, Toggle, ToggleGroupSeparator } from "../ui/toggle-group";
 
 interface HeaderPanelsMenuProps {
   terminalAvailable: boolean;
@@ -19,13 +16,9 @@ interface HeaderPanelsMenuProps {
   diffOpen: boolean;
   diffToggleShortcutLabel: string | null;
   isGitRepo: boolean;
-  codeViewerOpen: boolean;
-  hasCodeViewerTabs: boolean;
-  hasProject: boolean;
   onToggleTerminal: () => void;
   onTogglePreview: () => void;
   onToggleDiff: () => void;
-  onToggleCodeViewer: () => void;
 }
 
 export const HeaderPanelsMenu = memo(function HeaderPanelsMenu({
@@ -37,88 +30,76 @@ export const HeaderPanelsMenu = memo(function HeaderPanelsMenu({
   diffOpen,
   diffToggleShortcutLabel,
   isGitRepo,
-  codeViewerOpen,
-  hasCodeViewerTabs,
-  hasProject,
   onToggleTerminal,
   onTogglePreview,
   onToggleDiff,
-  onToggleCodeViewer,
 }: HeaderPanelsMenuProps) {
+  const value = useMemo(() => {
+    const v: string[] = [];
+    if (terminalOpen) v.push("terminal");
+    if (previewOpen) v.push("preview");
+    if (diffOpen) v.push("diff");
+    return v;
+  }, [terminalOpen, previewOpen, diffOpen]);
+
   return (
-    <Menu>
+    <ToggleGroup
+      value={value}
+      variant="outline"
+      size="xs"
+      className="shrink-0"
+    >
       <Tooltip>
         <TooltipTrigger
           render={
-            <MenuTrigger
-              render={
-                <Button variant="outline" size="xs" className="shrink-0" aria-label="Toggle panels">
-                  <EllipsisIcon className="size-3.5" />
-                </Button>
-              }
-            />
+            <Toggle
+              value="terminal"
+              disabled={!terminalAvailable}
+              onClick={onToggleTerminal}
+              aria-label="Toggle terminal"
+            >
+              <TerminalSquareIcon className="size-3.5" />
+            </Toggle>
           }
         />
-        <TooltipPopup side="bottom">Panels</TooltipPopup>
+        <TooltipPopup side="bottom">
+          Terminal{terminalToggleShortcutLabel ? ` ${terminalToggleShortcutLabel}` : ""}
+        </TooltipPopup>
       </Tooltip>
-      <MenuPopup side="bottom" align="end" sideOffset={6}>
-        <MenuCheckboxItem
-          checked={terminalOpen}
-          onCheckedChange={onToggleTerminal}
-          disabled={!terminalAvailable}
-          variant="switch"
-        >
-          <span className="inline-flex items-center gap-2">
-            <TerminalSquareIcon className="size-3.5 opacity-80" />
-            Terminal
-            {terminalToggleShortcutLabel ? (
-              <kbd className="ml-auto text-[10px] text-muted-foreground">
-                {terminalToggleShortcutLabel}
-              </kbd>
-            ) : null}
-          </span>
-        </MenuCheckboxItem>
-        <MenuCheckboxItem
-          checked={previewOpen}
-          onCheckedChange={onTogglePreview}
-          disabled={!previewAvailable}
-          variant="switch"
-        >
-          <span className="inline-flex items-center gap-2">
-            <MonitorIcon className="size-3.5 opacity-80" />
-            Preview
-          </span>
-        </MenuCheckboxItem>
-        <MenuSeparator />
-        <MenuCheckboxItem
-          checked={diffOpen}
-          onCheckedChange={onToggleDiff}
-          disabled={!isGitRepo}
-          variant="switch"
-        >
-          <span className="inline-flex items-center gap-2">
-            <DiffIcon className="size-3.5 opacity-80" />
-            Diff
-            {diffToggleShortcutLabel ? (
-              <kbd className="ml-auto text-[10px] text-muted-foreground">
-                {diffToggleShortcutLabel}
-              </kbd>
-            ) : null}
-          </span>
-        </MenuCheckboxItem>
-        {hasProject && hasCodeViewerTabs ? (
-          <MenuCheckboxItem
-            checked={codeViewerOpen}
-            onCheckedChange={onToggleCodeViewer}
-            variant="switch"
-          >
-            <span className="inline-flex items-center gap-2">
-              <FileCodeIcon className="size-3.5 opacity-80" />
-              Code viewer
-            </span>
-          </MenuCheckboxItem>
-        ) : null}
-      </MenuPopup>
-    </Menu>
+      <ToggleGroupSeparator />
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Toggle
+              value="preview"
+              disabled={!previewAvailable}
+              onClick={onTogglePreview}
+              aria-label="Toggle preview"
+            >
+              <MonitorIcon className="size-3.5" />
+            </Toggle>
+          }
+        />
+        <TooltipPopup side="bottom">Preview</TooltipPopup>
+      </Tooltip>
+      <ToggleGroupSeparator />
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Toggle
+              value="diff"
+              disabled={!isGitRepo}
+              onClick={onToggleDiff}
+              aria-label="Toggle diff"
+            >
+              <DiffIcon className="size-3.5" />
+            </Toggle>
+          }
+        />
+        <TooltipPopup side="bottom">
+          Diff{diffToggleShortcutLabel ? ` ${diffToggleShortcutLabel}` : ""}
+        </TooltipPopup>
+      </Tooltip>
+    </ToggleGroup>
   );
 });

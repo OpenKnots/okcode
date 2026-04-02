@@ -5,11 +5,10 @@ import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { ThreadId, type TurnId } from "@okcode/contracts";
 import { CheckIcon, ChevronDownIcon, Columns2Icon, Rows3Icon, TextWrapIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { RawPatchViewer } from "~/components/pr-review/RawPatchViewer";
 import { gitBranchesQueryOptions } from "~/lib/gitReactQuery";
 import { checkpointDiffQueryOptions } from "~/lib/providerReactQuery";
 import { cn } from "~/lib/utils";
-import { useFileViewNavigation } from "~/hooks/useFileViewNavigation";
+import { useCodeViewerStore } from "../codeViewerStore";
 import { parseDiffRouteSearch, stripDiffSearchParams } from "../diffRouteSearch";
 import { useTheme } from "../hooks/useTheme";
 import { buildPatchCacheKey } from "../lib/diffRendering";
@@ -23,7 +22,6 @@ import {
 } from "../lib/diffFileReviewState";
 import { resolveDiffThemeName } from "../lib/diffRendering";
 import { useTurnDiffSummaries } from "../hooks/useTurnDiffSummaries";
-import { useI18n } from "../i18n/useI18n";
 import { useStore } from "../store";
 import { useAppSettings } from "../appSettings";
 import { formatShortTimestamp } from "../timestampFormat";
@@ -208,7 +206,7 @@ function DiffFileSection(props: {
         <Button
           size="icon-xs"
           variant="ghost"
-          aria-label={collapsed ? "Expand file diff" : "Collapse file diff"}
+          aria-label={collapsed ? `Expand ${filePath}` : `Collapse ${filePath}`}
           aria-expanded={!collapsed}
           onClick={() => onToggleCollapsed(filePath)}
           className="text-muted-foreground/80"
@@ -221,8 +219,9 @@ function DiffFileSection(props: {
           type="button"
           className="min-w-0 flex-1 truncate text-left font-mono text-[11px] text-foreground/90 underline-offset-2 hover:underline"
           onClick={() => onOpenInEditor(filePath)}
+          title={`Open ${filePath}`}
         >
-          {filePath.split("/").pop() ?? filePath}
+          {filePath}
         </button>
         {hasNonZeroStat(stats) && (
           <span className="hidden shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground/80 sm:inline">
@@ -270,7 +269,6 @@ export { DiffWorkerPoolProvider } from "./DiffWorkerPoolProvider";
 export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
   const navigate = useNavigate();
   const { resolvedTheme } = useTheme();
-  const { resolvedLocale } = useI18n();
   const { settings } = useAppSettings();
   const [diffRenderMode, setDiffRenderMode] = useState<DiffRenderMode>("stacked");
   const [diffWordWrap, setDiffWordWrap] = useState(settings.diffWordWrap);
@@ -489,7 +487,7 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
     target?.scrollIntoView({ block: "nearest" });
   }, [selectedFilePath, renderableFiles]);
 
-  const openFileInCodeViewer = useFileViewNavigation();
+  const openFileInCodeViewer = useCodeViewerStore((state) => state.openFile);
   const openDiffFileInCodeViewer = useCallback(
     (filePath: string) => {
       if (!activeCwd) return;
@@ -527,23 +525,21 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
     },
     [updateActiveReviewState],
   );
+
   const latestSelectedTurnId = orderedTurnDiffSummaries[0]?.turnId ?? null;
 
-  const selectTurn = useCallback(
-    (turnId: TurnId) => {
-      if (!activeThread) return;
-      void navigate({
-        to: "/$threadId",
-        params: { threadId: activeThread.id },
-        search: (previous) => {
-          const rest = stripDiffSearchParams(previous);
-          return { ...rest, diff: "1", diffTurnId: turnId };
-        },
-      });
-    },
-    [activeThread, navigate],
-  );
-  const selectWholeConversation = useCallback(() => {
+  const selectTurn = (turnId: TurnId) => {
+    if (!activeThread) return;
+    void navigate({
+      to: "/$threadId",
+      params: { threadId: activeThread.id },
+      search: (previous) => {
+        const rest = stripDiffSearchParams(previous);
+        return { ...rest, diff: "1", diffTurnId: turnId };
+      },
+    });
+  };
+  const selectWholeConversation = () => {
     if (!activeThread) return;
     void navigate({
       to: "/$threadId",
@@ -553,7 +549,7 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
         return { ...rest, diff: "1" };
       },
     });
-  }, [activeThread, navigate]);
+  };
   const turnSelectValue = selectedTurnId ?? "all";
   const handleTurnSelectChange = useCallback(
     (value: string | null) => {
@@ -574,26 +570,14 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
             {selectedTurnId === null
               ? "All changes"
               : selectedTurn?.turnId === latestSelectedTurnId
-                ? `Latest • ${formatShortTimestamp(
-                    selectedTurn.completedAt,
-                    settings.timestampFormat,
-                    resolvedLocale,
-                  )}`
+                ? `Latest • ${formatShortTimestamp(selectedTurn.completedAt, settings.timestampFormat)}`
                 : `Change ${
                     selectedTurn?.checkpointTurnCount ??
                     (selectedTurn
                       ? inferredCheckpointTurnCountByTurnId[selectedTurn.turnId]
                       : null) ??
                     "?"
-                  } • ${
-                    selectedTurn
-                      ? formatShortTimestamp(
-                          selectedTurn.completedAt,
-                          settings.timestampFormat,
-                          resolvedLocale,
-                        )
-                      : ""
-                  }`}
+                  } • ${selectedTurn ? formatShortTimestamp(selectedTurn.completedAt, settings.timestampFormat) : ""}`}
           </SelectButton>
           <SelectPopup>
             <SelectItem value="all">All changes</SelectItem>
@@ -610,11 +594,7 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
                         }`}
                   </span>
                   <span className="text-muted-foreground text-xs">
-                    {formatShortTimestamp(
-                      summary.completedAt,
-                      settings.timestampFormat,
-                      resolvedLocale,
-                    )}
+                    {formatShortTimestamp(summary.completedAt, settings.timestampFormat)}
                   </span>
                 </span>
               </SelectItem>
@@ -686,7 +666,10 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
         </div>
       ) : (
         <>
-          <div ref={patchViewportRef} className="min-h-0 min-w-0 flex-1 overflow-hidden">
+          <div
+            ref={patchViewportRef}
+            className="diff-panel-viewport min-h-0 min-w-0 flex-1 overflow-hidden"
+          >
             {checkpointDiffError && !renderablePatch && (
               <div className="px-3">
                 <p className="mb-2 text-[11px] text-red-500/80">{checkpointDiffError}</p>
@@ -706,11 +689,7 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
               )
             ) : renderablePatch.kind === "files" ? (
               <Virtualizer
-                // `@pierre/diffs` virtualizes file bodies against its own scroll root.
-                // Nesting that root inside another scrolling viewport leaves the diff
-                // rows stuck in placeholder mode, which matches the blank panels here.
-                className="diff-panel-viewport diff-render-surface h-full min-h-0 min-w-0 overflow-x-hidden overflow-y-auto"
-                contentClassName="px-2 pb-2"
+                className="diff-render-surface h-full min-h-0 overflow-auto px-2 pb-2"
                 config={{
                   overscrollSize: 600,
                   intersectionObserverMargin: 1200,
@@ -743,7 +722,21 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
                 })}
               </Virtualizer>
             ) : (
-              <RawPatchViewer text={renderablePatch.text} reason={renderablePatch.reason} />
+              <div className="h-full overflow-auto p-2">
+                <div className="space-y-2">
+                  <p className="text-[11px] text-muted-foreground/75">{renderablePatch.reason}</p>
+                  <pre
+                    className={cn(
+                      "max-h-[72vh] rounded-md border border-border/70 bg-background/70 p-3 font-mono text-[11px] leading-relaxed text-muted-foreground/90",
+                      diffWordWrap
+                        ? "overflow-auto whitespace-pre-wrap wrap-break-word"
+                        : "overflow-auto",
+                    )}
+                  >
+                    {renderablePatch.text}
+                  </pre>
+                </div>
+              </div>
             )}
           </div>
         </>

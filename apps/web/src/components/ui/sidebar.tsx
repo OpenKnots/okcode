@@ -352,11 +352,17 @@ function Sidebar({
 }
 
 function SidebarTrigger({ className, onClick, ...props }: React.ComponentProps<typeof Button>) {
-  const { toggleSidebar, openMobile } = useSidebar();
+  const { toggleSidebar, open, openMobile, isMobile } = useSidebar();
 
   return (
     <Button
-      className={cn("size-7", className)}
+      className={cn(
+        "size-7",
+        // On desktop, only show the trigger when the sidebar is collapsed;
+        // when expanded the SidebarRail handles toggling.
+        !isMobile && open && "hidden",
+        className,
+      )}
       data-sidebar="trigger"
       data-slot="sidebar-trigger"
       onClick={(event) => {

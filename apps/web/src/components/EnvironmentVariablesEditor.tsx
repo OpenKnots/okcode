@@ -1,4 +1,4 @@
-import { EyeIcon, EyeOffIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { CheckIcon, CopyIcon, EyeIcon, EyeOffIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { type CSSProperties, type ReactNode, useEffect, useState } from "react";
 import {
   ENVIRONMENT_VARIABLE_KEY_MAX_LENGTH,
@@ -11,6 +11,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
+import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
 import { cn } from "~/lib/utils";
 
 type DraftRow = {
@@ -125,6 +126,14 @@ export function EnvironmentVariablesEditor({
   const [visibleValueRowIds, setVisibleValueRowIds] = useState<Set<string>>(() => new Set());
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [copiedRowId, setCopiedRowId] = useState<string | null>(null);
+  const { copyToClipboard } = useCopyToClipboard<string>({
+    timeout: 2000,
+    onCopy: (rowId) => {
+      setCopiedRowId(rowId);
+      setTimeout(() => setCopiedRowId(null), 2000);
+    },
+  });
 
   useEffect(() => {
     setRows(rowsFromEntries(entries));
@@ -278,31 +287,57 @@ export function EnvironmentVariablesEditor({
                     >
                       Value
                     </label>
-                    <Tooltip>
-                      <TooltipTrigger
-                        render={
-                          <Button
-                            type="button"
-                            size="icon-xs"
-                            variant="ghost"
-                            className="size-6 rounded-md text-muted-foreground hover:text-foreground"
-                            aria-label={isValueVisible ? "Hide value" : "Show value"}
-                            aria-pressed={isValueVisible}
-                            disabled={isReadonly}
-                            onClick={() => toggleValueVisibility(row.id)}
-                          >
-                            {isValueVisible ? (
-                              <EyeOffIcon className="size-3.5" />
-                            ) : (
-                              <EyeIcon className="size-3.5" />
-                            )}
-                          </Button>
-                        }
-                      />
-                      <TooltipPopup side="top">
-                        {isValueVisible ? "Hide value" : "Show value"}
-                      </TooltipPopup>
-                    </Tooltip>
+                    <div className="flex items-center gap-0.5">
+                      <Tooltip>
+                        <TooltipTrigger
+                          render={
+                            <Button
+                              type="button"
+                              size="icon-xs"
+                              variant="ghost"
+                              className="size-6 rounded-md text-muted-foreground hover:text-foreground"
+                              aria-label={isValueVisible ? "Hide value" : "Show value"}
+                              aria-pressed={isValueVisible}
+                              disabled={isReadonly}
+                              onClick={() => toggleValueVisibility(row.id)}
+                            >
+                              {isValueVisible ? (
+                                <EyeOffIcon className="size-3.5" />
+                              ) : (
+                                <EyeIcon className="size-3.5" />
+                              )}
+                            </Button>
+                          }
+                        />
+                        <TooltipPopup side="top">
+                          {isValueVisible ? "Hide value" : "Show value"}
+                        </TooltipPopup>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger
+                          render={
+                            <Button
+                              type="button"
+                              size="icon-xs"
+                              variant="ghost"
+                              className="size-6 rounded-md text-muted-foreground hover:text-foreground"
+                              aria-label="Copy value"
+                              disabled={isReadonly || row.value.length === 0}
+                              onClick={() => copyToClipboard(row.value, row.id)}
+                            >
+                              {copiedRowId === row.id ? (
+                                <CheckIcon className="size-3.5 text-green-500" />
+                              ) : (
+                                <CopyIcon className="size-3.5" />
+                              )}
+                            </Button>
+                          }
+                        />
+                        <TooltipPopup side="top">
+                          {copiedRowId === row.id ? "Copied!" : "Copy value"}
+                        </TooltipPopup>
+                      </Tooltip>
+                    </div>
                   </div>
                   <Textarea
                     id={valueFieldId}

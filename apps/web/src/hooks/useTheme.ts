@@ -9,6 +9,7 @@ type ColorTheme =
   | "carbon"
   | "vapor"
   | "cathedral-circuit"
+  | "cotton-candy"
   | "custom";
 
 type FontFamily = "dm-sans" | "inter" | "plus-jakarta-sans";
@@ -27,6 +28,7 @@ export const COLOR_THEMES: { id: ColorTheme; label: string }[] = [
   { id: "carbon", label: "Carbon" },
   { id: "vapor", label: "Vapor" },
   { id: "cathedral-circuit", label: "Cathedral Circuit" },
+  { id: "cotton-candy", label: "Cotton Candy" },
   { id: "custom", label: "Custom" },
 ];
 
@@ -68,6 +70,7 @@ function getStoredColorTheme(): ColorTheme {
     raw === "carbon" ||
     raw === "vapor" ||
     raw === "cathedral-circuit" ||
+    raw === "cotton-candy" ||
     raw === "custom"
   ) {
     return raw;

@@ -109,7 +109,20 @@ The goal is to avoid generic editor skins and instead build themes that feel lik
 
 ---
 
-### 9. Arctic Signal
+### 9. Cotton Candy
+
+**Vibe:** sweet, dreamy, adorably feminine
+**Palette:** pastel pink, baby blue, lavender, soft rose, cream
+
+- Soft pink and baby blue create a whimsical, cotton candy fairground feel
+- Light mode is airy and bright with rosy card backgrounds
+- Dark mode wraps everything in a cozy plum-kissed night
+- Info/accent colors lean baby blue; primary leans hot pink
+- Playful yet legible — sugar rush without the eye strain
+
+---
+
+### 10. Arctic Signal
 
 **Vibe:** crisp, focused, northern  
 **Palette:** icy slate, polar blue, snow glow, aurora green
@@ -120,7 +133,7 @@ The goal is to avoid generic editor skins and instead build themes that feel lik
 
 ---
 
-### 10. Cathedral Circuit
+### 11. Cathedral Circuit
 
 **Vibe:** sacred machine, techno-gothic  
 **Palette:** graphite, sapphire, ruby, emerald, dim gold
@@ -131,7 +144,7 @@ The goal is to avoid generic editor skins and instead build themes that feel lik
 
 ---
 
-### 11. Desert Mirage
+### 12. Desert Mirage
 
 **Vibe:** cinematic, unusual, warm  
 **Palette:** dark bronze-brown, sand, cactus green, sunset coral, twilight violet
@@ -165,6 +178,7 @@ If narrowing to a stronger first shortlist, these feel the most distinctive:
 ### Playful / expressive
 
 - Candy Reactor
+- Cotton Candy
 - Velvet Casino
 
 ### Atmospheric / weird

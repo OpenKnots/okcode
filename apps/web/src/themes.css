@@ -243,6 +243,66 @@
   --warning-foreground: #e8b830;
 }
 
+/* ─── Cotton Candy ─── sweet, dreamy, adorably feminine ─── */
+
+:root.theme-cotton-candy {
+  color-scheme: light;
+  --background: #fef5f8;
+  --foreground: #2e1a2b;
+  --card: #fceef4;
+  --card-foreground: #2e1a2b;
+  --popover: #fceef4;
+  --popover-foreground: #2e1a2b;
+  --primary: oklch(0.65 0.2 340);
+  --primary-foreground: #ffffff;
+  --secondary: rgba(220, 130, 180, 0.07);
+  --secondary-foreground: #2e1a2b;
+  --muted: rgba(180, 160, 220, 0.07);
+  --muted-foreground: #8a7090;
+  --accent: rgba(140, 200, 240, 0.12);
+  --accent-foreground: #2e1a2b;
+  --destructive: #e5486a;
+  --destructive-foreground: #cd2b50;
+  --border: rgba(220, 150, 200, 0.15);
+  --input: rgba(220, 150, 200, 0.18);
+  --ring: oklch(0.65 0.2 340);
+  --info: #7baed4;
+  --info-foreground: #5a90b8;
+  --success: #6cc4a0;
+  --success-foreground: #4aaa82;
+  --warning: #e8b0c0;
+  --warning-foreground: #c88a9a;
+}
+
+:root.theme-cotton-candy.dark {
+  color-scheme: dark;
+  --background: #1a0e18;
+  --foreground: #f2e4ef;
+  --card: #221420;
+  --card-foreground: #f2e4ef;
+  --popover: #221420;
+  --popover-foreground: #f2e4ef;
+  --primary: oklch(0.72 0.18 340);
+  --primary-foreground: #1a0e18;
+  --secondary: rgba(240, 160, 210, 0.07);
+  --secondary-foreground: #f2e4ef;
+  --muted: rgba(200, 170, 240, 0.07);
+  --muted-foreground: #a088a8;
+  --accent: rgba(140, 200, 250, 0.1);
+  --accent-foreground: #f2e4ef;
+  --destructive: #ff6b8a;
+  --destructive-foreground: #ff95aa;
+  --border: rgba(220, 150, 200, 0.1);
+  --input: rgba(220, 150, 200, 0.12);
+  --ring: oklch(0.72 0.18 340);
+  --info: #89cff0;
+  --info-foreground: #a8dcf5;
+  --success: #7dd4b0;
+  --success-foreground: #90e0c0;
+  --warning: #f0b8c8;
+  --warning-foreground: #f5c8d5;
+}
+
 /* ─── Cathedral Circuit ─── sacred machine, techno-gothic ─── */
 
 :root.theme-cathedral-circuit {

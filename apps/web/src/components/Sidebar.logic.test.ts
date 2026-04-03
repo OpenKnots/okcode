@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  computeProjectDisambiguationPaths,
   getVisibleThreadsForProject,
   getProjectSortTimestamp,
   hasUnseenCompletion,
@@ -740,5 +741,55 @@ describe("sortProjectsForSidebar", () => {
     );
 
     expect(timestamp).toBe(Date.parse("2026-03-09T10:10:00.000Z"));
+  });
+});
+
+describe("computeProjectDisambiguationPaths", () => {
+  it("returns empty map when all projects have unique names", () => {
+    const result = computeProjectDisambiguationPaths([
+      { id: "p1", name: "api", cwd: "/home/user/api" },
+      { id: "p2", name: "web", cwd: "/home/user/web" },
+    ]);
+    expect(result.size).toBe(0);
+  });
+
+  it("disambiguates projects with the same name using parent directory", () => {
+    const result = computeProjectDisambiguationPaths([
+      { id: "p1", name: "server", cwd: "/home/user/work/server" },
+      { id: "p2", name: "server", cwd: "/home/user/personal/server" },
+    ]);
+    expect(result.get("p1")).toBe("work");
+    expect(result.get("p2")).toBe("personal");
+  });
+
+  it("walks up multiple levels when parent directories also collide", () => {
+    const result = computeProjectDisambiguationPaths([
+      { id: "p1", name: "server", cwd: "/home/user/work/apps/server" },
+      { id: "p2", name: "server", cwd: "/home/user/personal/apps/server" },
+    ]);
+    // One parent level ("apps") is the same, so it needs two levels
+    expect(result.get("p1")).toBe("work/apps");
+    expect(result.get("p2")).toBe("personal/apps");
+  });
+
+  it("does not include unique-named projects in the result", () => {
+    const result = computeProjectDisambiguationPaths([
+      { id: "p1", name: "server", cwd: "/home/user/work/server" },
+      { id: "p2", name: "server", cwd: "/home/user/personal/server" },
+      { id: "p3", name: "client", cwd: "/home/user/client" },
+    ]);
+    expect(result.has("p3")).toBe(false);
+    expect(result.size).toBe(2);
+  });
+
+  it("handles three or more projects with the same name", () => {
+    const result = computeProjectDisambiguationPaths([
+      { id: "p1", name: "server", cwd: "/a/server" },
+      { id: "p2", name: "server", cwd: "/b/server" },
+      { id: "p3", name: "server", cwd: "/c/server" },
+    ]);
+    expect(result.get("p1")).toBe("a");
+    expect(result.get("p2")).toBe("b");
+    expect(result.get("p3")).toBe("c");
   });
 });

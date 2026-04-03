@@ -320,6 +320,75 @@ export function getProjectSortTimestamp(
   return toSortableTimestamp(project.updatedAt ?? project.createdAt) ?? Number.NEGATIVE_INFINITY;
 }
 
+// ── Path disambiguation for duplicate project names ──────────────────
+
+type DisambiguableProject = { id: string; name: string; cwd: string };
+
+/**
+ * Computes disambiguating path labels for projects that share the same display name.
+ * Returns a Map from projectId to a short path hint (e.g. "~/work/api" vs "~/personal").
+ * Projects with unique names will not appear in the map.
+ */
+export function computeProjectDisambiguationPaths(
+  projects: readonly DisambiguableProject[],
+): Map<string, string> {
+  const result = new Map<string, string>();
+
+  // Group projects by display name
+  const byName = new Map<string, DisambiguableProject[]>();
+  for (const project of projects) {
+    const group = byName.get(project.name) ?? [];
+    group.push(project);
+    byName.set(project.name, group);
+  }
+
+  for (const [, group] of byName) {
+    if (group.length <= 1) continue;
+
+    // Split each project's cwd into path segments (excluding the final segment which is the name)
+    const segmentsList = group.map((project) => {
+      const parts = project.cwd.replace(/\\/g, "/").replace(/\/+$/, "").split("/");
+      // Remove the last segment (the project folder name itself)
+      parts.pop();
+      return parts;
+    });
+
+    // Walk up the path segments until we find enough to disambiguate each project
+    // Start with 1 parent segment and increase until all are unique
+    let depth = 1;
+    const maxDepth = Math.max(...segmentsList.map((s) => s.length));
+
+    while (depth <= maxDepth) {
+      const suffixes = segmentsList.map((segments) => {
+        const start = Math.max(0, segments.length - depth);
+        return segments.slice(start).join("/");
+      });
+
+      // Check if all suffixes are unique
+      const unique = new Set(suffixes);
+      if (unique.size === group.length) {
+        for (let i = 0; i < group.length; i++) {
+          result.set(group[i]!.id, suffixes[i]!);
+        }
+        break;
+      }
+      depth++;
+    }
+
+    // If we exhausted depth and still have duplicates (identical paths), use full parent path
+    if (depth > maxDepth) {
+      for (let i = 0; i < group.length; i++) {
+        const fullParent = segmentsList[i]!.join("/");
+        if (fullParent) {
+          result.set(group[i]!.id, fullParent);
+        }
+      }
+    }
+  }
+
+  return result;
+}
+
 export function sortProjectsForSidebar<TProject extends SidebarProject, TThread extends Thread>(
   projects: readonly TProject[],
   threads: readonly TThread[],

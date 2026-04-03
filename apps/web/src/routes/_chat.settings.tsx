@@ -50,13 +50,18 @@ import {
 } from "../lib/environmentVariablesReactQuery";
 import {
   applyCustomTheme,
+  clearBackgroundImage,
   clearFontOverride,
   clearRadiusOverride,
   clearStoredCustomTheme,
+  getStoredBackgroundImage,
+  getStoredBackgroundOpacity,
   getStoredCustomTheme,
   getStoredFontOverride,
   getStoredRadiusOverride,
   removeCustomTheme,
+  setStoredBackgroundImage,
+  setStoredBackgroundOpacity,
   setStoredFontOverride,
   setStoredRadiusOverride,
   type CustomThemeData,
@@ -228,6 +233,80 @@ function getErrorMessage(error: unknown): string {
     return error;
   }
   return "Unknown error";
+}
+
+function BackgroundImageSettings() {
+  const [bgUrl, setBgUrl] = useState<string>(() => getStoredBackgroundImage() ?? "");
+  const [bgOpacity, setBgOpacity] = useState<number>(() => getStoredBackgroundOpacity() ?? 0.15);
+  const hasBackground = bgUrl.trim().length > 0;
+
+  const handleUrlChange = useCallback((value: string) => {
+    setBgUrl(value);
+    if (value.trim().length > 0) {
+      setStoredBackgroundImage(value.trim());
+    } else {
+      clearBackgroundImage();
+    }
+  }, []);
+
+  const handleOpacityChange = useCallback((value: number) => {
+    setBgOpacity(value);
+    setStoredBackgroundOpacity(value);
+  }, []);
+
+  const handleReset = useCallback(() => {
+    setBgUrl("");
+    setBgOpacity(0.15);
+    clearBackgroundImage();
+  }, []);
+
+  return (
+    <>
+      <SettingsRow
+        title="Background image"
+        description="Set a custom background image URL. Supports any image URL."
+        resetAction={
+          hasBackground ? (
+            <SettingResetButton label="background image" onClick={handleReset} />
+          ) : null
+        }
+        control={
+          <Input
+            value={bgUrl}
+            onChange={(e) => handleUrlChange(e.target.value)}
+            placeholder="https://example.com/image.jpg"
+            className="w-full sm:w-56"
+            aria-label="Background image URL"
+          />
+        }
+      />
+      {hasBackground && (
+        <SettingsRow
+          title="Background opacity"
+          description="Adjust the visibility of the custom background image."
+          control={
+            <div className="flex items-center gap-2">
+              <input
+                type="range"
+                min={5}
+                max={100}
+                value={Math.round(bgOpacity * 100)}
+                onChange={(e) => {
+                  const value = Number(e.target.value) / 100;
+                  handleOpacityChange(value);
+                }}
+                className="h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-muted accent-foreground sm:w-28"
+                aria-label="Background opacity"
+              />
+              <span className="w-9 text-right text-xs tabular-nums text-muted-foreground">
+                {Math.round(bgOpacity * 100)}%
+              </span>
+            </div>
+          }
+        />
+      )}
+    </>
+  );
 }
 
 function SettingsRouteView() {
@@ -834,6 +913,8 @@ function SettingsRouteView() {
                   </div>
                 }
               />
+
+              <BackgroundImageSettings />
 
               <SettingsRow
                 title="Accent project names"

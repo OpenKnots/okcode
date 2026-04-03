@@ -259,14 +259,24 @@ function buildSyntheticPatch(file: {
   patch: string | null;
 }): string | null {
   if (!file.patch) return null;
-  const currentPath = file.path;
-  const previousPath = file.previousPath ?? file.path;
-  const oldPath = file.status === "added" ? "/dev/null" : `a/${previousPath.replaceAll("\\", "/")}`;
-  const newPath =
-    file.status === "removed" ? "/dev/null" : `b/${currentPath.replaceAll("\\", "/")}`;
-  return [`diff --git ${oldPath} ${newPath}`, `--- ${oldPath}`, `+++ ${newPath}`, file.patch].join(
-    "\n",
-  );
+  const currentPath = file.path.replaceAll("\\", "/");
+  const previousPath = (file.previousPath ?? file.path).replaceAll("\\", "/");
+
+  // The diff --git header MUST always use a/ and b/ prefixes for the parser
+  // (@pierre/diffs ALTERNATE_FILE_NAMES_GIT regex requires this format).
+  // /dev/null is only valid in the --- and +++ lines.
+  const gitHeaderA = `a/${previousPath}`;
+  const gitHeaderB = `b/${currentPath}`;
+
+  const headerOld = file.status === "added" ? "/dev/null" : `a/${previousPath}`;
+  const headerNew = file.status === "removed" ? "/dev/null" : `b/${currentPath}`;
+
+  const lines = [`diff --git ${gitHeaderA} ${gitHeaderB}`];
+  if (file.status === "added") lines.push("new file mode 100644");
+  if (file.status === "removed") lines.push("deleted file mode 100644");
+  lines.push(`--- ${headerOld}`, `+++ ${headerNew}`, file.patch);
+
+  return lines.join("\n");
 }
 
 function normalizeStatusChecks(raw: unknown): PrReviewSummary["statusChecks"] {

@@ -98,6 +98,7 @@ import { isNonEmpty as isNonEmptyString } from "effect/String";
 import { useTheme } from "~/hooks/useTheme";
 import { FavesDropdown } from "~/components/FavesDropdown";
 import {
+  computeProjectDisambiguationPaths,
   getVisibleThreadsForProject,
   isActionableThreadStatus,
   resolveProjectStatusIndicator,
@@ -111,6 +112,7 @@ import {
 import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
 import { WorkspaceFileTree } from "~/components/WorkspaceFileTree";
 import { EditableThreadTitle } from "~/components/EditableThreadTitle";
+import { useProjectTitleEditor } from "~/hooks/useProjectTitleEditor";
 import { useThreadTitleEditor } from "~/hooks/useThreadTitleEditor";
 import {
   buildProjectScriptDraftsFromPackageScripts,
@@ -372,9 +374,7 @@ export default function Sidebar() {
   const navigate = useNavigate();
   const pathname = useLocation({ select: (loc) => loc.pathname });
   const isOnSubPage =
-    pathname === "/settings" ||
-    pathname === "/pr-review" ||
-    pathname === "/merge-conflicts";
+    pathname === "/settings" || pathname === "/pr-review" || pathname === "/merge-conflicts";
   const { settings: appSettings, updateSettings } = useAppSettings();
   const { resolvedTheme } = useTheme();
   const { handleNewThread } = useHandleNewThread();
@@ -398,9 +398,9 @@ export default function Sidebar() {
   const [expandedThreadListsByProject, setExpandedThreadListsByProject] = useState<
     ReadonlySet<ProjectId>
   >(() => new Set());
-  const [filesCollapsedByProject, setFilesCollapsedByProject] = useState<
-    ReadonlySet<ProjectId>
-  >(() => new Set());
+  const [filesCollapsedByProject, setFilesCollapsedByProject] = useState<ReadonlySet<ProjectId>>(
+    () => new Set(),
+  );
   const dragInProgressRef = useRef(false);
   const suppressProjectClickAfterDragRef = useRef(false);
   const [desktopUpdateState, setDesktopUpdateState] = useState<DesktopUpdateState | null>(null);
@@ -428,6 +428,19 @@ export default function Sidebar() {
     setDraftTitle,
     startEditing,
   } = useThreadTitleEditor();
+  const {
+    editingProjectId,
+    draftProjectTitle,
+    bindProjectInputRef,
+    cancelProjectEditing,
+    commitProjectEditing,
+    setDraftProjectTitle,
+    startProjectEditing,
+  } = useProjectTitleEditor();
+  const projectDisambiguationPaths = useMemo(
+    () => computeProjectDisambiguationPaths(projects),
+    [projects],
+  );
   const projectCwdById = useMemo(
     () => new Map(projects.map((project) => [project.id, project.cwd] as const)),
     [projects],
@@ -979,9 +992,23 @@ export default function Sidebar() {
       const api = readNativeApi();
       if (!api) return;
       const clicked = await api.contextMenu.show(
-        [{ id: "delete", label: "Remove project", destructive: true }],
+        [
+          { id: "rename", label: "Rename project" },
+          { id: "delete", label: "Remove project", destructive: true },
+        ],
         position,
       );
+
+      if (clicked === "rename") {
+        const project = projects.find((entry) => entry.id === projectId);
+        if (!project) return;
+        startProjectEditing({
+          projectId: project.id,
+          title: project.name,
+        });
+        return;
+      }
+
       if (clicked !== "delete") return;
 
       const project = projects.find((entry) => entry.id === projectId);
@@ -1026,6 +1053,7 @@ export default function Sidebar() {
       clearProjectDraftThreadId,
       getDraftThreadByProjectId,
       projects,
+      startProjectEditing,
       threads,
     ],
   );
@@ -1396,21 +1424,57 @@ export default function Sidebar() {
               />
             )}
             <ProjectFavicon cwd={project.cwd} />
-            <span
-              className="flex-1 truncate text-[13px] font-semibold tracking-[0.01em]"
-              style={{
-                color:
-                  appSettings.sidebarAccentProjectNames && appSettings.sidebarAccentColorOverride
-                    ? appSettings.sidebarAccentColorOverride
-                    : appSettings.sidebarAccentProjectNames
-                      ? isDark
-                        ? pColor.textDark
-                        : pColor.text
-                      : undefined,
-              }}
-            >
-              {project.name}
-            </span>
+            {editingProjectId === project.id ? (
+              <input
+                ref={bindProjectInputRef}
+                type="text"
+                value={draftProjectTitle}
+                className="min-w-0 flex-1 rounded border border-primary/40 bg-background px-1 text-[13px] font-semibold tracking-[0.01em] outline-none focus:border-primary"
+                onChange={(e) => setDraftProjectTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void commitProjectEditing();
+                  } else if (e.key === "Escape") {
+                    e.preventDefault();
+                    cancelProjectEditing();
+                  }
+                }}
+                onBlur={() => void commitProjectEditing()}
+                onClick={(e) => e.stopPropagation()}
+              />
+            ) : (
+              <span className="min-w-0 flex-1">
+                <span
+                  className="block truncate text-[13px] font-semibold tracking-[0.01em]"
+                  style={{
+                    color:
+                      appSettings.sidebarAccentProjectNames &&
+                      appSettings.sidebarAccentColorOverride
+                        ? appSettings.sidebarAccentColorOverride
+                        : appSettings.sidebarAccentProjectNames
+                          ? isDark
+                            ? pColor.textDark
+                            : pColor.text
+                          : undefined,
+                  }}
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    startProjectEditing({
+                      projectId: project.id,
+                      title: project.name,
+                    });
+                  }}
+                >
+                  {project.name}
+                </span>
+                {projectDisambiguationPaths.has(project.id) && (
+                  <span className="block truncate text-[10px] leading-tight text-muted-foreground/50">
+                    {projectDisambiguationPaths.get(project.id)}
+                  </span>
+                )}
+              </span>
+            )}
           </SidebarMenuButton>
           <Tooltip>
             <TooltipTrigger

@@ -1,7 +1,11 @@
-export function truncateTitle(text: string, maxLength = 50): string {
-  const trimmed = text.trim();
+export function truncateTitle(text: string, maxLength = 60): string {
+  // Collapse whitespace (newlines, tabs, multiple spaces) into single spaces
+  const trimmed = text.trim().replace(/\s+/g, " ");
   if (trimmed.length <= maxLength) {
     return trimmed;
   }
-  return `${trimmed.slice(0, maxLength)}...`;
+  // Try to truncate at a word boundary
+  const lastSpace = trimmed.lastIndexOf(" ", maxLength);
+  const cutPoint = lastSpace > maxLength / 2 ? lastSpace : maxLength;
+  return `${trimmed.slice(0, cutPoint)}...`;
 }

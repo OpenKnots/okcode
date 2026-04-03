@@ -6,6 +6,7 @@ export const releasePackageFiles = [
   "apps/server/package.json",
   "apps/desktop/package.json",
   "apps/web/package.json",
+  "apps/mobile/package.json",
   "packages/contracts/package.json",
 ] as const;
 

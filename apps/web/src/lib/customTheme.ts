@@ -1,10 +1,14 @@
 /**
  * Custom theme support — parse, apply, and persist themes from tweakcn.com
  *
- * Supports three input formats:
+ * Supports four input formats:
  *   1. Raw CSS (from tweakcn "Copy CSS" or any shadcn-compatible CSS)
  *   2. JSON (shadcn registry format from tweakcn API)
  *   3. tweakcn.com URLs (fetched via their CORS-enabled API)
+ *      - https://tweakcn.com/themes/{name}
+ *      - https://tweakcn.com/r/themes/{name}
+ *      - https://tweakcn.com/editor/theme?theme={name}
+ *   4. Bare theme name (e.g. "catppuccin") — fetched from tweakcn API
  */
 
 // ---------------------------------------------------------------------------
@@ -251,6 +255,7 @@ export function parseTweakcnJSON(json: unknown): CustomThemeData {
 const TWEAKCN_URL_PATTERNS = [
   /^https?:\/\/(?:www\.)?tweakcn\.com\/r\/themes\/([^/?#]+)/,
   /^https?:\/\/(?:www\.)?tweakcn\.com\/themes\/([^/?#]+)/,
+  /^https?:\/\/(?:www\.)?tweakcn\.com\/editor\/theme\?theme=([^&#]+)/,
 ];
 
 /** Check if a string looks like a tweakcn.com URL. */
@@ -269,9 +274,21 @@ function extractTweakcnThemeId(url: string): string | null {
   return null;
 }
 
-/** Fetch a theme from tweakcn's API (has `Access-Control-Allow-Origin: *`). */
-export async function fetchTweakcnTheme(url: string): Promise<CustomThemeData> {
-  const themeId = extractTweakcnThemeId(url);
+/** Check if a string looks like a bare tweakcn theme name (e.g. "catppuccin"). */
+function isBareThemeName(input: string): boolean {
+  return /^[a-zA-Z0-9][\w-]*$/.test(input);
+}
+
+/** Fetch a theme from tweakcn's API by URL or bare theme name. */
+export async function fetchTweakcnTheme(urlOrName: string): Promise<CustomThemeData> {
+  let themeId: string | null;
+
+  if (isBareThemeName(urlOrName)) {
+    themeId = urlOrName;
+  } else {
+    themeId = extractTweakcnThemeId(urlOrName);
+  }
+
   if (!themeId) {
     throw new Error("Could not extract theme ID from URL");
   }
@@ -312,10 +329,17 @@ export async function parseThemeInput(input: string): Promise<CustomThemeData> {
     }
   }
 
-  // 3. CSS
+  // 3. Bare theme name (e.g. "catppuccin") — try fetching from tweakcn
+  if (isBareThemeName(trimmed)) {
+    return fetchTweakcnTheme(trimmed);
+  }
+
+  // 4. CSS
   const parsed = parseThemeCSS(trimmed);
   if (Object.keys(parsed.light).length === 0 && Object.keys(parsed.dark).length === 0) {
-    throw new Error("No theme variables found. Paste CSS from tweakcn.com or a tweakcn theme URL.");
+    throw new Error(
+      "No theme variables found. Paste CSS, a tweakcn theme URL, or a theme name.",
+    );
   }
 
   return parsed;

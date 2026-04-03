@@ -1502,7 +1502,11 @@ export default function Sidebar() {
                 <span>Files</span>
               </button>
               {!filesCollapsedByProject.has(project.id) && (
-                <WorkspaceFileTree cwd={activeWorkspaceCwd} resolvedTheme={resolvedTheme} />
+                <WorkspaceFileTree
+                  key={activeProjectThread?.id ?? project.id}
+                  cwd={activeWorkspaceCwd}
+                  resolvedTheme={resolvedTheme}
+                />
               )}
             </div>
           ) : null}

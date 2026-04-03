@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import {
+  AlertTriangleIcon,
   BookOpenIcon,
   CheckIcon,
   FileSpreadsheetIcon,
@@ -18,6 +19,7 @@ import {
   PlayIcon,
   PlusIcon,
   PlugIcon,
+  RefreshCwIcon,
   SearchIcon,
   SparklesIcon,
 } from "lucide-react";
@@ -416,6 +418,9 @@ export function SkillsPage(props: {
     return (installedSkillsQuery.data?.skills ?? []).filter((skill) => !skill.system);
   }, [installedSkillsQuery.data?.skills]);
 
+  const hasQueryError = catalogQuery.isError || installedSkillsQuery.isError;
+  const queryErrorMessage = catalogQuery.error?.message ?? installedSkillsQuery.error?.message;
+
   const matchesSearch = (name: string, description: string, tags: readonly string[]) => {
     const query = searchValue.trim().toLowerCase();
     if (!query) return true;
@@ -500,6 +505,31 @@ export function SkillsPage(props: {
               </Select>
             </div>
           </div>
+
+          {hasQueryError ? (
+            <div className="flex items-start gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 p-4">
+              <AlertTriangleIcon className="mt-0.5 size-5 shrink-0 text-destructive" />
+              <div className="min-w-0 flex-1">
+                <p className="font-medium text-sm text-foreground">
+                  Unable to load skills
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {queryErrorMessage ?? "The skills service is unavailable. Check that the server is running."}
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-3"
+                  onClick={() => {
+                    void queryClient.invalidateQueries({ queryKey: skillQueryKeys.all });
+                  }}
+                >
+                  <RefreshCwIcon className="size-3.5" />
+                  Retry
+                </Button>
+              </div>
+            </div>
+          ) : null}
 
           <section className="space-y-4">
             <SectionHeader

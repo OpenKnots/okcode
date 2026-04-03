@@ -3,7 +3,9 @@ import type { NativeApi, PrReviewThread } from "@okcode/contracts";
 import { useMemo } from "react";
 import { Schema } from "effect";
 import {
+  CheckCircle2Icon,
   ChevronRightIcon,
+  CircleIcon,
   ExternalLinkIcon,
   FileCode2Icon,
   GitBranchIcon,
@@ -38,18 +40,22 @@ export function PrWorkspace({
   dashboard,
   selectedFilePath,
   selectedThreadId,
+  reviewedFiles,
   onSelectFilePath,
   onSelectThreadId,
   onCreateThread,
+  onToggleFileReviewed,
 }: {
   project: Project;
   patch: string | null;
   dashboard: Awaited<ReturnType<NativeApi["prReview"]["getDashboard"]>> | null | undefined;
   selectedFilePath: string | null;
   selectedThreadId: string | null;
+  reviewedFiles: readonly string[];
   onSelectFilePath: (path: string) => void;
   onSelectThreadId: (threadId: string | null) => void;
   onCreateThread: (input: { path: string; line: number; body: string }) => Promise<void>;
+  onToggleFileReviewed: (path: string) => void;
 }) {
   const { resolvedTheme } = useTheme();
   const openFileInCodeViewer = useFileViewNavigation();
@@ -58,6 +64,8 @@ export function PrWorkspace({
     "single",
     FILE_VIEW_MODE_SCHEMA,
   );
+
+  const reviewedFilesSet = useMemo(() => new Set(reviewedFiles), [reviewedFiles]);
 
   const renderablePatch = useMemo(
     () =>
@@ -123,6 +131,31 @@ export function PrWorkspace({
             <FileCode2Icon className="size-3" />
             {dashboard.files.length}
           </span>
+          {patchFiles.length > 0
+            ? (() => {
+                const reviewedCount = patchFiles.filter((f) =>
+                  reviewedFilesSet.has(resolveFileDiffPath(f)),
+                ).length;
+                return (
+                  <>
+                    <span className="hidden shrink-0 text-muted-foreground/50 sm:inline">
+                      &middot;
+                    </span>
+                    <span
+                      className={cn(
+                        "hidden shrink-0 items-center gap-1.5 text-xs font-medium sm:flex",
+                        reviewedCount >= patchFiles.length
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-muted-foreground",
+                      )}
+                    >
+                      <CheckCircle2Icon className="size-3" />
+                      {reviewedCount}/{patchFiles.length} viewed
+                    </span>
+                  </>
+                );
+              })()
+            : null}
         </div>
         <Button
           onClick={() => {
@@ -142,6 +175,7 @@ export function PrWorkspace({
           files={patchFiles}
           threads={dashboard.threads}
           selectedFilePath={selectedFilePath}
+          reviewedFiles={reviewedFilesSet}
           onSelectFilePath={(path) => {
             onSelectFilePath(path);
             // In all-files mode, scroll to the file
@@ -171,6 +205,7 @@ export function PrWorkspace({
             const fileKey = `${buildFileDiffRenderKey(fileDiff)}:${resolvedTheme}`;
             const fileThreads = threadsByPath[filePath] ?? [];
             const isSelected = selectedFilePath === filePath;
+            const isReviewed = reviewedFilesSet.has(filePath);
             const firstCommentLine = fileThreads[0]?.line ?? 1;
             const stats = summarizeFileDiffStats(fileDiff);
             return (
@@ -219,6 +254,27 @@ export function PrWorkspace({
                         +{fileThreads.length - 2} more
                       </span>
                     ) : null}
+                    <button
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-colors",
+                        isReviewed
+                          ? "border-emerald-500/20 bg-emerald-500/8 text-emerald-600 dark:text-emerald-300"
+                          : "border-border/70 bg-background text-muted-foreground hover:bg-muted/40",
+                      )}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onToggleFileReviewed(filePath);
+                      }}
+                      type="button"
+                      title={isReviewed ? "Mark as unreviewed" : "Mark as reviewed"}
+                    >
+                      {isReviewed ? (
+                        <CheckCircle2Icon className="size-3" />
+                      ) : (
+                        <CircleIcon className="size-3" />
+                      )}
+                      Viewed
+                    </button>
                     <Button
                       onClick={() => {
                         openFileInCodeViewer(project.cwd, filePath);

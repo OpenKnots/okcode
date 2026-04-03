@@ -50,7 +50,7 @@ export function ProjectSubpageShell({
         {!isElectron ? (
           <header className="border-b border-border px-3 py-2 sm:px-5">
             <div className="flex items-center gap-2">
-              <SidebarTrigger className="size-7 shrink-0 md:hidden" />
+              <SidebarTrigger className="size-7 shrink-0" />
               <Icon className="size-3.5 text-muted-foreground" />
               <span className="text-sm font-medium text-foreground">{title}</span>
             </div>

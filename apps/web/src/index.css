@@ -152,6 +152,7 @@ body::after {
   content: "";
   position: fixed;
   inset: 0;
+  z-index: 0;
   pointer-events: none;
   opacity: 0.035;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
@@ -634,6 +635,32 @@ label:has(> select#reasoning-effort) select {
     border: 2px solid transparent;
     background-clip: padding-box;
   }
+}
+
+/* ─── Wordmark stitched-into-fabric effect ─── */
+
+.wordmark-stitch {
+  position: relative;
+  background:
+    url("data:image/svg+xml,%3Csvg width='6' height='6' viewBox='0 0 6 6' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='6' height='6' fill='none'/%3E%3Ccircle cx='1' cy='1' r='0.6' fill='rgba(128,128,128,0.07)'/%3E%3Ccircle cx='4' cy='4' r='0.6' fill='rgba(128,128,128,0.07)'/%3E%3C/svg%3E"),
+    color-mix(in srgb, var(--muted) 50%, transparent);
+  border: 1.5px dashed color-mix(in srgb, var(--foreground) 22%, transparent);
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.12),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.04),
+    0 0 0 1.5px color-mix(in srgb, var(--background) 40%, transparent);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.18);
+}
+
+.dark .wordmark-stitch {
+  background:
+    url("data:image/svg+xml,%3Csvg width='6' height='6' viewBox='0 0 6 6' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='6' height='6' fill='none'/%3E%3Ccircle cx='1' cy='1' r='0.6' fill='rgba(255,255,255,0.04)'/%3E%3Ccircle cx='4' cy='4' r='0.6' fill='rgba(255,255,255,0.04)'/%3E%3C/svg%3E"),
+    color-mix(in srgb, var(--muted) 50%, transparent);
+  box-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, 0.3),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.03),
+    0 0 0 1.5px color-mix(in srgb, var(--background) 30%, transparent);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.4);
 }
 
 /* ─── Voodoo stitch border pulse ─── */

@@ -26,14 +26,22 @@ function generateStitches(w: number, h: number): { stitches: Stitch[]; total: nu
   const topCount = Math.max(0, Math.floor((w - EDGE_INSET * 2) / STITCH_SPACING));
   const topOffset = (w - EDGE_INSET * 2 - (topCount - 1) * STITCH_SPACING) / 2;
   for (let i = 0; i < topCount; i++) {
-    stitches.push({ cx: EDGE_INSET + topOffset + i * STITCH_SPACING, cy: EDGE_INSET, index: index++ });
+    stitches.push({
+      cx: EDGE_INSET + topOffset + i * STITCH_SPACING,
+      cy: EDGE_INSET,
+      index: index++,
+    });
   }
 
   // Right edge: top → bottom
   const rightCount = Math.max(0, Math.floor((h - EDGE_INSET * 2) / STITCH_SPACING));
   const rightOffset = (h - EDGE_INSET * 2 - (rightCount - 1) * STITCH_SPACING) / 2;
   for (let i = 0; i < rightCount; i++) {
-    stitches.push({ cx: w - EDGE_INSET, cy: EDGE_INSET + rightOffset + i * STITCH_SPACING, index: index++ });
+    stitches.push({
+      cx: w - EDGE_INSET,
+      cy: EDGE_INSET + rightOffset + i * STITCH_SPACING,
+      index: index++,
+    });
   }
 
   // Bottom edge: right → left

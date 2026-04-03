@@ -71,6 +71,9 @@ const CUSTOM_THEME_STYLE_ID = "okcode-custom-theme-style";
 const CUSTOM_THEME_FONT_LINK_ID = "okcode-custom-theme-fonts";
 const RADIUS_OVERRIDE_KEY = "okcode:radius-override";
 const FONT_OVERRIDE_KEY = "okcode:font-override";
+const BACKGROUND_IMAGE_KEY = "okcode:background-image";
+const BACKGROUND_OPACITY_KEY = "okcode:background-opacity";
+const BACKGROUND_STYLE_ID = "okcode-background-image-style";
 
 /** System-bundled fonts that don't need to be loaded from Google Fonts. */
 const SYSTEM_FONTS = new Set([
@@ -570,6 +573,79 @@ export function applyFontOverride(): void {
 }
 
 // ---------------------------------------------------------------------------
+// Background Image Override
+// ---------------------------------------------------------------------------
+
+export function getStoredBackgroundImage(): string | null {
+  return localStorage.getItem(BACKGROUND_IMAGE_KEY) || null;
+}
+
+export function getStoredBackgroundOpacity(): number | null {
+  const raw = localStorage.getItem(BACKGROUND_OPACITY_KEY);
+  if (raw === null) return null;
+  const num = Number.parseFloat(raw);
+  return Number.isFinite(num) ? num : null;
+}
+
+export function setStoredBackgroundImage(url: string): void {
+  localStorage.setItem(BACKGROUND_IMAGE_KEY, url);
+  applyBackgroundImage();
+}
+
+export function setStoredBackgroundOpacity(opacity: number): void {
+  localStorage.setItem(BACKGROUND_OPACITY_KEY, String(opacity));
+  applyBackgroundImage();
+}
+
+export function clearBackgroundImage(): void {
+  localStorage.removeItem(BACKGROUND_IMAGE_KEY);
+  localStorage.removeItem(BACKGROUND_OPACITY_KEY);
+  if (hasDom()) {
+    document.getElementById(BACKGROUND_STYLE_ID)?.remove();
+  }
+}
+
+export function applyBackgroundImage(): void {
+  if (!hasDom()) return;
+  const url = getStoredBackgroundImage();
+  if (!url) {
+    document.getElementById(BACKGROUND_STYLE_ID)?.remove();
+    return;
+  }
+
+  const opacity = getStoredBackgroundOpacity() ?? 0.15;
+
+  let styleEl = document.getElementById(BACKGROUND_STYLE_ID) as HTMLStyleElement | null;
+  if (!styleEl) {
+    styleEl = document.createElement("style");
+    styleEl.id = BACKGROUND_STYLE_ID;
+    document.head.appendChild(styleEl);
+  }
+
+  // Use a ::before pseudo-element on #root so it layers behind content but
+  // above the body background color, with controllable opacity.
+  const escapedUrl = url.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  styleEl.textContent = `
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background-image: url("${escapedUrl}");
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      opacity: ${opacity};
+    }
+    #root {
+      position: relative;
+      z-index: 1;
+    }
+  `;
+}
+
+// ---------------------------------------------------------------------------
 // Initialization (called on module load)
 // ---------------------------------------------------------------------------
 
@@ -590,4 +666,7 @@ export function initCustomTheme(): void {
 
   // Always apply font override if set
   applyFontOverride();
+
+  // Always apply background image if set
+  applyBackgroundImage();
 }

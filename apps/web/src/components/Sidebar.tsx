@@ -372,9 +372,7 @@ export default function Sidebar() {
   const navigate = useNavigate();
   const pathname = useLocation({ select: (loc) => loc.pathname });
   const isOnSubPage =
-    pathname === "/settings" ||
-    pathname === "/pr-review" ||
-    pathname === "/merge-conflicts";
+    pathname === "/settings" || pathname === "/pr-review" || pathname === "/merge-conflicts";
   const { settings: appSettings, updateSettings } = useAppSettings();
   const { resolvedTheme } = useTheme();
   const { handleNewThread } = useHandleNewThread();
@@ -398,9 +396,9 @@ export default function Sidebar() {
   const [expandedThreadListsByProject, setExpandedThreadListsByProject] = useState<
     ReadonlySet<ProjectId>
   >(() => new Set());
-  const [filesCollapsedByProject, setFilesCollapsedByProject] = useState<
-    ReadonlySet<ProjectId>
-  >(() => new Set());
+  const [filesCollapsedByProject, setFilesCollapsedByProject] = useState<ReadonlySet<ProjectId>>(
+    () => new Set(),
+  );
   const dragInProgressRef = useRef(false);
   const suppressProjectClickAfterDragRef = useRef(false);
   const [desktopUpdateState, setDesktopUpdateState] = useState<DesktopUpdateState | null>(null);
@@ -1732,14 +1730,14 @@ export default function Sidebar() {
   }, []);
 
   const wordmark = (
-    <div className="flex items-center gap-2">
-      <SidebarTrigger className="shrink-0" />
+    <div className="flex items-center gap-2 w-full">
+      <SidebarTrigger className="shrink-0 md:hidden" />
       <Tooltip>
         <TooltipTrigger
           render={
-            <div className="flex min-w-0 flex-1 items-center gap-1 ml-1 cursor-pointer">
-              <OkCodeMark className="size-5 text-foreground" />
-              <span className="truncate text-sm font-medium tracking-tight text-foreground">
+            <div className="wordmark-stitch flex min-w-0 flex-1 items-center justify-center gap-1.5 cursor-pointer mx-auto px-3 py-1.5 rounded-lg">
+              <OkCodeMark className="size-6 text-foreground drop-shadow-[0_1px_0_rgba(255,255,255,0.15)]" />
+              <span className="truncate text-base font-semibold tracking-wide text-foreground uppercase drop-shadow-[0_1px_0_rgba(255,255,255,0.15)]">
                 OK Code
               </span>
             </div>

@@ -636,6 +636,17 @@ label:has(> select#reasoning-effort) select {
   }
 }
 
+/* ─── Voodoo stitch border pulse ─── */
+@keyframes voodoo-stitch-pulse {
+  0%,
+  100% {
+    opacity: 0.15;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
 /* ─── Accessibility ─── */
 
 @media (prefers-reduced-motion: reduce) {

@@ -29,6 +29,7 @@ import { MobileConnectionBanner } from "../components/mobile/MobileConnectionBan
 import { MobilePairingScreen } from "../components/mobile/MobilePairingScreen";
 import { useMobilePairingState } from "../hooks/useMobilePairingState";
 import { I18nProvider } from "../i18n/I18nProvider";
+import { VoodooStitches } from "../components/VoodooStitches";
 
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient;
@@ -42,9 +43,12 @@ export const Route = createRootRouteWithContext<{
 
 function RootRouteView() {
   return (
-    <I18nProvider>
-      <RootRouteContent />
-    </I18nProvider>
+    <>
+      <VoodooStitches />
+      <I18nProvider>
+        <RootRouteContent />
+      </I18nProvider>
+    </>
   );
 }
 

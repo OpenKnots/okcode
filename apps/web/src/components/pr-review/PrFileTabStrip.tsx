@@ -1,7 +1,7 @@
 import type { FileDiffMetadata } from "@pierre/diffs/react";
 import type { PrReviewThread } from "@okcode/contracts";
 import { useMemo, useRef, useEffect } from "react";
-import { ListIcon, FileIcon } from "lucide-react";
+import { CheckCircle2Icon, ListIcon, FileIcon } from "lucide-react";
 import { cn } from "~/lib/utils";
 import { Button } from "~/components/ui/button";
 import { resolveFileDiffPath, summarizeFileDiffStats } from "./pr-review-utils";
@@ -17,6 +17,7 @@ export function PrFileTabStrip({
   files,
   threads,
   selectedFilePath,
+  reviewedFiles,
   onSelectFilePath,
   fileViewMode,
   onFileViewModeChange,
@@ -24,6 +25,7 @@ export function PrFileTabStrip({
   files: FileDiffMetadata[];
   threads: readonly PrReviewThread[];
   selectedFilePath: string | null;
+  reviewedFiles: ReadonlySet<string>;
   onSelectFilePath: (path: string) => void;
   fileViewMode: FileViewMode;
   onFileViewModeChange: (mode: FileViewMode) => void;
@@ -52,9 +54,10 @@ export function PrFileTabStrip({
           additions: stats.additions,
           deletions: stats.deletions,
           threadCount: threadsByPath[path] ?? 0,
+          reviewed: reviewedFiles.has(path),
         };
       }),
-    [files, threadsByPath],
+    [files, threadsByPath, reviewedFiles],
   );
 
   // Scroll the active tab into view when it changes
@@ -88,11 +91,17 @@ export function PrFileTabStrip({
                 "group relative flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",
                 isActive
                   ? "bg-amber-500/10 text-amber-700 dark:text-amber-300"
-                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+                  : entry.reviewed
+                    ? "text-emerald-600/70 dark:text-emerald-400/70 hover:bg-muted/50 hover:text-foreground"
+                    : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
               )}
               type="button"
             >
-              <FileIcon className="size-3 shrink-0 opacity-60" />
+              {entry.reviewed ? (
+                <CheckCircle2Icon className="size-3 shrink-0 text-emerald-500" />
+              ) : (
+                <FileIcon className="size-3 shrink-0 opacity-60" />
+              )}
               <span className="truncate max-w-[120px]">{entry.basename}</span>
               <span
                 className={cn(

@@ -21,6 +21,7 @@ export type RenderablePatch =
   | { kind: "raw"; text: string; reason: string };
 
 export const TEXT_DRAFT_SCHEMA = Schema.String;
+export const REVIEWED_FILES_SCHEMA = Schema.Array(Schema.String);
 
 export const PR_REVIEW_DIFF_UNSAFE_CSS = `
 [data-diff],

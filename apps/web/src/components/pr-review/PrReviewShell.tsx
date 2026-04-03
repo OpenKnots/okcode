@@ -44,6 +44,7 @@ import { PrInspectorPanel } from "./PrInspectorPanel";
 import { PrMentionComposer } from "./PrMentionComposer";
 import {
   type PullRequestState,
+  REVIEWED_FILES_SCHEMA,
   TEXT_DRAFT_SCHEMA,
   requiredChecksState,
   openPathInEditor,
@@ -76,6 +77,12 @@ export function PrReviewShell({
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const reviewDraftKey = `okcode:pr-review:review-draft:${project.id}:${selectedPrNumber ?? "none"}`;
   const [reviewBody, setReviewBody] = useLocalStorage(reviewDraftKey, "", TEXT_DRAFT_SCHEMA);
+  const reviewedFilesKey = `okcode:pr-review:reviewed-files:${project.id}:${selectedPrNumber ?? "none"}`;
+  const [reviewedFiles, setReviewedFiles] = useLocalStorage<readonly string[], unknown>(
+    reviewedFilesKey,
+    [],
+    REVIEWED_FILES_SCHEMA,
+  );
 
   // --- Collapsible panel state ---
   const [leftRailCollapsed, setLeftRailCollapsed] = useLocalStorage(
@@ -382,7 +389,7 @@ export function PrReviewShell({
   return (
     <>
       {/* Main content area — flexbox layout with collapsible panels */}
-      <div className="flex min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
         {/* Left rail — collapsible */}
         <PrListRail
           collapsed={leftRailCollapsed}
@@ -430,8 +437,17 @@ export function PrReviewShell({
                 setInspectorCollapsed(false);
               }
             }}
+            onToggleFileReviewed={(path) => {
+              setReviewedFiles((prev) => {
+                const set = new Set(prev);
+                if (set.has(path)) set.delete(path);
+                else set.add(path);
+                return [...set];
+              });
+            }}
             patch={patchQuery.data?.combinedPatch ?? null}
             project={project}
+            reviewedFiles={reviewedFiles}
             selectedFilePath={selectedFilePath}
             selectedThreadId={selectedThreadId}
           />

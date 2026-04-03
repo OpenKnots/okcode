@@ -260,6 +260,7 @@ ${highlights || "- See changelog for detailed changes."}
 
 - **CLI:** \`npm install -g okcodes@${version}\` (after the package is published to npm manually).
 - **Desktop:** Download from [GitHub Releases](${REPO_URL}/releases/tag/v${version}). Filenames are listed in [assets.md](v${version}/assets.md).
+- **iOS:** Available via TestFlight (uploaded automatically by the Release iOS workflow).
 
 ## Known limitations
 
@@ -300,6 +301,16 @@ After the workflow completes, expect **installer and updater** artifacts similar
 | \`latest-linux.yml\` | Linux update manifest                                     |
 | \`latest.yml\`       | Windows update manifest                                   |
 | \`*.blockmap\`       | Differential download block maps                          |
+
+## iOS (TestFlight)
+
+The iOS build is uploaded directly to App Store Connect / TestFlight by the [Release iOS workflow](../../.github/workflows/release-ios.yml). No IPA artifact is attached to the GitHub Release.
+
+| Detail            | Value                                    |
+| ----------------- | ---------------------------------------- |
+| Bundle ID         | \`com.openknots.okcode.mobile\`            |
+| Marketing version | \`${version}\`                              |
+| Build number      | Set from \`GITHUB_RUN_NUMBER\` at build time |
 
 ## Checksums
 
@@ -713,11 +724,13 @@ async function main(): Promise<void> {
 
   if (!skipCommit && !dryRun) {
     console.log("  Next steps:");
-    console.log(`    1. Monitor the release workflow: ${REPO_URL}/actions`);
-    console.log(`    2. Verify the GitHub Release:    ${REPO_URL}/releases/tag/${tag}`);
-    console.log("    3. Test downloaded installers on each platform.");
-    console.log("    4. Verify auto-update from the previous version.");
-    console.log(`    5. Confirm version bump commit on main: git log origin/main --oneline -5`);
+    console.log(`    1. Monitor the desktop release workflow: ${REPO_URL}/actions/workflows/release.yml`);
+    console.log(`    2. Monitor the iOS TestFlight workflow:  ${REPO_URL}/actions/workflows/release-ios.yml`);
+    console.log(`    3. Verify the GitHub Release:            ${REPO_URL}/releases/tag/${tag}`);
+    console.log("    4. Test downloaded installers on each platform.");
+    console.log("    5. Verify auto-update from the previous version.");
+    console.log("    6. Verify TestFlight build in App Store Connect.");
+    console.log(`    7. Confirm version bump commit on main: git log origin/main --oneline -5`);
     console.log("");
   } else if (skipCommit) {
     console.log("  Documentation generated. To finish the release manually:");

@@ -243,64 +243,64 @@
   --warning-foreground: #e8b830;
 }
 
-/* ─── Cotton Candy ─── sweet, dreamy, adorably feminine ─── */
+/* ─── Cotton Candy ─── sweet, dreamy pink & blue ─── */
 
 :root.theme-cotton-candy {
   color-scheme: light;
-  --background: #fef5f8;
-  --foreground: #2e1a2b;
-  --card: #fceef4;
-  --card-foreground: #2e1a2b;
-  --popover: #fceef4;
-  --popover-foreground: #2e1a2b;
-  --primary: oklch(0.65 0.2 340);
+  --background: #fdf6f9;
+  --foreground: #2a1f2e;
+  --card: #fceef5;
+  --card-foreground: #2a1f2e;
+  --popover: #fceef5;
+  --popover-foreground: #2a1f2e;
+  --primary: oklch(0.72 0.14 350);
   --primary-foreground: #ffffff;
-  --secondary: rgba(220, 130, 180, 0.07);
-  --secondary-foreground: #2e1a2b;
-  --muted: rgba(180, 160, 220, 0.07);
-  --muted-foreground: #8a7090;
-  --accent: rgba(140, 200, 240, 0.12);
-  --accent-foreground: #2e1a2b;
-  --destructive: #e5486a;
-  --destructive-foreground: #cd2b50;
-  --border: rgba(220, 150, 200, 0.15);
-  --input: rgba(220, 150, 200, 0.18);
-  --ring: oklch(0.65 0.2 340);
-  --info: #7baed4;
-  --info-foreground: #5a90b8;
+  --secondary: rgba(248, 185, 215, 0.12);
+  --secondary-foreground: #2a1f2e;
+  --muted: rgba(160, 210, 248, 0.1);
+  --muted-foreground: #8a7e94;
+  --accent: rgba(150, 212, 252, 0.14);
+  --accent-foreground: #2a1f2e;
+  --destructive: #e85475;
+  --destructive-foreground: #d03058;
+  --border: rgba(248, 180, 215, 0.2);
+  --input: rgba(248, 180, 215, 0.22);
+  --ring: oklch(0.72 0.14 350);
+  --info: #7ec8ee;
+  --info-foreground: #5aaedb;
   --success: #6cc4a0;
   --success-foreground: #4aaa82;
-  --warning: #e8b0c0;
-  --warning-foreground: #c88a9a;
+  --warning: #f5baca;
+  --warning-foreground: #d8929e;
 }
 
 :root.theme-cotton-candy.dark {
   color-scheme: dark;
-  --background: #1a0e18;
-  --foreground: #f2e4ef;
-  --card: #221420;
-  --card-foreground: #f2e4ef;
-  --popover: #221420;
-  --popover-foreground: #f2e4ef;
-  --primary: oklch(0.72 0.18 340);
-  --primary-foreground: #1a0e18;
-  --secondary: rgba(240, 160, 210, 0.07);
-  --secondary-foreground: #f2e4ef;
-  --muted: rgba(200, 170, 240, 0.07);
-  --muted-foreground: #a088a8;
-  --accent: rgba(140, 200, 250, 0.1);
-  --accent-foreground: #f2e4ef;
+  --background: #170e1a;
+  --foreground: #f4e8f2;
+  --card: #1e1222;
+  --card-foreground: #f4e8f2;
+  --popover: #1e1222;
+  --popover-foreground: #f4e8f2;
+  --primary: oklch(0.75 0.14 350);
+  --primary-foreground: #170e1a;
+  --secondary: rgba(250, 170, 210, 0.08);
+  --secondary-foreground: #f4e8f2;
+  --muted: rgba(150, 210, 250, 0.08);
+  --muted-foreground: #a090aa;
+  --accent: rgba(150, 215, 255, 0.1);
+  --accent-foreground: #f4e8f2;
   --destructive: #ff6b8a;
   --destructive-foreground: #ff95aa;
-  --border: rgba(220, 150, 200, 0.1);
-  --input: rgba(220, 150, 200, 0.12);
-  --ring: oklch(0.72 0.18 340);
-  --info: #89cff0;
-  --info-foreground: #a8dcf5;
+  --border: rgba(250, 170, 215, 0.1);
+  --input: rgba(250, 170, 215, 0.12);
+  --ring: oklch(0.75 0.14 350);
+  --info: #8ed4f5;
+  --info-foreground: #aee0f8;
   --success: #7dd4b0;
   --success-foreground: #90e0c0;
-  --warning: #f0b8c8;
-  --warning-foreground: #f5c8d5;
+  --warning: #f5bfcc;
+  --warning-foreground: #f8cdd8;
 }
 
 /* ─── Cathedral Circuit ─── sacred machine, techno-gothic ─── */

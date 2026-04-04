@@ -7,9 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-04-04
+
+See [docs/releases/v0.14.0.md](docs/releases/v0.14.0.md) for full notes and [docs/releases/v0.14.0/assets.md](docs/releases/v0.14.0/assets.md) for release asset inventory.
+
+### Added
+
+- Render inline diffs in chat work entries.
+- Add prompt enhancement menu to chat composer.
+- Auto-refresh file tree on filesystem changes.
+- Show PR status for threads with linked branches.
+- Propagate project runtime env to git and provider actions.
+- Always show recommended next action label on git button.
+- Use distinct git icons for PR states in sidebar threads.
+
 ### Changed
 
 - CLI npm package name is `okcodes`. Install with `npm install -g okcodes`; the `okcode` binary name is unchanged.
+- Switch mobile pairing to link-based flow, replacing QR code pairing.
+- Prompt to pull behind branches before starting threads.
+- Make stitch border more discrete and add toggle to settings.
+- Constrain skills page overflow.
+
+### Fixed
+
+- Render diff content directly to fix empty diffs panel.
+- Update Cotton Candy theme to pure pink and blue, remove purple tones.
+
+### Removed
+
+- Remove telemetry plumbing from server and marketing.
+- Remove QR-based mobile pairing settings.
+- Remove favorites sidebar feature.
 
 ## [0.13.0] - 2026-04-04
 
@@ -376,4 +405,5 @@ First public version tag. See [docs/releases/v0.0.1.md](docs/releases/v0.0.1.md)
 [0.0.12]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.12
 [0.0.12]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.12
 [0.10.0]: https://github.com/OpenKnots/okcode/releases/tag/v0.10.0
+[0.14.0]: https://github.com/OpenKnots/okcode/releases/tag/v0.14.0
 [0.13.0]: https://github.com/OpenKnots/okcode/releases/tag/v0.13.0

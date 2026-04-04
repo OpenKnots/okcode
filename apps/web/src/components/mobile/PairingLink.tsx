@@ -47,12 +47,10 @@ export function PairingLink() {
     }
   }, []);
 
-  // Fetch on mount
   useEffect(() => {
     void fetchPairingLink();
   }, [fetchPairingLink]);
 
-  // Countdown timer
   useEffect(() => {
     if (!pairing?.expiresAt) {
       setExpiresIn(null);
@@ -66,7 +64,6 @@ export function PairingLink() {
       );
       setExpiresIn(remaining);
       if (remaining <= 0) {
-        // Auto-refresh when expired
         void fetchPairingLink();
       }
     };
@@ -83,7 +80,7 @@ export function PairingLink() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Fallback: select the text in the details element
+      // Fallback: select the text in the input below.
     }
   };
 
@@ -150,5 +147,3 @@ export function PairingLink() {
     </div>
   );
 }
-
-export { PairingLink as PairingQrCode };

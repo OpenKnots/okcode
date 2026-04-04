@@ -1,9 +1,5 @@
 import { memo, useMemo } from "react";
-import {
-  DiffIcon,
-  MonitorIcon,
-  TerminalSquareIcon,
-} from "lucide-react";
+import { DiffIcon, MonitorIcon, TerminalSquareIcon } from "lucide-react";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { ToggleGroup, Toggle, ToggleGroupSeparator } from "../ui/toggle-group";
 
@@ -43,12 +39,7 @@ export const HeaderPanelsMenu = memo(function HeaderPanelsMenu({
   }, [terminalOpen, previewOpen, diffOpen]);
 
   return (
-    <ToggleGroup
-      value={value}
-      variant="outline"
-      size="xs"
-      className="shrink-0"
-    >
+    <ToggleGroup value={value} variant="outline" size="xs" className="shrink-0">
       <Tooltip>
         <TooltipTrigger
           render={

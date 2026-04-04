@@ -70,7 +70,7 @@ import { serverConfigQueryOptions } from "../lib/serverReactQuery";
 import { cn } from "../lib/utils";
 import { ensureNativeApi, readNativeApi } from "../nativeApi";
 import { useStore } from "../store";
-import { PairingLink } from "../components/mobile/PairingQrCode";
+import { PairingLink } from "../components/mobile/PairingLink";
 
 const THEME_OPTIONS = [
   {

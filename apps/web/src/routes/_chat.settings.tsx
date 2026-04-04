@@ -411,6 +411,7 @@ function SettingsRouteView() {
     ...(fontFamily !== "inter" ? ["Font"] : []),
     ...(settings.timestampFormat !== defaults.timestampFormat ? ["Time format"] : []),
     ...(settings.diffWordWrap !== defaults.diffWordWrap ? ["Diff line wrapping"] : []),
+    ...(settings.showStitchBorder !== defaults.showStitchBorder ? ["Stitch border"] : []),
     ...(settings.enableAssistantStreaming !== defaults.enableAssistantStreaming
       ? ["Assistant output"]
       : []),
@@ -1146,6 +1147,34 @@ function SettingsRouteView() {
                       })
                     }
                     aria-label="Wrap diff lines by default"
+                  />
+                }
+              />
+
+              <SettingsRow
+                title="Stitch border"
+                description="Show the decorative stitch border around the viewport."
+                resetAction={
+                  settings.showStitchBorder !== defaults.showStitchBorder ? (
+                    <SettingResetButton
+                      label="stitch border"
+                      onClick={() =>
+                        updateSettings({
+                          showStitchBorder: defaults.showStitchBorder,
+                        })
+                      }
+                    />
+                  ) : null
+                }
+                control={
+                  <Switch
+                    checked={settings.showStitchBorder}
+                    onCheckedChange={(checked) =>
+                      updateSettings({
+                        showStitchBorder: Boolean(checked),
+                      })
+                    }
+                    aria-label="Show stitch border"
                   />
                 }
               />

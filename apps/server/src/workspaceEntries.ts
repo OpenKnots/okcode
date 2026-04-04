@@ -686,6 +686,23 @@ async function mapWithConcurrency<TInput, TOutput>(
   return results;
 }
 
+const ENV_FILE_PATTERN = /^\.env(\..+)?$/;
+
+/**
+ * Discover .env* files at the workspace root so they appear in the file tree
+ * even when gitignored. Only root-level env files are included.
+ */
+async function discoverEnvFiles(cwd: string): Promise<string[]> {
+  try {
+    const dirEntries = await fs.readdir(cwd, { withFileTypes: true });
+    return dirEntries
+      .filter((entry) => entry.isFile() && ENV_FILE_PATTERN.test(entry.name))
+      .map((entry) => entry.name);
+  } catch {
+    return [];
+  }
+}
+
 async function isInsideGitWorkTree(cwd: string): Promise<boolean> {
   const insideWorkTree = await runProcess("git", ["rev-parse", "--is-inside-work-tree"], {
     cwd,
@@ -798,6 +815,14 @@ async function buildWorkspaceIndexFromGit(cwd: string): Promise<WorkspaceIndex |
     .map((entry) => toPosixPath(entry))
     .filter((entry) => entry.length > 0 && !isPathInIgnoredDirectory(entry));
   const filePaths = await filterGitIgnoredPaths(cwd, listedPaths);
+
+  // Include .env* files that may be gitignored so they appear in the file tree
+  const envFiles = await discoverEnvFiles(cwd);
+  for (const envPath of envFiles) {
+    if (!filePaths.includes(envPath)) {
+      filePaths.push(envPath);
+    }
+  }
 
   const directorySet = new Set<string>();
   for (const filePath of filePaths) {

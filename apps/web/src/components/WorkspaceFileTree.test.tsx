@@ -7,8 +7,14 @@ vi.mock("@tanstack/react-query", async (importOriginal) => {
   return {
     ...actual,
     useQuery: vi.fn(),
+    useQueryClient: () => ({ invalidateQueries: vi.fn() }),
   };
 });
+
+vi.mock("@tanstack/react-router", () => ({
+  useNavigate: () => vi.fn(),
+  useParams: () => null,
+}));
 
 const useQueryMock = vi.mocked(useQuery);
 

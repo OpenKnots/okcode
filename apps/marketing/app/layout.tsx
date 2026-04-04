@@ -1,7 +1,6 @@
 import type React from "react";
 import type { Metadata } from "next";
 import { Nunito } from "next/font/google";
-import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const nunito = Nunito({ subsets: ["latin"], variable: "--font-nunito" });
@@ -60,10 +59,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-      <body className={`${nunito.variable} font-sans antialiased`}>
-        {children}
-        <Analytics />
-      </body>
+      <body className={`${nunito.variable} font-sans antialiased`}>{children}</body>
     </html>
   );
 }

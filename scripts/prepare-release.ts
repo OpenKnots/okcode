@@ -352,7 +352,7 @@ function updateChangelog(rootDir: string, version: string, section: string): voi
   writeFileSync(changelogPath, content);
 }
 
-function updateReleasesReadme(rootDir: string, version: string, shortDescription: string): void {
+function updateReleasesReadme(rootDir: string, version: string, shortDescription: string): boolean {
   const readmePath = resolve(rootDir, "docs/releases/README.md");
   let content = readFileSync(readmePath, "utf8");
 
@@ -360,7 +360,8 @@ function updateReleasesReadme(rootDir: string, version: string, shortDescription
   const separatorRe = /^\|[ -]+\|[ -]+\|[ -]+\|$/m;
   const match = content.match(separatorRe);
   if (!match || match.index === undefined) {
-    fatal("Could not find the table in docs/releases/README.md");
+    // No release index table found — skip gracefully
+    return false;
   }
 
   const insertAfter = content.indexOf("\n", match.index);
@@ -369,6 +370,7 @@ function updateReleasesReadme(rootDir: string, version: string, shortDescription
   content = content.slice(0, insertAfter + 1) + newRow + "\n" + content.slice(insertAfter + 1);
 
   writeFileSync(readmePath, content);
+  return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -613,13 +615,17 @@ async function main(): Promise<void> {
     log("OK", "Updated: CHANGELOG.md");
   }
 
-  // Update docs/releases/README.md
+  // Update docs/releases/README.md (if it has a release index table)
   const shortDescription = summary.replace(/\.$/, "").slice(0, 60);
   if (dryRun) {
-    log("--", "Would update: docs/releases/README.md");
+    log("--", "Would update: docs/releases/README.md (if table exists)");
   } else {
-    updateReleasesReadme(rootDir, version, shortDescription);
-    log("OK", "Updated: docs/releases/README.md");
+    const updated = updateReleasesReadme(rootDir, version, shortDescription);
+    if (updated) {
+      log("OK", "Updated: docs/releases/README.md");
+    } else {
+      log("--", "No release index table in docs/releases/README.md (skipped).");
+    }
   }
   console.log("");
 
@@ -724,8 +730,12 @@ async function main(): Promise<void> {
 
   if (!skipCommit && !dryRun) {
     console.log("  Next steps:");
-    console.log(`    1. Monitor the desktop release workflow: ${REPO_URL}/actions/workflows/release.yml`);
-    console.log(`    2. Monitor the iOS TestFlight workflow:  ${REPO_URL}/actions/workflows/release-ios.yml`);
+    console.log(
+      `    1. Monitor the desktop release workflow: ${REPO_URL}/actions/workflows/release.yml`,
+    );
+    console.log(
+      `    2. Monitor the iOS TestFlight workflow:  ${REPO_URL}/actions/workflows/release-ios.yml`,
+    );
     console.log(`    3. Verify the GitHub Release:            ${REPO_URL}/releases/tag/${tag}`);
     console.log("    4. Test downloaded installers on each platform.");
     console.log("    5. Verify auto-update from the previous version.");

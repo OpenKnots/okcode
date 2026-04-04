@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { FileCodeIcon, XIcon } from "lucide-react";
-import { memo, useCallback } from "react";
+import { EyeIcon, EyeOffIcon, FileCodeIcon, XIcon } from "lucide-react";
+import { memo, useCallback, useState } from "react";
 
 import { useCodeViewerStore, type CodeViewerTab } from "~/codeViewerStore";
 import { useTheme } from "~/hooks/useTheme";
@@ -12,6 +12,12 @@ import { DiffPanelLoadingState } from "./DiffPanelShell";
 import { MarkdownPreview } from "./MarkdownPreview";
 import { isElectron } from "~/env";
 import { Button } from "./ui/button";
+
+/** Check if a file path is a dotenv / secrets file whose values should be masked. */
+function isEnvFile(filePath: string): boolean {
+  const basename = filePath.split("/").pop() ?? filePath;
+  return /^\.env(\..*)?$/.test(basename);
+}
 
 export function CodeViewerTabStrip(props: {
   tabs: CodeViewerTab[];
@@ -66,6 +72,9 @@ export const CodeViewerFileContent = memo(function CodeViewerFileContent(props: 
   resolvedTheme: "light" | "dark";
   onAddContext: (ctx: CodeContextSelection) => void;
 }) {
+  const envFile = isEnvFile(props.relativePath);
+  const [envValuesRevealed, setEnvValuesRevealed] = useState(false);
+
   const query = useQuery(
     projectReadFileQueryOptions({
       cwd: props.cwd,
@@ -109,22 +118,59 @@ export const CodeViewerFileContent = memo(function CodeViewerFileContent(props: 
   }
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto">
+    <div className="relative min-h-0 flex-1 overflow-y-auto">
       {query.data.truncated && (
         <div className="border-b border-amber-500/30 bg-amber-500/10 px-3 py-1 text-[11px] text-amber-700 dark:text-amber-300/90">
           File is larger than 1MB. Showing truncated content.
         </div>
       )}
-      {isMarkdownPreviewFilePath(props.relativePath) ? (
-        <MarkdownPreview contents={query.data.contents} />
-      ) : (
-        <CodeMirrorViewer
-          contents={query.data.contents}
-          filePath={props.relativePath}
-          resolvedTheme={props.resolvedTheme}
-          onAddContext={props.onAddContext}
-        />
+
+      {/* Env file: show/hide toggle banner */}
+      {envFile && (
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-amber-500/30 bg-amber-500/10 px-3 py-1.5">
+          <span className="text-[11px] font-medium text-amber-700 dark:text-amber-300/90">
+            Sensitive file — values are hidden by default
+          </span>
+          <Button
+            type="button"
+            size="xs"
+            variant="ghost"
+            className="gap-1.5 text-[11px] text-amber-700 hover:text-amber-900 dark:text-amber-300/90 dark:hover:text-amber-100"
+            onClick={() => setEnvValuesRevealed((prev) => !prev)}
+          >
+            {envValuesRevealed ? (
+              <>
+                <EyeOffIcon className="size-3.5" />
+                Hide values
+              </>
+            ) : (
+              <>
+                <EyeIcon className="size-3.5" />
+                Show values
+              </>
+            )}
+          </Button>
+        </div>
       )}
+
+      <div
+        className={cn(
+          envFile &&
+            !envValuesRevealed &&
+            "select-none blur-[6px] transition-[filter] duration-200",
+        )}
+      >
+        {isMarkdownPreviewFilePath(props.relativePath) ? (
+          <MarkdownPreview contents={query.data.contents} />
+        ) : (
+          <CodeMirrorViewer
+            contents={query.data.contents}
+            filePath={props.relativePath}
+            resolvedTheme={props.resolvedTheme}
+            onAddContext={props.onAddContext}
+          />
+        )}
+      </div>
     </div>
   );
 });

@@ -25,6 +25,7 @@ import { useTurnDiffSummaries } from "../hooks/useTurnDiffSummaries";
 import { useStore } from "../store";
 import { useAppSettings } from "../appSettings";
 import { formatShortTimestamp } from "../timestampFormat";
+import { useI18nContext } from "../i18n/I18nProvider";
 import { DiffPanelLoadingState, DiffPanelShell, type DiffPanelMode } from "./DiffPanelShell";
 import { DiffStatLabel, hasNonZeroStat } from "./chat/DiffStatLabel";
 import { Button } from "./ui/button";
@@ -270,6 +271,7 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
   const navigate = useNavigate();
   const { resolvedTheme } = useTheme();
   const { settings } = useAppSettings();
+  const { resolvedLocale } = useI18nContext();
   const [diffRenderMode, setDiffRenderMode] = useState<DiffRenderMode>("stacked");
   const [diffWordWrap, setDiffWordWrap] = useState(settings.diffWordWrap);
   const patchViewportRef = useRef<HTMLDivElement>(null);
@@ -570,14 +572,14 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
             {selectedTurnId === null
               ? "All changes"
               : selectedTurn?.turnId === latestSelectedTurnId
-                ? `Latest • ${formatShortTimestamp(selectedTurn.completedAt, settings.timestampFormat)}`
+                ? `Latest • ${formatShortTimestamp(selectedTurn.completedAt, settings.timestampFormat, resolvedLocale)}`
                 : `Change ${
                     selectedTurn?.checkpointTurnCount ??
                     (selectedTurn
                       ? inferredCheckpointTurnCountByTurnId[selectedTurn.turnId]
                       : null) ??
                     "?"
-                  } • ${selectedTurn ? formatShortTimestamp(selectedTurn.completedAt, settings.timestampFormat) : ""}`}
+                  } • ${selectedTurn ? formatShortTimestamp(selectedTurn.completedAt, settings.timestampFormat, resolvedLocale) : ""}`}
           </SelectButton>
           <SelectPopup>
             <SelectItem value="all">All changes</SelectItem>
@@ -594,7 +596,11 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
                         }`}
                   </span>
                   <span className="text-muted-foreground text-xs">
-                    {formatShortTimestamp(summary.completedAt, settings.timestampFormat)}
+                    {formatShortTimestamp(
+                      summary.completedAt,
+                      settings.timestampFormat,
+                      resolvedLocale,
+                    )}
                   </span>
                 </span>
               </SelectItem>

@@ -76,14 +76,13 @@ export function useAutoDeleteMergedThreads(settings: AppSettings) {
       if (prState === "merged" && !timersRef.current.has(thread.id)) {
         // PR just detected as merged – start countdown.
         const threadTitle = thread.title || `Thread ${thread.id.slice(0, 8)}`;
-        const minutesLabel =
-          delayMinutes === 1 ? "1 minute" : `${delayMinutes} minutes`;
+        const minutesLabel = delayMinutes === 1 ? "1 minute" : `${delayMinutes} minutes`;
 
         const toastId = toastManager.add({
           type: "info",
           title: `PR merged – "${threadTitle}" will be deleted`,
           description: `Auto-deleting in ${minutesLabel}. Click Cancel to keep it.`,
-          dismissAfterVisibleMs: TOAST_VISIBLE_MS,
+          data: { dismissAfterVisibleMs: TOAST_VISIBLE_MS },
           actionProps: {
             children: "Cancel",
             onClick: () => {

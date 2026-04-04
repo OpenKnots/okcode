@@ -211,7 +211,7 @@ export const WorkspaceFileTree = memo(function WorkspaceFileTree(props: {
       const api = readNativeApi();
       if (!api) return;
       const name = basenameOfPath(pathValue);
-      const confirmed = await api.dialog.confirm(`Are you sure you want to delete "${name}"?`);
+      const confirmed = await api.dialogs.confirm(`Are you sure you want to delete "${name}"?`);
       if (!confirmed) return;
       try {
         await api.projects.deleteEntry({ cwd: props.cwd, relativePath: pathValue });

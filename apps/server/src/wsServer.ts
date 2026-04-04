@@ -88,7 +88,7 @@ import { GitActionExecutionError } from "./git/Errors.ts";
 import { EnvironmentVariables } from "./persistence/Services/EnvironmentVariables.ts";
 import { SkillService } from "./skills/SkillService.ts";
 import { TokenManager } from "./tokenManager.ts";
-import { resolveRuntimeEnvironment } from "./runtimeEnvironment.ts";
+import { resolveRuntimeEnvironment, RuntimeEnv } from "./runtimeEnvironment.ts";
 import { version as serverVersion } from "../package.json" with { type: "json" };
 
 /**
@@ -1070,38 +1070,60 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
 
       case WS_METHODS.gitStatus: {
         const body = stripRequestTag(request.body);
-        return yield* gitManager.status(body);
+        const snapshot = yield* projectionReadModelQuery.getSnapshot();
+        const gitEnv = yield* resolveRuntimeEnvironment({ cwd: body.cwd, readModel: snapshot });
+        return yield* gitManager.status(body).pipe(Effect.provideService(RuntimeEnv, gitEnv));
       }
 
       case WS_METHODS.gitPull: {
         const body = stripRequestTag(request.body);
-        return yield* git.pullCurrentBranch(body.cwd);
+        const snapshot = yield* projectionReadModelQuery.getSnapshot();
+        const gitEnv = yield* resolveRuntimeEnvironment({ cwd: body.cwd, readModel: snapshot });
+        return yield* git
+          .pullCurrentBranch(body.cwd)
+          .pipe(Effect.provideService(RuntimeEnv, gitEnv));
       }
 
       case WS_METHODS.gitRunStackedAction: {
         const body = stripRequestTag(request.body);
-        return yield* gitManager.runStackedAction(body, {
-          actionId: body.actionId,
-          progressReporter: {
-            publish: (event) =>
-              pushBus.publishClient(ws, WS_CHANNELS.gitActionProgress, event).pipe(Effect.asVoid),
-          },
-        });
+        const snapshot = yield* projectionReadModelQuery.getSnapshot();
+        const gitEnv = yield* resolveRuntimeEnvironment({ cwd: body.cwd, readModel: snapshot });
+        return yield* gitManager
+          .runStackedAction(body, {
+            actionId: body.actionId,
+            progressReporter: {
+              publish: (event) =>
+                pushBus.publishClient(ws, WS_CHANNELS.gitActionProgress, event).pipe(Effect.asVoid),
+            },
+          })
+          .pipe(Effect.provideService(RuntimeEnv, gitEnv));
       }
 
       case WS_METHODS.gitResolvePullRequest: {
         const body = stripRequestTag(request.body);
-        return yield* gitManager.resolvePullRequest(body);
+        const snapshot = yield* projectionReadModelQuery.getSnapshot();
+        const gitEnv = yield* resolveRuntimeEnvironment({ cwd: body.cwd, readModel: snapshot });
+        return yield* gitManager
+          .resolvePullRequest(body)
+          .pipe(Effect.provideService(RuntimeEnv, gitEnv));
       }
 
       case WS_METHODS.gitPreparePullRequestThread: {
         const body = stripRequestTag(request.body);
-        return yield* gitManager.preparePullRequestThread(body);
+        const snapshot = yield* projectionReadModelQuery.getSnapshot();
+        const gitEnv = yield* resolveRuntimeEnvironment({ cwd: body.cwd, readModel: snapshot });
+        return yield* gitManager
+          .preparePullRequestThread(body)
+          .pipe(Effect.provideService(RuntimeEnv, gitEnv));
       }
 
       case WS_METHODS.gitListPullRequests: {
         const body = stripRequestTag(request.body);
-        return yield* gitManager.listPullRequests(body);
+        const snapshot = yield* projectionReadModelQuery.getSnapshot();
+        const gitEnv = yield* resolveRuntimeEnvironment({ cwd: body.cwd, readModel: snapshot });
+        return yield* gitManager
+          .listPullRequests(body)
+          .pipe(Effect.provideService(RuntimeEnv, gitEnv));
       }
 
       case WS_METHODS.prReviewGetConfig: {
@@ -1226,37 +1248,58 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
 
       case WS_METHODS.gitListBranches: {
         const body = stripRequestTag(request.body);
-        return yield* git.listBranches(body);
+        const snapshot = yield* projectionReadModelQuery.getSnapshot();
+        const gitEnv = yield* resolveRuntimeEnvironment({ cwd: body.cwd, readModel: snapshot });
+        return yield* git.listBranches(body).pipe(Effect.provideService(RuntimeEnv, gitEnv));
       }
 
       case WS_METHODS.gitCreateWorktree: {
         const body = stripRequestTag(request.body);
-        return yield* git.createWorktree(body);
+        const snapshot = yield* projectionReadModelQuery.getSnapshot();
+        const gitEnv = yield* resolveRuntimeEnvironment({ cwd: body.cwd, readModel: snapshot });
+        return yield* git.createWorktree(body).pipe(Effect.provideService(RuntimeEnv, gitEnv));
       }
 
       case WS_METHODS.gitRemoveWorktree: {
         const body = stripRequestTag(request.body);
-        return yield* git.removeWorktree(body);
+        const snapshot = yield* projectionReadModelQuery.getSnapshot();
+        const gitEnv = yield* resolveRuntimeEnvironment({ cwd: body.cwd, readModel: snapshot });
+        return yield* git.removeWorktree(body).pipe(Effect.provideService(RuntimeEnv, gitEnv));
       }
 
       case WS_METHODS.gitCreateBranch: {
         const body = stripRequestTag(request.body);
-        return yield* git.createBranch(body);
+        const snapshot = yield* projectionReadModelQuery.getSnapshot();
+        const gitEnv = yield* resolveRuntimeEnvironment({ cwd: body.cwd, readModel: snapshot });
+        return yield* Effect.scoped(git.createBranch(body)).pipe(
+          Effect.provideService(RuntimeEnv, gitEnv),
+        );
       }
 
       case WS_METHODS.gitCheckout: {
         const body = stripRequestTag(request.body);
-        return yield* Effect.scoped(git.checkoutBranch(body));
+        const snapshot = yield* projectionReadModelQuery.getSnapshot();
+        const gitEnv = yield* resolveRuntimeEnvironment({ cwd: body.cwd, readModel: snapshot });
+        return yield* Effect.scoped(git.checkoutBranch(body)).pipe(
+          Effect.provideService(RuntimeEnv, gitEnv),
+        );
       }
 
       case WS_METHODS.gitInit: {
         const body = stripRequestTag(request.body);
-        return yield* git.initRepo(body);
+        const snapshot = yield* projectionReadModelQuery.getSnapshot();
+        const gitEnv = yield* resolveRuntimeEnvironment({ cwd: body.cwd, readModel: snapshot });
+        return yield* git.initRepo(body).pipe(Effect.provideService(RuntimeEnv, gitEnv));
       }
 
       case WS_METHODS.gitCloneRepository: {
         const body = stripRequestTag(request.body);
-        return yield* git.cloneRepository(body);
+        const snapshot = yield* projectionReadModelQuery.getSnapshot();
+        const gitEnv = yield* resolveRuntimeEnvironment({
+          cwd: body.targetDir,
+          readModel: snapshot,
+        });
+        return yield* git.cloneRepository(body).pipe(Effect.provideService(RuntimeEnv, gitEnv));
       }
 
       case WS_METHODS.terminalOpen: {
@@ -1267,6 +1310,8 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
             snapshot.threads.find(
               (thread) => thread.id === body.threadId && thread.deletedAt === null,
             )?.projectId ?? null,
+          cwd: body.cwd,
+          readModel: snapshot,
           ...(body.env !== undefined ? { extraEnv: body.env } : {}),
         });
         return yield* terminalManager.open({
@@ -1298,6 +1343,8 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
             snapshot.threads.find(
               (thread) => thread.id === body.threadId && thread.deletedAt === null,
             )?.projectId ?? null,
+          cwd: body.cwd,
+          readModel: snapshot,
           ...(body.env !== undefined ? { extraEnv: body.env } : {}),
         });
         return yield* terminalManager.restart({

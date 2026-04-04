@@ -4593,6 +4593,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
           activeProjectCwd={activeProject?.cwd}
           isGitRepo={isGitRepo}
           isLocalDraftThread={isLocalDraftThread}
+          threadBranch={activeThread.branch ?? null}
           openInCwd={gitCwd}
           activeProjectScripts={activeProject?.scripts}
           preferredScriptId={

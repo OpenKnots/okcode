@@ -97,8 +97,8 @@ export function MobilePairingScreen() {
         </p>
         <h1 className="mt-3 text-2xl font-semibold tracking-tight">Pair this device</h1>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          Open <strong>Settings &rarr; Mobile Companion</strong> on your desktop to show a QR
-          pairing code, then copy the link and paste it below.
+          Open <strong>Settings &rarr; Mobile Companion</strong> on your desktop to show a pairing
+          link, then copy it and paste it below.
         </p>
 
         <div className="mt-5 space-y-3">

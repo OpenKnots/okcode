@@ -70,7 +70,7 @@ import { serverConfigQueryOptions } from "../lib/serverReactQuery";
 import { cn } from "../lib/utils";
 import { ensureNativeApi, readNativeApi } from "../nativeApi";
 import { useStore } from "../store";
-import { PairingQrCode } from "../components/mobile/PairingQrCode";
+import { PairingLinkCard } from "../components/mobile/PairingQrCode";
 
 const THEME_OPTIONS = [
   {
@@ -1650,10 +1650,10 @@ function SettingsRouteView() {
               <SettingsSection title="Mobile Companion">
                 <SettingsRow
                   title="Pair mobile device"
-                  description="Scan this QR code with the OK Code mobile app to pair your phone."
+                  description="Copy the pairing link and paste it into the OK Code mobile app."
                 >
                   <div className="mt-4 flex justify-center">
-                    <PairingQrCode />
+                    <PairingLinkCard />
                   </div>
                 </SettingsRow>
               </SettingsSection>

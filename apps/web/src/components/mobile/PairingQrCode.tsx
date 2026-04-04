@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
-import { generateQrSvg } from "../../lib/qrCode";
 import { resolveServerHttpOrigin } from "../../lib/runtimeBridge";
 import { Button } from "../ui/button";
 
@@ -11,19 +10,19 @@ interface PairingInfo {
 }
 
 /**
- * PairingQrCode renders a QR code on the desktop web app that mobile devices
- * can scan to pair. It fetches a short-lived pairing link from the server's
- * `/api/pairing` endpoint and displays it as a scannable QR code.
+ * PairingLinkCard fetches a short-lived pairing link from the server's
+ * `/api/pairing` endpoint and exposes it through a copy button.
  *
- * The QR code auto-refreshes when the pairing link expires.
+ * The link auto-refreshes when it expires so the desktop page stays usable
+ * without requiring a manual refresh action.
  */
-export function PairingQrCode() {
+export function PairingLinkCard() {
   const [pairing, setPairing] = useState<PairingInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [svgHtml, setSvgHtml] = useState<string | null>(null);
   const [expiresIn, setExpiresIn] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
+  const refreshRequestedRef = useRef(false);
 
   const fetchPairingLink = useCallback(async () => {
     setLoading(true);
@@ -39,15 +38,12 @@ export function PairingQrCode() {
       if ("error" in data) {
         setError(data.error as unknown as string);
         setPairing(null);
-        setSvgHtml(null);
         return;
       }
       setPairing(data);
-      setSvgHtml(generateQrSvg(data.pairingUrl));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to generate pairing link.");
       setPairing(null);
-      setSvgHtml(null);
     } finally {
       setLoading(false);
     }
@@ -62,17 +58,20 @@ export function PairingQrCode() {
   useEffect(() => {
     if (!pairing?.expiresAt) {
       setExpiresIn(null);
+      refreshRequestedRef.current = false;
       return;
     }
 
+    refreshRequestedRef.current = false;
     const update = () => {
       const remaining = Math.max(
         0,
         Math.floor((new Date(pairing.expiresAt).getTime() - Date.now()) / 1000),
       );
       setExpiresIn(remaining);
-      if (remaining <= 0) {
+      if (remaining <= 0 && !refreshRequestedRef.current) {
         // Auto-refresh when expired
+        refreshRequestedRef.current = true;
         void fetchPairingLink();
       }
     };
@@ -89,7 +88,7 @@ export function PairingQrCode() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Fallback: select the text in the details element
+      // Clipboard access can fail in some browsers or shells; leave the button available.
     }
   };
 
@@ -101,7 +100,9 @@ export function PairingQrCode() {
 
   return (
     <div className="flex flex-col items-center gap-4">
-      <h3 className="text-sm font-medium text-muted-foreground">Scan with OK Code mobile app</h3>
+      <h3 className="text-sm font-medium text-muted-foreground">
+        Pair with the OK Code mobile app
+      </h3>
 
       {error ? (
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-center dark:border-red-900 dark:bg-red-950">
@@ -116,14 +117,8 @@ export function PairingQrCode() {
             {loading ? "Generating..." : "Retry"}
           </Button>
         </div>
-      ) : svgHtml ? (
+      ) : pairing ? (
         <>
-          <div
-            className="rounded-xl border border-border bg-white p-3 shadow-sm"
-            // biome-ignore lint/security/noDangerouslySetInnerHtml: SVG is generated locally, not user input
-            dangerouslySetInnerHTML={{ __html: svgHtml }}
-            style={{ width: 220, height: 220 }}
-          />
           {expiresIn !== null && (
             <p className="text-xs text-muted-foreground">
               {expiresIn > 0 ? <>Expires in {formatTime(expiresIn)}</> : <>Refreshing...</>}
@@ -133,24 +128,13 @@ export function PairingQrCode() {
             <Button variant="outline" size="sm" onClick={() => void handleCopyLink()}>
               {copied ? "Copied!" : "Copy pairing link"}
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => void fetchPairingLink()}
-              disabled={loading}
-            >
-              {loading ? "Generating..." : "Refresh"}
-            </Button>
           </div>
           <p className="max-w-xs text-center text-[11px] leading-relaxed text-muted-foreground/70">
-            Scan the QR code with your phone camera, or copy the link and paste it in the mobile
-            app.
+            Copy the pairing link and paste it into the mobile app.
           </p>
         </>
       ) : loading ? (
-        <div className="flex h-[220px] w-[220px] items-center justify-center rounded-xl border border-border bg-muted">
-          <p className="text-sm text-muted-foreground">Generating...</p>
-        </div>
+        <p className="text-sm text-muted-foreground">Generating pairing link...</p>
       ) : null}
     </div>
   );

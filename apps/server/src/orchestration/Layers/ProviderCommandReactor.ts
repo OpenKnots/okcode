@@ -337,6 +337,8 @@ const make = Effect.gen(function* () {
         ...(input?.resumeCursor !== undefined ? { resumeCursor: input.resumeCursor } : {}),
         env: yield* resolveRuntimeEnvironment({
           projectId: thread.projectId,
+          cwd: effectiveCwd ?? null,
+          readModel,
         }),
         runtimeMode: desiredRuntimeMode,
       });

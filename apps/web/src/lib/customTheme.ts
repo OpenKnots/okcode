@@ -337,9 +337,7 @@ export async function parseThemeInput(input: string): Promise<CustomThemeData> {
   // 4. CSS
   const parsed = parseThemeCSS(trimmed);
   if (Object.keys(parsed.light).length === 0 && Object.keys(parsed.dark).length === 0) {
-    throw new Error(
-      "No theme variables found. Paste CSS, a tweakcn theme URL, or a theme name.",
-    );
+    throw new Error("No theme variables found. Paste CSS, a tweakcn theme URL, or a theme name.");
   }
 
   return parsed;

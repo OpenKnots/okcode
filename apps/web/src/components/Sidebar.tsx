@@ -97,7 +97,6 @@ import { useThreadSelectionStore } from "../threadSelectionStore";
 import { formatWorktreePathForDisplay, getOrphanedWorktreePathForThread } from "../worktreeCleanup";
 import { isNonEmpty as isNonEmptyString } from "effect/String";
 import { useTheme } from "~/hooks/useTheme";
-import { FavesDropdown } from "~/components/FavesDropdown";
 import {
   computeProjectDisambiguationPaths,
   getVisibleThreadsForProject,
@@ -2211,9 +2210,6 @@ export default function Sidebar() {
                   <ZapIcon className="size-3.5" />
                   <span className="text-xs">Skills</span>
                 </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <FavesDropdown />
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton

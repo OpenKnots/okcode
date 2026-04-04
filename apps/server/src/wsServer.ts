@@ -855,26 +855,35 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
 
   let fileTreeDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-  const fileTreeWatcher = fs.watch(cwd, { recursive: true }, (_eventType, filename) => {
-    if (!filename) return;
+  // fs.watch throws ENOENT when the directory does not exist (e.g. in tests
+  // or when a workspace path has been removed).  Guard against this so the
+  // server can still start up.
+  const fileTreeWatcher = yield* Effect.sync(() => {
+    try {
+      return fs.watch(cwd, { recursive: true }, (_eventType, filename) => {
+        if (!filename) return;
 
-    // Ignore changes inside noisy directories
-    const normalized = String(filename).replaceAll("\\", "/");
-    const firstSegment = normalized.split("/")[0];
-    if (firstSegment && IGNORED_WATCHER_DIRS.has(firstSegment)) return;
+        // Ignore changes inside noisy directories
+        const normalized = String(filename).replaceAll("\\", "/");
+        const firstSegment = normalized.split("/")[0];
+        if (firstSegment && IGNORED_WATCHER_DIRS.has(firstSegment)) return;
 
-    // Debounce rapid consecutive changes into a single push
-    if (fileTreeDebounceTimer) clearTimeout(fileTreeDebounceTimer);
-    fileTreeDebounceTimer = setTimeout(() => {
-      fileTreeDebounceTimer = null;
-      clearWorkspaceIndexCache(cwd);
-      void Effect.runPromise(pushBus.publishAll(WS_CHANNELS.projectFileTreeChanged, { cwd }));
-    }, FILE_TREE_DEBOUNCE_MS);
+        // Debounce rapid consecutive changes into a single push
+        if (fileTreeDebounceTimer) clearTimeout(fileTreeDebounceTimer);
+        fileTreeDebounceTimer = setTimeout(() => {
+          fileTreeDebounceTimer = null;
+          clearWorkspaceIndexCache(cwd);
+          void Effect.runPromise(pushBus.publishAll(WS_CHANNELS.projectFileTreeChanged, { cwd }));
+        }, FILE_TREE_DEBOUNCE_MS);
+      });
+    } catch {
+      return undefined;
+    }
   });
 
   yield* Effect.addFinalizer(() =>
     Effect.sync(() => {
-      fileTreeWatcher.close();
+      fileTreeWatcher?.close();
       if (fileTreeDebounceTimer) clearTimeout(fileTreeDebounceTimer);
     }),
   );

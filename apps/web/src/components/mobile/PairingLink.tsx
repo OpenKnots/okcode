@@ -9,14 +9,20 @@ interface PairingInfo {
   serverUrl: string;
 }
 
+function formatTime(seconds: number) {
+  const minutes = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${minutes}:${secs.toString().padStart(2, "0")}`;
+}
+
 /**
- * PairingLinkCard fetches a short-lived pairing link from the server's
+ * PairingLink fetches a short-lived pairing link from the server's
  * `/api/pairing` endpoint and exposes it through a copy button.
  *
  * The link auto-refreshes when it expires so the desktop page stays usable
  * without requiring a manual refresh action.
  */
-export function PairingLinkCard() {
+export function PairingLink() {
   const [pairing, setPairing] = useState<PairingInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -49,12 +55,10 @@ export function PairingLinkCard() {
     }
   }, []);
 
-  // Fetch on mount
   useEffect(() => {
     void fetchPairingLink();
   }, [fetchPairingLink]);
 
-  // Countdown timer
   useEffect(() => {
     if (!pairing?.expiresAt) {
       setExpiresIn(null);
@@ -70,7 +74,6 @@ export function PairingLinkCard() {
       );
       setExpiresIn(remaining);
       if (remaining <= 0 && !refreshRequestedRef.current) {
-        // Auto-refresh when expired
         refreshRequestedRef.current = true;
         void fetchPairingLink();
       }
@@ -90,12 +93,6 @@ export function PairingLinkCard() {
     } catch {
       // Clipboard access can fail in some browsers or shells; leave the button available.
     }
-  };
-
-  const formatTime = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m}:${s.toString().padStart(2, "0")}`;
   };
 
   return (
@@ -119,11 +116,11 @@ export function PairingLinkCard() {
         </div>
       ) : pairing ? (
         <>
-          {expiresIn !== null && (
+          {expiresIn !== null ? (
             <p className="text-xs text-muted-foreground">
               {expiresIn > 0 ? <>Expires in {formatTime(expiresIn)}</> : <>Refreshing...</>}
             </p>
-          )}
+          ) : null}
           <div className="flex flex-wrap items-center justify-center gap-2">
             <Button variant="outline" size="sm" onClick={() => void handleCopyLink()}>
               {copied ? "Copied!" : "Copy pairing link"}

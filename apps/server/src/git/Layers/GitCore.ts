@@ -21,6 +21,8 @@ import {
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 import { compactNodeProcessEnv, mergeNodeProcessEnv } from "@okcode/shared/environment";
 
+import { getRuntimeEnv } from "../../runtimeEnvironment.ts";
+
 import { GitCommandError } from "../Errors.ts";
 import {
   GitCore,
@@ -592,17 +594,19 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
             Effect.provideService(FileSystem.FileSystem, fileSystem),
             Effect.mapError(toGitCommandError(commandInput, "failed to create trace2 monitor.")),
           );
-          const runtimeEnv = input.env ? compactNodeProcessEnv(input.env) : undefined;
+          const contextEnv = yield* getRuntimeEnv();
+          const explicitEnv = input.env ? compactNodeProcessEnv(input.env) : undefined;
+          const baseEnv = compactNodeProcessEnv(process.env);
+          const combinedEnv = {
+            ...baseEnv,
+            ...contextEnv,
+            ...explicitEnv,
+          };
           const child = yield* commandSpawner
             .spawn(
               ChildProcess.make("git", commandInput.args, {
                 cwd: commandInput.cwd,
-                env: mergeNodeProcessEnv(
-                  compactNodeProcessEnv(
-                    mergeNodeProcessEnv(compactNodeProcessEnv(process.env), runtimeEnv),
-                  ),
-                  compactNodeProcessEnv(trace2Monitor.env),
-                ),
+                env: mergeNodeProcessEnv(combinedEnv, compactNodeProcessEnv(trace2Monitor.env)),
               }),
             )
             .pipe(Effect.mapError(toGitCommandError(commandInput, "failed to spawn.")));

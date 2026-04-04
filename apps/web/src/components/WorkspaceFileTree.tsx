@@ -8,12 +8,13 @@ import {
   SlidersHorizontalIcon,
   TriangleAlertIcon,
 } from "lucide-react";
-import { type MouseEvent, memo, useCallback, useDeferredValue, useState } from "react";
+import { type MouseEvent, memo, useCallback, useDeferredValue, useEffect, useState } from "react";
 import { openInPreferredEditor } from "~/editorPreferences";
 import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
 import { useFileViewNavigation } from "~/hooks/useFileViewNavigation";
 import {
   projectListDirectoryQueryOptions,
+  projectQueryKeys,
   projectSearchEntriesQueryOptions,
 } from "~/lib/projectReactQuery";
 import { cn, isMacPlatform } from "~/lib/utils";
@@ -228,6 +229,20 @@ export const WorkspaceFileTree = memo(function WorkspaceFileTree(props: {
     },
     [props.cwd, queryClient],
   );
+
+  // Subscribe to server-pushed file tree change events so the tree auto-refreshes
+  // when files are created, deleted, or modified outside of the app (e.g. by git,
+  // terminal commands, or external editors).
+  useEffect(() => {
+    const api = readNativeApi();
+    if (!api?.projects.onFileTreeChanged) return;
+
+    const unsubscribe = api.projects.onFileTreeChanged(() => {
+      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
+    });
+
+    return unsubscribe;
+  }, [queryClient]);
 
   return (
     <div className={cn("space-y-2", props.className)}>

@@ -113,6 +113,7 @@ import {
   XIcon,
 } from "lucide-react";
 import { Button } from "./ui/button";
+import PromptEnhancer from "./PromptEnhancer";
 import {
   Dialog,
   DialogDescription,
@@ -4593,6 +4594,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
           activeProjectCwd={activeProject?.cwd}
           isGitRepo={isGitRepo}
           isLocalDraftThread={isLocalDraftThread}
+          threadBranch={activeThread.branch ?? null}
           openInCwd={gitCwd}
           activeProjectScripts={activeProject?.scripts}
           preferredScriptId={
@@ -5166,17 +5168,20 @@ export default function ChatView({ threadId }: ChatViewProps) {
                           className="flex shrink-0 items-center gap-2"
                         >
                           {pendingUserInputs.length === 0 && (
-                            <Button
-                              variant="ghost"
-                              size="icon-xs"
-                              type="button"
-                              className="text-muted-foreground/70 hover:text-foreground/80"
-                              onClick={openFilePicker}
-                              title="Attach files"
-                              aria-label="Attach files"
-                            >
-                              <PaperclipIcon className="size-4" />
-                            </Button>
+                            <>
+                              <PromptEnhancer prompt={prompt} onEnhance={setPromptFromTraits} />
+                              <Button
+                                variant="ghost"
+                                size="icon-xs"
+                                type="button"
+                                className="text-muted-foreground/70 hover:text-foreground/80"
+                                onClick={openFilePicker}
+                                title="Attach files"
+                                aria-label="Attach files"
+                              >
+                                <PaperclipIcon className="size-4" />
+                              </Button>
+                            </>
                           )}
                           {activeContextWindow ? (
                             <ContextWindowMeter usage={activeContextWindow} />

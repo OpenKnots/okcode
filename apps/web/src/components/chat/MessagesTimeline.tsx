@@ -43,6 +43,7 @@ import { buildExpandedImagePreview, ExpandedImagePreview } from "./ExpandedImage
 import { ProposedPlanCard } from "./ProposedPlanCard";
 import { ChangedFilesTree } from "./ChangedFilesTree";
 import { DiffStatLabel, hasNonZeroStat } from "./DiffStatLabel";
+import { InlineDiffBlock } from "./InlineDiffBlock";
 import { MessageCopyButton } from "./MessageCopyButton";
 import { computeMessageDurationStart, normalizeCompactToolLabel } from "./MessagesTimeline.logic";
 import type { ChatShortcutGuide } from "~/lib/chatShortcutGuidance";
@@ -369,12 +370,14 @@ export const MessagesTimeline = memo(function MessagesTimeline({
                     <SimpleWorkEntryRow
                       key={`work-row:${subGroup.entries[0]!.id}`}
                       workEntry={subGroup.entries[0]!}
+                      resolvedTheme={resolvedTheme}
                     />
                   ) : (
                     <CollapsedWorkEntryGroup
                       key={`work-group:${subGroup.entries[0]!.id}`}
                       heading={subGroup.heading}
                       entries={subGroup.entries}
+                      resolvedTheme={resolvedTheme}
                     />
                   ),
                 )}
@@ -1071,8 +1074,9 @@ function groupConsecutiveWorkEntries(entries: TimelineWorkEntry[]): ConsecutiveW
 
 const SimpleWorkEntryRow = memo(function SimpleWorkEntryRow(props: {
   workEntry: TimelineWorkEntry;
+  resolvedTheme: "light" | "dark";
 }) {
-  const { workEntry } = props;
+  const { workEntry, resolvedTheme } = props;
   const iconConfig = workToneIcon(workEntry.tone);
   const EntryIcon = workEntryIcon(workEntry);
   const heading = toolWorkEntryHeading(workEntry);
@@ -1080,6 +1084,7 @@ const SimpleWorkEntryRow = memo(function SimpleWorkEntryRow(props: {
   const displayText = preview ? `${heading} - ${preview}` : heading;
   const hasChangedFiles = (workEntry.changedFiles?.length ?? 0) > 0;
   const previewIsChangedFiles = hasChangedFiles && !workEntry.command && !workEntry.detail;
+  const hasDiffData = workEntry.diffData != null && workEntry.itemType === "file_change";
 
   return (
     <div className="rounded-lg px-1 py-1">
@@ -1104,25 +1109,32 @@ const SimpleWorkEntryRow = memo(function SimpleWorkEntryRow(props: {
           </p>
         </div>
       </div>
-      {hasChangedFiles && !previewIsChangedFiles && (
-        <div className="mt-1 flex flex-wrap gap-1 pl-6">
-          {workEntry.changedFiles?.slice(0, 4).map((filePath) => {
-            const basename = filePath.split("/").pop() ?? filePath;
-            return (
-              <span
-                key={`${workEntry.id}:${filePath}`}
-                className="rounded-md border border-border/55 bg-background/75 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground/75"
-              >
-                {basename}
-              </span>
-            );
-          })}
-          {(workEntry.changedFiles?.length ?? 0) > 4 && (
-            <span className="px-1 text-[10px] text-muted-foreground/55">
-              +{(workEntry.changedFiles?.length ?? 0) - 4}
-            </span>
-          )}
+      {hasDiffData ? (
+        <div className="mt-1.5 pl-6">
+          <InlineDiffBlock diffData={workEntry.diffData!} resolvedTheme={resolvedTheme} />
         </div>
+      ) : (
+        hasChangedFiles &&
+        !previewIsChangedFiles && (
+          <div className="mt-1 flex flex-wrap gap-1 pl-6">
+            {workEntry.changedFiles?.slice(0, 4).map((filePath) => {
+              const basename = filePath.split("/").pop() ?? filePath;
+              return (
+                <span
+                  key={`${workEntry.id}:${filePath}`}
+                  className="rounded-md border border-border/55 bg-background/75 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground/75"
+                >
+                  {basename}
+                </span>
+              );
+            })}
+            {(workEntry.changedFiles?.length ?? 0) > 4 && (
+              <span className="px-1 text-[10px] text-muted-foreground/55">
+                +{(workEntry.changedFiles?.length ?? 0) - 4}
+              </span>
+            )}
+          </div>
+        )
       )}
     </div>
   );
@@ -1131,8 +1143,9 @@ const SimpleWorkEntryRow = memo(function SimpleWorkEntryRow(props: {
 const CollapsedWorkEntryGroup = memo(function CollapsedWorkEntryGroup(props: {
   heading: string;
   entries: TimelineWorkEntry[];
+  resolvedTheme: "light" | "dark";
 }) {
-  const { heading, entries } = props;
+  const { heading, entries, resolvedTheme } = props;
   const [isExpanded, setIsExpanded] = useState(false);
   const firstEntry = entries[0]!;
   const EntryIcon = workEntryIcon(firstEntry);
@@ -1164,16 +1177,21 @@ const CollapsedWorkEntryGroup = memo(function CollapsedWorkEntryGroup(props: {
         />
       </button>
       {isExpanded && (
-        <div className="ml-7 mt-0.5 space-y-0 border-l border-border/30 pl-2">
+        <div className="ml-7 mt-0.5 space-y-1 border-l border-border/30 pl-2">
           {entries.map((entry) => {
             const preview = workEntryPreview(entry);
+            const hasDiff = entry.diffData != null && entry.itemType === "file_change";
             return (
-              <p
-                key={`subentry:${entry.id}`}
-                className="truncate py-0.5 text-[10px] leading-4 text-muted-foreground/55"
-              >
-                {preview ?? heading}
-              </p>
+              <div key={`subentry:${entry.id}`}>
+                <p className="truncate py-0.5 text-[10px] leading-4 text-muted-foreground/55">
+                  {preview ?? heading}
+                </p>
+                {hasDiff && (
+                  <div className="mt-1">
+                    <InlineDiffBlock diffData={entry.diffData!} resolvedTheme={resolvedTheme} />
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>

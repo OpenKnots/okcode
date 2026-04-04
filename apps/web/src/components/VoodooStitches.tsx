@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
+import { useAppSettings } from "../appSettings";
 
 /**
  * Purely decorative voodoo-doll stitch border around the entire viewport.
@@ -6,11 +7,11 @@ import { useEffect, useState, useMemo } from "react";
  * creating a wave that flows around the perimeter like calm backlit water.
  */
 
-const STITCH_SPACING = 30; // px between stitch centers
-const STITCH_SIZE = 6; // half-size of each X arm
-const EDGE_INSET = 6; // px inset from viewport edge
-const ANIMATION_DURATION = 6; // seconds for one full pulse cycle
-const STROKE_WIDTH = 1.5;
+const STITCH_SPACING = 40; // px between stitch centers
+const STITCH_SIZE = 4; // half-size of each X arm
+const EDGE_INSET = 4; // px inset from viewport edge
+const ANIMATION_DURATION = 8; // seconds for one full pulse cycle
+const STROKE_WIDTH = 1;
 
 interface Stitch {
   cx: number;
@@ -68,6 +69,7 @@ function generateStitches(w: number, h: number): { stitches: Stitch[]; total: nu
 }
 
 export function VoodooStitches() {
+  const { settings } = useAppSettings();
   const [dimensions, setDimensions] = useState({ w: window.innerWidth, h: window.innerHeight });
 
   useEffect(() => {
@@ -93,6 +95,8 @@ export function VoodooStitches() {
 
   // Wave spans the full perimeter — each stitch gets a delay proportional to its position
   const delayPerStitch = total > 0 ? ANIMATION_DURATION / total : 0;
+
+  if (!settings.showStitchBorder) return null;
 
   return (
     <div

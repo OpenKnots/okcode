@@ -32,6 +32,14 @@ export const PROVIDER_OPTIONS: Array<{
   { value: "cursor", label: "Cursor", available: false },
 ];
 
+export interface InlineDiffData {
+  filePath: string;
+  oldString?: string;
+  newString?: string;
+  content?: string;
+  toolName?: string;
+}
+
 export interface WorkLogEntry {
   id: string;
   createdAt: string;
@@ -43,6 +51,7 @@ export interface WorkLogEntry {
   toolTitle?: string;
   itemType?: ToolLifecycleItemType;
   requestKind?: PendingApproval["requestKind"];
+  diffData?: InlineDiffData;
 }
 
 interface DerivedWorkLogEntry extends WorkLogEntry {
@@ -536,6 +545,10 @@ function toDerivedWorkLogEntry(activity: OrchestrationThreadActivity): DerivedWo
   if (requestKind) {
     entry.requestKind = requestKind;
   }
+  const diffData = extractDiffData(payload);
+  if (diffData) {
+    entry.diffData = diffData;
+  }
   const collapseKey = deriveToolLifecycleCollapseKey(entry);
   if (collapseKey) {
     entry.collapseKey = collapseKey;
@@ -585,6 +598,7 @@ function mergeDerivedWorkLogEntries(
   const itemType = next.itemType ?? previous.itemType;
   const requestKind = next.requestKind ?? previous.requestKind;
   const collapseKey = next.collapseKey ?? previous.collapseKey;
+  const diffData = next.diffData ?? previous.diffData;
   return {
     ...previous,
     ...next,
@@ -595,6 +609,7 @@ function mergeDerivedWorkLogEntries(
     ...(itemType ? { itemType } : {}),
     ...(requestKind ? { requestKind } : {}),
     ...(collapseKey ? { collapseKey } : {}),
+    ...(diffData ? { diffData } : {}),
   };
 }
 
@@ -662,6 +677,57 @@ function normalizeCommandValue(value: unknown): string | null {
     .map((entry) => asTrimmedString(entry))
     .filter((entry): entry is string => entry !== null);
   return parts.length > 0 ? parts.join(" ") : null;
+}
+
+/** Max chars to keep for inline diff preview data (prevents bloating frontend state). */
+const MAX_INLINE_DIFF_STRING_LENGTH = 8000;
+
+function clampDiffString(value: string): string {
+  return value.length > MAX_INLINE_DIFF_STRING_LENGTH
+    ? value.slice(0, MAX_INLINE_DIFF_STRING_LENGTH)
+    : value;
+}
+
+function extractDiffData(payload: Record<string, unknown> | null): InlineDiffData | undefined {
+  const data = asRecord(payload?.data);
+  if (!data) return undefined;
+
+  // Navigate to tool input — adapters emit data.input or data.item.input
+  const item = asRecord(data.item);
+  const input = asRecord(data.input) ?? asRecord(item?.input);
+  if (!input) return undefined;
+
+  // Extract file path
+  const filePath =
+    asTrimmedString(input.file_path) ??
+    asTrimmedString(input.filePath) ??
+    asTrimmedString(input.path);
+  if (!filePath) return undefined;
+
+  const toolName = asTrimmedString(data.toolName) ?? asTrimmedString(item?.toolName) ?? undefined;
+
+  // Edit-style tool: old_string → new_string
+  const oldString = asTrimmedString(input.old_string) ?? asTrimmedString(input.oldString);
+  const newString = asTrimmedString(input.new_string) ?? asTrimmedString(input.newString);
+  if (oldString && newString) {
+    const result: InlineDiffData = {
+      filePath,
+      oldString: clampDiffString(oldString),
+      newString: clampDiffString(newString),
+    };
+    if (toolName) result.toolName = toolName;
+    return result;
+  }
+
+  // Write-style tool: full file content
+  const content = asTrimmedString(input.content);
+  if (content) {
+    const result: InlineDiffData = { filePath, content: clampDiffString(content) };
+    if (toolName) result.toolName = toolName;
+    return result;
+  }
+
+  return undefined;
 }
 
 function extractToolCommand(payload: Record<string, unknown> | null): string | null {

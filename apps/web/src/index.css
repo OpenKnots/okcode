@@ -667,10 +667,10 @@ label:has(> select#reasoning-effort) select {
 @keyframes voodoo-stitch-pulse {
   0%,
   100% {
-    opacity: 0.15;
+    opacity: 0.08;
   }
   50% {
-    opacity: 0.55;
+    opacity: 0.3;
   }
 }
 

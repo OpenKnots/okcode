@@ -449,7 +449,7 @@ export function SkillsPage(props: {
 
   return (
     <SidebarInset>
-      <div className="flex h-full min-h-0 flex-col">
+      <div className="flex h-full min-h-0 flex-col overflow-hidden">
         <div className="border-b px-4 py-3 sm:px-6">
           <div className="flex items-center gap-3">
             <SidebarTrigger />
@@ -510,11 +510,10 @@ export function SkillsPage(props: {
             <div className="flex items-start gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 p-4">
               <AlertTriangleIcon className="mt-0.5 size-5 shrink-0 text-destructive" />
               <div className="min-w-0 flex-1">
-                <p className="font-medium text-sm text-foreground">
-                  Unable to load skills
-                </p>
+                <p className="font-medium text-sm text-foreground">Unable to load skills</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {queryErrorMessage ?? "The skills service is unavailable. Check that the server is running."}
+                  {queryErrorMessage ??
+                    "The skills service is unavailable. Check that the server is running."}
                 </p>
                 <Button
                   variant="outline"

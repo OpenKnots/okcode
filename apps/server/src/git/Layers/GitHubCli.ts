@@ -1,7 +1,9 @@
 import { Effect, Layer, Schema } from "effect";
 import { PositiveInt, TrimmedNonEmptyString } from "@okcode/contracts";
+import { compactNodeProcessEnv, mergeNodeProcessEnv } from "@okcode/shared/environment";
 
 import { runProcess } from "../../processRunner";
+import { getRuntimeEnv } from "../../runtimeEnvironment.ts";
 import { GitHubCliError } from "../Errors.ts";
 import {
   GitHubCli,
@@ -167,14 +169,21 @@ function decodeGitHubJson<S extends Schema.Top>(
 
 const makeGitHubCli = Effect.sync(() => {
   const execute: GitHubCliShape["execute"] = (input) =>
-    Effect.tryPromise({
-      try: () =>
-        runProcess("gh", input.args, {
-          cwd: input.cwd,
-          timeoutMs: input.timeoutMs ?? DEFAULT_TIMEOUT_MS,
-          env: process.env,
-        }),
-      catch: (error) => normalizeGitHubCliError("execute", error),
+    Effect.gen(function* () {
+      const contextEnv = yield* getRuntimeEnv();
+      const mergedEnv = mergeNodeProcessEnv(
+        compactNodeProcessEnv(process.env),
+        compactNodeProcessEnv(contextEnv),
+      );
+      return yield* Effect.tryPromise({
+        try: () =>
+          runProcess("gh", input.args, {
+            cwd: input.cwd,
+            timeoutMs: input.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+            env: mergedEnv,
+          }),
+        catch: (error) => normalizeGitHubCliError("execute", error),
+      });
     });
 
   const service = {

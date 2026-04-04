@@ -11,6 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - CLI npm package name is `okcodes`. Install with `npm install -g okcodes`; the `okcode` binary name is unchanged.
 
+## [0.13.0] - 2026-04-04
+
+See [docs/releases/v0.13.0.md](docs/releases/v0.13.0.md) for full notes and [docs/releases/v0.13.0/assets.md](docs/releases/v0.13.0/assets.md) for release asset inventory.
+
+### Fixed
+
+- Blur `.env` file contents in code viewer.
+
 ## [0.10.0] - 2026-04-04
 
 See [docs/releases/v0.10.0.md](docs/releases/v0.10.0.md) for full notes and [docs/releases/v0.10.0/assets.md](docs/releases/v0.10.0/assets.md) for release asset inventory.
@@ -368,3 +376,4 @@ First public version tag. See [docs/releases/v0.0.1.md](docs/releases/v0.0.1.md)
 [0.0.12]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.12
 [0.0.12]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.12
 [0.10.0]: https://github.com/OpenKnots/okcode/releases/tag/v0.10.0
+[0.13.0]: https://github.com/OpenKnots/okcode/releases/tag/v0.13.0

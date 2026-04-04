@@ -34,10 +34,7 @@ export function updateIosVersion(
   const original = content;
 
   // Replace all MARKETING_VERSION = <anything>; with the new version
-  content = content.replace(
-    /MARKETING_VERSION\s*=\s*[^;]+;/g,
-    `MARKETING_VERSION = ${version};`,
-  );
+  content = content.replace(/MARKETING_VERSION\s*=\s*[^;]+;/g, `MARKETING_VERSION = ${version};`);
 
   // Replace all CURRENT_PROJECT_VERSION = <anything>; with the new build number
   content = content.replace(
@@ -110,7 +107,11 @@ const isMain =
 
 if (isMain) {
   const { version, buildNumber, rootDir } = parseArgs(process.argv.slice(2));
-  const { changed } = updateIosVersion(version, buildNumber, rootDir === undefined ? {} : { rootDir });
+  const { changed } = updateIosVersion(
+    version,
+    buildNumber,
+    rootDir === undefined ? {} : { rootDir },
+  );
 
   if (changed) {
     console.log(`Updated iOS version to ${version} (build ${buildNumber}).`);

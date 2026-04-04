@@ -252,21 +252,18 @@ function MergeConflictGuidanceRail({
   const threads = useStore((s) => s.threads);
   const openCodeViewer = useCodeViewerStore((s) => s.open);
 
-  const navigateToLatestThread = useCallback(
-    () => {
-      openCodeViewer();
-      const sorted = [...threads].sort((a, b) =>
-        (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt),
-      );
-      const latest = sorted[0];
-      if (latest) {
-        void navigate({ to: "/$threadId", params: { threadId: latest.id } });
-      } else {
-        void navigate({ to: "/" });
-      }
-    },
-    [navigate, openCodeViewer, threads],
-  );
+  const navigateToLatestThread = useCallback(() => {
+    openCodeViewer();
+    const sorted = [...threads].sort((a, b) =>
+      (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt),
+    );
+    const latest = sorted[0];
+    if (latest) {
+      void navigate({ to: "/$threadId", params: { threadId: latest.id } });
+    } else {
+      void navigate({ to: "/" });
+    }
+  }, [navigate, openCodeViewer, threads]);
 
   return (
     <div className="flex min-h-0 min-w-0 flex-col bg-background/96">

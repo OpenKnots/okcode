@@ -70,7 +70,7 @@ import { serverConfigQueryOptions } from "../lib/serverReactQuery";
 import { cn } from "../lib/utils";
 import { ensureNativeApi, readNativeApi } from "../nativeApi";
 import { useStore } from "../store";
-import { PairingQrCode } from "../components/mobile/PairingQrCode";
+import { PairingLink } from "../components/mobile/PairingLink";
 
 const THEME_OPTIONS = [
   {
@@ -411,6 +411,7 @@ function SettingsRouteView() {
     ...(fontFamily !== "inter" ? ["Font"] : []),
     ...(settings.timestampFormat !== defaults.timestampFormat ? ["Time format"] : []),
     ...(settings.diffWordWrap !== defaults.diffWordWrap ? ["Diff line wrapping"] : []),
+    ...(settings.showStitchBorder !== defaults.showStitchBorder ? ["Stitch border"] : []),
     ...(settings.enableAssistantStreaming !== defaults.enableAssistantStreaming
       ? ["Assistant output"]
       : []),
@@ -1151,6 +1152,34 @@ function SettingsRouteView() {
               />
 
               <SettingsRow
+                title="Stitch border"
+                description="Show the decorative stitch border around the viewport."
+                resetAction={
+                  settings.showStitchBorder !== defaults.showStitchBorder ? (
+                    <SettingResetButton
+                      label="stitch border"
+                      onClick={() =>
+                        updateSettings({
+                          showStitchBorder: defaults.showStitchBorder,
+                        })
+                      }
+                    />
+                  ) : null
+                }
+                control={
+                  <Switch
+                    checked={settings.showStitchBorder}
+                    onCheckedChange={(checked) =>
+                      updateSettings({
+                        showStitchBorder: Boolean(checked),
+                      })
+                    }
+                    aria-label="Show stitch border"
+                  />
+                }
+              />
+
+              <SettingsRow
                 title="Assistant output"
                 description="Show token-by-token output while a response is in progress."
                 resetAction={
@@ -1650,10 +1679,10 @@ function SettingsRouteView() {
               <SettingsSection title="Mobile Companion">
                 <SettingsRow
                   title="Pair mobile device"
-                  description="Scan this QR code with the OK Code mobile app to pair your phone."
+                  description="Copy this pairing link and open it in the OK Code mobile app to pair your phone."
                 >
                   <div className="mt-4 flex justify-center">
-                    <PairingQrCode />
+                    <PairingLink />
                   </div>
                 </SettingsRow>
               </SettingsSection>

@@ -4,14 +4,19 @@ import {
   type ThreadId,
   type ResolvedKeybindingsConfig,
 } from "@okcode/contracts";
-import { memo, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { GitPullRequestIcon } from "lucide-react";
+import { memo, useCallback, useEffect } from "react";
 import type { ProjectScriptDraft } from "~/projectScriptDefaults";
 import GitActionsControl from "../GitActionsControl";
 import { EditableThreadTitle } from "../EditableThreadTitle";
 import { Badge } from "../ui/badge";
 import ProjectScriptsControl, { type NewProjectScriptInput } from "../ProjectScriptsControl";
 import { SidebarTrigger } from "../ui/sidebar";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { useThreadTitleEditor } from "~/hooks/useThreadTitleEditor";
+import { gitStatusQueryOptions } from "~/lib/gitReactQuery";
+import { ensureNativeApi } from "~/nativeApi";
 import { useProjectColor } from "~/projectColors";
 import { useTheme } from "~/hooks/useTheme";
 import type { ClientMode } from "~/lib/clientMode";
@@ -37,6 +42,7 @@ interface ChatHeaderProps {
   previewAvailable: boolean;
   previewOpen: boolean;
   previewDock: PreviewDock;
+  threadBranch: string | null;
   gitCwd: string | null;
   diffOpen: boolean;
   clientMode: ClientMode;
@@ -60,6 +66,7 @@ export const ChatHeader = memo(function ChatHeader({
   activeProjectCwd,
   isGitRepo,
   isLocalDraftThread,
+  threadBranch,
   openInCwd: _openInCwd,
   activeProjectScripts,
   preferredScriptId,
@@ -107,6 +114,22 @@ export const ChatHeader = memo(function ChatHeader({
   useEffect(() => {
     cancelEditing();
   }, [activeThreadId, cancelEditing]);
+
+  // Derive PR status from git status when the thread has an associated branch
+  const { data: gitStatus = null } = useQuery({
+    ...gitStatusQueryOptions(gitCwd),
+    // Only need git status for PR info when thread has a branch
+    enabled: gitCwd !== null && threadBranch !== null,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+
+  const threadPr =
+    threadBranch !== null && gitStatus?.branch === threadBranch ? (gitStatus?.pr ?? null) : null;
+
+  const openPrLink = useCallback((url: string) => {
+    void ensureNativeApi().shell.openExternal(url);
+  }, []);
 
   return (
     <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -166,6 +189,31 @@ export const ChatHeader = memo(function ChatHeader({
             onDeleteScript={onDeleteProjectScript}
             onImportScripts={onImportProjectScripts}
           />
+        )}
+        {!isMobileCompanion && threadPr && (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <button
+                  type="button"
+                  aria-label={`#${threadPr.number} PR ${threadPr.state}: ${threadPr.title}`}
+                  className={`inline-flex size-7 cursor-pointer items-center justify-center rounded-md transition-colors hover:bg-accent ${
+                    threadPr.state === "open"
+                      ? "text-emerald-600 dark:text-emerald-300/90"
+                      : threadPr.state === "merged"
+                        ? "text-violet-600 dark:text-violet-300/90"
+                        : "text-zinc-500 dark:text-zinc-400/80"
+                  }`}
+                  onClick={() => openPrLink(threadPr.url)}
+                >
+                  <GitPullRequestIcon className="size-4" />
+                </button>
+              }
+            />
+            <TooltipPopup side="bottom">
+              #{threadPr.number} PR {threadPr.state}: {threadPr.title}
+            </TooltipPopup>
+          </Tooltip>
         )}
         {!isMobileCompanion && activeProjectName && (
           <GitActionsControl gitCwd={gitCwd} activeThreadId={activeThreadId} />

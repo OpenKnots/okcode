@@ -64,6 +64,7 @@ import {
   ProjectSearchEntriesInput,
   ProjectWriteFileInput,
 } from "./project";
+import { ProjectFileTreeChangedPayload } from "./project";
 import { OpenInEditorInput, OpenPathInput } from "./editor";
 import {
   GeneratePairingLinkInput,
@@ -176,6 +177,7 @@ export const WS_CHANNELS = {
   terminalEvent: "terminal.event",
   serverWelcome: "server.welcome",
   serverConfigUpdated: "server.configUpdated",
+  projectFileTreeChanged: "project.fileTreeChanged",
 } as const;
 
 // -- Tagged Union of all request body schemas ─────────────────────────
@@ -323,6 +325,7 @@ export interface WsPushPayloadByChannel {
   readonly [WS_CHANNELS.prReviewSyncUpdated]: typeof PrReviewSyncUpdatedPayload.Type;
   readonly [WS_CHANNELS.prReviewRepoConfigUpdated]: typeof PrReviewRepoConfigUpdatedPayload.Type;
   readonly [WS_CHANNELS.terminalEvent]: typeof TerminalEvent.Type;
+  readonly [WS_CHANNELS.projectFileTreeChanged]: typeof ProjectFileTreeChangedPayload.Type;
   readonly [ORCHESTRATION_WS_CHANNELS.domainEvent]: OrchestrationEvent;
 }
 
@@ -358,6 +361,10 @@ export const WsPushPrReviewRepoConfigUpdated = makeWsPushSchema(
   PrReviewRepoConfigUpdatedPayload,
 );
 export const WsPushTerminalEvent = makeWsPushSchema(WS_CHANNELS.terminalEvent, TerminalEvent);
+export const WsPushProjectFileTreeChanged = makeWsPushSchema(
+  WS_CHANNELS.projectFileTreeChanged,
+  ProjectFileTreeChangedPayload,
+);
 export const WsPushOrchestrationDomainEvent = makeWsPushSchema(
   ORCHESTRATION_WS_CHANNELS.domainEvent,
   OrchestrationEvent,
@@ -370,6 +377,7 @@ export const WsPushChannelSchema = Schema.Literals([
   WS_CHANNELS.serverWelcome,
   WS_CHANNELS.serverConfigUpdated,
   WS_CHANNELS.terminalEvent,
+  WS_CHANNELS.projectFileTreeChanged,
   ORCHESTRATION_WS_CHANNELS.domainEvent,
 ]);
 export type WsPushChannelSchema = typeof WsPushChannelSchema.Type;
@@ -381,6 +389,7 @@ export const WsPush = Schema.Union([
   WsPushPrReviewSyncUpdated,
   WsPushPrReviewRepoConfigUpdated,
   WsPushTerminalEvent,
+  WsPushProjectFileTreeChanged,
   WsPushOrchestrationDomainEvent,
 ]);
 export type WsPush = typeof WsPush.Type;

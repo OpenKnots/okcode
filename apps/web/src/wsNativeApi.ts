@@ -25,9 +25,7 @@ const prReviewSyncUpdatedListeners = new Set<(payload: PrReviewSyncUpdatedPayloa
 const prReviewRepoConfigUpdatedListeners = new Set<
   (payload: PrReviewRepoConfigUpdatedPayload) => void
 >();
-const projectFileTreeChangedListeners = new Set<
-  (payload: ProjectFileTreeChangedPayload) => void
->();
+const projectFileTreeChangedListeners = new Set<(payload: ProjectFileTreeChangedPayload) => void>();
 const transportStateListeners = new Set<(state: TransportState) => void>();
 
 /**

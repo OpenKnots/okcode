@@ -127,12 +127,9 @@ export const ChatHeader = memo(function ChatHeader({
   const threadPr =
     threadBranch !== null && gitStatus?.branch === threadBranch ? (gitStatus?.pr ?? null) : null;
 
-  const openPrLink = useCallback(
-    (url: string) => {
-      void ensureNativeApi().shell.openExternal(url);
-    },
-    [],
-  );
+  const openPrLink = useCallback((url: string) => {
+    void ensureNativeApi().shell.openExternal(url);
+  }, []);
 
   return (
     <div className="flex min-w-0 flex-1 items-center gap-2">

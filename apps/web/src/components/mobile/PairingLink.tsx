@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { generateQrSvg } from "../../lib/qrCode";
 import { resolveServerHttpOrigin } from "../../lib/runtimeBridge";
 import { Button } from "../ui/button";
+import { Input } from "../ui/input";
 
 interface PairingInfo {
   pairingUrl: string;
@@ -11,17 +11,14 @@ interface PairingInfo {
 }
 
 /**
- * PairingQrCode renders a QR code on the desktop web app that mobile devices
- * can scan to pair. It fetches a short-lived pairing link from the server's
- * `/api/pairing` endpoint and displays it as a scannable QR code.
- *
- * The QR code auto-refreshes when the pairing link expires.
+ * PairingLink renders the desktop pairing link used to connect a mobile
+ * device. It fetches a short-lived pairing link from the server's
+ * `/api/pairing` endpoint and lets the user copy it directly.
  */
-export function PairingQrCode() {
+export function PairingLink() {
   const [pairing, setPairing] = useState<PairingInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [svgHtml, setSvgHtml] = useState<string | null>(null);
   const [expiresIn, setExpiresIn] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -39,26 +36,21 @@ export function PairingQrCode() {
       if ("error" in data) {
         setError(data.error as unknown as string);
         setPairing(null);
-        setSvgHtml(null);
         return;
       }
       setPairing(data);
-      setSvgHtml(generateQrSvg(data.pairingUrl));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to generate pairing link.");
       setPairing(null);
-      setSvgHtml(null);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // Fetch on mount
   useEffect(() => {
     void fetchPairingLink();
   }, [fetchPairingLink]);
 
-  // Countdown timer
   useEffect(() => {
     if (!pairing?.expiresAt) {
       setExpiresIn(null);
@@ -72,7 +64,6 @@ export function PairingQrCode() {
       );
       setExpiresIn(remaining);
       if (remaining <= 0) {
-        // Auto-refresh when expired
         void fetchPairingLink();
       }
     };
@@ -89,7 +80,7 @@ export function PairingQrCode() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Fallback: select the text in the details element
+      // Fallback: select the text in the input below.
     }
   };
 
@@ -100,11 +91,11 @@ export function PairingQrCode() {
   };
 
   return (
-    <div className="flex flex-col items-center gap-4">
-      <h3 className="text-sm font-medium text-muted-foreground">Scan with OK Code mobile app</h3>
+    <div className="flex flex-col gap-4">
+      <h3 className="text-sm font-medium text-muted-foreground">Pair with a mobile device</h3>
 
       {error ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-center dark:border-red-900 dark:bg-red-950">
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-900 dark:bg-red-950">
           <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
           <Button
             variant="outline"
@@ -116,20 +107,20 @@ export function PairingQrCode() {
             {loading ? "Generating..." : "Retry"}
           </Button>
         </div>
-      ) : svgHtml ? (
+      ) : pairing?.pairingUrl ? (
         <>
-          <div
-            className="rounded-xl border border-border bg-white p-3 shadow-sm"
-            // biome-ignore lint/security/noDangerouslySetInnerHtml: SVG is generated locally, not user input
-            dangerouslySetInnerHTML={{ __html: svgHtml }}
-            style={{ width: 220, height: 220 }}
-          />
-          {expiresIn !== null && (
+          <div className="space-y-2">
             <p className="text-xs text-muted-foreground">
-              {expiresIn > 0 ? <>Expires in {formatTime(expiresIn)}</> : <>Refreshing...</>}
+              Copy this link and open it on the mobile app or device you want to pair.
             </p>
-          )}
-          <div className="flex flex-wrap items-center justify-center gap-2">
+            <Input
+              value={pairing.pairingUrl}
+              readOnly
+              onFocus={(event) => event.currentTarget.select()}
+              className="font-mono text-xs"
+            />
+          </div>
+          <div className="flex flex-wrap gap-2" aria-label="Pairing link actions">
             <Button variant="outline" size="sm" onClick={() => void handleCopyLink()}>
               {copied ? "Copied!" : "Copy pairing link"}
             </Button>
@@ -142,13 +133,14 @@ export function PairingQrCode() {
               {loading ? "Generating..." : "Refresh"}
             </Button>
           </div>
-          <p className="max-w-xs text-center text-[11px] leading-relaxed text-muted-foreground/70">
-            Scan the QR code with your phone camera, or copy the link and paste it in the mobile
-            app.
-          </p>
+          {expiresIn !== null ? (
+            <p className="text-xs text-muted-foreground">
+              {expiresIn > 0 ? <>Expires in {formatTime(expiresIn)}</> : <>Refreshing...</>}
+            </p>
+          ) : null}
         </>
       ) : loading ? (
-        <div className="flex h-[220px] w-[220px] items-center justify-center rounded-xl border border-border bg-muted">
+        <div className="flex min-h-24 items-center justify-center rounded-xl border border-border bg-muted">
           <p className="text-sm text-muted-foreground">Generating...</p>
         </div>
       ) : null}

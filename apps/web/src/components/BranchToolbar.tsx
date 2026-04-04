@@ -1,9 +1,9 @@
 import type { ThreadId } from "@okcode/contracts";
 import { ArrowDownIcon, FolderIcon, GitForkIcon, LoaderIcon } from "lucide-react";
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { gitPullMutationOptions, gitStatusQueryOptions, invalidateGitQueries } from "../lib/gitReactQuery";
+import { gitPullMutationOptions, gitQueryKeys, gitStatusQueryOptions, invalidateGitQueries } from "../lib/gitReactQuery";
 import { newCommandId } from "../lib/utils";
 import { readNativeApi } from "../nativeApi";
 import { useComposerDraftStore } from "../composerDraftStore";
@@ -120,6 +120,13 @@ export default function BranchToolbar({
   const behindCount = gitStatus.data?.behindCount ?? 0;
   const isBehindUpstream = behindCount > 0 && !hasServerThread;
   const pullMutation = useMutation(gitPullMutationOptions({ cwd: gitCwd, queryClient }));
+
+  // Force a fresh git-status fetch when a draft thread mounts so we catch
+  // upstream changes immediately instead of waiting for the next poll cycle.
+  useEffect(() => {
+    if (hasServerThread || !gitCwd) return;
+    void queryClient.invalidateQueries({ queryKey: gitQueryKeys.status(gitCwd) });
+  }, [hasServerThread, gitCwd, queryClient]);
 
   const handlePull = useCallback(() => {
     if (pullMutation.isPending) return;

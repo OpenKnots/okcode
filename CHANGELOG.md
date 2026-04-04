@@ -11,6 +11,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - CLI npm package name is `okcodes`. Install with `npm install -g okcodes`; the `okcode` binary name is unchanged.
 
+## [0.10.0] - 2026-04-04
+
+See [docs/releases/v0.10.0.md](docs/releases/v0.10.0.md) for full notes and [docs/releases/v0.10.0/assets.md](docs/releases/v0.10.0/assets.md) for release asset inventory.
+
+### Added
+
+- Add iOS TestFlight release workflow.
+- Add iOS TestFlight release workflow.
+- Add project rename editing and name disambiguation.
+- Add custom background image settings.
+- Add animated stitch border overlay.
+- Add reviewed-file tracking to PR review UI.
+- Add local notifications to iOS package dependencies.
+- Add squircle branding assets for desktop and web.
+
+### Changed
+
+- Merge pull request #224 from OpenKnots/fix/release-readme-table.
+- Merge pull request #223 from OpenKnots/feature/release-ios-testflight.
+- Support bare theme names in custom theme import.
+- Remount file tree when project thread changes.
+- Show sidebar trigger when sidebar is collapsed.
+- Handle missing bundled skills catalog more gracefully.
+- Prune completed plan documents.
+- Use direct message lookup for streaming projections.
+
+### Fixed
+
+- Handle missing release index table gracefully.
+
 ## [0.0.13] - 2026-04-01
 
 See [docs/releases/v0.0.13.md](docs/releases/v0.0.13.md) for full notes.
@@ -337,3 +367,4 @@ First public version tag. See [docs/releases/v0.0.1.md](docs/releases/v0.0.1.md)
 [0.0.11]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.11
 [0.0.12]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.12
 [0.0.12]: https://github.com/OpenKnots/okcode/releases/tag/v0.0.12
+[0.10.0]: https://github.com/OpenKnots/okcode/releases/tag/v0.10.0

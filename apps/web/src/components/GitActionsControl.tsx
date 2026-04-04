@@ -1213,9 +1213,7 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
                 }
               >
                 <GitQuickActionIcon quickAction={quickAction} />
-                <span className="sr-only @lg/header-actions:not-sr-only @lg/header-actions:ml-0.5">
-                  {quickAction.label}
-                </span>
+                <span className="ml-0.5">{quickAction.label}</span>
               </PopoverTrigger>
               <PopoverPopup tooltipStyle side="bottom" align="start">
                 {quickActionDisabledReason}
@@ -1229,9 +1227,7 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
               onClick={runQuickAction}
             >
               <GitQuickActionIcon quickAction={quickAction} />
-              <span className="sr-only @lg/header-actions:not-sr-only @lg/header-actions:ml-0.5">
-                {quickAction.label}
-              </span>
+              <span className="ml-0.5">{quickAction.label}</span>
             </Button>
           )}
           <GroupSeparator className="hidden @sm/header-actions:block" />

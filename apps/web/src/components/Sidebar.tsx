@@ -8,6 +8,7 @@ import {
   FolderIcon,
   GitMergeIcon,
   GitPullRequestIcon,
+  XCircleIcon,
   PlusIcon,
   RocketIcon,
   SettingsIcon,
@@ -162,6 +163,7 @@ interface PrStatusIndicator {
   colorClass: string;
   tooltip: string;
   url: string;
+  icon: typeof GitPullRequestIcon;
 }
 
 type ThreadPr = GitStatusResult["pr"];
@@ -188,6 +190,7 @@ function prStatusIndicator(pr: ThreadPr): PrStatusIndicator | null {
       colorClass: "text-emerald-600 dark:text-emerald-300/90",
       tooltip: `#${pr.number} PR open: ${pr.title}`,
       url: pr.url,
+      icon: GitPullRequestIcon,
     };
   }
   if (pr.state === "closed") {
@@ -196,6 +199,7 @@ function prStatusIndicator(pr: ThreadPr): PrStatusIndicator | null {
       colorClass: "text-zinc-500 dark:text-zinc-400/80",
       tooltip: `#${pr.number} PR closed: ${pr.title}`,
       url: pr.url,
+      icon: XCircleIcon,
     };
   }
   if (pr.state === "merged") {
@@ -204,6 +208,7 @@ function prStatusIndicator(pr: ThreadPr): PrStatusIndicator | null {
       colorClass: "text-violet-600 dark:text-violet-300/90",
       tooltip: `#${pr.number} PR merged: ${pr.title}`,
       url: pr.url,
+      icon: GitMergeIcon,
     };
   }
   return null;
@@ -1286,7 +1291,7 @@ export default function Sidebar() {
                           openPrLink(event, prStatus.url);
                         }}
                       >
-                        <GitPullRequestIcon className="size-3" />
+                        <prStatus.icon className="size-3" />
                       </button>
                     }
                   />

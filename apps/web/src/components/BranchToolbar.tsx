@@ -1,7 +1,9 @@
 import type { ThreadId } from "@okcode/contracts";
-import { FolderIcon, GitForkIcon } from "lucide-react";
+import { ArrowDownIcon, FolderIcon, GitForkIcon, LoaderIcon } from "lucide-react";
 import { useCallback } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { gitPullMutationOptions, gitStatusQueryOptions, invalidateGitQueries } from "../lib/gitReactQuery";
 import { newCommandId } from "../lib/utils";
 import { readNativeApi } from "../nativeApi";
 import { useComposerDraftStore } from "../composerDraftStore";
@@ -13,8 +15,10 @@ import {
 } from "./BranchToolbar.logic";
 import { Badge } from "./ui/badge";
 import { BranchToolbarBranchSelector } from "./BranchToolbarBranchSelector";
+import { Button } from "./ui/button";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "./ui/select";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
+import { toastManager } from "./ui/toast";
 
 const envModeItems = [
   { value: "local", label: "Local" },
@@ -110,6 +114,39 @@ export default function BranchToolbar({
     ],
   );
 
+  const queryClient = useQueryClient();
+  const gitCwd = activeWorktreePath ?? activeProject?.cwd ?? null;
+  const gitStatus = useQuery(gitStatusQueryOptions(gitCwd));
+  const behindCount = gitStatus.data?.behindCount ?? 0;
+  const isBehindUpstream = behindCount > 0 && !hasServerThread;
+  const pullMutation = useMutation(gitPullMutationOptions({ cwd: gitCwd, queryClient }));
+
+  const handlePull = useCallback(() => {
+    if (pullMutation.isPending) return;
+    const promise = pullMutation.mutateAsync();
+    void promise
+      .then((result) => {
+        toastManager.add({
+          type: "success",
+          title: result.status === "pulled" ? "Pulled" : "Already up to date",
+          description:
+            result.status === "pulled"
+              ? `Updated ${result.branch} from ${result.upstreamBranch ?? "upstream"}.`
+              : "Branch is already up to date.",
+        });
+      })
+      .catch((error) => {
+        toastManager.add({
+          type: "error",
+          title: "Pull failed",
+          description: error instanceof Error ? error.message : "An error occurred.",
+        });
+      })
+      .finally(() => {
+        void invalidateGitQueries(queryClient);
+      });
+  }, [pullMutation, queryClient]);
+
   if (!activeThreadId || !activeProject) return null;
 
   return (
@@ -160,17 +197,47 @@ export default function BranchToolbar({
       )}
 
       <div className="flex flex-col items-end gap-1">
-        <BranchToolbarBranchSelector
-          activeProjectCwd={activeProject.cwd}
-          activeThreadBranch={activeThreadBranch}
-          activeWorktreePath={activeWorktreePath}
-          branchCwd={branchCwd}
-          effectiveEnvMode={effectiveEnvMode}
-          envLocked={envLocked}
-          onSetThreadBranch={setThreadBranch}
-          {...(onCheckoutPullRequestRequest ? { onCheckoutPullRequestRequest } : {})}
-          {...(onComposerFocusRequest ? { onComposerFocusRequest } : {})}
-        />
+        <div className="flex items-center gap-1.5">
+          {isBehindUpstream ? (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    className="gap-1 text-warning border-warning/30 hover:bg-warning/10"
+                    onClick={handlePull}
+                    disabled={pullMutation.isPending}
+                  >
+                    {pullMutation.isPending ? (
+                      <LoaderIcon className="size-3 animate-spin" />
+                    ) : (
+                      <ArrowDownIcon className="size-3" />
+                    )}
+                    Pull
+                    <Badge variant="outline" size="sm" className="ml-0.5 px-1 py-0 text-[10px] text-warning border-warning/30">
+                      {behindCount}
+                    </Badge>
+                  </Button>
+                }
+              />
+              <TooltipPopup side="bottom" align="end">
+                Local branch is {behindCount} commit{behindCount !== 1 ? "s" : ""} behind upstream. Pull to update before starting a new thread.
+              </TooltipPopup>
+            </Tooltip>
+          ) : null}
+          <BranchToolbarBranchSelector
+            activeProjectCwd={activeProject.cwd}
+            activeThreadBranch={activeThreadBranch}
+            activeWorktreePath={activeWorktreePath}
+            branchCwd={branchCwd}
+            effectiveEnvMode={effectiveEnvMode}
+            envLocked={envLocked}
+            onSetThreadBranch={setThreadBranch}
+            {...(onCheckoutPullRequestRequest ? { onCheckoutPullRequestRequest } : {})}
+            {...(onComposerFocusRequest ? { onComposerFocusRequest } : {})}
+          />
+        </div>
         {activeWorktreePath && activeWorktreeBaseBranch ? (
           <Tooltip>
             <TooltipTrigger

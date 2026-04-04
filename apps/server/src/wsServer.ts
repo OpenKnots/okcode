@@ -54,7 +54,11 @@ import { pickFolderNative } from "./nativeFolderPicker.ts";
 import { GitManager } from "./git/Services/GitManager.ts";
 import { TerminalManager } from "./terminal/Services/Manager.ts";
 import { Keybindings } from "./keybindings";
-import { clearWorkspaceIndexCache, listWorkspaceDirectory, searchWorkspaceEntries } from "./workspaceEntries";
+import {
+  clearWorkspaceIndexCache,
+  listWorkspaceDirectory,
+  searchWorkspaceEntries,
+} from "./workspaceEntries";
 import { OrchestrationEngineService } from "./orchestration/Services/OrchestrationEngine";
 import { ProjectionSnapshotQuery } from "./orchestration/Services/ProjectionSnapshotQuery";
 import { OrchestrationReactor } from "./orchestration/Services/OrchestrationReactor";
@@ -79,7 +83,6 @@ import {
 } from "./attachmentStore.ts";
 import { parseBase64DataUrl } from "./imageMime.ts";
 import { extractTextAttachmentContents } from "./attachmentText.ts";
-import { AnalyticsService } from "./telemetry/Services/AnalyticsService.ts";
 import { expandHomePath } from "./os-jank.ts";
 import { makeServerPushBus } from "./wsServer/pushBus.ts";
 import { makeServerReadiness } from "./wsServer/readiness.ts";
@@ -290,7 +293,6 @@ export type ServerRuntimeServices =
   | Keybindings
   | SkillService
   | Open
-  | AnalyticsService
   | EnvironmentVariables;
 
 export class ServerLifecycleError extends Schema.TaggedErrorClass<ServerLifecycleError>()(
@@ -853,28 +855,22 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
 
   let fileTreeDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-  const fileTreeWatcher = fs.watch(
-    cwd,
-    { recursive: true },
-    (_eventType, filename) => {
-      if (!filename) return;
+  const fileTreeWatcher = fs.watch(cwd, { recursive: true }, (_eventType, filename) => {
+    if (!filename) return;
 
-      // Ignore changes inside noisy directories
-      const normalized = String(filename).replaceAll("\\", "/");
-      const firstSegment = normalized.split("/")[0];
-      if (firstSegment && IGNORED_WATCHER_DIRS.has(firstSegment)) return;
+    // Ignore changes inside noisy directories
+    const normalized = String(filename).replaceAll("\\", "/");
+    const firstSegment = normalized.split("/")[0];
+    if (firstSegment && IGNORED_WATCHER_DIRS.has(firstSegment)) return;
 
-      // Debounce rapid consecutive changes into a single push
-      if (fileTreeDebounceTimer) clearTimeout(fileTreeDebounceTimer);
-      fileTreeDebounceTimer = setTimeout(() => {
-        fileTreeDebounceTimer = null;
-        clearWorkspaceIndexCache(cwd);
-        void Effect.runPromise(
-          pushBus.publishAll(WS_CHANNELS.projectFileTreeChanged, { cwd }),
-        );
-      }, FILE_TREE_DEBOUNCE_MS);
-    },
-  );
+    // Debounce rapid consecutive changes into a single push
+    if (fileTreeDebounceTimer) clearTimeout(fileTreeDebounceTimer);
+    fileTreeDebounceTimer = setTimeout(() => {
+      fileTreeDebounceTimer = null;
+      clearWorkspaceIndexCache(cwd);
+      void Effect.runPromise(pushBus.publishAll(WS_CHANNELS.projectFileTreeChanged, { cwd }));
+    }, FILE_TREE_DEBOUNCE_MS);
+  });
 
   yield* Effect.addFinalizer(() =>
     Effect.sync(() => {

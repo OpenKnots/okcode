@@ -5169,10 +5169,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
                         >
                           {pendingUserInputs.length === 0 && (
                             <>
-                              <PromptEnhancer
-                                prompt={prompt}
-                                onEnhance={setPromptFromTraits}
-                              />
+                              <PromptEnhancer prompt={prompt} onEnhance={setPromptFromTraits} />
                               <Button
                                 variant="ghost"
                                 size="icon-xs"

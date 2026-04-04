@@ -4,6 +4,7 @@ import {
   ORCHESTRATION_WS_METHODS,
   type ContextMenuItem,
   type NativeApi,
+  type ProjectFileTreeChangedPayload,
   type PrReviewRepoConfigUpdatedPayload,
   type PrReviewSyncUpdatedPayload,
   ServerConfigUpdatedPayload,
@@ -23,6 +24,9 @@ const gitActionProgressListeners = new Set<(payload: GitActionProgressEvent) => 
 const prReviewSyncUpdatedListeners = new Set<(payload: PrReviewSyncUpdatedPayload) => void>();
 const prReviewRepoConfigUpdatedListeners = new Set<
   (payload: PrReviewRepoConfigUpdatedPayload) => void
+>();
+const projectFileTreeChangedListeners = new Set<
+  (payload: ProjectFileTreeChangedPayload) => void
 >();
 const transportStateListeners = new Set<(state: TransportState) => void>();
 
@@ -157,6 +161,16 @@ export function createWsNativeApi(): NativeApi {
       }
     }
   });
+  transport.subscribe(WS_CHANNELS.projectFileTreeChanged, (message) => {
+    const payload = message.data;
+    for (const listener of projectFileTreeChangedListeners) {
+      try {
+        listener(payload);
+      } catch {
+        // Swallow listener errors
+      }
+    }
+  });
 
   const api: NativeApi = {
     dialogs: {
@@ -194,6 +208,12 @@ export function createWsNativeApi(): NativeApi {
       writeFile: (input) => transport.request(WS_METHODS.projectsWriteFile, input),
       readFile: (input) => transport.request(WS_METHODS.projectsReadFile, input),
       deleteEntry: (input) => transport.request(WS_METHODS.projectsDeleteEntry, input),
+      onFileTreeChanged: (callback) => {
+        projectFileTreeChangedListeners.add(callback);
+        return () => {
+          projectFileTreeChangedListeners.delete(callback);
+        };
+      },
     },
     shell: {
       openInEditor: (cwd, editor) =>

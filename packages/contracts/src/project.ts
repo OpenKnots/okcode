@@ -89,3 +89,8 @@ export const ProjectDeleteEntryInput = Schema.Struct({
   relativePath: TrimmedNonEmptyString.check(Schema.isMaxLength(PROJECT_DIRECTORY_PATH_MAX_LENGTH)),
 });
 export type ProjectDeleteEntryInput = typeof ProjectDeleteEntryInput.Type;
+
+export const ProjectFileTreeChangedPayload = Schema.Struct({
+  cwd: TrimmedNonEmptyString,
+});
+export type ProjectFileTreeChangedPayload = typeof ProjectFileTreeChangedPayload.Type;

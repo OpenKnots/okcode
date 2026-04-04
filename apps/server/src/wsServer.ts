@@ -6,6 +6,7 @@
  *
  * @module Server
  */
+import fs from "node:fs";
 import http, { type IncomingMessage } from "node:http";
 import type { Duplex } from "node:stream";
 
@@ -53,7 +54,7 @@ import { pickFolderNative } from "./nativeFolderPicker.ts";
 import { GitManager } from "./git/Services/GitManager.ts";
 import { TerminalManager } from "./terminal/Services/Manager.ts";
 import { Keybindings } from "./keybindings";
-import { listWorkspaceDirectory, searchWorkspaceEntries } from "./workspaceEntries";
+import { clearWorkspaceIndexCache, listWorkspaceDirectory, searchWorkspaceEntries } from "./workspaceEntries";
 import { OrchestrationEngineService } from "./orchestration/Services/OrchestrationEngine";
 import { ProjectionSnapshotQuery } from "./orchestration/Services/ProjectionSnapshotQuery";
 import { OrchestrationReactor } from "./orchestration/Services/OrchestrationReactor";
@@ -834,6 +835,53 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
   );
   yield* Effect.addFinalizer(() => Effect.sync(() => unsubscribeTerminalEvents()));
   yield* readiness.markTerminalSubscriptionsReady;
+
+  // ── File tree watcher ──────────────────────────────────────────────
+  // Watch the workspace directory for file system changes and push
+  // notifications so the client can refresh the file tree automatically.
+  const FILE_TREE_DEBOUNCE_MS = 300;
+  const IGNORED_WATCHER_DIRS = new Set([
+    ".git",
+    "node_modules",
+    ".next",
+    ".turbo",
+    "dist",
+    "build",
+    "out",
+    ".cache",
+  ]);
+
+  let fileTreeDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const fileTreeWatcher = fs.watch(
+    cwd,
+    { recursive: true },
+    (_eventType, filename) => {
+      if (!filename) return;
+
+      // Ignore changes inside noisy directories
+      const normalized = String(filename).replaceAll("\\", "/");
+      const firstSegment = normalized.split("/")[0];
+      if (firstSegment && IGNORED_WATCHER_DIRS.has(firstSegment)) return;
+
+      // Debounce rapid consecutive changes into a single push
+      if (fileTreeDebounceTimer) clearTimeout(fileTreeDebounceTimer);
+      fileTreeDebounceTimer = setTimeout(() => {
+        fileTreeDebounceTimer = null;
+        clearWorkspaceIndexCache(cwd);
+        void Effect.runPromise(
+          pushBus.publishAll(WS_CHANNELS.projectFileTreeChanged, { cwd }),
+        );
+      }, FILE_TREE_DEBOUNCE_MS);
+    },
+  );
+
+  yield* Effect.addFinalizer(() =>
+    Effect.sync(() => {
+      fileTreeWatcher.close();
+      if (fileTreeDebounceTimer) clearTimeout(fileTreeDebounceTimer);
+    }),
+  );
 
   yield* NodeHttpServer.make(() => httpServer, listenOptions).pipe(
     Effect.mapError((cause) => new ServerLifecycleError({ operation: "httpServerListen", cause })),

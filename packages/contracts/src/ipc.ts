@@ -25,6 +25,7 @@ import type {
 } from "./git";
 import type {
   ProjectDeleteEntryInput,
+  ProjectFileTreeChangedPayload,
   ProjectListDirectoryInput,
   ProjectListDirectoryResult,
   ProjectReadFileInput,
@@ -315,6 +316,9 @@ export interface NativeApi {
     writeFile: (input: ProjectWriteFileInput) => Promise<ProjectWriteFileResult>;
     readFile: (input: ProjectReadFileInput) => Promise<ProjectReadFileResult>;
     deleteEntry: (input: ProjectDeleteEntryInput) => Promise<void>;
+    onFileTreeChanged: (
+      callback: (payload: ProjectFileTreeChangedPayload) => void,
+    ) => () => void;
   };
   shell: {
     openInEditor: (cwd: string, editor: EditorId) => Promise<void>;

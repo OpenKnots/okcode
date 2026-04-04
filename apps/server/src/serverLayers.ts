@@ -39,7 +39,6 @@ import { WorkflowEngineLive } from "./prReview/Layers/WorkflowEngine";
 import { MergeConflictResolverLive } from "./prReview/Layers/MergeConflictResolver";
 import { PrReviewLive } from "./prReview/Layers/PrReview";
 import { PtyAdapter } from "./terminal/Services/PTY";
-import { AnalyticsService } from "./telemetry/Services/AnalyticsService";
 
 type RuntimePtyAdapterLoader = {
   layer: Layer.Layer<PtyAdapter, never, FileSystem.FileSystem | Path.Path>;
@@ -61,7 +60,7 @@ const makeRuntimePtyAdapterLayer = () =>
 export function makeServerProviderLayer(): Layer.Layer<
   ProviderService,
   ProviderUnsupportedError,
-  SqlClient.SqlClient | ServerConfig | FileSystem.FileSystem | AnalyticsService
+  SqlClient.SqlClient | ServerConfig | FileSystem.FileSystem
 > {
   return Effect.gen(function* () {
     const { providerEventLogPath } = yield* ServerConfig;

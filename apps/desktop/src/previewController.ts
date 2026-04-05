@@ -20,15 +20,32 @@ const PREVIEW_WEB_PREFERENCES = {
 
 const ZERO_BOUNDS = { x: 0, y: 0, width: 0, height: 0 } as const;
 
+/**
+ * Maximum total WebContentsView instances across all threads.
+ * When this limit is exceeded, the least-recently-used thread's
+ * views are disposed to free resources.
+ */
+const MAX_TOTAL_VIEWS = 20;
+
 interface TabEntry {
   id: PreviewTabId;
   view: WebContentsView;
   state: PreviewTabState;
 }
 
+interface ThreadTabSet {
+  tabs: Map<PreviewTabId, TabEntry>;
+  activeTabId: PreviewTabId | null;
+}
+
 export class DesktopPreviewController {
-  private tabs: Map<PreviewTabId, TabEntry> = new Map();
-  private activeTabId: PreviewTabId | null = null;
+  /** Per-thread tab storage. */
+  private threadTabs: Map<string, ThreadTabSet> = new Map();
+  /** The thread whose tabs are currently visible. */
+  private activeThreadId: string | null = null;
+  /** LRU ordering of thread IDs (most recently used last). */
+  private threadLru: string[] = [];
+
   private bounds: DesktopPreviewBounds = {
     x: 0,
     y: 0,
@@ -45,18 +62,63 @@ export class DesktopPreviewController {
     private readonly onStateChange: (state: PreviewTabsState) => void,
   ) {}
 
+  // ── Thread management ─────────────────────────────────────────
+
+  /**
+   * Switch the active thread. Hides the current thread's tabs and
+   * shows the target thread's tabs (creating the set if needed).
+   */
+  activateThread(threadId: string): PreviewTabsState {
+    if (this.activeThreadId === threadId) {
+      return this.buildTabsState();
+    }
+
+    // Hide all views from the old thread
+    this.hideActiveThreadViews();
+
+    this.activeThreadId = threadId;
+    this.touchThreadLru(threadId);
+
+    // Ensure the thread set exists
+    if (!this.threadTabs.has(threadId)) {
+      this.threadTabs.set(threadId, { tabs: new Map(), activeTabId: null });
+    }
+
+    // Show the active tab of the new thread
+    this.applyActiveTabBounds();
+
+    return this.broadcastState();
+  }
+
+  // ── Public API (operates on the active thread) ────────────────
+
   getState(): PreviewTabsState {
     return this.buildTabsState();
   }
 
-  async createTab(input: { url: unknown; title?: unknown }): Promise<PreviewCreateTabResult> {
+  async createTab(input: {
+    url: unknown;
+    title?: unknown;
+    threadId?: unknown;
+  }): Promise<PreviewCreateTabResult> {
+    // If a threadId is provided and differs from the active one, switch first
+    const requestedThread =
+      typeof input.threadId === "string" && input.threadId.length > 0
+        ? input.threadId
+        : this.activeThreadId;
+
+    if (requestedThread && requestedThread !== this.activeThreadId) {
+      this.activateThread(requestedThread);
+    }
+
     const validatedUrl = validateDesktopPreviewUrl(input.url);
     if (!validatedUrl.ok) {
-      // Still create the tab but in error state
       const tabId = randomUUID();
-      // Don't actually create a view for invalid URLs
       return { tabId, state: this.buildTabsState() };
     }
+
+    // Enforce global view limit before creating a new one
+    this.enforceViewLimit();
 
     const tabId = randomUUID();
     const nextTitle =
@@ -75,14 +137,15 @@ export class DesktopPreviewController {
     };
 
     const entry: TabEntry = { id: tabId, view, state: tabState };
-    this.tabs.set(tabId, entry);
+    const threadSet = this.getActiveThreadSet();
+    threadSet.tabs.set(tabId, entry);
 
     // Switch to this tab
     this.activateTabInternal(tabId);
 
     // Load URL
     void view.webContents.loadURL(validatedUrl.url).catch((error: unknown) => {
-      const tab = this.tabs.get(tabId);
+      const tab = threadSet.tabs.get(tabId);
       if (!tab || tab.view !== view) return;
       tab.state = {
         ...tab.state,
@@ -100,17 +163,18 @@ export class DesktopPreviewController {
   }
 
   closeTab(tabId: PreviewTabId): PreviewTabsState {
-    const entry = this.tabs.get(tabId);
+    const threadSet = this.getActiveThreadSet();
+    const entry = threadSet.tabs.get(tabId);
     if (!entry) return this.buildTabsState();
 
     this.disposeTabView(entry);
-    this.tabs.delete(tabId);
+    threadSet.tabs.delete(tabId);
 
     // If this was the active tab, activate an adjacent one
-    if (this.activeTabId === tabId) {
-      const remaining = Array.from(this.tabs.keys());
-      this.activeTabId = remaining.length > 0 ? remaining[remaining.length - 1]! : null;
-      if (this.activeTabId) {
+    if (threadSet.activeTabId === tabId) {
+      const remaining = Array.from(threadSet.tabs.keys());
+      threadSet.activeTabId = remaining.length > 0 ? remaining[remaining.length - 1]! : null;
+      if (threadSet.activeTabId) {
         this.applyActiveTabBounds();
       }
     }
@@ -119,7 +183,8 @@ export class DesktopPreviewController {
   }
 
   activateTab(tabId: PreviewTabId): PreviewTabsState {
-    if (!this.tabs.has(tabId)) return this.buildTabsState();
+    const threadSet = this.getActiveThreadSet();
+    if (!threadSet.tabs.has(tabId)) return this.buildTabsState();
     this.activateTabInternal(tabId);
     return this.broadcastState();
   }
@@ -165,7 +230,8 @@ export class DesktopPreviewController {
     this.broadcastState();
 
     void activeEntry.view.webContents.loadURL(validatedUrl.url).catch((error: unknown) => {
-      const tab = this.tabs.get(activeEntry.id);
+      const threadSet = this.getActiveThreadSet();
+      const tab = threadSet.tabs.get(activeEntry.id);
       if (!tab || tab.view !== activeEntry.view) return;
       tab.state = {
         ...tab.state,
@@ -187,12 +253,16 @@ export class DesktopPreviewController {
     view.webContents.toggleDevTools();
   }
 
+  /** Close all tabs for the active thread only. */
   closeAll(): void {
-    for (const entry of this.tabs.values()) {
+    const threadSet = this.threadTabs.get(this.activeThreadId ?? "");
+    if (!threadSet) return;
+
+    for (const entry of threadSet.tabs.values()) {
       this.disposeTabView(entry);
     }
-    this.tabs.clear();
-    this.activeTabId = null;
+    threadSet.tabs.clear();
+    threadSet.activeTabId = null;
     this.broadcastState();
   }
 
@@ -203,10 +273,87 @@ export class DesktopPreviewController {
   }
 
   destroy(): void {
-    this.closeAll();
+    // Destroy all tabs across all threads
+    for (const threadSet of this.threadTabs.values()) {
+      for (const entry of threadSet.tabs.values()) {
+        this.disposeTabView(entry);
+      }
+      threadSet.tabs.clear();
+    }
+    this.threadTabs.clear();
+    this.activeThreadId = null;
+    this.threadLru = [];
   }
 
-  // --- Private helpers ---
+  // ── Private helpers ───────────────────────────────────────────
+
+  private getActiveThreadSet(): ThreadTabSet {
+    if (!this.activeThreadId) {
+      // Create a transient "default" thread set
+      const threadId = "__default__";
+      this.activeThreadId = threadId;
+      if (!this.threadTabs.has(threadId)) {
+        this.threadTabs.set(threadId, { tabs: new Map(), activeTabId: null });
+      }
+    }
+    return this.threadTabs.get(this.activeThreadId)!;
+  }
+
+  private hideActiveThreadViews(): void {
+    if (!this.activeThreadId) return;
+    const threadSet = this.threadTabs.get(this.activeThreadId);
+    if (!threadSet) return;
+
+    for (const entry of threadSet.tabs.values()) {
+      if (!entry.view.webContents.isDestroyed()) {
+        entry.view.setBounds(ZERO_BOUNDS);
+      }
+    }
+  }
+
+  private touchThreadLru(threadId: string): void {
+    const idx = this.threadLru.indexOf(threadId);
+    if (idx !== -1) {
+      this.threadLru.splice(idx, 1);
+    }
+    this.threadLru.push(threadId);
+  }
+
+  /**
+   * Enforce the global MAX_TOTAL_VIEWS limit by evicting the
+   * least-recently-used thread's views when the cap is exceeded.
+   */
+  private enforceViewLimit(): void {
+    let totalViews = 0;
+    for (const threadSet of this.threadTabs.values()) {
+      totalViews += threadSet.tabs.size;
+    }
+
+    // Evict from least-recently-used threads until under limit
+    while (totalViews >= MAX_TOTAL_VIEWS && this.threadLru.length > 0) {
+      const lruThreadId = this.threadLru[0]!;
+      // Never evict the active thread
+      if (lruThreadId === this.activeThreadId) {
+        if (this.threadLru.length <= 1) break;
+        // Move it to the end and try the next
+        this.threadLru.shift();
+        this.threadLru.push(lruThreadId);
+        continue;
+      }
+
+      const threadSet = this.threadTabs.get(lruThreadId);
+      if (threadSet) {
+        for (const entry of threadSet.tabs.values()) {
+          this.disposeTabView(entry);
+          totalViews--;
+        }
+        threadSet.tabs.clear();
+        threadSet.activeTabId = null;
+      }
+      this.threadLru.shift();
+      this.threadTabs.delete(lruThreadId);
+    }
+  }
 
   private createView(tabId: PreviewTabId): WebContentsView {
     const view = new WebContentsView({
@@ -223,8 +370,17 @@ export class DesktopPreviewController {
   private bindView(tabId: PreviewTabId, view: WebContentsView): void {
     const { webContents } = view;
 
+    // We need to look up the tab in whichever thread owns it.
+    const findTab = (): TabEntry | undefined => {
+      for (const threadSet of this.threadTabs.values()) {
+        const tab = threadSet.tabs.get(tabId);
+        if (tab) return tab;
+      }
+      return undefined;
+    };
+
     webContents.on("did-start-loading", () => {
-      const tab = this.tabs.get(tabId);
+      const tab = findTab();
       if (!tab) return;
       tab.state = {
         ...tab.state,
@@ -236,7 +392,7 @@ export class DesktopPreviewController {
     });
 
     webContents.on("did-stop-loading", () => {
-      const tab = this.tabs.get(tabId);
+      const tab = findTab();
       if (!tab || tab.state.status === "error") return;
       tab.state = {
         ...tab.state,
@@ -250,7 +406,7 @@ export class DesktopPreviewController {
     });
 
     webContents.on("did-navigate", (_event, url) => {
-      const tab = this.tabs.get(tabId);
+      const tab = findTab();
       if (!tab) return;
       tab.state = {
         ...tab.state,
@@ -262,7 +418,7 @@ export class DesktopPreviewController {
     });
 
     webContents.on("did-navigate-in-page", (_event, url) => {
-      const tab = this.tabs.get(tabId);
+      const tab = findTab();
       if (!tab) return;
       tab.state = {
         ...tab.state,
@@ -275,7 +431,7 @@ export class DesktopPreviewController {
 
     webContents.on("page-title-updated", (event, title) => {
       event.preventDefault();
-      const tab = this.tabs.get(tabId);
+      const tab = findTab();
       if (!tab) return;
       tab.state = { ...tab.state, title: title || null };
       this.broadcastState();
@@ -285,7 +441,7 @@ export class DesktopPreviewController {
       "did-fail-load",
       (_event, errorCode, errorDescription, validatedUrl, isMainFrame) => {
         if (!isMainFrame || errorCode === -3) return; // -3 = aborted
-        const tab = this.tabs.get(tabId);
+        const tab = findTab();
         if (!tab) return;
         tab.state = {
           ...tab.state,
@@ -301,7 +457,7 @@ export class DesktopPreviewController {
     );
 
     webContents.on("render-process-gone", () => {
-      const tab = this.tabs.get(tabId);
+      const tab = findTab();
       if (!tab) return;
       tab.state = {
         ...tab.state,
@@ -313,7 +469,7 @@ export class DesktopPreviewController {
 
     webContents.once("destroyed", () => {
       if (this.disposingTab) return;
-      const tab = this.tabs.get(tabId);
+      const tab = findTab();
       if (!tab) return;
       tab.state = {
         ...tab.state,
@@ -325,14 +481,14 @@ export class DesktopPreviewController {
 
     // DevTools tracking
     webContents.on("devtools-opened", () => {
-      const tab = this.tabs.get(tabId);
+      const tab = findTab();
       if (!tab) return;
       tab.state = { ...tab.state, devToolsOpen: true };
       this.broadcastState();
     });
 
     webContents.on("devtools-closed", () => {
-      const tab = this.tabs.get(tabId);
+      const tab = findTab();
       if (!tab) return;
       tab.state = { ...tab.state, devToolsOpen: false };
       this.broadcastState();
@@ -340,7 +496,7 @@ export class DesktopPreviewController {
 
     // Unrestricted navigation: no will-navigate blocker
 
-    // window.open() → create a new tab
+    // window.open() -> create a new tab in the same thread
     webContents.setWindowOpenHandler((details) => {
       void this.createTab({ url: details.url });
       return { action: "deny" };
@@ -394,21 +550,24 @@ export class DesktopPreviewController {
   }
 
   private activateTabInternal(tabId: PreviewTabId): void {
-    // Hide current active tab
-    if (this.activeTabId && this.activeTabId !== tabId) {
-      const oldEntry = this.tabs.get(this.activeTabId);
+    const threadSet = this.getActiveThreadSet();
+
+    // Hide current active tab within this thread
+    if (threadSet.activeTabId && threadSet.activeTabId !== tabId) {
+      const oldEntry = threadSet.tabs.get(threadSet.activeTabId);
       if (oldEntry && !oldEntry.view.webContents.isDestroyed()) {
         oldEntry.view.setBounds(ZERO_BOUNDS);
       }
     }
 
-    this.activeTabId = tabId;
+    threadSet.activeTabId = tabId;
     this.applyActiveTabBounds();
   }
 
   private applyActiveTabBounds(): void {
-    if (!this.activeTabId) return;
-    const entry = this.tabs.get(this.activeTabId);
+    const threadSet = this.threadTabs.get(this.activeThreadId ?? "");
+    if (!threadSet?.activeTabId) return;
+    const entry = threadSet.tabs.get(threadSet.activeTabId);
     if (!entry || entry.view.webContents.isDestroyed()) return;
 
     const nextBounds = projectPreviewBoundsToContent(this.bounds, this.window.getContentBounds());
@@ -416,8 +575,9 @@ export class DesktopPreviewController {
   }
 
   private getActiveEntry(): TabEntry | null {
-    if (!this.activeTabId) return null;
-    return this.tabs.get(this.activeTabId) ?? null;
+    const threadSet = this.threadTabs.get(this.activeThreadId ?? "");
+    if (!threadSet?.activeTabId) return null;
+    return threadSet.tabs.get(threadSet.activeTabId) ?? null;
   }
 
   private getActiveView(): WebContentsView | null {
@@ -438,9 +598,15 @@ export class DesktopPreviewController {
     this.disposingTab = false;
   }
 
+  /** Build state for the active thread only (what the renderer sees). */
   private buildTabsState(): PreviewTabsState {
+    const threadSet = this.threadTabs.get(this.activeThreadId ?? "");
+    if (!threadSet) {
+      return { tabs: [], activeTabId: null, visible: false };
+    }
+
     const tabs: PreviewTabState[] = [];
-    for (const entry of this.tabs.values()) {
+    for (const entry of threadSet.tabs.values()) {
       // Refresh navigation state from live webContents
       const wc = entry.view.webContents;
       if (!wc.isDestroyed()) {
@@ -453,11 +619,12 @@ export class DesktopPreviewController {
       tabs.push(entry.state);
     }
 
-    const visible = this.bounds.visible && tabs.length > 0 && this.activeTabId !== null;
+    const visible =
+      this.bounds.visible && tabs.length > 0 && threadSet.activeTabId !== null;
 
     return {
       tabs,
-      activeTabId: this.activeTabId,
+      activeTabId: threadSet.activeTabId,
       visible,
     };
   }

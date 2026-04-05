@@ -129,6 +129,14 @@ export function PreviewPanel({ threadId, onClose }: PreviewPanelProps) {
     }
   }, [activeTab?.tabId, activeTab?.url]);
 
+  // Activate this thread's preview tabs when the threadId changes
+  useEffect(() => {
+    if (!previewBridge) return;
+    void previewBridge.activateThread({ threadId }).then((state) => {
+      setTabsState(state);
+    });
+  }, [previewBridge, threadId]);
+
   // Subscribe to state changes
   useEffect(() => {
     if (!previewBridge) {
@@ -262,8 +270,8 @@ export function PreviewPanel({ threadId, onClose }: PreviewPanelProps) {
       // Navigate existing active tab
       void previewBridge?.navigate({ url: validatedUrl.url });
     } else {
-      // Create a new tab
-      void previewBridge?.createTab({ url: validatedUrl.url });
+      // Create a new tab for this thread
+      void previewBridge?.createTab({ url: validatedUrl.url, threadId });
     }
   };
 
@@ -272,12 +280,12 @@ export function PreviewPanel({ threadId, onClose }: PreviewPanelProps) {
     if (url.length > 0) {
       const validatedUrl = validateHttpPreviewUrl(url);
       if (validatedUrl.ok) {
-        void previewBridge?.createTab({ url: validatedUrl.url });
+        void previewBridge?.createTab({ url: validatedUrl.url, threadId });
         return;
       }
     }
     // Create tab with a default page
-    void previewBridge?.createTab({ url: "https://www.google.com" });
+    void previewBridge?.createTab({ url: "https://www.google.com", threadId });
   };
 
   const onClosePreview = () => {

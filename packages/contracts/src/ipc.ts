@@ -237,9 +237,11 @@ export interface DesktopBridge {
   installUpdate: () => Promise<DesktopUpdateActionResult>;
   onUpdateState: (listener: (state: DesktopUpdateState) => void) => () => void;
   preview: {
-    createTab: (input: { url: string; title?: string | null }) => Promise<PreviewCreateTabResult>;
+    createTab: (input: { url: string; title?: string | null; threadId?: string | null }) => Promise<PreviewCreateTabResult>;
     closeTab: (input: { tabId: PreviewTabId }) => Promise<PreviewTabsState>;
     activateTab: (input: { tabId: PreviewTabId }) => Promise<PreviewTabsState>;
+    /** Switch the preview controller to show the tabs for the given thread. */
+    activateThread: (input: { threadId: string }) => Promise<PreviewTabsState>;
     goBack: () => Promise<void>;
     goForward: () => Promise<void>;
     reload: () => Promise<void>;

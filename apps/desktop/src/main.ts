@@ -65,6 +65,7 @@ const UPDATE_INSTALL_CHANNEL = "desktop:update-install";
 const PREVIEW_CREATE_TAB_CHANNEL = "desktop:preview-create-tab";
 const PREVIEW_CLOSE_TAB_CHANNEL = "desktop:preview-close-tab";
 const PREVIEW_ACTIVATE_TAB_CHANNEL = "desktop:preview-activate-tab";
+const PREVIEW_ACTIVATE_THREAD_CHANNEL = "desktop:preview-activate-thread";
 const PREVIEW_GO_BACK_CHANNEL = "desktop:preview-go-back";
 const PREVIEW_GO_FORWARD_CHANNEL = "desktop:preview-go-forward";
 const PREVIEW_RELOAD_CHANNEL = "desktop:preview-reload";
@@ -1275,7 +1276,7 @@ function registerIpcHandlers(): void {
   ipcMain.removeHandler(PREVIEW_CREATE_TAB_CHANNEL);
   ipcMain.handle(
     PREVIEW_CREATE_TAB_CHANNEL,
-    async (event, input: { url?: unknown; title?: unknown }) => {
+    async (event, input: { url?: unknown; title?: unknown; threadId?: unknown }) => {
       const window = resolvePreviewWindow(event.sender);
       if (!window) {
         return { tabId: "", state: createEmptyTabsState() };
@@ -1283,7 +1284,18 @@ function registerIpcHandlers(): void {
       return getPreviewController(window).createTab({
         url: input?.url,
         title: input?.title,
+        threadId: input?.threadId,
       });
+    },
+  );
+
+  ipcMain.removeHandler(PREVIEW_ACTIVATE_THREAD_CHANNEL);
+  ipcMain.handle(
+    PREVIEW_ACTIVATE_THREAD_CHANNEL,
+    async (event, input: { threadId?: string }) => {
+      const window = resolvePreviewWindow(event.sender);
+      if (!window || !input?.threadId) return createEmptyTabsState();
+      return getPreviewController(window).activateThread(input.threadId);
     },
   );
 

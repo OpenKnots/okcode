@@ -985,6 +985,56 @@ it.layer(TestLayer)("git integration", (it) => {
       }),
     );
 
+    it.effect(
+      "can update a tracked base branch from remote without changing the local checkout",
+      () =>
+        Effect.gen(function* () {
+          const remote = yield* makeTmpDir();
+          const source = yield* makeTmpDir();
+          const clone = yield* makeTmpDir();
+          yield* git(remote, ["init", "--bare"]);
+
+          yield* initRepoWithCommit(source);
+          const core = yield* GitCore;
+          const baseBranch = (yield* core.listBranches({ cwd: source })).branches.find(
+            (branch) => branch.current,
+          )!.name;
+
+          yield* git(source, ["remote", "add", "origin", remote]);
+          yield* git(source, ["push", "-u", "origin", baseBranch]);
+
+          yield* git(clone, ["clone", remote, "."]);
+          yield* git(clone, ["config", "user.email", "test@test.com"]);
+          yield* git(clone, ["config", "user.name", "Test"]);
+          yield* writeTextFile(path.join(clone, "CHANGELOG.md"), "remote change\n");
+          yield* git(clone, ["add", "CHANGELOG.md"]);
+          yield* git(clone, ["commit", "-m", "remote update"]);
+          yield* git(clone, ["push", "origin", baseBranch]);
+
+          const wtPath = path.join(source, "wt-remote-base");
+          const result = yield* core.createWorktree({
+            cwd: source,
+            branch: baseBranch,
+            newBranch: "wt-remote-base",
+            path: wtPath,
+            updateBaseBranchWithRemote: true,
+          });
+
+          expect(result.worktree.baseBranch).toBe(baseBranch);
+          expect(existsSync(path.join(wtPath, "CHANGELOG.md"))).toBe(true);
+          expect(existsSync(path.join(source, "CHANGELOG.md"))).toBe(false);
+
+          const localBaseHead = yield* git(source, ["rev-parse", baseBranch]);
+          const remoteBaseHead = yield* git(source, ["rev-parse", `origin/${baseBranch}`]);
+          const worktreeHead = yield* git(wtPath, ["rev-parse", "HEAD"]);
+
+          expect(worktreeHead).toBe(remoteBaseHead);
+          expect(localBaseHead).not.toBe(remoteBaseHead);
+
+          yield* core.removeWorktree({ cwd: source, path: wtPath });
+        }),
+    );
+
     it.effect("worktree has the new branch checked out", () =>
       Effect.gen(function* () {
         const tmp = yield* makeTmpDir();

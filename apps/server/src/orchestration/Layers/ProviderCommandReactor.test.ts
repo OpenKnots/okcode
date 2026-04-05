@@ -321,6 +321,39 @@ describe("ProviderCommandReactor", () => {
     expect(thread?.session?.runtimeMode).toBe("approval-required");
   });
 
+  it("prefers hidden provider input over the visible user message when sending turns", async () => {
+    const harness = await createHarness();
+    const now = new Date().toISOString();
+
+    await Effect.runPromise(
+      harness.engine.dispatch({
+        type: "thread.turn.start",
+        commandId: CommandId.makeUnsafe("cmd-turn-start-provider-input"),
+        threadId: ThreadId.makeUnsafe("thread-1"),
+        message: {
+          messageId: asMessageId("user-message-provider-input"),
+          role: "user",
+          text: "visible composer text",
+          attachments: [],
+        },
+        providerInput: "hidden enhanced provider input",
+        interactionMode: DEFAULT_PROVIDER_INTERACTION_MODE,
+        runtimeMode: "approval-required",
+        createdAt: now,
+      }),
+    );
+
+    await waitFor(() => harness.sendTurn.mock.calls.length === 1);
+    expect(harness.sendTurn.mock.calls[0]?.[0]).toMatchObject({
+      threadId: ThreadId.makeUnsafe("thread-1"),
+      input: "hidden enhanced provider input",
+    });
+
+    const readModel = await Effect.runPromise(harness.engine.getReadModel());
+    const thread = readModel.threads.find((entry) => entry.id === ThreadId.makeUnsafe("thread-1"));
+    expect(thread?.messages[0]?.text).toBe("visible composer text");
+  });
+
   it("falls back to the project root and clears stale worktree paths before session start", async () => {
     const missingWorktreePath = path.join(
       os.tmpdir(),

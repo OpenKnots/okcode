@@ -329,6 +329,28 @@ describe("ClaudeAdapterLive", () => {
     );
   });
 
+  it.effect("sanitizes invalid shell paths before launching Claude sessions", () => {
+    const harness = makeHarness();
+    return Effect.gen(function* () {
+      const adapter = yield* ClaudeAdapter;
+      yield* adapter.startSession({
+        threadId: THREAD_ID,
+        provider: "claudeAgent",
+        runtimeMode: "full-access",
+        env: {
+          SHELL: "/definitely/missing-zsh",
+        },
+      });
+
+      const createInput = harness.getLastCreateQueryInput();
+      assert.equal(typeof createInput?.options.env?.SHELL, "string");
+      assert.notEqual(createInput?.options.env?.SHELL, "/definitely/missing-zsh");
+    }).pipe(
+      Effect.provideService(Random.Random, makeDeterministicRandomService()),
+      Effect.provide(harness.layer),
+    );
+  });
+
   it.effect("forwards claude effort levels into query options", () => {
     const harness = makeHarness();
     return Effect.gen(function* () {

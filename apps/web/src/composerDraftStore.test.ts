@@ -179,12 +179,36 @@ describe("composerDraftStore clearComposerContent", () => {
       previewUrl: "blob:optimistic",
     });
     useComposerDraftStore.getState().addAttachment(threadId, first);
+    useComposerDraftStore.getState().setPromptEnhancement(threadId, "specificity");
 
     useComposerDraftStore.getState().clearComposerContent(threadId);
 
     const draft = useComposerDraftStore.getState().draftsByThreadId[threadId];
     expect(draft).toBeUndefined();
     expect(revokeSpy).not.toHaveBeenCalledWith("blob:optimistic");
+  });
+});
+
+describe("composerDraftStore prompt enhancements", () => {
+  const threadId = ThreadId.makeUnsafe("thread-prompt-enhancement");
+
+  beforeEach(() => {
+    resetComposerDraftStore();
+  });
+
+  it("tracks the selected enhancement in draft state", () => {
+    useComposerDraftStore.getState().setPromptEnhancement(threadId, "specificity");
+
+    expect(useComposerDraftStore.getState().draftsByThreadId[threadId]?.promptEnhancement).toBe(
+      "specificity",
+    );
+  });
+
+  it("removes enhancement-only drafts when cleared", () => {
+    useComposerDraftStore.getState().setPromptEnhancement(threadId, "reasoning");
+    useComposerDraftStore.getState().setPromptEnhancement(threadId, null);
+
+    expect(useComposerDraftStore.getState().draftsByThreadId[threadId]).toBeUndefined();
   });
 });
 

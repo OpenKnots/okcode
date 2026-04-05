@@ -432,6 +432,9 @@ export const ThreadTurnStartCommand = Schema.Struct({
     text: Schema.String,
     attachments: Schema.Array(ChatAttachment),
   }),
+  providerInput: Schema.optional(
+    TrimmedNonEmptyString.check(Schema.isMaxLength(PROVIDER_SEND_TURN_MAX_INPUT_CHARS)),
+  ),
   provider: Schema.optional(ProviderKind),
   model: Schema.optional(TrimmedNonEmptyString),
   modelOptions: Schema.optional(ProviderModelOptions),
@@ -455,6 +458,9 @@ const ClientThreadTurnStartCommand = Schema.Struct({
     text: Schema.String,
     attachments: Schema.Array(UploadChatAttachment),
   }),
+  providerInput: Schema.optional(
+    TrimmedNonEmptyString.check(Schema.isMaxLength(PROVIDER_SEND_TURN_MAX_INPUT_CHARS)),
+  ),
   provider: Schema.optional(ProviderKind),
   model: Schema.optional(TrimmedNonEmptyString),
   modelOptions: Schema.optional(ProviderModelOptions),
@@ -736,6 +742,9 @@ export const ThreadMessageSentPayload = Schema.Struct({
 export const ThreadTurnStartRequestedPayload = Schema.Struct({
   threadId: ThreadId,
   messageId: MessageId,
+  providerInput: Schema.optional(
+    TrimmedNonEmptyString.check(Schema.isMaxLength(PROVIDER_SEND_TURN_MAX_INPUT_CHARS)),
+  ),
   provider: Schema.optional(ProviderKind),
   model: Schema.optional(TrimmedNonEmptyString),
   modelOptions: Schema.optional(ProviderModelOptions),

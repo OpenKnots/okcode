@@ -1245,36 +1245,38 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
             <MenuPopup align="end" className="w-full">
               {openPullRequest && pullRequestMenuItems.length > 0 ? (
                 <>
-                  <MenuGroupLabel inset>PR #{openPullRequest.number}</MenuGroupLabel>
-                  {pullRequestMenuItems.map((item) => {
-                    if (item.id === "open_in_browser") {
+                  <MenuGroup>
+                    <MenuGroupLabel inset>PR #{openPullRequest.number}</MenuGroupLabel>
+                    {pullRequestMenuItems.map((item) => {
+                      if (item.id === "open_in_browser") {
+                        return (
+                          <MenuItem
+                            key={item.id}
+                            onClick={() => {
+                              void openExistingPr();
+                            }}
+                          >
+                            <ExternalLinkIcon className="size-3.5" />
+                            {item.label}
+                          </MenuItem>
+                        );
+                      }
+                      if (item.id === "copy_pr_number") {
+                        return (
+                          <MenuItem key={item.id} onClick={copyOpenPullRequestNumber}>
+                            <CopyIcon className="size-3.5" />
+                            {item.label}
+                          </MenuItem>
+                        );
+                      }
                       return (
-                        <MenuItem
-                          key={item.id}
-                          onClick={() => {
-                            void openExistingPr();
-                          }}
-                        >
-                          <ExternalLinkIcon className="size-3.5" />
+                        <MenuItem key={item.id} onClick={copyOpenPullRequestLink}>
+                          <LinkIcon className="size-3.5" />
                           {item.label}
                         </MenuItem>
                       );
-                    }
-                    if (item.id === "copy_pr_number") {
-                      return (
-                        <MenuItem key={item.id} onClick={copyOpenPullRequestNumber}>
-                          <CopyIcon className="size-3.5" />
-                          {item.label}
-                        </MenuItem>
-                      );
-                    }
-                    return (
-                      <MenuItem key={item.id} onClick={copyOpenPullRequestLink}>
-                        <LinkIcon className="size-3.5" />
-                        {item.label}
-                      </MenuItem>
-                    );
-                  })}
+                    })}
+                  </MenuGroup>
                   {gitActionMenuItems.length > 0 ? <MenuSeparator /> : null}
                 </>
               ) : null}

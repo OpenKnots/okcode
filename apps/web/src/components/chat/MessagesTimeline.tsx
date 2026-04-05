@@ -1,4 +1,4 @@
-import { type MessageId, type TurnId } from "@okcode/contracts";
+import { type MessageId, type ThreadId, type TurnId } from "@okcode/contracts";
 import {
   memo,
   useCallback,
@@ -67,6 +67,7 @@ const MAX_VISIBLE_WORK_LOG_ENTRIES = 6;
 const ALWAYS_UNVIRTUALIZED_TAIL_ROWS = 8;
 
 interface MessagesTimelineProps {
+  threadId: ThreadId;
   hasMessages: boolean;
   isWorking: boolean;
   activeTurnInProgress: boolean;
@@ -91,9 +92,11 @@ interface MessagesTimelineProps {
   onRemoveQueuedMessage: (messageId: MessageId) => void;
   shortcutGuides: ChatShortcutGuide[];
   onOpenSettings: () => void;
+  onOpenTurnDiff: (turnId: TurnId, filePath?: string) => void;
 }
 
 export const MessagesTimeline = memo(function MessagesTimeline({
+  threadId: _threadId,
   hasMessages,
   isWorking,
   activeTurnInProgress,
@@ -118,6 +121,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
   onRemoveQueuedMessage,
   shortcutGuides,
   onOpenSettings,
+  onOpenTurnDiff,
 }: MessagesTimelineProps) {
   const { resolvedLocale } = useI18n();
   const timelineRootRef = useRef<HTMLDivElement | null>(null);
@@ -614,6 +618,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
                             allDirectoriesExpanded={allDirectoriesExpanded}
                             resolvedTheme={resolvedTheme}
                             cwd={markdownCwd}
+                            onOpenTurnDiff={onOpenTurnDiff}
                           />
                         </div>
                       )}

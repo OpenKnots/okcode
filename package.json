@@ -62,7 +62,7 @@
     "prepare": "husky && node scripts/patch-effect-language-service.ts && node scripts/patch-effect-smol-peer-installs.mjs"
   },
   "dependencies": {
-    "@pierre/diffs": "^1.1.8",
+    "@pierre/diffs": "1.1.0-beta.16",
     "lucide-react": "^1.7.0"
   },
   "devDependencies": {

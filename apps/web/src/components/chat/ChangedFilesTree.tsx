@@ -21,8 +21,9 @@ export const ChangedFilesTree = memo(function ChangedFilesTree(props: {
   allDirectoriesExpanded: boolean;
   resolvedTheme: "light" | "dark";
   cwd: string | undefined;
+  onOpenTurnDiff?: (turnId: TurnId, filePath?: string) => void;
 }) {
-  const { files, allDirectoriesExpanded, resolvedTheme, cwd } = props;
+  const { files, allDirectoriesExpanded, resolvedTheme, cwd, onOpenTurnDiff } = props;
   const fileManagerName =
     typeof navigator !== "undefined" && isMacPlatform(navigator.platform)
       ? "Finder"
@@ -227,7 +228,13 @@ export const ChangedFilesTree = memo(function ChangedFilesTree(props: {
         type="button"
         className="group flex w-full items-center gap-1.5 rounded-md py-1 pr-2 text-left hover:bg-background/80"
         style={{ paddingLeft: `${leftPadding}px` }}
-        onClick={() => openInEditor(node.path)}
+        onClick={() => {
+          if (onOpenTurnDiff) {
+            onOpenTurnDiff(props.turnId, node.path);
+            return;
+          }
+          openInEditor(node.path);
+        }}
         onContextMenu={(event) => handleFileContextMenu(event, node)}
       >
         <span aria-hidden="true" className="size-3.5 shrink-0" />

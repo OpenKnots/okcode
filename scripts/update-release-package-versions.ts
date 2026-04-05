@@ -1,4 +1,4 @@
-import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -9,6 +9,11 @@ export const releasePackageFiles = [
   "apps/mobile/package.json",
   "packages/contracts/package.json",
 ] as const;
+
+const mobileVersionFiles = {
+  android: "apps/mobile/android/app/build.gradle",
+  ios: "apps/mobile/ios/App/App.xcodeproj/project.pbxproj",
+} as const;
 
 interface UpdateReleasePackageVersionsOptions {
   readonly rootDir?: string;
@@ -36,6 +41,32 @@ export function updateReleasePackageVersions(
     packageJson.version = version;
     writeFileSync(filePath, `${JSON.stringify(packageJson, null, 2)}\n`);
     changed = true;
+  }
+
+  const androidPath = resolve(rootDir, mobileVersionFiles.android);
+  if (existsSync(androidPath)) {
+    const androidOriginal = readFileSync(androidPath, "utf8");
+    const androidUpdated = androidOriginal.replace(
+      /versionName\s+"[^"]+"/g,
+      `versionName "${version}"`,
+    );
+    if (androidUpdated !== androidOriginal) {
+      writeFileSync(androidPath, androidUpdated);
+      changed = true;
+    }
+  }
+
+  const iosPath = resolve(rootDir, mobileVersionFiles.ios);
+  if (existsSync(iosPath)) {
+    const iosOriginal = readFileSync(iosPath, "utf8");
+    const iosUpdated = iosOriginal.replace(
+      /MARKETING_VERSION\s*=\s*[^;]+;/g,
+      `MARKETING_VERSION = ${version};`,
+    );
+    if (iosUpdated !== iosOriginal) {
+      writeFileSync(iosPath, iosUpdated);
+      changed = true;
+    }
   }
 
   return { changed };

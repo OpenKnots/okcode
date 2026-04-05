@@ -278,7 +278,7 @@ The GitHub Release also includes **documentation attachments** (same content as 
 | File                        | Source in repo                        |
 | --------------------------- | ------------------------------------- |
 | \`okcode-CHANGELOG.md\`       | [CHANGELOG.md](../../../CHANGELOG.md) |
-| \`okcode-RELEASE-NOTES.md\`   | [v${version}.md](../v${version}.md)             |
+| \`okcode-RELEASE-NOTES.md\`   | [v${version}.md](../v${version}.md)           |
 | \`okcode-ASSETS-MANIFEST.md\` | This file                             |
 
 After the workflow completes, expect **installer and updater** artifacts similar to the following (exact names may include the product name \`OK Code\` and version \`${version}\`).
@@ -287,16 +287,21 @@ After the workflow completes, expect **installer and updater** artifacts similar
 
 | Platform            | Kind           | Typical pattern |
 | ------------------- | -------------- | --------------- |
-| macOS Apple Silicon | DMG            | \`*.dmg\` (arm64) |
+| macOS Apple Silicon | DMG (signed)   | \`*.dmg\` (arm64) |
+| macOS Intel         | DMG (signed)   | \`*.dmg\` (x64)   |
 | macOS               | ZIP (updater)  | \`*.zip\`         |
 | Linux x64           | AppImage       | \`*.AppImage\`    |
 | Windows x64         | NSIS installer | \`*.exe\`         |
+
+### macOS code signing and notarization
+
+All macOS DMG and ZIP payloads are **code-signed** with an Apple Developer ID certificate and **notarized** via the Apple notarization service. Gatekeeper will verify the signature on first launch. The hardened runtime is enabled with entitlements defined in \`apps/desktop/resources/entitlements.mac.plist\`.
 
 ## Electron updater metadata
 
 | File               | Purpose                                                   |
 | ------------------ | --------------------------------------------------------- |
-| \`latest-mac.yml\`   | macOS update manifest                                      |
+| \`latest-mac.yml\`   | macOS update manifest (merged from per-arch builds in CI) |
 | \`latest-linux.yml\` | Linux update manifest                                     |
 | \`latest.yml\`       | Windows update manifest                                   |
 | \`*.blockmap\`       | Differential download block maps                          |
@@ -305,10 +310,10 @@ After the workflow completes, expect **installer and updater** artifacts similar
 
 The iOS build is uploaded directly to App Store Connect / TestFlight by the [Release iOS workflow](../../.github/workflows/release-ios.yml). No IPA artifact is attached to the GitHub Release.
 
-| Detail            | Value                                    |
-| ----------------- | ---------------------------------------- |
-| Bundle ID         | \`com.openknots.okcode.mobile\`            |
-| Marketing version | \`${version}\`                              |
+| Detail            | Value                                      |
+| ----------------- | ------------------------------------------ |
+| Bundle ID         | \`com.openknots.okcode.mobile\`              |
+| Marketing version | \`${version}\`                                   |
 | Build number      | Set from \`GITHUB_RUN_NUMBER\` at build time |
 
 ## Checksums
@@ -399,6 +404,8 @@ function runQualityGates(rootDir: string): void {
     { name: "Lint", cmd: "bun", args: ["run", "lint"] },
     { name: "Typecheck", cmd: "bun", args: ["run", "typecheck"] },
     { name: "Test", cmd: "bun", args: ["run", "test"] },
+    { name: "Browser tests", cmd: "bun", args: ["run", "--cwd", "apps/web", "test:browser"] },
+    { name: "Desktop smoke", cmd: "bun", args: ["run", "test:desktop-smoke"] },
     { name: "Release smoke", cmd: "bun", args: ["run", "release:smoke"] },
   ];
 

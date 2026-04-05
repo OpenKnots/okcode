@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-04-05
+
+See [docs/releases/v0.16.0.md](docs/releases/v0.16.0.md) for full notes and [docs/releases/v0.16.0/assets.md](docs/releases/v0.16.0/assets.md) for release asset inventory.
+
+### Added
+
+- Add right-panel turn diff viewer.
+- Add editable code preview state and autosave support.
+- Add hidden provider input for prompt enhancements.
+- Add viewport presets and orientation controls.
+- Add optional rebase before commit flow.
+- Add GitHub repo cloning entry points.
+- Add build metadata across server and web.
+
+### Changed
+
+- Refine diff viewer panel defaults and opening behavior.
+- Standardize modal button styling.
+- Restart provider sessions when worktree cwd changes.
+- Stabilize release train and split Intel compatibility build.
+- Preserve prompt enhancement when sending messages.
+- Stabilize browser test runner and related types.
+- Refresh tracked worktree bases before creation.
+- Expose reasoning content in the work log.
+- Refactor home empty state into focused components.
+
+### Fixed
+
+- Fix branch sync to use explicit upstream refs.
+- Fix post-merge lint warnings.
+- Sanitize shell env before launching agent sessions.
+
+### Removed
+
+- Remove diff preview panel.
+
 ## [0.15.0] - 2026-04-05
 
 See [docs/releases/v0.15.0.md](docs/releases/v0.15.0.md) for full notes and [docs/releases/v0.15.0/assets.md](docs/releases/v0.15.0/assets.md) for release asset inventory.

@@ -873,6 +873,10 @@ describe("WebSocket Server", () => {
       issues: [],
       providers: defaultProviderStatuses,
       availableEditors: expect.any(Array),
+      buildInfo: expect.objectContaining({
+        surface: "server",
+        version: "0.16.0",
+      }),
     });
     expectAvailableEditors((response.result as { availableEditors: unknown }).availableEditors);
   });
@@ -899,6 +903,10 @@ describe("WebSocket Server", () => {
       issues: [],
       providers: defaultProviderStatuses,
       availableEditors: expect.any(Array),
+      buildInfo: expect.objectContaining({
+        surface: "server",
+        version: "0.16.0",
+      }),
     });
     expectAvailableEditors((response.result as { availableEditors: unknown }).availableEditors);
 
@@ -936,6 +944,10 @@ describe("WebSocket Server", () => {
       ],
       providers: defaultProviderStatuses,
       availableEditors: expect.any(Array),
+      buildInfo: expect.objectContaining({
+        surface: "server",
+        version: "0.16.0",
+      }),
     });
     expectAvailableEditors((response.result as { availableEditors: unknown }).availableEditors);
     expect(fs.readFileSync(keybindingsPath, "utf8")).toBe("{ not-json");
@@ -1152,6 +1164,10 @@ describe("WebSocket Server", () => {
       issues: [],
       providers: defaultProviderStatuses,
       availableEditors: expect.any(Array),
+      buildInfo: expect.objectContaining({
+        surface: "server",
+        version: "0.16.0",
+      }),
     });
     expectAvailableEditors((response.result as { availableEditors: unknown }).availableEditors);
   });
@@ -1201,6 +1217,10 @@ describe("WebSocket Server", () => {
       issues: [],
       providers: defaultProviderStatuses,
       availableEditors: expect.any(Array),
+      buildInfo: expect.objectContaining({
+        surface: "server",
+        version: "0.16.0",
+      }),
     });
     expectAvailableEditors(
       (configResponse.result as { availableEditors: unknown }).availableEditors,

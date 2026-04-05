@@ -557,6 +557,9 @@ export default function ChatView({ threadId }: ChatViewProps) {
   const composerEditorRef = useRef<ComposerPromptEditorHandle>(null);
   const composerFormRef = useRef<HTMLFormElement>(null);
   const composerFormHeightRef = useRef(0);
+  const composerFooterRef = useRef<HTMLDivElement>(null);
+  const composerFooterLeadingRef = useRef<HTMLDivElement>(null);
+  const composerFooterActionsRef = useRef<HTMLDivElement>(null);
   const composerAttachmentsRef = useRef<ComposerAttachment[]>([]);
   const composerSelectLockRef = useRef(false);
   const composerMenuOpenRef = useRef(false);
@@ -2239,23 +2242,38 @@ export default function ChatView({ threadId }: ChatViewProps) {
   useLayoutEffect(() => {
     const composerForm = composerFormRef.current;
     if (!composerForm) return;
-    const measureComposerFormWidth = () => composerForm.clientWidth;
+    const measureComposerFooterWidth = () => {
+      const footer = composerFooterRef.current;
+      if (!footer) return composerForm.clientWidth;
+      const footerStyle = window.getComputedStyle(footer);
+      const horizontalPadding =
+        Number.parseFloat(footerStyle.paddingLeft || "0") +
+        Number.parseFloat(footerStyle.paddingRight || "0");
+      return Math.max(0, footer.clientWidth - horizontalPadding);
+    };
+    const measureComposerFooterGap = () => {
+      const footer = composerFooterRef.current;
+      if (!footer) return 0;
+      const footerStyle = window.getComputedStyle(footer);
+      return Number.parseFloat(footerStyle.columnGap || footerStyle.gap || "0") || 0;
+    };
+    const measureIsComposerFooterCompact = () =>
+      shouldUseCompactComposerFooter(measureComposerFooterWidth(), {
+        hasWideActions: composerFooterHasWideActions,
+        leadingWidth: composerFooterLeadingRef.current?.scrollWidth ?? null,
+        trailingWidth: composerFooterActionsRef.current?.scrollWidth ?? null,
+        gap: measureComposerFooterGap(),
+      });
 
     composerFormHeightRef.current = composerForm.getBoundingClientRect().height;
-    setIsComposerFooterCompact(
-      shouldUseCompactComposerFooter(measureComposerFormWidth(), {
-        hasWideActions: composerFooterHasWideActions,
-      }),
-    );
+    setIsComposerFooterCompact(measureIsComposerFooterCompact());
     if (typeof ResizeObserver === "undefined") return;
 
     const observer = new ResizeObserver((entries) => {
       const [entry] = entries;
       if (!entry) return;
 
-      const nextCompact = shouldUseCompactComposerFooter(measureComposerFormWidth(), {
-        hasWideActions: composerFooterHasWideActions,
-      });
+      const nextCompact = measureIsComposerFooterCompact();
       setIsComposerFooterCompact((previous) => (previous === nextCompact ? previous : nextCompact));
 
       const nextHeight = entry.contentRect.height;
@@ -2268,10 +2286,31 @@ export default function ChatView({ threadId }: ChatViewProps) {
     });
 
     observer.observe(composerForm);
+    const composerFooter = composerFooterRef.current;
+    if (composerFooter) observer.observe(composerFooter);
+    const composerFooterLeading = composerFooterLeadingRef.current;
+    if (composerFooterLeading) observer.observe(composerFooterLeading);
+    const composerFooterActions = composerFooterActionsRef.current;
+    if (composerFooterActions) observer.observe(composerFooterActions);
     return () => {
       observer.disconnect();
     };
-  }, [activeThread?.id, composerFooterHasWideActions, scheduleStickToBottom]);
+  }, [
+    activeContextWindow,
+    activePlan,
+    activeThread?.id,
+    composerFooterHasWideActions,
+    interactionMode,
+    lockedProvider,
+    phase,
+    planSidebarOpen,
+    queuedMessages.length,
+    runtimeMode,
+    scheduleStickToBottom,
+    selectedModelForPickerWithCustomFallback,
+    selectedProvider,
+    sidebarProposedPlan,
+  ]);
   useEffect(() => {
     if (!shouldAutoScrollRef.current) return;
     scheduleStickToBottom();
@@ -5034,6 +5073,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
                     ) : (
                       <div
                         data-chat-composer-footer="true"
+                        ref={composerFooterRef}
                         className={cn(
                           "flex items-center justify-between px-2.5 pb-2.5 sm:px-3 sm:pb-3",
                           isComposerFooterCompact
@@ -5042,6 +5082,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
                         )}
                       >
                         <div
+                          ref={composerFooterLeadingRef}
                           className={cn(
                             "flex min-w-0 flex-1 items-center",
                             isComposerFooterCompact
@@ -5175,6 +5216,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
                         {/* Right side: send / stop button */}
                         <div
                           data-chat-composer-actions="right"
+                          ref={composerFooterActionsRef}
                           className="flex shrink-0 items-center gap-2"
                         >
                           {pendingUserInputs.length === 0 && (

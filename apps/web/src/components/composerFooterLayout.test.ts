@@ -32,4 +32,21 @@ describe("shouldUseCompactComposerFooter", () => {
       }),
     ).toBe(false);
   });
+
+  it("switches to compact mode when the measured footer content no longer fits", () => {
+    expect(
+      shouldUseCompactComposerFooter(359, {
+        leadingWidth: 180,
+        trailingWidth: 160,
+        gap: 8,
+      }),
+    ).toBe(true);
+    expect(
+      shouldUseCompactComposerFooter(360, {
+        leadingWidth: 180,
+        trailingWidth: 160,
+        gap: 8,
+      }),
+    ).toBe(false);
+  });
 });

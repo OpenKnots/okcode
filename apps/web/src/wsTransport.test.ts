@@ -296,4 +296,133 @@ describe("WsTransport", () => {
     await expect(requestPromise).rejects.toThrow("WebSocket connection closed.");
     transport.dispose();
   });
+
+  describe("reconnection detection", () => {
+    it("fires onReconnected listener on reconnect but not initial connect", () => {
+      vi.useFakeTimers();
+      const transport = new WsTransport("ws://localhost:3020");
+      const reconnectedListener = vi.fn();
+      transport.onReconnected(reconnectedListener);
+
+      // Initial connect – should NOT fire onReconnected
+      const socket1 = getSocket();
+      socket1.open();
+      expect(reconnectedListener).not.toHaveBeenCalled();
+
+      // Simulate disconnect
+      socket1.close();
+
+      // Advance past reconnect delay
+      vi.advanceTimersByTime(1_000);
+      const socket2 = getSocket();
+      socket2.open();
+
+      // Reconnect – should fire onReconnected
+      expect(reconnectedListener).toHaveBeenCalledTimes(1);
+
+      transport.dispose();
+      vi.useRealTimers();
+    });
+
+    it("unsubscribes onReconnected when returned function is called", () => {
+      vi.useFakeTimers();
+      const transport = new WsTransport("ws://localhost:3020");
+      const listener = vi.fn();
+      const unsub = transport.onReconnected(listener);
+
+      const socket1 = getSocket();
+      socket1.open();
+      socket1.close();
+      vi.advanceTimersByTime(1_000);
+
+      unsub();
+
+      const socket2 = getSocket();
+      socket2.open();
+
+      expect(listener).not.toHaveBeenCalled();
+
+      transport.dispose();
+      vi.useRealTimers();
+    });
+
+    it("increments reconnectCount on each reconnection", () => {
+      vi.useFakeTimers();
+      const transport = new WsTransport("ws://localhost:3020");
+
+      const socket1 = getSocket();
+      socket1.open();
+      expect(transport.getMetrics().reconnectCount).toBe(0);
+
+      socket1.close();
+      vi.advanceTimersByTime(1_000);
+      const socket2 = getSocket();
+      socket2.open();
+      expect(transport.getMetrics().reconnectCount).toBe(1);
+
+      socket2.close();
+      vi.advanceTimersByTime(2_000);
+      const socket3 = getSocket();
+      socket3.open();
+      expect(transport.getMetrics().reconnectCount).toBe(2);
+
+      transport.dispose();
+      vi.useRealTimers();
+    });
+  });
+
+  describe("connection metrics", () => {
+    it("tracks lastConnectedAt on open", () => {
+      vi.useFakeTimers({ now: 1000 });
+      const transport = new WsTransport("ws://localhost:3020");
+      const socket = getSocket();
+      socket.open();
+
+      expect(transport.getMetrics().lastConnectedAt).toBe(1000);
+
+      transport.dispose();
+      vi.useRealTimers();
+    });
+
+    it("tracks lastDisconnectedAt on close", () => {
+      vi.useFakeTimers({ now: 1000 });
+      const transport = new WsTransport("ws://localhost:3020");
+      const socket = getSocket();
+      socket.open();
+
+      vi.setSystemTime(5000);
+      socket.close();
+
+      expect(transport.getMetrics().lastDisconnectedAt).toBe(5000);
+
+      transport.dispose();
+      vi.useRealTimers();
+    });
+
+    it("computes cumulative uptime across connections", () => {
+      vi.useFakeTimers({ now: 0 });
+      const transport = new WsTransport("ws://localhost:3020");
+
+      const socket1 = getSocket();
+      vi.setSystemTime(100);
+      socket1.open();
+
+      vi.setSystemTime(1100); // 1000ms connected
+      socket1.close();
+
+      expect(transport.getMetrics().uptimeMs).toBe(1000);
+
+      vi.advanceTimersByTime(500); // reconnect delay
+      const socket2 = getSocket();
+      vi.setSystemTime(2000);
+      socket2.open();
+
+      vi.setSystemTime(3000); // 1000ms more connected
+      // Live uptime should include the current session
+      expect(transport.getMetrics().uptimeMs).toBe(2000);
+
+      transport.dispose();
+      vi.useRealTimers();
+    });
+  });
 });

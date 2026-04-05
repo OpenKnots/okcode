@@ -351,6 +351,7 @@ export function createWsNativeApi(): NativeApi {
     server: {
       getConfig: () => transport.request(WS_METHODS.serverGetConfig),
       checkUpdate: () => transport.request(WS_METHODS.serverCheckUpdate),
+      ping: () => transport.request(WS_METHODS.serverPing),
       getGlobalEnvironmentVariables: () =>
         transport.request(WS_METHODS.serverGetGlobalEnvironmentVariables),
       saveGlobalEnvironmentVariables: (input) =>

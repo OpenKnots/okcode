@@ -79,9 +79,6 @@ const PRESET_ICONS: Record<BrowserPresetId, typeof SmartphoneIcon> = {
   custom: RulerIcon,
 };
 
-/** Sentinel value used by the toggle group to represent "no preset" (responsive). */
-const RESPONSIVE_VALUE = "__responsive__";
-
 function getActiveTab(state: PreviewTabsState): PreviewTabState | null {
   if (!state.activeTabId) return null;
   return state.tabs.find((t) => t.tabId === state.activeTabId) ?? null;

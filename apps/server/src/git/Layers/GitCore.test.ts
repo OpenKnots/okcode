@@ -1920,6 +1920,49 @@ it.layer(TestLayer)("git integration", (it) => {
       }),
     );
 
+    it.effect("uses explicit upstream args when rebasing a diverged branch", () =>
+      Effect.gen(function* () {
+        const remote = yield* makeTmpDir();
+        const source = yield* makeTmpDir();
+        const clone = yield* makeTmpDir();
+        yield* git(remote, ["init", "--bare"]);
+
+        yield* initRepoWithCommit(source);
+        const initialBranch = (yield* (yield* GitCore).listBranches({ cwd: source })).branches.find(
+          (branch) => branch.current,
+        )!.name;
+        yield* git(source, ["remote", "add", "origin", remote]);
+        yield* git(source, ["push", "-u", "origin", initialBranch]);
+
+        yield* writeTextFile(path.join(source, "README.md"), "local change\n");
+        yield* git(source, ["add", "README.md"]);
+        yield* git(source, ["commit", "-m", "local update"]);
+
+        yield* git(clone, ["clone", remote, "."]);
+        yield* git(clone, ["config", "user.email", "test@test.com"]);
+        yield* git(clone, ["config", "user.name", "Test"]);
+        yield* writeTextFile(path.join(clone, "CHANGELOG.md"), "remote change\n");
+        yield* git(clone, ["add", "CHANGELOG.md"]);
+        yield* git(clone, ["commit", "-m", "remote update"]);
+        yield* git(clone, ["push", "origin", initialBranch]);
+
+        const realGitCore = yield* GitCore;
+        let pullArgs: readonly string[] | null = null;
+        const core = yield* makeIsolatedGitCore((input) => {
+          if (input.args[0] === "pull") {
+            pullArgs = [...input.args];
+          }
+          return realGitCore.execute(input);
+        });
+
+        const result = yield* core.syncCurrentBranch(source);
+
+        expect(result.status).toBe("rebased");
+        expect(result.strategy).toBe("rebase");
+        expect(pullArgs).toEqual(["pull", "--rebase", "origin", initialBranch]);
+      }),
+    );
+
     it.effect("top-level pullGitBranch rejects when no upstream exists", () =>
       Effect.gen(function* () {
         const tmp = yield* makeTmpDir();

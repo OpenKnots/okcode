@@ -61,10 +61,7 @@ import { readNativeApi } from "../nativeApi";
 import { resolveServerHttpOrigin } from "../lib/runtimeBridge";
 import { useComposerDraftStore } from "../composerDraftStore";
 import { useHandleNewThread } from "../hooks/useHandleNewThread";
-import {
-  selectThreadTerminalState,
-  useTerminalStateStore,
-} from "../terminalStateStore";
+import { selectThreadTerminalState, useTerminalStateStore } from "../terminalStateStore";
 import { toastManager } from "./ui/toast";
 import {
   getArm64IntelBuildWarningDescription,
@@ -385,8 +382,7 @@ interface MemoizedThreadRowProps {
   setDraftTitle: (title: string) => void;
   commitEditing: () => Promise<void> | void;
   cancelEditing: () => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  navigate: (...args: any[]) => any;
+  navigate: ReturnType<typeof useNavigate>;
   clearSelection: () => void;
   setSelectionAnchor: (threadId: ThreadIdType) => void;
   handleThreadClick: (

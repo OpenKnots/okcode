@@ -129,6 +129,13 @@ describe("ProviderCommandReactor", () => {
         typeof input.model === "string"
           ? input.model
           : undefined;
+      const cwd =
+        typeof input === "object" &&
+        input !== null &&
+        "cwd" in input &&
+        typeof input.cwd === "string"
+          ? input.cwd
+          : undefined;
       const threadId =
         typeof input === "object" &&
         input !== null &&
@@ -146,6 +153,7 @@ describe("ProviderCommandReactor", () => {
           (input.runtimeMode === "approval-required" || input.runtimeMode === "full-access")
             ? input.runtimeMode
             : "full-access",
+        ...(cwd !== undefined ? { cwd } : {}),
         ...(model !== undefined ? { model } : {}),
         threadId,
         resumeCursor: resumeCursor ?? { opaque: `resume-${sessionIndex}` },
@@ -353,6 +361,88 @@ describe("ProviderCommandReactor", () => {
       cwd: harness.projectWorkspaceRoot,
       model: "gpt-5-codex",
       runtimeMode: "approval-required",
+    });
+
+    const readModel = await Effect.runPromise(harness.engine.getReadModel());
+    const thread = readModel.threads.find((entry) => entry.id === ThreadId.makeUnsafe("thread-1"));
+    expect(thread?.worktreePath).toBeNull();
+  });
+
+  it("restarts an existing provider session when its cwd points at a stale worktree", async () => {
+    const missingWorktreePath = path.join(
+      os.tmpdir(),
+      `okcode-stale-session-worktree-${crypto.randomUUID()}`,
+    );
+    const harness = await createHarness({
+      worktreePath: missingWorktreePath,
+    });
+    const now = new Date().toISOString();
+
+    await Effect.runPromise(
+      harness.engine.dispatch({
+        type: "thread.turn.start",
+        commandId: CommandId.makeUnsafe("cmd-turn-start-stale-session-worktree-1"),
+        threadId: ThreadId.makeUnsafe("thread-1"),
+        message: {
+          messageId: asMessageId("user-message-stale-session-worktree-1"),
+          role: "user",
+          text: "first",
+          attachments: [],
+        },
+        interactionMode: DEFAULT_PROVIDER_INTERACTION_MODE,
+        runtimeMode: "approval-required",
+        createdAt: now,
+      }),
+    );
+
+    await waitFor(() => harness.startSession.mock.calls.length === 1);
+    await waitFor(() => harness.sendTurn.mock.calls.length === 1);
+    expect(harness.startSession.mock.calls[0]?.[1]).toMatchObject({
+      cwd: harness.projectWorkspaceRoot,
+      runtimeMode: "approval-required",
+    });
+
+    await Effect.runPromise(
+      harness.engine.dispatch({
+        type: "thread.meta.update",
+        commandId: CommandId.makeUnsafe("cmd-thread-meta-update-stale-session-worktree"),
+        threadId: ThreadId.makeUnsafe("thread-1"),
+        worktreePath: missingWorktreePath,
+      }),
+    );
+
+    await waitFor(async () => {
+      const readModel = await Effect.runPromise(harness.engine.getReadModel());
+      const thread = readModel.threads.find(
+        (entry) => entry.id === ThreadId.makeUnsafe("thread-1"),
+      );
+      return thread?.worktreePath === missingWorktreePath;
+    });
+
+    await Effect.runPromise(
+      harness.engine.dispatch({
+        type: "thread.turn.start",
+        commandId: CommandId.makeUnsafe("cmd-turn-start-stale-session-worktree-2"),
+        threadId: ThreadId.makeUnsafe("thread-1"),
+        message: {
+          messageId: asMessageId("user-message-stale-session-worktree-2"),
+          role: "user",
+          text: "second",
+          attachments: [],
+        },
+        interactionMode: DEFAULT_PROVIDER_INTERACTION_MODE,
+        runtimeMode: "approval-required",
+        createdAt: now,
+      }),
+    );
+
+    await waitFor(() => harness.startSession.mock.calls.length === 2);
+    await waitFor(() => harness.sendTurn.mock.calls.length === 2);
+
+    expect(harness.startSession.mock.calls[1]?.[1]).toMatchObject({
+      cwd: harness.projectWorkspaceRoot,
+      runtimeMode: "approval-required",
+      resumeCursor: { opaque: "resume-1" },
     });
 
     const readModel = await Effect.runPromise(harness.engine.getReadModel());

@@ -378,12 +378,16 @@ const make = Effect.gen(function* () {
         currentProvider === "claudeAgent" &&
         options?.modelOptions !== undefined &&
         !sameModelOptions(previousModelOptions, options.modelOptions);
+      const activeSessionCwd = activeSession?.cwd;
+      const shouldRestartForCwdChange =
+        staleWorktreePath !== null || activeSessionCwd !== effectiveCwd;
 
       if (
         !runtimeModeChanged &&
         !providerChanged &&
         !shouldRestartForModelChange &&
-        !shouldRestartForModelOptionsChange
+        !shouldRestartForModelOptionsChange &&
+        !shouldRestartForCwdChange
       ) {
         return existingSessionThreadId;
       }
@@ -404,6 +408,10 @@ const make = Effect.gen(function* () {
         modelChanged,
         shouldRestartForModelChange,
         shouldRestartForModelOptionsChange,
+        activeSessionCwd: activeSessionCwd ?? null,
+        effectiveCwd: effectiveCwd ?? null,
+        staleWorktreePath,
+        shouldRestartForCwdChange,
         hasResumeCursor: resumeCursor !== undefined,
       });
       const restartedSession = yield* startProviderSession({

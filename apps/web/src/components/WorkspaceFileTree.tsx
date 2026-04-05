@@ -59,7 +59,7 @@ export const WorkspaceFileTree = memo(function WorkspaceFileTree(props: {
       ? "Finder"
       : "File Manager";
   const { copyToClipboard: copyPathToClipboard } = useCopyToClipboard<{ path: string }>({
-    onCopy: (ctx) => {
+    onCopy: () => {
       toastManager.add({
         type: "success",
         title: "Path copied",

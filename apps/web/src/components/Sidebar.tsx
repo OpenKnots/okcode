@@ -814,7 +814,7 @@ export default function Sidebar() {
     },
   });
   const { copyToClipboard: copyPathToClipboard } = useCopyToClipboard<{ path: string }>({
-    onCopy: (ctx) => {
+    onCopy: () => {
       toastManager.add({
         type: "success",
         title: "Path copied",

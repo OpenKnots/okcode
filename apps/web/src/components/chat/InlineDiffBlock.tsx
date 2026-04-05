@@ -70,7 +70,7 @@ function computeLineDiff(oldStr: string, newStr: string): DiffLine[] {
     }
   }
 
-  return result.reverse();
+  return result.toReversed();
 }
 
 /**
@@ -174,12 +174,24 @@ export const InlineDiffBlock = memo(function InlineDiffBlock(props: {
 
   const allLines = useMemo(() => buildDiffLines(diffData), [diffData]);
   const stats = useMemo(() => countStats(allLines), [allLines]);
+  const keyedLines = useMemo(() => {
+    const occurrenceBySignature = new Map<string, number>();
+    return allLines.map((line) => {
+      const signature = `${line.kind}:${line.text}`;
+      const occurrence = (occurrenceBySignature.get(signature) ?? 0) + 1;
+      occurrenceBySignature.set(signature, occurrence);
+      return {
+        key: `${signature}:${occurrence}`,
+        line,
+      };
+    });
+  }, [allLines]);
 
   if (allLines.length === 0) return null;
 
   const needsTruncation = allLines.length > MAX_VISIBLE_LINES;
   const visibleLines =
-    needsTruncation && !isExpanded ? allLines.slice(0, MAX_VISIBLE_LINES) : allLines;
+    needsTruncation && !isExpanded ? keyedLines.slice(0, MAX_VISIBLE_LINES) : keyedLines;
   const hiddenCount = allLines.length - visibleLines.length;
   const fileName = basename(diffData.filePath);
 
@@ -208,9 +220,9 @@ export const InlineDiffBlock = memo(function InlineDiffBlock(props: {
 
       {/* Diff lines */}
       <div className="border-t border-border/40">
-        {visibleLines.map((line, idx) => (
+        {visibleLines.map(({ key, line }) => (
           <div
-            key={idx}
+            key={key}
             className={cn(
               "flex border-l-2 font-mono text-[11px] leading-5",
               lineKindStyle(line.kind),

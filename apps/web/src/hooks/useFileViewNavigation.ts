@@ -22,7 +22,7 @@ export function useFileViewNavigation() {
       // If not already on a thread page, navigate to the most recent thread
       // so the code-viewer inline sidebar is visible.
       if (!threadId) {
-        const sorted = [...threads].sort((a, b) =>
+        const sorted = threads.toSorted((a, b) =>
           (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt),
         );
         const latest = sorted[0];

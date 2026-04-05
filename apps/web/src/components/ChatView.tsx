@@ -1229,12 +1229,6 @@ export default function ChatView({ threadId }: ChatViewProps) {
         worktreePath: activeThread?.worktreePath ?? null,
       })
     : null;
-  const handleOpenTurnDiff = useCallback(
-    (turnId: TurnId, filePath?: string) => {
-      openTurnDiffViewer(activeThread.id, turnId, filePath);
-    },
-    [activeThread.id, openTurnDiffViewer],
-  );
   const composerTriggerKind = composerTrigger?.kind ?? null;
   const pathTriggerQuery = composerTrigger?.kind === "path" ? composerTrigger.query : "";
   const isPathTrigger = composerTriggerKind === "path";
@@ -1496,6 +1490,13 @@ export default function ChatView({ threadId }: ChatViewProps) {
   const pendingContext = useCodeViewerStore((state) => state.pendingContext);
   const clearPendingContext = useCodeViewerStore((state) => state.clearPendingContext);
   const openTurnDiffViewer = useDiffViewerStore((state) => state.openTurnDiff);
+  const handleOpenTurnDiff = useCallback(
+    (turnId: TurnId, filePath?: string) => {
+      if (!activeThread) return;
+      openTurnDiffViewer(activeThread.id, turnId, filePath);
+    },
+    [activeThread, openTurnDiffViewer],
+  );
 
   // When Cmd+L is pressed in the code viewer, insert the @file:lines mention into the composer
   useEffect(() => {

@@ -23,7 +23,6 @@ import { openInPreferredEditor } from "../editorPreferences";
 import { useDiffViewerStore } from "../diffViewerStore";
 import { useTheme } from "../hooks/useTheme";
 import { useTurnDiffSummaries } from "../hooks/useTurnDiffSummaries";
-import { useAppSettings } from "../appSettings";
 import { checkpointDiffQueryOptions } from "../lib/providerReactQuery";
 import { buildPatchCacheKey, resolveDiffThemeName } from "../lib/diffRendering";
 import { cn } from "../lib/utils";
@@ -156,9 +155,8 @@ interface DiffPanelProps {
 
 export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
   const { resolvedTheme } = useTheme();
-  const { settings } = useAppSettings();
   const [diffRenderMode, setDiffRenderMode] = useState<DiffRenderMode>("stacked");
-  const [diffWordWrap, setDiffWordWrap] = useState(settings.diffWordWrap);
+  const [diffWordWrap, setDiffWordWrap] = useState(false);
   const patchViewportRef = useRef<HTMLDivElement>(null);
   const turnStripRef = useRef<HTMLDivElement>(null);
   const previousDiffOpenRef = useRef(false);
@@ -170,7 +168,6 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
   const selectedTurnId = useDiffViewerStore((state) => state.selectedTurnId);
   const selectedFilePath = useDiffViewerStore((state) => state.selectedFilePath);
   const setSelectedTurn = useDiffViewerStore((state) => state.setSelectedTurn);
-  const setSelectedFilePath = useDiffViewerStore((state) => state.setSelectedFilePath);
   const closeDiffViewer = useDiffViewerStore((state) => state.close);
 
   const activeThread = useStore((store) =>
@@ -289,10 +286,10 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
 
   useEffect(() => {
     if (diffOpen && !previousDiffOpenRef.current) {
-      setDiffWordWrap(settings.diffWordWrap);
+      setDiffWordWrap(false);
     }
     previousDiffOpenRef.current = diffOpen;
-  }, [diffOpen, settings.diffWordWrap]);
+  }, [diffOpen]);
 
   useEffect(() => {
     if (!selectedFilePath || !patchViewportRef.current) {
@@ -470,7 +467,7 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
                       "?"}
                   </span>
                   <span className="text-[9px] leading-tight opacity-70">
-                    {formatShortTimestamp(summary.completedAt, settings.timestampFormat, "en")}
+                    {formatShortTimestamp(summary.completedAt, "locale", "en")}
                   </span>
                 </div>
               </div>

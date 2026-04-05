@@ -20,12 +20,12 @@ export type ExclusivePanelAction =
 export function resolveExclusivePanelAction(
   prevCodeViewerOpen: boolean,
   codeViewerOpen: boolean,
-  prevDiffViewerOpen: boolean,
-  diffViewerOpen: boolean,
   prevPreviewOpen: boolean,
   previewOpen: boolean,
   prevSimulationOpen: boolean = false,
   simulationOpen: boolean = false,
+  prevDiffViewerOpen: boolean = false,
+  diffViewerOpen: boolean = false,
 ): ExclusivePanelAction[] {
   const codeViewerJustOpened = codeViewerOpen && !prevCodeViewerOpen;
   const diffViewerJustOpened = diffViewerOpen && !prevDiffViewerOpen;
@@ -89,12 +89,12 @@ export function useMutuallyExclusivePanels(
     const actions = resolveExclusivePanelAction(
       wasCodeViewerOpen,
       codeViewerOpen,
-      wasDiffViewerOpen,
-      diffViewerOpen,
       wasPreviewOpen,
       previewOpen,
       wasSimulationOpen,
       simulationOpen,
+      wasDiffViewerOpen,
+      diffViewerOpen,
     );
     for (const action of actions) {
       if (action === "close-code-viewer") {

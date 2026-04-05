@@ -1,4 +1,4 @@
-import { type MessageId, type TurnId } from "@okcode/contracts";
+import { type MessageId, type ThreadId, type TurnId } from "@okcode/contracts";
 import {
   memo,
   useCallback,

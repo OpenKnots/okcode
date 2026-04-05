@@ -413,7 +413,8 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
     gitRunStackedActionMutationOptions({
       cwd: gitCwd,
       queryClient,
-      model: settings.textGenerationModel ?? null,
+      textGenerationModel: settings.textGenerationModel ?? null,
+      rebaseBeforeCommit: settings.rebaseBeforeCommit,
     }),
   );
   const pullMutation = useMutation(gitPullMutationOptions({ cwd: gitCwd, queryClient }));
@@ -659,6 +660,7 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
         hasWorkingTreeChanges: !!actionStatus?.hasWorkingTreeChanges,
         forcePushOnly: forcePushOnlyProgress,
         featureBranch,
+        rebaseBeforeCommit: settings.rebaseBeforeCommit,
       });
       const actionId = randomUUID();
       const resolvedProgressToastId =
@@ -697,6 +699,7 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
         action,
         ...(commitMessage ? { commitMessage } : {}),
         ...(featureBranch ? { featureBranch } : {}),
+        ...(settings.rebaseBeforeCommit ? { rebaseBeforeCommit: true } : {}),
         ...(filePaths ? { filePaths } : {}),
       });
 

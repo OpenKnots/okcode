@@ -144,7 +144,8 @@ export function gitCheckoutMutationOptions(input: {
 export function gitRunStackedActionMutationOptions(input: {
   cwd: string | null;
   queryClient: QueryClient;
-  model?: string | null;
+  textGenerationModel?: string | null;
+  rebaseBeforeCommit?: boolean;
 }) {
   return mutationOptions({
     mutationKey: gitMutationKeys.runStackedAction(input.cwd),
@@ -153,12 +154,14 @@ export function gitRunStackedActionMutationOptions(input: {
       action,
       commitMessage,
       featureBranch,
+      rebaseBeforeCommit,
       filePaths,
     }: {
       actionId: string;
       action: GitStackedAction;
       commitMessage?: string;
       featureBranch?: boolean;
+      rebaseBeforeCommit?: boolean;
       filePaths?: string[];
     }) => {
       const api = ensureNativeApi();
@@ -169,8 +172,9 @@ export function gitRunStackedActionMutationOptions(input: {
         action,
         ...(commitMessage ? { commitMessage } : {}),
         ...(featureBranch ? { featureBranch } : {}),
+        ...(rebaseBeforeCommit ? { rebaseBeforeCommit } : {}),
         ...(filePaths ? { filePaths } : {}),
-        ...(input.model ? { model: input.model } : {}),
+        ...(input.textGenerationModel ? { textGenerationModel: input.textGenerationModel } : {}),
       });
     },
     onSettled: async () => {

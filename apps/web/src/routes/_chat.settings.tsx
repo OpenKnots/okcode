@@ -422,6 +422,9 @@ function SettingsRouteView() {
     ...(settings.enableAssistantStreaming !== defaults.enableAssistantStreaming
       ? ["Assistant output"]
       : []),
+    ...(settings.showReasoningContent !== defaults.showReasoningContent
+      ? ["Reasoning content"]
+      : []),
     ...(settings.showAuthFailuresAsErrors !== defaults.showAuthFailuresAsErrors
       ? ["Auth failure errors"]
       : []),
@@ -441,6 +444,9 @@ function SettingsRouteView() {
     ...(settings.autoDeleteMergedThreadsDelayMinutes !==
     defaults.autoDeleteMergedThreadsDelayMinutes
       ? ["Auto-delete delay"]
+      : []),
+    ...(settings.rebaseBeforeCommit !== defaults.rebaseBeforeCommit
+      ? ["Rebase before commit"]
       : []),
     ...(isGitTextGenerationModelDirty ? ["Git writing model"] : []),
     ...(settings.customCodexModels.length > 0 || settings.customClaudeModels.length > 0
@@ -1135,6 +1141,34 @@ function SettingsRouteView() {
               />
 
               <SettingsRow
+                title="Reasoning content"
+                description="Show reasoning/thinking content in the work log instead of just showing 'Reasoning update'."
+                resetAction={
+                  settings.showReasoningContent !== defaults.showReasoningContent ? (
+                    <SettingResetButton
+                      label="reasoning content"
+                      onClick={() =>
+                        updateSettings({
+                          showReasoningContent: defaults.showReasoningContent,
+                        })
+                      }
+                    />
+                  ) : null
+                }
+                control={
+                  <Switch
+                    checked={settings.showReasoningContent}
+                    onCheckedChange={(checked) =>
+                      updateSettings({
+                        showReasoningContent: Boolean(checked),
+                      })
+                    }
+                    aria-label="Show reasoning content in work log"
+                  />
+                }
+              />
+
+              <SettingsRow
                 title="Auth failure errors"
                 description="Show provider authentication failures in the thread error banner. Turn this off to keep login issues out of the main error state."
                 resetAction={
@@ -1483,6 +1517,36 @@ function SettingsRouteView() {
                   }
                 />
               </SettingsRow>
+            </SettingsSection>
+
+            <SettingsSection title="Git">
+              <SettingsRow
+                title="Rebase before commit"
+                description="Before commit actions run, rebase the current branch onto the repository default branch, usually main. OK Code uses autostash so your local edits can be restored after the rebase."
+                resetAction={
+                  settings.rebaseBeforeCommit !== defaults.rebaseBeforeCommit ? (
+                    <SettingResetButton
+                      label="rebase before commit"
+                      onClick={() =>
+                        updateSettings({
+                          rebaseBeforeCommit: defaults.rebaseBeforeCommit,
+                        })
+                      }
+                    />
+                  ) : null
+                }
+                control={
+                  <Switch
+                    checked={settings.rebaseBeforeCommit}
+                    onCheckedChange={(checked) =>
+                      updateSettings({
+                        rebaseBeforeCommit: Boolean(checked),
+                      })
+                    }
+                    aria-label="Rebase onto the default branch before committing"
+                  />
+                }
+              />
             </SettingsSection>
 
             <SettingsSection title="Models">

@@ -380,6 +380,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
   const { settings } = useAppSettings();
   const setStickyComposerModel = useComposerDraftStore((store) => store.setStickyModel);
   const timestampFormat = settings.timestampFormat;
+  const showReasoningContent = settings.showReasoningContent;
   const navigate = useNavigate();
   const activeProjectId = threads.find((t) => t.id === threadId)?.projectId ?? null;
   const previewOpen = usePreviewStateStore((state) =>
@@ -4742,6 +4743,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
                   onImageExpand={onExpandTimelineImage}
                   markdownCwd={gitCwd ?? undefined}
                   resolvedTheme={resolvedTheme}
+                  showReasoningContent={showReasoningContent}
                   timestampFormat={timestampFormat}
                   workspaceRoot={activeProject?.cwd ?? undefined}
                   shortcutGuides={chatShortcutGuides}

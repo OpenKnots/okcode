@@ -283,6 +283,13 @@ function appendUnique(values: string[], next: string | null | undefined): void {
   values.push(trimmed);
 }
 
+function parseRemoteNames(stdout: string): string[] {
+  return stdout
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+}
+
 function toStatusPr(pr: PullRequestInfo): {
   number: number;
   title: string;
@@ -676,6 +683,141 @@ export const makeGitManager = Effect.gen(function* () {
       }
 
       return "main";
+    });
+
+  const resolvePreferredRemoteName = (cwd: string, branch: string) =>
+    Effect.gen(function* () {
+      const configuredRemote = yield* gitCore
+        .readConfigValue(cwd, `branch.${branch}.remote`)
+        .pipe(Effect.catch(() => Effect.succeed(null)));
+      if (configuredRemote && configuredRemote !== ".") {
+        return configuredRemote;
+      }
+
+      const remoteResult = yield* gitCore
+        .execute({
+          operation: "GitManager.resolvePreferredRemoteName",
+          cwd,
+          args: ["remote"],
+          allowNonZeroExit: true,
+        })
+        .pipe(Effect.catch(() => Effect.succeed(null)));
+      const remoteNames = remoteResult ? parseRemoteNames(remoteResult.stdout) : [];
+      if (remoteNames.includes("origin")) {
+        return "origin";
+      }
+
+      return remoteNames[0] ?? null;
+    });
+
+  const resolvePreCommitRebaseTarget = (cwd: string, branch: string) =>
+    Effect.gen(function* () {
+      const branchList = yield* gitCore.listBranches({ cwd });
+      const localDefaultBranch =
+        branchList.branches.find((candidate) => !candidate.isRemote && candidate.isDefault)?.name ??
+        null;
+      const defaultFromGh = yield* gitHubCli
+        .getDefaultBranch({ cwd })
+        .pipe(Effect.catch(() => Effect.succeed(null)));
+      const preferredRemote = yield* resolvePreferredRemoteName(cwd, branch);
+      const baseBranchCandidates = [
+        ...new Set(
+          [localDefaultBranch, defaultFromGh, "main"].filter(
+            (candidate): candidate is string =>
+              typeof candidate === "string" && candidate.length > 0,
+          ),
+        ),
+      ];
+
+      for (const baseBranch of baseBranchCandidates) {
+        if (preferredRemote) {
+          const fetchResult = yield* gitCore
+            .execute({
+              operation: "GitManager.resolvePreCommitRebaseTarget.fetch",
+              cwd,
+              args: [
+                "fetch",
+                "--quiet",
+                "--no-tags",
+                preferredRemote,
+                `+refs/heads/${baseBranch}:refs/remotes/${preferredRemote}/${baseBranch}`,
+              ],
+              allowNonZeroExit: true,
+              timeoutMs: 30_000,
+            })
+            .pipe(Effect.catch(() => Effect.succeed(null)));
+          if (fetchResult?.code === 0) {
+            return {
+              baseBranch,
+              targetRef: `${preferredRemote}/${baseBranch}`,
+            };
+          }
+        }
+
+        const localBranchExists = yield* gitCore
+          .execute({
+            operation: "GitManager.resolvePreCommitRebaseTarget.localBranchExists",
+            cwd,
+            args: ["show-ref", "--verify", "--quiet", `refs/heads/${baseBranch}`],
+            allowNonZeroExit: true,
+            timeoutMs: 5_000,
+          })
+          .pipe(
+            Effect.map((result) => result.code === 0),
+            Effect.catch(() => Effect.succeed(false)),
+          );
+        if (localBranchExists) {
+          return {
+            baseBranch,
+            targetRef: baseBranch,
+          };
+        }
+      }
+
+      return null;
+    });
+
+  const runRebaseBeforeCommitStep = (cwd: string, branch: string) =>
+    Effect.gen(function* () {
+      const target = yield* resolvePreCommitRebaseTarget(cwd, branch);
+      if (!target) {
+        return yield* gitManagerError(
+          "runRebaseBeforeCommitStep",
+          `Could not resolve a repository default branch to rebase '${branch}' onto before committing.`,
+        );
+      }
+
+      const rebaseResult = yield* gitCore.execute({
+        operation: "GitManager.runRebaseBeforeCommitStep",
+        cwd,
+        args: ["rebase", "--autostash", target.targetRef],
+        allowNonZeroExit: true,
+        timeoutMs: 60_000,
+      });
+      if (rebaseResult.code === 0) {
+        return target;
+      }
+
+      const refreshed = yield* gitCore
+        .statusDetails(cwd)
+        .pipe(Effect.catch(() => Effect.succeed(null)));
+      const commandDetail =
+        rebaseResult.stderr.trim().length > 0
+          ? rebaseResult.stderr.trim()
+          : rebaseResult.stdout.trim().length > 0
+            ? rebaseResult.stdout.trim()
+            : `git rebase --autostash ${target.targetRef} failed`;
+      if (refreshed?.hasConflicts) {
+        return yield* gitManagerError(
+          "runRebaseBeforeCommitStep",
+          `Rebase onto ${target.baseBranch} stopped with conflicts. Resolve the conflicts, continue or abort the rebase, then retry the git action.\n\n${commandDetail}`,
+        );
+      }
+
+      return yield* gitManagerError(
+        "runRebaseBeforeCommitStep",
+        `Could not rebase '${branch}' onto ${target.baseBranch} before committing.\n\n${commandDetail}`,
+      );
     });
 
   const resolveCommitAndBranchSuggestion = (input: {
@@ -1162,6 +1304,14 @@ export const makeGitManager = Effect.gen(function* () {
         const wantsPr = input.action === "commit_push_pr";
 
         const initialStatus = yield* gitCore.statusDetails(input.cwd);
+        const shouldRebaseBeforeCommit =
+          input.rebaseBeforeCommit === true && initialStatus.hasWorkingTreeChanges;
+        if (shouldRebaseBeforeCommit && !input.featureBranch && !initialStatus.branch) {
+          return yield* gitManagerError(
+            "runStackedAction",
+            "Cannot rebase before commit from detached HEAD.",
+          );
+        }
         if (!input.featureBranch && wantsPush && !initialStatus.branch) {
           return yield* gitManagerError("runStackedAction", "Cannot push from detached HEAD.");
         }
@@ -1175,6 +1325,23 @@ export const makeGitManager = Effect.gen(function* () {
         let branchStep: { status: "created" | "skipped_not_requested"; name?: string };
         let commitMessageForStep = input.commitMessage;
         let preResolvedCommitSuggestion: CommitAndBranchSuggestion | undefined = undefined;
+
+        if (shouldRebaseBeforeCommit && initialStatus.branch) {
+          currentPhase = "commit";
+          const target = yield* resolvePreCommitRebaseTarget(input.cwd, initialStatus.branch);
+          if (!target) {
+            return yield* gitManagerError(
+              "runStackedAction",
+              `Could not resolve a repository default branch to rebase '${initialStatus.branch}' onto before committing.`,
+            );
+          }
+          yield* progress.emit({
+            kind: "phase_started",
+            phase: "commit",
+            label: `Rebasing onto ${target.baseBranch}...`,
+          });
+          yield* runRebaseBeforeCommitStep(input.cwd, initialStatus.branch);
+        }
 
         if (input.featureBranch) {
           currentPhase = "branch";
@@ -1198,6 +1365,33 @@ export const makeGitManager = Effect.gen(function* () {
         }
 
         const currentBranch = branchStep.name ?? initialStatus.branch;
+
+        if (shouldRebaseBeforeCommit && input.featureBranch && !initialStatus.branch) {
+          if (!currentBranch) {
+            return yield* gitManagerError(
+              "runStackedAction",
+              "Cannot rebase before commit from detached HEAD.",
+            );
+          }
+          currentPhase = "commit";
+          const target = yield* resolvePreCommitRebaseTarget(input.cwd, currentBranch);
+          if (!target) {
+            return yield* gitManagerError(
+              "runStackedAction",
+              `Could not resolve a repository default branch to rebase '${currentBranch}' onto before committing.`,
+            );
+          }
+          yield* progress.emit({
+            kind: "phase_started",
+            phase: "commit",
+            label: `Rebasing onto ${target.baseBranch}...`,
+          });
+          yield* runRebaseBeforeCommitStep(input.cwd, currentBranch);
+          if (!input.commitMessage?.trim()) {
+            commitMessageForStep = undefined;
+            preResolvedCommitSuggestion = undefined;
+          }
+        }
 
         currentPhase = "commit";
         const commit = yield* runCommitStep(

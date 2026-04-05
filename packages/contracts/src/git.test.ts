@@ -80,10 +80,12 @@ describe("GitRunStackedActionInput", () => {
       actionId: "action-1",
       cwd: "/repo",
       action: "commit",
+      rebaseBeforeCommit: true,
     });
 
     expect(parsed.actionId).toBe("action-1");
     expect(parsed.action).toBe("commit");
+    expect(parsed.rebaseBeforeCommit).toBe(true);
   });
 });
 

@@ -1,5 +1,5 @@
 import type { PreviewTabsState, PreviewTabState, ProjectId } from "@okcode/contracts";
-import { type FormEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -11,6 +11,8 @@ import {
   MonitorIcon,
   PlusIcon,
   RefreshCwIcon,
+  RotateCcwIcon,
+  RulerIcon,
   SmartphoneIcon,
   StarIcon,
   TabletIcon,
@@ -20,23 +22,22 @@ import {
 
 import { validateHttpPreviewUrl } from "@okcode/shared/preview";
 import { readDesktopPreviewBridge } from "~/desktopPreview";
-import { type BrowserPresetId, BROWSER_PRESETS, getBrowserPreset } from "~/lib/browserPresets";
+import {
+  type BrowserPresetId,
+  BROWSER_PRESETS,
+  DEFAULT_CUSTOM_VIEWPORT,
+  PRESET_CYCLE,
+  clampViewportDimension,
+  getBrowserPreset,
+} from "~/lib/browserPresets";
 import { cn } from "~/lib/utils";
+import { isMacPlatform } from "~/lib/utils";
 import { readNativeApi } from "~/nativeApi";
 import { usePreviewStateStore } from "~/previewStateStore";
 
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import {
-  Menu,
-  MenuGroup,
-  MenuGroupLabel,
-  MenuPopup,
-  MenuRadioGroup,
-  MenuRadioItem,
-  MenuSeparator,
-  MenuTrigger,
-} from "./ui/menu";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
 
 const EMPTY_TABS_STATE: PreviewTabsState = {
   tabs: [],
@@ -75,9 +76,10 @@ const PRESET_ICONS: Record<BrowserPresetId, typeof SmartphoneIcon> = {
   laptop: LaptopIcon,
   desktop: MonitorIcon,
   ultrawide: MonitorIcon,
+  custom: RulerIcon,
 };
 
-/** Sentinel value used by the radio group to represent "no preset" (responsive). */
+/** Sentinel value used by the toggle group to represent "no preset" (responsive). */
 const RESPONSIVE_VALUE = "__responsive__";
 
 function getActiveTab(state: PreviewTabsState): PreviewTabState | null {
@@ -104,6 +106,37 @@ interface PreviewPanelProps {
   onClose: () => void;
 }
 
+/**
+ * Resolve effective viewport dimensions for a preset, applying orientation and
+ * custom viewport overrides.
+ */
+function resolveViewportDimensions(
+  presetId: BrowserPresetId | null,
+  orientation: "portrait" | "landscape",
+  customViewport: { width: number; height: number },
+): { width: number; height: number } | null {
+  if (!presetId) return null;
+
+  let w: number;
+  let h: number;
+
+  if (presetId === "custom") {
+    w = customViewport.width;
+    h = customViewport.height;
+  } else {
+    const preset = getBrowserPreset(presetId);
+    if (!preset) return null;
+    w = preset.width;
+    h = preset.height;
+  }
+
+  if (orientation === "landscape") {
+    return { width: Math.max(w, h), height: Math.min(w, h) };
+  }
+  // portrait: ensure height >= width (natural for mobile/tablet), leave landscape-native presets as-is
+  return { width: w, height: h };
+}
+
 export function PreviewPanel({ projectId, threadId, onClose }: PreviewPanelProps) {
   const previewBridge = readDesktopPreviewBridge();
   const setProjectOpen = usePreviewStateStore((state) => state.setProjectOpen);
@@ -111,13 +144,37 @@ export function PreviewPanel({ projectId, threadId, onClose }: PreviewPanelProps
   const toggleFavoriteUrl = usePreviewStateStore((state) => state.toggleFavoriteUrl);
   const presetId = usePreviewStateStore((state) => state.presetByProjectId[projectId] ?? null);
   const setProjectPreset = usePreviewStateStore((state) => state.setProjectPreset);
-  const activePreset = presetId ? getBrowserPreset(presetId) : null;
+  const orientation = usePreviewStateStore(
+    (state) => state.orientationByProjectId[projectId] ?? "portrait",
+  );
+  const toggleProjectOrientation = usePreviewStateStore((state) => state.toggleProjectOrientation);
+  const customViewport = usePreviewStateStore(
+    (state) => state.customViewportByProjectId[projectId] ?? DEFAULT_CUSTOM_VIEWPORT,
+  );
+  const setCustomViewport = usePreviewStateStore((state) => state.setCustomViewport);
+
+  const effectiveDims = resolveViewportDimensions(presetId, orientation, customViewport);
   const PresetIcon = presetId ? PRESET_ICONS[presetId] : null;
 
   const [tabsState, setTabsState] = useState<PreviewTabsState>(EMPTY_TABS_STATE);
   const [inputUrl, setInputUrl] = useState("");
   const [inputError, setInputError] = useState<string | null>(null);
   const surfaceRef = useRef<HTMLDivElement | null>(null);
+
+  // Live surface dimensions for the badge
+  const [surfaceDims, setSurfaceDims] = useState<{ w: number; h: number } | null>(null);
+  const [dimsBadgeVisible, setDimsBadgeVisible] = useState(false);
+  const dimsFadeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Custom viewport local input state
+  const [customWidthInput, setCustomWidthInput] = useState(String(customViewport.width));
+  const [customHeightInput, setCustomHeightInput] = useState(String(customViewport.height));
+
+  // Sync custom input fields when store value changes externally
+  useEffect(() => {
+    setCustomWidthInput(String(customViewport.width));
+    setCustomHeightInput(String(customViewport.height));
+  }, [customViewport.width, customViewport.height]);
 
   const activeTab = getActiveTab(tabsState);
   const showEmbeddedSurface =
@@ -257,6 +314,67 @@ export function PreviewPanel({ projectId, threadId, onClose }: PreviewPanelProps
     };
   }, [previewBridge]);
 
+  // Live dimensions badge via ResizeObserver
+  useEffect(() => {
+    const el = surfaceRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        setSurfaceDims({ w: Math.round(width), h: Math.round(height) });
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  // Show dimensions badge transiently when preset or orientation changes
+  useEffect(() => {
+    if (!presetId) {
+      setDimsBadgeVisible(false);
+      return;
+    }
+    setDimsBadgeVisible(true);
+    if (dimsFadeTimer.current) clearTimeout(dimsFadeTimer.current);
+    dimsFadeTimer.current = setTimeout(() => setDimsBadgeVisible(false), 2500);
+    return () => {
+      if (dimsFadeTimer.current) clearTimeout(dimsFadeTimer.current);
+    };
+  }, [presetId, orientation, customViewport.width, customViewport.height]);
+
+  // Keyboard shortcuts for cycling presets
+  const handlePresetShortcut = useCallback(
+    (event: KeyboardEvent) => {
+      const isMac = isMacPlatform(navigator.platform);
+      const mod = isMac ? event.metaKey : event.ctrlKey;
+      if (!mod || !event.shiftKey) return;
+
+      if (event.key === "M" || event.key === "m") {
+        // Ctrl/Cmd+Shift+M: toggle mobile
+        event.preventDefault();
+        setProjectPreset(projectId, presetId === "mobile" ? null : "mobile");
+        return;
+      }
+
+      if (event.key === "[" || event.key === "]") {
+        event.preventDefault();
+        const currentIndex = PRESET_CYCLE.indexOf(presetId);
+        const idx = currentIndex === -1 ? 0 : currentIndex;
+        const delta = event.key === "]" ? 1 : -1;
+        const nextIndex = (idx + delta + PRESET_CYCLE.length) % PRESET_CYCLE.length;
+        const next = PRESET_CYCLE[nextIndex];
+        setProjectPreset(projectId, next ?? null);
+      }
+    },
+    [presetId, projectId, setProjectPreset],
+  );
+
+  useEffect(() => {
+    window.addEventListener("keydown", handlePresetShortcut);
+    return () => window.removeEventListener("keydown", handlePresetShortcut);
+  }, [handlePresetShortcut]);
+
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const validatedUrl = validateHttpPreviewUrl(inputUrl);
@@ -300,6 +418,14 @@ export function PreviewPanel({ projectId, threadId, onClose }: PreviewPanelProps
     if (!targetUrl) return;
     const api = readNativeApi();
     void api?.shell.openExternal(targetUrl);
+  };
+
+  const commitCustomViewport = () => {
+    const w = clampViewportDimension(Number(customWidthInput) || DEFAULT_CUSTOM_VIEWPORT.width);
+    const h = clampViewportDimension(Number(customHeightInput) || DEFAULT_CUSTOM_VIEWPORT.height);
+    setCustomViewport(projectId, { width: w, height: h });
+    setCustomWidthInput(String(w));
+    setCustomHeightInput(String(h));
   };
 
   const currentPageUrl = activeTab?.url ?? null;
@@ -366,58 +492,133 @@ export function PreviewPanel({ projectId, threadId, onClose }: PreviewPanelProps
           />
         </form>
         <div className="flex items-center gap-1">
-          <Menu>
-            <MenuTrigger
-              className={cn(
-                "inline-flex h-6 cursor-default items-center gap-1 rounded-md px-1.5 text-[11px] transition-colors",
-                presetId
-                  ? "bg-accent/60 text-foreground"
-                  : "text-muted-foreground/55 hover:bg-accent/40 hover:text-foreground",
-              )}
-              aria-label="Viewport preset"
-            >
-              {PresetIcon ? <PresetIcon className="size-3" /> : <MaximizeIcon className="size-3" />}
-              <span className="max-sm:hidden">
-                {activePreset ? activePreset.label : "Responsive"}
-              </span>
-            </MenuTrigger>
-            <MenuPopup side="bottom" align="end" sideOffset={6}>
-              <MenuGroup>
-                <MenuGroupLabel>Viewport</MenuGroupLabel>
-                <MenuRadioGroup
-                  value={presetId ?? RESPONSIVE_VALUE}
-                  onValueChange={(value) => {
-                    setProjectPreset(
-                      projectId,
-                      value === RESPONSIVE_VALUE ? null : (value as BrowserPresetId),
-                    );
-                  }}
-                >
-                  <MenuRadioItem value={RESPONSIVE_VALUE}>
-                    <span className="flex items-center gap-2">
-                      <MaximizeIcon className="size-3.5 opacity-60" />
-                      Responsive
+          {/* ---- Viewport Preset Strip ---- */}
+          <div className="flex items-center gap-0.5 rounded-md border border-border/50 bg-muted/30 p-0.5">
+            {/* Responsive */}
+            <Tooltip>
+              <TooltipTrigger
+                className={cn(
+                  "inline-flex h-5 w-5 cursor-default items-center justify-center rounded transition-colors",
+                  presetId === null
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground/55 hover:text-foreground",
+                )}
+                aria-label="Responsive"
+                onClick={() => setProjectPreset(projectId, null)}
+              >
+                <MaximizeIcon className="size-3" />
+              </TooltipTrigger>
+              <TooltipPopup side="bottom" sideOffset={6}>
+                Responsive
+              </TooltipPopup>
+            </Tooltip>
+
+            <div className="mx-0.5 h-3 w-px bg-border/50" />
+
+            {/* Device presets */}
+            {BROWSER_PRESETS.map((preset) => {
+              const Icon = PRESET_ICONS[preset.id];
+              const isActive = presetId === preset.id;
+              return (
+                <Tooltip key={preset.id}>
+                  <TooltipTrigger
+                    className={cn(
+                      "inline-flex h-5 w-5 cursor-default items-center justify-center rounded transition-colors",
+                      isActive
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground/55 hover:text-foreground",
+                    )}
+                    aria-label={preset.label}
+                    aria-pressed={isActive}
+                    onClick={() => setProjectPreset(projectId, isActive ? null : preset.id)}
+                  >
+                    <Icon className="size-3" />
+                  </TooltipTrigger>
+                  <TooltipPopup side="bottom" sideOffset={6}>
+                    {preset.label}{" "}
+                    <span className="tabular-nums text-muted-foreground">
+                      {preset.width}&times;{preset.height}
                     </span>
-                  </MenuRadioItem>
-                  <MenuSeparator />
-                  {BROWSER_PRESETS.map((preset) => {
-                    const Icon = PRESET_ICONS[preset.id];
-                    return (
-                      <MenuRadioItem key={preset.id} value={preset.id}>
-                        <span className="flex items-center gap-2">
-                          <Icon className="size-3.5 opacity-60" />
-                          <span>{preset.label}</span>
-                          <span className="ml-auto text-[10px] tabular-nums text-muted-foreground/60">
-                            {preset.width}&times;{preset.height}
-                          </span>
-                        </span>
-                      </MenuRadioItem>
-                    );
-                  })}
-                </MenuRadioGroup>
-              </MenuGroup>
-            </MenuPopup>
-          </Menu>
+                  </TooltipPopup>
+                </Tooltip>
+              );
+            })}
+
+            <div className="mx-0.5 h-3 w-px bg-border/50" />
+
+            {/* Custom viewport */}
+            <Tooltip>
+              <TooltipTrigger
+                className={cn(
+                  "inline-flex h-5 w-5 cursor-default items-center justify-center rounded transition-colors",
+                  presetId === "custom"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground/55 hover:text-foreground",
+                )}
+                aria-label="Custom viewport"
+                aria-pressed={presetId === "custom"}
+                onClick={() => setProjectPreset(projectId, presetId === "custom" ? null : "custom")}
+              >
+                <RulerIcon className="size-3" />
+              </TooltipTrigger>
+              <TooltipPopup side="bottom" sideOffset={6}>
+                Custom size
+              </TooltipPopup>
+            </Tooltip>
+
+            {/* Orientation toggle */}
+            {presetId && (
+              <>
+                <div className="mx-0.5 h-3 w-px bg-border/50" />
+                <Tooltip>
+                  <TooltipTrigger
+                    className={cn(
+                      "inline-flex h-5 w-5 cursor-default items-center justify-center rounded text-muted-foreground/55 transition-colors hover:text-foreground",
+                      orientation === "landscape" && "text-foreground",
+                    )}
+                    aria-label={
+                      orientation === "portrait" ? "Switch to landscape" : "Switch to portrait"
+                    }
+                    onClick={() => toggleProjectOrientation(projectId)}
+                  >
+                    <RotateCcwIcon className="size-3" />
+                  </TooltipTrigger>
+                  <TooltipPopup side="bottom" sideOffset={6}>
+                    {orientation === "portrait" ? "Landscape" : "Portrait"}
+                  </TooltipPopup>
+                </Tooltip>
+              </>
+            )}
+          </div>
+
+          {/* Custom viewport dimension inputs */}
+          {presetId === "custom" && (
+            <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+              <Input
+                type="number"
+                value={customWidthInput}
+                onChange={(e) => setCustomWidthInput(e.target.value)}
+                onBlur={commitCustomViewport}
+                onKeyDown={(e) => e.key === "Enter" && commitCustomViewport()}
+                aria-label="Viewport width"
+                className="h-5 w-14 text-center text-[10px] tabular-nums"
+                min={320}
+                max={3840}
+              />
+              <span>&times;</span>
+              <Input
+                type="number"
+                value={customHeightInput}
+                onChange={(e) => setCustomHeightInput(e.target.value)}
+                onBlur={commitCustomViewport}
+                onKeyDown={(e) => e.key === "Enter" && commitCustomViewport()}
+                aria-label="Viewport height"
+                className="h-5 w-14 text-center text-[10px] tabular-nums"
+                min={320}
+                max={2160}
+              />
+            </div>
+          )}
 
           <Button
             type="button"
@@ -541,22 +742,23 @@ export function PreviewPanel({ projectId, threadId, onClose }: PreviewPanelProps
       <div
         className={cn(
           "flex min-h-0 flex-1 p-3",
-          activePreset ? "items-center justify-center" : "flex-col",
+          effectiveDims ? "items-center justify-center" : "flex-col",
         )}
       >
         <div
           ref={surfaceRef}
           className={cn(
             "relative overflow-hidden rounded-lg border border-border/70 bg-card/20",
-            !activePreset && "min-h-0 flex-1",
+            !effectiveDims && "min-h-0 flex-1",
           )}
           style={
-            activePreset
+            effectiveDims
               ? {
-                  width: activePreset.width,
-                  height: activePreset.height,
+                  width: effectiveDims.width,
+                  height: effectiveDims.height,
                   maxWidth: "100%",
                   maxHeight: "100%",
+                  transition: "width 250ms ease-out, height 250ms ease-out",
                 }
               : undefined
           }
@@ -568,8 +770,33 @@ export function PreviewPanel({ projectId, threadId, onClose }: PreviewPanelProps
                 : (activeTab?.error?.message ?? "Preview closed.")}
             </div>
           ) : null}
+
+          {/* Live dimensions badge */}
+          {surfaceDims && presetId && (
+            <div
+              className={cn(
+                "pointer-events-none absolute bottom-2 right-2 z-10 rounded-full bg-black/50 px-2 py-0.5 text-[10px] tabular-nums text-white/90 transition-opacity duration-300",
+                dimsBadgeVisible ? "opacity-100" : "opacity-0",
+              )}
+            >
+              {surfaceDims.w} &times; {surfaceDims.h}
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Preset info bar */}
+      {presetId && effectiveDims && (
+        <div className="flex items-center justify-center gap-2 border-t border-border/40 px-3 py-1 text-[10px] text-muted-foreground/60">
+          {PresetIcon && <PresetIcon className="size-3 opacity-50" />}
+          <span className="tabular-nums">
+            {presetId === "custom" ? "Custom" : (getBrowserPreset(presetId)?.label ?? presetId)}
+            {" \u2014 "}
+            {effectiveDims.width}&times;{effectiveDims.height}
+            {orientation === "landscape" ? " (landscape)" : ""}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

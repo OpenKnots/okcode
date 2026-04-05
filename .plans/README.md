@@ -30,6 +30,7 @@
 - `spec-1-1-cutover-plan.md` - SPEC.md 1:1 cutover
 - `spec-contract-matrix.md` - SPEC requirements contract matrix *(in progress)*
 - `web-i18n-rollout.md` - Multilingual i18n rollout *(in progress)*
+- `templates-community-system.md` - Community templates sharing, discovery, and customization
 - `workspace-file-tree.md` - Workspace file tree sidebar
 
 ## Archived (completed or superseded)

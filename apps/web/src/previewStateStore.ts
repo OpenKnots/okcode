@@ -4,12 +4,20 @@ import { create } from "zustand";
 import type { BrowserPresetId } from "./lib/browserPresets";
 
 export type PreviewDock = "left" | "right" | "top" | "bottom";
+export type PreviewOrientation = "portrait" | "landscape";
+
+export interface CustomViewport {
+  width: number;
+  height: number;
+}
 
 interface PersistedPreviewUiState {
   openByProjectId: Record<string, boolean>;
   dockByProjectId: Record<string, PreviewDock>;
   sizeByProjectId: Record<string, number>;
   presetByProjectId: Record<string, BrowserPresetId>;
+  orientationByProjectId: Record<string, PreviewOrientation>;
+  customViewportByProjectId: Record<string, CustomViewport>;
   favoriteUrls: string[];
 }
 
@@ -20,6 +28,9 @@ interface PreviewStateStore extends PersistedPreviewUiState {
   toggleProjectLayout: (projectId: ProjectId) => void;
   setProjectSize: (projectId: ProjectId, size: number) => void;
   setProjectPreset: (projectId: ProjectId, preset: BrowserPresetId | null) => void;
+  setProjectOrientation: (projectId: ProjectId, orientation: PreviewOrientation) => void;
+  toggleProjectOrientation: (projectId: ProjectId) => void;
+  setCustomViewport: (projectId: ProjectId, viewport: CustomViewport) => void;
   addFavoriteUrl: (url: string) => void;
   removeFavoriteUrl: (url: string) => void;
   toggleFavoriteUrl: (url: string) => void;
@@ -27,10 +38,33 @@ interface PreviewStateStore extends PersistedPreviewUiState {
 
 const PREVIEW_STATE_STORAGE_KEY = "okcode:desktop-preview:v4";
 
-const VALID_PRESETS = new Set<string>(["mobile", "tablet", "laptop", "desktop", "ultrawide"]);
+const VALID_PRESETS = new Set<string>([
+  "mobile",
+  "tablet",
+  "laptop",
+  "desktop",
+  "ultrawide",
+  "custom",
+]);
+const VALID_ORIENTATIONS = new Set<string>(["portrait", "landscape"]);
 
 function isValidPresetId(value: unknown): value is BrowserPresetId {
   return typeof value === "string" && VALID_PRESETS.has(value);
+}
+
+function isValidOrientation(value: unknown): value is PreviewOrientation {
+  return typeof value === "string" && VALID_ORIENTATIONS.has(value);
+}
+
+function isValidCustomViewport(value: unknown): value is CustomViewport {
+  if (!value || typeof value !== "object") return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.width === "number" &&
+    Number.isFinite(v.width) &&
+    typeof v.height === "number" &&
+    Number.isFinite(v.height)
+  );
 }
 
 function createEmptyPersistedPreviewUiState(): PersistedPreviewUiState {
@@ -39,6 +73,8 @@ function createEmptyPersistedPreviewUiState(): PersistedPreviewUiState {
     dockByProjectId: {},
     sizeByProjectId: {},
     presetByProjectId: {},
+    orientationByProjectId: {},
+    customViewportByProjectId: {},
     favoriteUrls: [],
   };
 }
@@ -105,6 +141,24 @@ function readPersistedPreviewUiState(): PersistedPreviewUiState {
               ),
             )
           : {},
+      orientationByProjectId:
+        parsed.orientationByProjectId && typeof parsed.orientationByProjectId === "object"
+          ? Object.fromEntries(
+              Object.entries(parsed.orientationByProjectId).filter(
+                (entry): entry is [string, PreviewOrientation] =>
+                  typeof entry[0] === "string" && isValidOrientation(entry[1]),
+              ),
+            )
+          : {},
+      customViewportByProjectId:
+        parsed.customViewportByProjectId && typeof parsed.customViewportByProjectId === "object"
+          ? Object.fromEntries(
+              Object.entries(parsed.customViewportByProjectId).filter(
+                (entry): entry is [string, CustomViewport] =>
+                  typeof entry[0] === "string" && isValidCustomViewport(entry[1]),
+              ),
+            )
+          : {},
       favoriteUrls: Array.isArray(parsed.favoriteUrls)
         ? parsed.favoriteUrls.filter(
             (u): u is string => typeof u === "string" && u.trim().length > 0,
@@ -129,6 +183,8 @@ function persistPreviewUiState(state: PersistedPreviewUiState): void {
         dockByProjectId: state.dockByProjectId,
         sizeByProjectId: state.sizeByProjectId,
         presetByProjectId: state.presetByProjectId,
+        orientationByProjectId: state.orientationByProjectId,
+        customViewportByProjectId: state.customViewportByProjectId,
         favoriteUrls: state.favoriteUrls,
       } satisfies PersistedPreviewUiState),
     );
@@ -143,6 +199,8 @@ function snapshotState(state: PreviewStateStore): PersistedPreviewUiState {
     dockByProjectId: state.dockByProjectId,
     sizeByProjectId: state.sizeByProjectId,
     presetByProjectId: state.presetByProjectId,
+    orientationByProjectId: state.orientationByProjectId,
+    customViewportByProjectId: state.customViewportByProjectId,
     favoriteUrls: state.favoriteUrls,
   };
 }
@@ -223,6 +281,43 @@ export const usePreviewStateStore = create<PreviewStateStore>((set, get) => ({
         presetByProjectId: nextPresetByProjectId,
       });
       return { presetByProjectId: nextPresetByProjectId };
+    });
+  },
+
+  setProjectOrientation: (projectId, orientation) => {
+    set((state) => {
+      const nextOrientationByProjectId = {
+        ...state.orientationByProjectId,
+        [projectId]: orientation,
+      };
+      persistPreviewUiState({
+        ...snapshotState(state),
+        orientationByProjectId: nextOrientationByProjectId,
+      });
+      return { orientationByProjectId: nextOrientationByProjectId };
+    });
+  },
+
+  toggleProjectOrientation: (projectId) => {
+    const current = get().orientationByProjectId[projectId] ?? "portrait";
+    get().setProjectOrientation(projectId, current === "portrait" ? "landscape" : "portrait");
+  },
+
+  setCustomViewport: (projectId, viewport) => {
+    const clamped: CustomViewport = {
+      width: Math.max(320, Math.min(3840, Math.round(viewport.width))),
+      height: Math.max(320, Math.min(2160, Math.round(viewport.height))),
+    };
+    set((state) => {
+      const nextCustomViewportByProjectId = {
+        ...state.customViewportByProjectId,
+        [projectId]: clamped,
+      };
+      persistPreviewUiState({
+        ...snapshotState(state),
+        customViewportByProjectId: nextCustomViewportByProjectId,
+      });
+      return { customViewportByProjectId: nextCustomViewportByProjectId };
     });
   },
 

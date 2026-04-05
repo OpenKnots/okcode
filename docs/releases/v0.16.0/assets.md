@@ -47,10 +47,10 @@ The iOS build is uploaded directly to App Store Connect / TestFlight by the [Rel
 
 ## Rollout documentation
 
-| Document | Purpose |
-| -------- | ------- |
+| Document                                     | Purpose                                                         |
+| -------------------------------------------- | --------------------------------------------------------------- |
 | [rollout-checklist.md](rollout-checklist.md) | Step-by-step release playbook (pre-flight through post-release) |
-| [soak-test-plan.md](soak-test-plan.md) | Structured 48-hour RC soak test cases |
+| [soak-test-plan.md](soak-test-plan.md)       | Structured 48-hour RC soak test cases                           |
 
 ## Checksums
 

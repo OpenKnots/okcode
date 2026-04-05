@@ -415,6 +415,9 @@ function SettingsRouteView() {
     ...(settings.enableAssistantStreaming !== defaults.enableAssistantStreaming
       ? ["Assistant output"]
       : []),
+    ...(settings.showAuthFailuresAsErrors !== defaults.showAuthFailuresAsErrors
+      ? ["Auth failure errors"]
+      : []),
     ...(settings.openLinksExternally !== defaults.openLinksExternally
       ? ["Open links externally"]
       : []),
@@ -1203,6 +1206,34 @@ function SettingsRouteView() {
                       })
                     }
                     aria-label="Stream assistant messages"
+                  />
+                }
+              />
+
+              <SettingsRow
+                title="Auth failure errors"
+                description="Show provider authentication failures in the thread error banner. Turn this off to keep login issues out of the main error state."
+                resetAction={
+                  settings.showAuthFailuresAsErrors !== defaults.showAuthFailuresAsErrors ? (
+                    <SettingResetButton
+                      label="auth failure errors"
+                      onClick={() =>
+                        updateSettings({
+                          showAuthFailuresAsErrors: defaults.showAuthFailuresAsErrors,
+                        })
+                      }
+                    />
+                  ) : null
+                }
+                control={
+                  <Switch
+                    checked={settings.showAuthFailuresAsErrors}
+                    onCheckedChange={(checked) =>
+                      updateSettings({
+                        showAuthFailuresAsErrors: Boolean(checked),
+                      })
+                    }
+                    aria-label="Show authentication failures as thread errors"
                   />
                 }
               />

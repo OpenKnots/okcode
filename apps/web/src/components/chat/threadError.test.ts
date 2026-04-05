@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { humanizeThreadError } from "./threadError";
+import { humanizeThreadError, isAuthenticationThreadError } from "./threadError";
 
 describe("humanizeThreadError", () => {
   it("summarizes worktree creation failures into a user-facing message", () => {
@@ -21,5 +21,22 @@ describe("humanizeThreadError", () => {
       description: "Something else went wrong.",
       technicalDetails: null,
     });
+  });
+
+  it("detects provider authentication failures", () => {
+    expect(
+      isAuthenticationThreadError(
+        "Codex CLI is not authenticated. Run `codex login` and try again.",
+      ),
+    ).toBe(true);
+    expect(
+      isAuthenticationThreadError(
+        "Claude is not authenticated. Run `claude auth login` and try again.",
+      ),
+    ).toBe(true);
+  });
+
+  it("does not classify unrelated failures as authentication errors", () => {
+    expect(isAuthenticationThreadError("Provider crashed while starting.")).toBe(false);
   });
 });

@@ -85,6 +85,7 @@ interface MessagesTimelineProps {
   onImageExpand: (preview: ExpandedImagePreview) => void;
   markdownCwd: string | undefined;
   resolvedTheme: "light" | "dark";
+  showReasoningContent: boolean;
   timestampFormat: TimestampFormat;
   workspaceRoot: string | undefined;
   onRemoveQueuedMessage: (messageId: MessageId) => void;
@@ -111,6 +112,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
   onImageExpand,
   markdownCwd,
   resolvedTheme,
+  showReasoningContent,
   timestampFormat,
   workspaceRoot,
   onRemoveQueuedMessage,
@@ -372,6 +374,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
                       key={`work-row:${subGroup.entries[0]!.id}`}
                       workEntry={subGroup.entries[0]!}
                       resolvedTheme={resolvedTheme}
+                      showReasoningContent={showReasoningContent}
                     />
                   ) : (
                     <CollapsedWorkEntryGroup
@@ -379,6 +382,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
                       heading={subGroup.heading}
                       entries={subGroup.entries}
                       resolvedTheme={resolvedTheme}
+                      showReasoningContent={showReasoningContent}
                     />
                   ),
                 )}
@@ -1072,8 +1076,9 @@ function groupConsecutiveWorkEntries(entries: TimelineWorkEntry[]): ConsecutiveW
 const SimpleWorkEntryRow = memo(function SimpleWorkEntryRow(props: {
   workEntry: TimelineWorkEntry;
   resolvedTheme: "light" | "dark";
+  showReasoningContent: boolean;
 }) {
-  const { workEntry, resolvedTheme } = props;
+  const { workEntry, resolvedTheme, showReasoningContent } = props;
   const iconConfig = workToneIcon(workEntry.tone);
   const EntryIcon = workEntryIcon(workEntry);
   const heading = toolWorkEntryHeading(workEntry);
@@ -1081,6 +1086,8 @@ const SimpleWorkEntryRow = memo(function SimpleWorkEntryRow(props: {
   const hasChangedFiles = (workEntry.changedFiles?.length ?? 0) > 0;
   const previewIsChangedFiles = hasChangedFiles && !workEntry.command && !workEntry.detail;
   const hasDiffData = workEntry.diffData != null && workEntry.itemType === "file_change";
+  const isReasoningWithDetail =
+    showReasoningContent && workEntry.label === "Reasoning update" && !!workEntry.detail;
 
   return (
     <div className="rounded-lg px-1 py-1">
@@ -1105,6 +1112,13 @@ const SimpleWorkEntryRow = memo(function SimpleWorkEntryRow(props: {
           </p>
         </div>
       </div>
+      {isReasoningWithDetail && (
+        <div className="mt-1 pl-7">
+          <p className="whitespace-pre-wrap text-[10px] leading-4 text-muted-foreground/60">
+            {workEntry.detail}
+          </p>
+        </div>
+      )}
       {hasDiffData ? (
         <div className="mt-1.5 pl-6">
           <InlineDiffBlock diffData={workEntry.diffData!} resolvedTheme={resolvedTheme} />
@@ -1140,8 +1154,9 @@ const CollapsedWorkEntryGroup = memo(function CollapsedWorkEntryGroup(props: {
   heading: string;
   entries: TimelineWorkEntry[];
   resolvedTheme: "light" | "dark";
+  showReasoningContent: boolean;
 }) {
-  const { heading, entries, resolvedTheme } = props;
+  const { heading, entries, resolvedTheme, showReasoningContent } = props;
   const [isExpanded, setIsExpanded] = useState(false);
   const firstEntry = entries[0]!;
   const EntryIcon = workEntryIcon(firstEntry);
@@ -1177,10 +1192,17 @@ const CollapsedWorkEntryGroup = memo(function CollapsedWorkEntryGroup(props: {
           {entries.map((entry) => {
             const preview = workEntryPreview(entry);
             const hasDiff = entry.diffData != null && entry.itemType === "file_change";
+            const showReasoningDetail =
+              showReasoningContent && entry.label === "Reasoning update" && !!entry.detail;
             return (
               <div key={`subentry:${entry.id}`}>
-                <p className="truncate py-0.5 text-[10px] leading-4 text-muted-foreground/55">
-                  {preview ?? heading}
+                <p
+                  className={cn(
+                    "py-0.5 text-[10px] leading-4 text-muted-foreground/55",
+                    !showReasoningDetail && "truncate",
+                  )}
+                >
+                  {showReasoningDetail ? entry.detail : (preview ?? heading)}
                 </p>
                 {hasDiff && (
                   <div className="mt-1">

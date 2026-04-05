@@ -99,6 +99,7 @@ describe("MessagesTimeline", () => {
         onImageExpand={() => {}}
         markdownCwd={undefined}
         resolvedTheme="light"
+        showReasoningContent={false}
         timestampFormat="locale"
         workspaceRoot={undefined}
         onRemoveQueuedMessage={() => {}}
@@ -146,6 +147,7 @@ describe("MessagesTimeline", () => {
         onImageExpand={() => {}}
         markdownCwd={undefined}
         resolvedTheme="light"
+        showReasoningContent={false}
         timestampFormat="locale"
         workspaceRoot={undefined}
         onRemoveQueuedMessage={() => {}}
@@ -180,6 +182,7 @@ describe("MessagesTimeline", () => {
         onImageExpand={() => {}}
         markdownCwd={undefined}
         resolvedTheme="light"
+        showReasoningContent={false}
         timestampFormat="locale"
         workspaceRoot={undefined}
         onRemoveQueuedMessage={() => {}}

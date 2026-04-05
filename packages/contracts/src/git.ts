@@ -144,6 +144,7 @@ export const GitCreateWorktreeInput = Schema.Struct({
   branch: TrimmedNonEmptyStringSchema,
   newBranch: Schema.optional(TrimmedNonEmptyStringSchema),
   path: Schema.NullOr(TrimmedNonEmptyStringSchema),
+  updateBaseBranchWithRemote: Schema.optional(Schema.Boolean),
 });
 export type GitCreateWorktreeInput = typeof GitCreateWorktreeInput.Type;
 

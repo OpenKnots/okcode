@@ -69,6 +69,7 @@ export const AppSettingsSchema = Schema.Struct({
   backgroundImageUrl: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
   backgroundImageOpacity: Schema.Number.pipe(withDefaults(() => 0.15)),
   defaultThreadEnvMode: EnvMode.pipe(withDefaults(() => "worktree" as const satisfies EnvMode)),
+  autoUpdateWorktreeBaseBranch: Schema.Boolean.pipe(withDefaults(() => false)),
   confirmThreadDelete: Schema.Boolean.pipe(withDefaults(() => true)),
   autoDeleteMergedThreads: Schema.Boolean.pipe(withDefaults(() => false)),
   autoDeleteMergedThreadsDelayMinutes: Schema.Number.pipe(withDefaults(() => 5)),

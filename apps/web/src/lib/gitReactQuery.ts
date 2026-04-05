@@ -200,15 +200,23 @@ export function gitCreateWorktreeMutationOptions(input: { queryClient: QueryClie
       branch,
       newBranch,
       path,
+      updateBaseBranchWithRemote,
     }: {
       cwd: string;
       branch: string;
       newBranch: string;
       path?: string | null;
+      updateBaseBranchWithRemote?: boolean;
     }) => {
       const api = ensureNativeApi();
       if (!cwd) throw new Error("Git worktree creation is unavailable.");
-      return api.git.createWorktree({ cwd, branch, newBranch, path: path ?? null });
+      return api.git.createWorktree({
+        cwd,
+        branch,
+        newBranch,
+        path: path ?? null,
+        ...(updateBaseBranchWithRemote ? { updateBaseBranchWithRemote } : {}),
+      });
     },
     mutationKey: ["git", "mutation", "create-worktree"] as const,
     onSettled: async () => {

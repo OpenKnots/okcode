@@ -30,6 +30,17 @@ describe("GitCreateWorktreeInput", () => {
     expect(parsed.newBranch).toBeUndefined();
     expect(parsed.branch).toBe("feature/existing");
   });
+
+  it("accepts optional upstream refresh flag", () => {
+    const parsed = decodeCreateWorktreeInput({
+      cwd: "/repo",
+      branch: "main",
+      path: null,
+      updateBaseBranchWithRemote: true,
+    });
+
+    expect(parsed.updateBaseBranchWithRemote).toBe(true);
+  });
 });
 
 describe("GitPreparePullRequestThreadInput", () => {

@@ -113,7 +113,9 @@ describe("buildHiddenProviderInput", () => {
       promptEnhancement: "specificity",
     });
 
-    expect(providerInput).toContain('Before responding, improve the user\'s request using the "Add specificity" enhancement mode');
+    expect(providerInput).toContain(
+      'Before responding, improve the user\'s request using the "Add specificity" enhancement mode',
+    );
     expect(providerInput).toContain("Fix this [terminal-1:4-6] button");
     expect(providerInput).toContain("<terminal_context>");
     expect(providerInput).toContain("bun lint");

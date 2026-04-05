@@ -63,7 +63,6 @@ import { useComposerDraftStore } from "../composerDraftStore";
 import { useHandleNewThread } from "../hooks/useHandleNewThread";
 import {
   selectThreadTerminalState,
-  type ThreadTerminalState,
   useTerminalStateStore,
 } from "../terminalStateStore";
 import { toastManager } from "./ui/toast";
@@ -374,7 +373,9 @@ interface MemoizedThreadRowProps {
   routeThreadId: ThreadIdType | null;
   pColor: ReturnType<typeof getProjectColor>;
   prByThreadId: Map<ThreadIdType, ThreadPr>;
-  terminalStateByThreadId: Record<ThreadIdType, ThreadTerminalState>;
+  terminalStateByThreadId: ReturnType<
+    typeof useTerminalStateStore.getState
+  >["terminalStateByThreadId"];
   orderedProjectThreadIds: ThreadIdType[];
   selectedThreadIds: ReadonlySet<ThreadIdType>;
   editingThreadId: ThreadIdType | null;

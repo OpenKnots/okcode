@@ -22,12 +22,7 @@ interface PromptEnhancerProps {
   disabled?: boolean;
 }
 
-export default function PromptEnhancer({
-  prompt,
-  value,
-  onChange,
-  disabled,
-}: PromptEnhancerProps) {
+export default function PromptEnhancer({ prompt, value, onChange, disabled }: PromptEnhancerProps) {
   const hasPrompt = prompt.trim().length > 0;
   const activeEnhancement = getPromptEnhancementById(value);
   const canOpenMenu = !disabled && (hasPrompt || value !== null);

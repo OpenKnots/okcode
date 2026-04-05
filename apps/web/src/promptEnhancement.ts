@@ -84,10 +84,7 @@ const PROMPT_ENHANCEMENT_BY_ID = new Map(
 );
 
 export function isPromptEnhancementId(value: unknown): value is PromptEnhancementId {
-  return (
-    typeof value === "string" &&
-    (PROMPT_ENHANCEMENT_IDS as readonly string[]).includes(value)
-  );
+  return typeof value === "string" && (PROMPT_ENHANCEMENT_IDS as readonly string[]).includes(value);
 }
 
 export function getPromptEnhancementById(

@@ -16,7 +16,6 @@ import {
   type ResolvedKeybindingsConfig,
   type ServerProviderStatus,
   type ThreadId,
-  type TurnId,
   type KeybindingCommand,
   OrchestrationThreadActivity,
   ProviderInteractionMode,
@@ -2670,6 +2669,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
           text: outgoingMessageText,
           attachments: turnAttachments,
         },
+        ...(nextQueued.providerInput ? { providerInput: nextQueued.providerInput } : {}),
         model: selectedModel || undefined,
         ...(selectedModelOptionsForDispatch
           ? { modelOptions: selectedModelOptionsForDispatch }
@@ -2987,6 +2987,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
       ? useComposerDraftStore.getState().draftsByThreadId[activeThread.id]
       : null;
     const nextPrompt = latestDraft?.prompt ?? promptRef.current;
+    const nextPromptEnhancement = latestDraft?.promptEnhancement ?? composerPromptEnhancement;
     const nextAttachments = latestDraft?.attachments ?? composerAttachmentsRef.current;
     const nextTerminalContexts =
       latestDraft?.terminalContexts ?? composerTerminalContextsRef.current;
@@ -2995,10 +2996,11 @@ export default function ChatView({ threadId }: ChatViewProps) {
     composerTerminalContextsRef.current = nextTerminalContexts;
     return {
       prompt: nextPrompt,
+      promptEnhancement: nextPromptEnhancement,
       attachments: nextAttachments,
       terminalContexts: nextTerminalContexts,
     };
-  }, [activeThread]);
+  }, [activeThread, composerPromptEnhancement]);
 
   const onSend = async (e?: { preventDefault: () => void }) => {
     e?.preventDefault();
@@ -3010,6 +3012,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
     }
     const liveComposerDraft = readLiveComposerDraftSnapshot();
     const promptForSend = liveComposerDraft.prompt;
+    const promptEnhancementForSend = liveComposerDraft.promptEnhancement;
     const composerAttachmentsForSend = liveComposerDraft.attachments;
     const composerTerminalContextsForSend = liveComposerDraft.terminalContexts;
     const {
@@ -3035,6 +3038,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
       await onSubmitPlanFollowUp({
         text: followUp.text,
         interactionMode: followUp.interactionMode,
+        promptEnhancement: promptEnhancementForSend,
       });
       return;
     }
@@ -3217,6 +3221,11 @@ export default function ChatView({ threadId }: ChatViewProps) {
     // ── Queue message if a turn is already running ────────────────────
     if (phase === "running") {
       const composerAttachmentsSnapshot = [...composerAttachmentsForSend];
+      const hiddenProviderInput = buildHiddenProviderInput({
+        prompt: promptForSend,
+        terminalContexts: sendableComposerTerminalContexts,
+        promptEnhancement: trimmed.length > 0 ? promptEnhancementForSend : null,
+      });
       const messageTextForSend = appendTerminalContextsToPrompt(
         promptForSend,
         sendableComposerTerminalContexts,
@@ -3258,6 +3267,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
           text: promptForSend,
           attachments: composerAttachmentsSnapshot,
           terminalContexts: [...sendableComposerTerminalContexts],
+          ...(hiddenProviderInput ? { providerInput: hiddenProviderInput } : {}),
           createdAt: messageCreatedAt,
         },
       ]);
@@ -3319,6 +3329,11 @@ export default function ChatView({ threadId }: ChatViewProps) {
 
     const composerAttachmentsSnapshot = [...composerAttachmentsForSend];
     const composerTerminalContextsSnapshot = [...sendableComposerTerminalContexts];
+    const hiddenProviderInput = buildHiddenProviderInput({
+      prompt: promptForSend,
+      terminalContexts: composerTerminalContextsSnapshot,
+      promptEnhancement: trimmed.length > 0 ? promptEnhancementForSend : null,
+    });
     const messageTextForSend = appendTerminalContextsToPrompt(
       promptForSend,
       composerTerminalContextsSnapshot,
@@ -3533,6 +3548,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
           text: outgoingMessageText,
           attachments: turnAttachments,
         },
+        ...(hiddenProviderInput ? { providerInput: hiddenProviderInput } : {}),
         model: selectedModel || undefined,
         ...(selectedModelOptionsForDispatch
           ? { modelOptions: selectedModelOptionsForDispatch }
@@ -3571,6 +3587,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
         });
         promptRef.current = promptForSend;
         setPrompt(promptForSend);
+        setPromptEnhancement(promptEnhancementForSend ?? null);
         setComposerCursor(collapseExpandedComposerCursor(promptForSend, promptForSend.length));
         addComposerAttachmentsToDraft(
           composerAttachmentsSnapshot.map(cloneComposerAttachmentForRetry),
@@ -3785,9 +3802,11 @@ export default function ChatView({ threadId }: ChatViewProps) {
     async ({
       text,
       interactionMode: nextInteractionMode,
+      promptEnhancement,
     }: {
       text: string;
       interactionMode: ProviderInteractionMode;
+      promptEnhancement: PromptEnhancementId | null | undefined;
     }) => {
       const api = readNativeApi();
       if (
@@ -3810,6 +3829,11 @@ export default function ChatView({ threadId }: ChatViewProps) {
       const threadIdForSend = activeThread.id;
       const messageIdForSend = newMessageId();
       const messageCreatedAt = new Date().toISOString();
+      const hiddenProviderInput = buildHiddenProviderInput({
+        prompt: trimmed,
+        terminalContexts: [],
+        promptEnhancement,
+      });
       const outgoingMessageText = formatOutgoingPrompt({
         provider: selectedProvider,
         effort: selectedPromptEffort,
@@ -3855,6 +3879,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
             text: outgoingMessageText,
             attachments: [],
           },
+          ...(hiddenProviderInput ? { providerInput: hiddenProviderInput } : {}),
           provider: selectedProvider,
           model: selectedModel || undefined,
           ...(selectedModelOptionsForDispatch
@@ -5195,7 +5220,11 @@ export default function ChatView({ threadId }: ChatViewProps) {
                         >
                           {pendingUserInputs.length === 0 && (
                             <>
-                              <PromptEnhancer prompt={prompt} onEnhance={setPromptFromTraits} />
+                              <PromptEnhancer
+                                prompt={prompt}
+                                value={composerPromptEnhancement}
+                                onChange={setPromptEnhancement}
+                              />
                               <Button
                                 variant="ghost"
                                 size="icon-xs"

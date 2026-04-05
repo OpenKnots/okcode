@@ -229,6 +229,32 @@ function parseRemoteRefWithRemoteNames(
   return null;
 }
 
+function parseUpstreamRef(
+  value: string,
+): { upstreamRef: string; remoteName: string; upstreamBranch: string } | null {
+  const upstreamRef = value.trim();
+  if (upstreamRef.length === 0 || upstreamRef === "@{upstream}") {
+    return null;
+  }
+
+  const separatorIndex = upstreamRef.indexOf("/");
+  if (separatorIndex <= 0 || separatorIndex === upstreamRef.length - 1) {
+    return null;
+  }
+
+  const remoteName = upstreamRef.slice(0, separatorIndex);
+  const upstreamBranch = upstreamRef.slice(separatorIndex + 1);
+  if (remoteName.length === 0 || upstreamBranch.length === 0) {
+    return null;
+  }
+
+  return {
+    upstreamRef,
+    remoteName,
+    upstreamBranch,
+  };
+}
+
 function parseTrackingBranchByUpstreamRef(stdout: string, upstreamRef: string): string | null {
   for (const line of stdout.split("\n")) {
     const trimmedLine = line.trim();
@@ -777,26 +803,7 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
           ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"],
           true,
         ).pipe(Effect.map((stdout) => stdout.trim()));
-
-        if (upstreamRef.length === 0 || upstreamRef === "@{upstream}") {
-          return null;
-        }
-
-        const separatorIndex = upstreamRef.indexOf("/");
-        if (separatorIndex <= 0) {
-          return null;
-        }
-        const remoteName = upstreamRef.slice(0, separatorIndex);
-        const upstreamBranch = upstreamRef.slice(separatorIndex + 1);
-        if (remoteName.length === 0 || upstreamBranch.length === 0) {
-          return null;
-        }
-
-        return {
-          upstreamRef,
-          remoteName,
-          upstreamBranch,
-        };
+        return parseUpstreamRef(upstreamRef);
       });
 
     const resolveBranchUpstream = (
@@ -819,28 +826,7 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
           if (result.code !== 0) {
             return null;
           }
-
-          const upstreamRef = result.stdout.trim();
-          if (upstreamRef.length === 0) {
-            return null;
-          }
-
-          const separatorIndex = upstreamRef.indexOf("/");
-          if (separatorIndex <= 0 || separatorIndex === upstreamRef.length - 1) {
-            return null;
-          }
-
-          const remoteName = upstreamRef.slice(0, separatorIndex);
-          const upstreamBranch = upstreamRef.slice(separatorIndex + 1);
-          if (remoteName.length === 0 || upstreamBranch.length === 0) {
-            return null;
-          }
-
-          return {
-            upstreamRef,
-            remoteName,
-            upstreamBranch,
-          };
+          return parseUpstreamRef(result.stdout);
         }),
       );
 
@@ -1501,10 +1487,19 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
           true,
         ).pipe(Effect.map((stdout) => stdout.trim()));
         const strategy = details.aheadCount > 0 && details.behindCount > 0 ? "rebase" : "pull";
+        const upstream = details.upstreamRef ? parseUpstreamRef(details.upstreamRef) : null;
+        if (!upstream) {
+          return yield* createGitCommandError(
+            "GitCore.syncCurrentBranch",
+            cwd,
+            ["status", "--porcelain=v2", "--branch"],
+            "Current branch upstream could not be resolved. Reconfigure the branch upstream and retry.",
+          );
+        }
         const args =
           strategy === "rebase"
-            ? (["pull", "--rebase"] as const)
-            : (["pull", "--ff-only"] as const);
+            ? (["pull", "--rebase", upstream.remoteName, upstream.upstreamBranch] as const)
+            : (["pull", "--ff-only", upstream.remoteName, upstream.upstreamBranch] as const);
         const syncResult = yield* executeGit("GitCore.syncCurrentBranch.pull", cwd, args, {
           timeoutMs: 30_000,
           allowNonZeroExit: true,

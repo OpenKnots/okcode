@@ -248,12 +248,13 @@ export const CodeViewerFileContent = memo(function CodeViewerFileContent(
     ],
   );
 
+  const tabExists = tab != null;
   useEffect(() => {
-    if (!hasTextContents || !tab) {
+    if (!hasTextContents || !tabExists) {
       return;
     }
-    initializeTabContents(tab.tabId, fileContents);
-  }, [fileContents, hasTextContents, initializeTabContents, tab]);
+    initializeTabContents(tabId, fileContents);
+  }, [fileContents, hasTextContents, initializeTabContents, tabId, tabExists]);
 
   useEffect(() => {
     const api = readNativeApi();

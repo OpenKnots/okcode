@@ -37,6 +37,7 @@ const PROJECT_ID = "project-1" as ProjectId;
 const NOW_ISO = "2026-03-04T12:00:00.000Z";
 const BASE_TIME_MS = Date.parse(NOW_ISO);
 const ATTACHMENT_SVG = "<svg xmlns='http://www.w3.org/2000/svg' width='120' height='300'></svg>";
+const ONBOARDING_STORAGE_KEY = "okcode:onboarding-completed:v1";
 
 interface WsRequestEnvelope {
   id: string;
@@ -826,6 +827,7 @@ describe("ChatView timeline estimator parity (full app)", () => {
   beforeEach(async () => {
     await setViewport(DEFAULT_VIEWPORT);
     localStorage.clear();
+    localStorage.setItem(ONBOARDING_STORAGE_KEY, "true");
     document.body.innerHTML = "";
     wsRequests.length = 0;
     useComposerDraftStore.setState({

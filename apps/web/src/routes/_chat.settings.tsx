@@ -432,6 +432,9 @@ function SettingsRouteView() {
       ? ["Open links externally"]
       : []),
     ...(settings.defaultThreadEnvMode !== defaults.defaultThreadEnvMode ? ["New thread mode"] : []),
+    ...(settings.autoUpdateWorktreeBaseBranch !== defaults.autoUpdateWorktreeBaseBranch
+      ? ["Worktree base refresh"]
+      : []),
     ...(settings.confirmThreadDelete !== defaults.confirmThreadDelete
       ? ["Delete confirmation"]
       : []),
@@ -1260,6 +1263,35 @@ function SettingsRouteView() {
                       </SelectItem>
                     </SelectPopup>
                   </Select>
+                }
+              />
+
+              <SettingsRow
+                title="New worktree base"
+                description="Refresh the selected base branch from its tracked remote before creating a new worktree, without changing your current checkout."
+                resetAction={
+                  settings.autoUpdateWorktreeBaseBranch !==
+                  defaults.autoUpdateWorktreeBaseBranch ? (
+                    <SettingResetButton
+                      label="new worktree base"
+                      onClick={() =>
+                        updateSettings({
+                          autoUpdateWorktreeBaseBranch: defaults.autoUpdateWorktreeBaseBranch,
+                        })
+                      }
+                    />
+                  ) : null
+                }
+                control={
+                  <Switch
+                    checked={settings.autoUpdateWorktreeBaseBranch}
+                    onCheckedChange={(checked) =>
+                      updateSettings({
+                        autoUpdateWorktreeBaseBranch: Boolean(checked),
+                      })
+                    }
+                    aria-label="Refresh base branch before creating new worktrees"
+                  />
                 }
               />
 

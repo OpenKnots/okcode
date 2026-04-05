@@ -431,6 +431,21 @@ function resolveWsRpc(body: WsRequestEnvelope["body"]): unknown {
       pr: null,
     };
   }
+  if (tag === WS_METHODS.gitCreateWorktree) {
+    const baseBranch = typeof body.branch === "string" ? body.branch : "main";
+    const worktreeBranch =
+      typeof body.newBranch === "string" && body.newBranch.length > 0 ? body.newBranch : baseBranch;
+    return {
+      worktree: {
+        path: `/repo/worktrees/${worktreeBranch.replaceAll("/", "-")}`,
+        branch: worktreeBranch,
+        baseBranch,
+      },
+    };
+  }
+  if (tag === ORCHESTRATION_WS_METHODS.dispatchCommand) {
+    return { sequence: 1 };
+  }
   if (tag === WS_METHODS.projectsSearchEntries) {
     return {
       entries: [],
@@ -1178,6 +1193,63 @@ describe("ChatView timeline estimator parity (full app)", () => {
               OKCODE_PROJECT_ROOT: "/repo/project",
               OKCODE_WORKTREE_PATH: "/repo/worktrees/feature-draft",
             },
+          });
+        },
+        { timeout: 8_000, interval: 16 },
+      );
+    } finally {
+      await mounted.cleanup();
+    }
+  });
+
+  it("passes worktree base refresh through when the setting is enabled", async () => {
+    localStorage.setItem(
+      "okcode:app-settings:v1",
+      JSON.stringify({
+        autoUpdateWorktreeBaseBranch: true,
+      }),
+    );
+    useComposerDraftStore.setState({
+      draftThreadsByThreadId: {
+        [THREAD_ID]: {
+          projectId: PROJECT_ID,
+          createdAt: NOW_ISO,
+          title: "New thread",
+          runtimeMode: "full-access",
+          interactionMode: "chat",
+          branch: "main",
+          worktreePath: null,
+          envMode: "worktree",
+        },
+      },
+      projectDraftThreadIdByProjectId: {
+        [PROJECT_ID]: THREAD_ID,
+      },
+    });
+
+    const mounted = await mountChatView({
+      viewport: DEFAULT_VIEWPORT,
+      snapshot: createDraftOnlySnapshot(),
+    });
+
+    try {
+      useComposerDraftStore.getState().setPrompt(THREAD_ID, "Start a new worktree thread");
+      await waitForLayout();
+
+      const sendButton = await waitForSendButton();
+      expect(sendButton.disabled).toBe(false);
+      sendButton.click();
+
+      await vi.waitFor(
+        () => {
+          const createWorktreeRequest = wsRequests.find(
+            (request) => request._tag === WS_METHODS.gitCreateWorktree,
+          );
+          expect(createWorktreeRequest).toMatchObject({
+            _tag: WS_METHODS.gitCreateWorktree,
+            cwd: "/repo/project",
+            branch: "main",
+            updateBaseBranchWithRemote: true,
           });
         },
         { timeout: 8_000, interval: 16 },

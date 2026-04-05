@@ -61,7 +61,11 @@ import { readNativeApi } from "../nativeApi";
 import { resolveServerHttpOrigin } from "../lib/runtimeBridge";
 import { useComposerDraftStore } from "../composerDraftStore";
 import { useHandleNewThread } from "../hooks/useHandleNewThread";
-import { selectThreadTerminalState, useTerminalStateStore } from "../terminalStateStore";
+import {
+  selectThreadTerminalState,
+  type ThreadTerminalState,
+  useTerminalStateStore,
+} from "../terminalStateStore";
 import { toastManager } from "./ui/toast";
 import {
   getArm64IntelBuildWarningDescription,
@@ -370,7 +374,7 @@ interface MemoizedThreadRowProps {
   routeThreadId: ThreadIdType | null;
   pColor: ReturnType<typeof getProjectColor>;
   prByThreadId: Map<ThreadIdType, ThreadPr>;
-  terminalStateByThreadId: Record<ThreadIdType, { runningTerminalIds: string[] }>;
+  terminalStateByThreadId: Record<ThreadIdType, ThreadTerminalState>;
   orderedProjectThreadIds: ThreadIdType[];
   selectedThreadIds: ReadonlySet<ThreadIdType>;
   editingThreadId: ThreadIdType | null;
@@ -384,8 +388,15 @@ interface MemoizedThreadRowProps {
   navigate: (...args: any[]) => any;
   clearSelection: () => void;
   setSelectionAnchor: (threadId: ThreadIdType) => void;
-  handleThreadClick: (event: MouseEvent, threadId: ThreadIdType, orderedProjectThreadIds: readonly ThreadIdType[]) => void;
-  handleThreadContextMenu: (threadId: ThreadIdType, position: { x: number; y: number }) => Promise<void>;
+  handleThreadClick: (
+    event: MouseEvent,
+    threadId: ThreadIdType,
+    orderedProjectThreadIds: readonly ThreadIdType[],
+  ) => void;
+  handleThreadContextMenu: (
+    threadId: ThreadIdType,
+    position: { x: number; y: number },
+  ) => Promise<void>;
   handleMultiSelectContextMenu: (position: { x: number; y: number }) => Promise<void>;
   openPrLink: (event: React.MouseEvent<HTMLElement>, prUrl: string) => void;
   formatRelativeTimeFn: (iso: string) => string;
@@ -539,9 +550,7 @@ const MemoizedThreadRow = memo(
                 title={terminalStatus.label}
                 className={`inline-flex items-center justify-center ${terminalStatus.colorClass}`}
               >
-                <TerminalIcon
-                  className={`size-3 ${terminalStatus.pulse ? "animate-pulse" : ""}`}
-                />
+                <TerminalIcon className={`size-3 ${terminalStatus.pulse ? "animate-pulse" : ""}`} />
               </span>
             )}
             <span
@@ -1583,9 +1592,7 @@ export default function Sidebar() {
         </div>
 
         <CollapsibleContent>
-          <SidebarMenuSub
-            className="relative mx-1.5 my-1 w-auto translate-x-0 gap-0.5 rounded-lg border border-border/40 bg-background/50 px-1 py-1 dark:border-border/30 dark:bg-background/30"
-          >
+          <SidebarMenuSub className="relative mx-1.5 my-1 w-auto translate-x-0 gap-0.5 rounded-lg border border-border/40 bg-background/50 px-1 py-1 dark:border-border/30 dark:bg-background/30">
             {renderedThreads.map((thread) => (
               <MemoizedThreadRow
                 key={thread.id}

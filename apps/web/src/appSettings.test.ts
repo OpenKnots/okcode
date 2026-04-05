@@ -26,6 +26,12 @@ describe("AppSettingsSchema", () => {
     expect(settings.showAuthFailuresAsErrors).toBe(true);
   });
 
+  it("defaults tracked base-branch refresh for new worktrees to disabled", () => {
+    const settings = Schema.decodeUnknownSync(AppSettingsSchema)({});
+
+    expect(settings.autoUpdateWorktreeBaseBranch).toBe(false);
+  });
+
   it("defaults rebase-before-commit to disabled", () => {
     const settings = Schema.decodeUnknownSync(AppSettingsSchema)({});
 
@@ -292,6 +298,7 @@ describe("AppSettingsSchema", () => {
       backgroundImageUrl: "",
       backgroundImageOpacity: 0.15,
       defaultThreadEnvMode: "worktree",
+      autoUpdateWorktreeBaseBranch: false,
       confirmThreadDelete: false,
       enableAssistantStreaming: false,
       locale: DEFAULT_APP_LOCALE,

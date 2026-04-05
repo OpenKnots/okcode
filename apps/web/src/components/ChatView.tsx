@@ -3396,6 +3396,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
           cwd: activeProject.cwd,
           branch: baseBranchForWorktree,
           newBranch,
+          updateBaseBranchWithRemote: settings.autoUpdateWorktreeBaseBranch,
         });
         if (result.worktree.baseBranch !== baseBranchForWorktree) {
           const toastCopy = buildAutoSelectedWorktreeBaseBranchToastCopy({

@@ -799,6 +799,51 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
         };
       });
 
+    const resolveBranchUpstream = (
+      cwd: string,
+      branch: string,
+    ): Effect.Effect<
+      { upstreamRef: string; remoteName: string; upstreamBranch: string } | null,
+      GitCommandError
+    > =>
+      executeGit(
+        "GitCore.resolveBranchUpstream",
+        cwd,
+        ["for-each-ref", "--format=%(upstream:short)", `refs/heads/${branch}`],
+        {
+          allowNonZeroExit: true,
+          timeoutMs: 5_000,
+        },
+      ).pipe(
+        Effect.map((result) => {
+          if (result.code !== 0) {
+            return null;
+          }
+
+          const upstreamRef = result.stdout.trim();
+          if (upstreamRef.length === 0) {
+            return null;
+          }
+
+          const separatorIndex = upstreamRef.indexOf("/");
+          if (separatorIndex <= 0 || separatorIndex === upstreamRef.length - 1) {
+            return null;
+          }
+
+          const remoteName = upstreamRef.slice(0, separatorIndex);
+          const upstreamBranch = upstreamRef.slice(separatorIndex + 1);
+          if (remoteName.length === 0 || upstreamBranch.length === 0) {
+            return null;
+          }
+
+          return {
+            upstreamRef,
+            remoteName,
+            upstreamBranch,
+          };
+        }),
+      );
+
     const fetchUpstreamRef = (
       cwd: string,
       upstream: { upstreamRef: string; remoteName: string; upstreamBranch: string },
@@ -1735,11 +1780,36 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
         const repoName = path.basename(input.cwd);
         const worktreePath = input.path ?? path.join(worktreesDir, repoName, sanitizedBranch);
         let baseBranch = input.branch;
+        let baseBranchRef = input.branch;
+
+        const refreshBaseBranchRefIfRequested = (
+          branch: string,
+        ): Effect.Effect<{ baseBranch: string; baseBranchRef: string }, GitCommandError> =>
+          Effect.gen(function* () {
+            if (!input.updateBaseBranchWithRemote) {
+              return { baseBranch: branch, baseBranchRef: branch };
+            }
+
+            const upstream = yield* resolveBranchUpstream(input.cwd, branch);
+            if (!upstream) {
+              return { baseBranch: branch, baseBranchRef: branch };
+            }
+
+            yield* fetchUpstreamRef(input.cwd, upstream);
+            return {
+              baseBranch: branch,
+              baseBranchRef: upstream.upstreamRef,
+            };
+          });
+
+        const refreshedBaseBranch = yield* refreshBaseBranchRefIfRequested(baseBranch);
+        baseBranch = refreshedBaseBranch.baseBranch;
+        baseBranchRef = refreshedBaseBranch.baseBranchRef;
 
         const baseRefCheck = yield* executeGit(
           "GitCore.createWorktree.baseRefCheck",
           input.cwd,
-          ["rev-parse", "--verify", "--quiet", `${input.branch}^{commit}`],
+          ["rev-parse", "--verify", "--quiet", `${baseBranchRef}^{commit}`],
           {
             allowNonZeroExit: true,
             timeoutMs: 5_000,
@@ -1757,7 +1827,10 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
               })),
             });
             if (fallbackBranch && fallbackBranch !== input.branch) {
-              baseBranch = fallbackBranch;
+              const refreshedFallbackBranch =
+                yield* refreshBaseBranchRefIfRequested(fallbackBranch);
+              baseBranch = refreshedFallbackBranch.baseBranch;
+              baseBranchRef = refreshedFallbackBranch.baseBranchRef;
             } else {
               const detail = buildCreateWorktreeBaseBranchDetail({
                 branch: input.branch,
@@ -1790,8 +1863,8 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
         }
 
         const args = input.newBranch
-          ? ["worktree", "add", "-b", input.newBranch, worktreePath, baseBranch]
-          : ["worktree", "add", worktreePath, baseBranch];
+          ? ["worktree", "add", "-b", input.newBranch, worktreePath, baseBranchRef]
+          : ["worktree", "add", worktreePath, baseBranchRef];
         yield* executeGit("GitCore.createWorktree", input.cwd, args, {
           fallbackErrorMessage: "git worktree add failed",
         });

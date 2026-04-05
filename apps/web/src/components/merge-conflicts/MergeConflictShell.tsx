@@ -44,7 +44,7 @@ import { parsePullRequestReference } from "~/pullRequestReference";
 import { findProjectMatchingPullRequestReference } from "~/pullRequestProjectMatch";
 import { useStore } from "~/store";
 import type { Project } from "~/types";
-import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
+import { Alert, AlertAction, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { toastManager } from "~/components/ui/toast";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
@@ -137,6 +137,15 @@ function stepStatusClassName(status: "done" | "active" | "todo" | "blocked") {
 
 async function openPathInEditor(targetPath: string) {
   await openInPreferredEditor(ensureNativeApi(), targetPath);
+}
+
+function notifyRecoverableConflictError(rawMessage: string) {
+  const { summary, detail } = humanizeConflictError(rawMessage);
+  toastManager.add({
+    type: "error",
+    title: summary,
+    description: detail,
+  });
 }
 
 function ConflictCandidateButton({
@@ -700,10 +709,18 @@ export function MergeConflictShell({
 
   const handlePrepareWorkspace = async (mode: "local" | "worktree") => {
     if (!resolvedPullRequest || !parsedReference) return;
-    const result = await preparePullRequestThreadMutation.mutateAsync({
-      reference: parsedReference,
-      mode,
-    });
+    let result: Awaited<ReturnType<typeof preparePullRequestThreadMutation.mutateAsync>>;
+    try {
+      result = await preparePullRequestThreadMutation.mutateAsync({
+        reference: parsedReference,
+        mode,
+      });
+    } catch (error) {
+      notifyRecoverableConflictError(
+        error instanceof Error ? error.message : "Failed to prepare merge-conflict workspace.",
+      );
+      return;
+    }
     const nextWorkspace: PreparedWorkspace = {
       branch: result.branch,
       cwd: result.worktreePath ?? project.cwd,
@@ -723,6 +740,22 @@ export function MergeConflictShell({
           ? `Prepared ${result.worktreePath ?? project.cwd} for PR #${resolvedPullRequest.number}.`
           : `Prepared ${project.cwd} for PR #${resolvedPullRequest.number}.`,
     });
+  };
+
+  const handleApplyCandidate = async () => {
+    if (!selectedCandidate || !resolvedPullRequest) return;
+
+    try {
+      await applyConflictResolutionMutation.mutateAsync({
+        candidateId: selectedCandidate.id,
+        cwd: activeWorkspaceCwd,
+        prNumber: resolvedPullRequest.number,
+      });
+    } catch (error) {
+      notifyRecoverableConflictError(
+        error instanceof Error ? error.message : "Failed to apply conflict candidate.",
+      );
+    }
   };
 
   return (
@@ -1093,6 +1126,44 @@ export function MergeConflictShell({
                           ))
                         ) : preparedWorkspace && conflictedFiles.length > 0 ? (
                           <div className="space-y-3">
+                            <Alert variant="warning" className="rounded-2xl">
+                              <AlertTriangleIcon />
+                              <AlertTitle>Manual resolution required</AlertTitle>
+                              <AlertDescription>
+                                <p>
+                                  OK Code prepared the workspace and found the conflicted files, but
+                                  it could not generate a patch that was safe to apply
+                                  automatically.
+                                </p>
+                                <p>
+                                  Keep working here: open a file, resolve the markers, and capture
+                                  the handoff note before you commit.
+                                </p>
+                              </AlertDescription>
+                              <AlertAction>
+                                <Button
+                                  onClick={() => {
+                                    if (!activeConflictFile) return;
+                                    void openPathInEditor(
+                                      joinPath(activeWorkspaceCwd, activeConflictFile),
+                                    );
+                                  }}
+                                  size="xs"
+                                  variant="outline"
+                                >
+                                  <FileCode2Icon className="size-3.5" />
+                                  Open active file
+                                </Button>
+                                <Button
+                                  onClick={() => copyToClipboard(feedbackPreview, undefined)}
+                                  size="xs"
+                                  variant="outline"
+                                >
+                                  <CopyIcon className="size-3.5" />
+                                  Copy handoff note
+                                </Button>
+                              </AlertAction>
+                            </Alert>
                             <div className="rounded-2xl border border-border/70 bg-background/92 p-4">
                               <p className="font-medium text-sm text-foreground">
                                 Conflicted files
@@ -1218,11 +1289,7 @@ export function MergeConflictShell({
                                 <Button
                                   disabled={applyConflictResolutionMutation.isPending}
                                   onClick={() => {
-                                    void applyConflictResolutionMutation.mutateAsync({
-                                      candidateId: selectedCandidate.id,
-                                      cwd: activeWorkspaceCwd,
-                                      prNumber: resolvedPullRequest.number,
-                                    });
+                                    void handleApplyCandidate();
                                   }}
                                   size="xs"
                                 >

@@ -156,6 +156,14 @@ describe("humanizeConflictError", () => {
     expect(result.summary).toBe("Not a git repository");
   });
 
+  it("recognises when a conflict candidate has gone stale", () => {
+    const result = humanizeConflictError(
+      "PrReview failed in applyConflictResolution: Conflict candidate not found: src/auth.ts:ours",
+    );
+    expect(result.summary).toBe("Conflict candidate is out of date");
+    expect(result.detail).toContain("Refresh the conflict analysis");
+  });
+
   it("falls back to stripping the prefix and using the first sentence", () => {
     const result = humanizeConflictError(
       "Git manager failed in preparePullRequestThread: Something unexpected happened. More details here.",

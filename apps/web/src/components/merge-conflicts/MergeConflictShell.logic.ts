@@ -122,7 +122,7 @@ export function buildConflictRecommendation(input: {
       tone: "warning",
       title: "Manual merge work is still required.",
       detail:
-        "The workspace is prepared, but no candidate patch was safe to generate. Resolve the markers manually and keep the handoff note explicit.",
+        "The workspace is prepared, but no candidate patch was safe to generate. Stay in this conflict workspace, resolve the markers manually, and keep the handoff note explicit before you commit.",
     };
   }
 
@@ -194,6 +194,18 @@ const KNOWN_ERROR_PATTERNS: ReadonlyArray<{
     summary: "Not a git repository",
     detail:
       "The selected project directory is not a valid git repository. Check the project path in the intake panel.",
+  },
+  {
+    pattern: "conflict candidate not found",
+    summary: "Conflict candidate is out of date",
+    detail:
+      "The selected candidate no longer matches the current workspace. Refresh the conflict analysis, then pick a new option or continue the merge manually.",
+  },
+  {
+    pattern: "failed to inspect merge conflicts",
+    summary: "Conflict analysis is temporarily unavailable",
+    detail:
+      "OK Code could not refresh the local conflict analysis, but your workspace is still open. Refresh the panel, reopen the prepared worktree, or continue the merge manually.",
   },
 ];
 

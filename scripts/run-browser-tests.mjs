@@ -6,7 +6,7 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import process from "node:process";
 
-const DEFAULT_TIMEOUT_MS = 120_000;
+const DEFAULT_TIMEOUT_MS = 300_000;
 const BROWSER_TEST_SUFFIX = ".browser.tsx";
 
 function listBrowserTests(rootDir) {

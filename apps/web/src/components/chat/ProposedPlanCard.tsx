@@ -58,15 +58,15 @@ export const ProposedPlanCard = memo(function ProposedPlanCard({
 
   const hasChecklist = checklistItems.length > 0;
 
-  // Build a preview for the markdown section (only used when checklist is present).
-  const markdownPreview = useMemo(() => {
-    if (!hasChecklist) return null;
-    return buildCollapsedProposedPlanPreviewMarkdown(planMarkdown, { maxLines: 6 });
-  }, [planMarkdown, hasChecklist]);
-
   // When no checklist items are found, fall back to the original markdown-only view.
   const lineCount = planMarkdown.split("\n").length;
   const canCollapseMarkdown = planMarkdown.length > 900 || lineCount > 20;
+
+  // Build a truncated preview so collapsed plans never leak hidden content into the DOM.
+  const markdownPreview = useMemo(() => {
+    if (!canCollapseMarkdown) return null;
+    return buildCollapsedProposedPlanPreviewMarkdown(planMarkdown, { maxLines: 6 });
+  }, [planMarkdown, canCollapseMarkdown]);
 
   const handleDownload = () => {
     downloadPlanAsTextFile(downloadFilename, saveContents);

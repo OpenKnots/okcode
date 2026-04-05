@@ -45,6 +45,13 @@ The iOS build is uploaded directly to App Store Connect / TestFlight by the [Rel
 | Marketing version | `0.16.0`                                   |
 | Build number      | Set from `GITHUB_RUN_NUMBER` at build time |
 
+## Rollout documentation
+
+| Document | Purpose |
+| -------- | ------- |
+| [rollout-checklist.md](rollout-checklist.md) | Step-by-step release playbook (pre-flight through post-release) |
+| [soak-test-plan.md](soak-test-plan.md) | Structured 48-hour RC soak test cases |
+
 ## Checksums
 
 SHA-256 checksums are not committed here; verify downloads via GitHub's release UI or `gh release download` if you use the GitHub CLI.

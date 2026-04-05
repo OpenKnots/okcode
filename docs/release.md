@@ -62,6 +62,16 @@ bun run release:smoke
 
 `bun run lint` is a zero-warning gate.
 
+### Pre-release validation
+
+Run the comprehensive pre-release validator before cutting any RC or promoting to stable:
+
+```bash
+bun run release:validate <version>
+```
+
+This checks documentation completeness, version alignment, git state, iOS project version, and optionally runs all quality gates. Use `--skip-quality` for a docs-only pass or `--ci` for CI pipelines.
+
 ## Platform matrix
 
 Blocking stable matrix:
@@ -127,9 +137,12 @@ Before tagging:
    - `CHANGELOG.md`
    - `docs/releases/vX.Y.Z.md`
    - `docs/releases/vX.Y.Z/assets.md`
-3. Confirm Apple signing/notarization secrets.
-4. Confirm Windows signing secrets.
-5. Confirm `NODE_AUTH_TOKEN`, `RELEASE_APP_ID`, and `RELEASE_APP_PRIVATE_KEY`.
+   - `docs/releases/vX.Y.Z/rollout-checklist.md` (version-specific rollout playbook)
+   - `docs/releases/vX.Y.Z/soak-test-plan.md` (version-specific soak test cases)
+3. Run `bun run release:validate <version>` and fix any failures.
+4. Confirm Apple signing/notarization secrets.
+5. Confirm Windows signing secrets.
+6. Confirm `NODE_AUTH_TOKEN`, `RELEASE_APP_ID`, and `RELEASE_APP_PRIVATE_KEY`.
 
 ## RC soak rules
 

@@ -177,7 +177,7 @@ import { ComposerPromptEditor, type ComposerPromptEditorHandle } from "./Compose
 import { PullRequestThreadDialog } from "./PullRequestThreadDialog";
 import { MessagesTimeline } from "./chat/MessagesTimeline";
 import { ChatHeader } from "./chat/ChatHeader";
-import { ChatHomeEmptyState } from "./ChatHomeEmptyState";
+import { ChatHomeEmptyState } from "./home/ChatHomeEmptyState";
 import { useCodeViewerStore } from "~/codeViewerStore";
 import { PreviewPanel } from "./PreviewPanel";
 import { ContextWindowMeter } from "./chat/ContextWindowMeter";

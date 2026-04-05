@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { ChatHomeEmptyState } from "../components/ChatHomeEmptyState";
+import { ChatHomeEmptyState } from "../components/home/ChatHomeEmptyState";
 
 function ChatIndexRouteView() {
   return <ChatHomeEmptyState />;

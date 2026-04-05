@@ -78,8 +78,13 @@ export function buildGitActionProgressStages(input: {
   forcePushOnly?: boolean;
   pushTarget?: string;
   featureBranch?: boolean;
+  rebaseBeforeCommit?: boolean;
 }): string[] {
   const branchStages = input.featureBranch ? ["Preparing feature branch..."] : [];
+  const rebaseStages =
+    input.rebaseBeforeCommit && !input.forcePushOnly && input.hasWorkingTreeChanges
+      ? ["Rebasing before commit..."]
+      : [];
   const shouldIncludeCommitStages =
     !input.forcePushOnly && (input.action === "commit" || input.hasWorkingTreeChanges);
   const commitStages = !shouldIncludeCommitStages
@@ -89,12 +94,12 @@ export function buildGitActionProgressStages(input: {
       : ["Generating commit message...", "Committing..."];
   const pushStage = input.pushTarget ? `Pushing to ${input.pushTarget}...` : "Pushing...";
   if (input.action === "commit") {
-    return [...branchStages, ...commitStages];
+    return [...branchStages, ...rebaseStages, ...commitStages];
   }
   if (input.action === "commit_push") {
-    return [...branchStages, ...commitStages, pushStage];
+    return [...branchStages, ...rebaseStages, ...commitStages, pushStage];
   }
-  return [...branchStages, ...commitStages, pushStage, "Creating PR..."];
+  return [...branchStages, ...rebaseStages, ...commitStages, pushStage, "Creating PR..."];
 }
 
 const withDescription = (title: string, description: string | undefined) =>

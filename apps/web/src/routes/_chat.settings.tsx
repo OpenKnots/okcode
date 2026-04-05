@@ -439,6 +439,9 @@ function SettingsRouteView() {
     defaults.autoDeleteMergedThreadsDelayMinutes
       ? ["Auto-delete delay"]
       : []),
+    ...(settings.rebaseBeforeCommit !== defaults.rebaseBeforeCommit
+      ? ["Rebase before commit"]
+      : []),
     ...(isGitTextGenerationModelDirty ? ["Git writing model"] : []),
     ...(settings.customCodexModels.length > 0 || settings.customClaudeModels.length > 0
       ? ["Custom models"]
@@ -1451,6 +1454,36 @@ function SettingsRouteView() {
                   }
                 />
               </SettingsRow>
+            </SettingsSection>
+
+            <SettingsSection title="Git">
+              <SettingsRow
+                title="Rebase before commit"
+                description="Before commit actions run, rebase the current branch onto the repository default branch, usually main. OK Code uses autostash so your local edits can be restored after the rebase."
+                resetAction={
+                  settings.rebaseBeforeCommit !== defaults.rebaseBeforeCommit ? (
+                    <SettingResetButton
+                      label="rebase before commit"
+                      onClick={() =>
+                        updateSettings({
+                          rebaseBeforeCommit: defaults.rebaseBeforeCommit,
+                        })
+                      }
+                    />
+                  ) : null
+                }
+                control={
+                  <Switch
+                    checked={settings.rebaseBeforeCommit}
+                    onCheckedChange={(checked) =>
+                      updateSettings({
+                        rebaseBeforeCommit: Boolean(checked),
+                      })
+                    }
+                    aria-label="Rebase onto the default branch before committing"
+                  />
+                }
+              />
             </SettingsSection>
 
             <SettingsSection title="Models">

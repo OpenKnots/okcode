@@ -1034,6 +1034,20 @@ describe("buildGitActionProgressStages", () => {
       "Pushing to origin/feature/test...",
     ]);
   });
+
+  it("prepends a rebase stage when rebase-before-commit is enabled", () => {
+    const stages = buildGitActionProgressStages({
+      action: "commit",
+      hasCustomCommitMessage: false,
+      hasWorkingTreeChanges: true,
+      rebaseBeforeCommit: true,
+    });
+    assert.deepEqual(stages, [
+      "Rebasing before commit...",
+      "Generating commit message...",
+      "Committing...",
+    ]);
+  });
 });
 
 describe("summarizeGitResult", () => {

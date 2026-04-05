@@ -26,6 +26,12 @@ describe("AppSettingsSchema", () => {
     expect(settings.showAuthFailuresAsErrors).toBe(true);
   });
 
+  it("defaults rebase-before-commit to disabled", () => {
+    const settings = Schema.decodeUnknownSync(AppSettingsSchema)({});
+
+    expect(settings.rebaseBeforeCommit).toBe(false);
+  });
+
   it("drops deprecated window opacity values from persisted settings", () => {
     const decode = Schema.decodeSync(Schema.fromJsonString(AppSettingsSchema));
 

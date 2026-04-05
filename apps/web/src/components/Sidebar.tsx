@@ -1576,8 +1576,8 @@ export default function Sidebar() {
                   variant="outline"
                   size="icon-xs"
                   aria-label={`Create new thread in ${project.name}`}
-                  data-testid="project-quick-new-thread-button"
-                  className="hidden shrink-0 border-primary/25 bg-background/85 text-primary shadow-[0_10px_24px_-18px_color-mix(in_srgb,var(--primary)_70%,transparent)] transition-all duration-150 hover:border-primary/45 hover:bg-primary/10 hover:text-primary lg:inline-flex"
+                  data-testid="new-thread-button"
+                  className="hidden shrink-0 border-primary/25 bg-background/85 text-primary shadow-[0_10px_24px_-18px_color-mix(in_srgb,var(--primary)_70%,transparent)] transition-all duration-150 hover:border-primary/45 hover:bg-primary/10 hover:text-primary md:inline-flex"
                   onClick={(event) => {
                     event.preventDefault();
                     event.stopPropagation();

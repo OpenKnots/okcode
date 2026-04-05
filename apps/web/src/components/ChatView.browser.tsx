@@ -1546,7 +1546,7 @@ describe("ChatView timeline estimator parity (full app)", () => {
     });
 
     try {
-      const quickNewThreadButton = page.getByTestId("project-quick-new-thread-button");
+      const quickNewThreadButton = page.getByTestId("new-thread-button");
       await expect.element(quickNewThreadButton).toBeInTheDocument();
 
       await quickNewThreadButton.click();

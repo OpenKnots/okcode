@@ -1,0 +1,67 @@
+name: Desktop Intel Compatibility
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to stamp into the Intel compatibility build"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  macos_intel_compat:
+    name: macOS x64 compatibility build
+    runs-on: macos-13
+    env:
+      OKCODE_COMMIT_HASH: ${{ github.sha }}
+      OKCODE_BUILD_TIMESTAMP: ${{ github.event.inputs.version }}
+      OKCODE_RELEASE_CHANNEL: prerelease
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: package.json
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Align package versions to release version
+        run: node scripts/update-release-package-versions.ts "${{ github.event.inputs.version }}"
+
+      - name: Build Intel desktop artifact
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: >
+          bun run dist:desktop:artifact --
+          --platform mac
+          --target dmg
+          --arch x64
+          --build-version "${{ github.event.inputs.version }}"
+          --signed
+          --require-signed
+          --verbose
+
+      - name: Upload Intel compatibility artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: desktop-mac-x64-compat
+          path: |
+            release/*.dmg
+            release/*.zip
+            release/latest-mac*.yml
+          if-no-files-found: error

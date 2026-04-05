@@ -1,4 +1,4 @@
-name: Release Desktop
+name: Release
 
 on:
   push:
@@ -10,48 +10,11 @@ on:
         description: "Release version (for example 1.2.3 or v1.2.3)"
         required: true
         type: string
-      mac_arm64_only:
-        description: "Apple Silicon (M-series) macOS only on Mac runners. Linux and Windows remain part of the full matrix when requested."
-        required: false
-        type: boolean
-        default: true
 
 permissions:
   contents: write
 
 jobs:
-  configure:
-    name: Configure build matrix
-    runs-on: ubuntu-24.04
-    outputs:
-      matrix: ${{ steps.set.outputs.matrix }}
-      mac_arm64_only: ${{ steps.set.outputs.mac_arm64_only }}
-    steps:
-      - id: set
-        name: Select desktop targets
-        shell: bash
-        run: |
-          set -euo pipefail
-          mac_arm64_only="true"
-          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
-            input="${{ github.event.inputs.mac_arm64_only }}"
-            if [[ "$input" == "false" ]]; then
-              mac_arm64_only="false"
-            fi
-          fi
-          echo "mac_arm64_only=$mac_arm64_only" >> "$GITHUB_OUTPUT"
-
-          if [[ "$mac_arm64_only" == "true" ]]; then
-            matrix_json='[{"label":"macOS arm64","runner":"macos-14","platform":"mac","target":"dmg","arch":"arm64"}]'
-          else
-            matrix_json='[{"label":"macOS arm64","runner":"macos-14","platform":"mac","target":"dmg","arch":"arm64"},{"label":"Linux x64","runner":"ubuntu-24.04","platform":"linux","target":"AppImage","arch":"x64"},{"label":"Windows x64","runner":"windows-2022","platform":"win","target":"nsis","arch":"x64"}]'
-          fi
-          {
-            echo "matrix<<MATRIX_JSON_EOF"
-            echo "$matrix_json"
-            echo "MATRIX_JSON_EOF"
-          } >> "$GITHUB_OUTPUT"
-
   preflight:
     name: Preflight
     runs-on: ubuntu-24.04
@@ -60,6 +23,9 @@ jobs:
       tag: ${{ steps.release_meta.outputs.tag }}
       is_prerelease: ${{ steps.release_meta.outputs.is_prerelease }}
       make_latest: ${{ steps.release_meta.outputs.make_latest }}
+      release_channel: ${{ steps.release_meta.outputs.release_channel }}
+      npm_tag: ${{ steps.release_meta.outputs.npm_tag }}
+      build_timestamp: ${{ steps.release_meta.outputs.build_timestamp }}
       ref: ${{ github.sha }}
     steps:
       - name: Checkout
@@ -69,6 +35,8 @@ jobs:
         name: Resolve release version
         shell: bash
         run: |
+          set -euo pipefail
+
           if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
             raw="${{ github.event.inputs.version }}"
           else
@@ -81,14 +49,22 @@ jobs:
             exit 1
           fi
 
+          build_timestamp="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          echo "build_timestamp=$build_timestamp" >> "$GITHUB_OUTPUT"
+
           if [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
             echo "make_latest=true" >> "$GITHUB_OUTPUT"
+            echo "release_channel=stable" >> "$GITHUB_OUTPUT"
+            echo "npm_tag=latest" >> "$GITHUB_OUTPUT"
           else
             echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
             echo "make_latest=false" >> "$GITHUB_OUTPUT"
+            echo "release_channel=prerelease" >> "$GITHUB_OUTPUT"
+            echo "npm_tag=next" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Setup Bun
@@ -104,6 +80,12 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Install browser dependencies
+        run: bun run --cwd apps/web test:browser:install
+
+      - name: Format check
+        run: bun run fmt:check
+
       - name: Lint
         run: bun run lint
 
@@ -113,17 +95,42 @@ jobs:
       - name: Test
         run: bun run test
 
+      - name: Browser test
+        run: bun run --cwd apps/web test:browser
+
+      - name: Desktop smoke
+        run: bun run test:desktop-smoke
+
       - name: Release smoke
         run: bun run release:smoke
 
-  build:
-    name: Build ${{ matrix.label }}
-    needs: [preflight, configure]
+  desktop_build:
+    name: Desktop ${{ matrix.label }}
+    needs: [preflight]
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
-        include: ${{ fromJson(needs.configure.outputs.matrix) }}
+        include:
+          - label: macOS arm64
+            runner: macos-14
+            platform: mac
+            target: dmg
+            arch: arm64
+          - label: Linux x64
+            runner: ubuntu-24.04
+            platform: linux
+            target: AppImage
+            arch: x64
+          - label: Windows x64
+            runner: windows-2022
+            platform: win
+            target: nsis
+            arch: x64
+    env:
+      OKCODE_COMMIT_HASH: ${{ github.sha }}
+      OKCODE_BUILD_TIMESTAMP: ${{ needs.preflight.outputs.build_timestamp }}
+      OKCODE_RELEASE_CHANNEL: ${{ needs.preflight.outputs.release_channel }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -163,6 +170,8 @@ jobs:
           AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME: ${{ secrets.AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME }}
           AZURE_TRUSTED_SIGNING_PUBLISHER_NAME: ${{ secrets.AZURE_TRUSTED_SIGNING_PUBLISHER_NAME }}
         run: |
+          set -euo pipefail
+
           args=(
             --platform "${{ matrix.platform }}"
             --target "${{ matrix.target }}"
@@ -171,7 +180,7 @@ jobs:
             --verbose
           )
 
-          has_all() {
+          require_values() {
             for value in "$@"; do
               if [[ -z "$value" ]]; then
                 return 1
@@ -197,17 +206,15 @@ jobs:
 
             if (( ${#missing_mac_signing_secrets[@]} > 0 )); then
               echo "Missing required macOS signing/notarization secrets: ${missing_mac_signing_secrets[*]}" >&2
-              echo "Refusing to publish an unsigned or unnotarized macOS release." >&2
               exit 1
             fi
 
             key_path="$RUNNER_TEMP/AuthKey_${APPLE_API_KEY_ID}.p8"
             printf '%s' "$APPLE_API_KEY" > "$key_path"
             export APPLE_API_KEY="$key_path"
-            echo "macOS signing + notarization enabled."
             args+=(--signed --require-signed)
           elif [[ "${{ matrix.platform }}" == "win" ]]; then
-            if has_all \
+            if ! require_values \
               "$AZURE_TENANT_ID" \
               "$AZURE_CLIENT_ID" \
               "$AZURE_CLIENT_SECRET" \
@@ -215,16 +222,36 @@ jobs:
               "$AZURE_TRUSTED_SIGNING_ACCOUNT_NAME" \
               "$AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME" \
               "$AZURE_TRUSTED_SIGNING_PUBLISHER_NAME"; then
-              echo "Windows signing enabled (Azure Trusted Signing)."
-              args+=(--signed)
-            else
-              echo "Windows signing disabled (missing one or more Azure Trusted Signing secrets)."
+              echo "Windows stable releases require Azure Trusted Signing secrets." >&2
+              exit 1
             fi
-          else
-            echo "Signing disabled for ${{ matrix.platform }}."
+            args+=(--signed --require-signed)
           fi
 
           bun run dist:desktop:artifact -- "${args[@]}"
+
+      - name: Validate packaged artifact outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+
+          case "${{ matrix.platform }}" in
+            mac)
+              dmg=(release/*.dmg)
+              manifest=(release/latest-mac*.yml)
+              [[ ${#dmg[@]} -gt 0 ]] || { echo "Missing macOS DMG artifact" >&2; exit 1; }
+              [[ ${#manifest[@]} -gt 0 ]] || { echo "Missing macOS updater manifest" >&2; exit 1; }
+              ;;
+            linux)
+              appimage=(release/*.AppImage)
+              [[ ${#appimage[@]} -gt 0 ]] || { echo "Missing Linux AppImage artifact" >&2; exit 1; }
+              ;;
+            win)
+              installer=(release/*.exe)
+              [[ ${#installer[@]} -gt 0 ]] || { echo "Missing Windows installer artifact" >&2; exit 1; }
+              ;;
+          esac
 
       - name: Collect release assets
         shell: bash
@@ -245,16 +272,261 @@ jobs:
             done
           done
 
-      - name: Upload build artifacts
+      - name: Upload desktop artifact bundle
         uses: actions/upload-artifact@v7
         with:
           name: desktop-${{ matrix.platform }}-${{ matrix.arch }}
           path: release-publish/*
           if-no-files-found: error
 
+  ios_testflight:
+    name: iOS TestFlight
+    needs: [preflight]
+    runs-on: macos-14
+    env:
+      RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
+      OKCODE_COMMIT_HASH: ${{ github.sha }}
+      OKCODE_BUILD_TIMESTAMP: ${{ needs.preflight.outputs.build_timestamp }}
+      OKCODE_RELEASE_CHANNEL: ${{ needs.preflight.outputs.release_channel }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.preflight.outputs.ref }}
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: package.json
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Align package versions to release version
+        run: node scripts/update-release-package-versions.ts "$RELEASE_VERSION"
+
+      - name: Update iOS version in Xcode project
+        run: node scripts/update-ios-version.ts "$RELEASE_VERSION" --build-number "$GITHUB_RUN_NUMBER"
+
+      - name: Build mobile web bundle
+        run: bun run --cwd apps/mobile build
+
+      - name: Sync Capacitor iOS
+        run: bunx cap sync ios --deployment
+        working-directory: apps/mobile
+
+      - name: Log iOS build metadata
+        run: |
+          echo "version=$RELEASE_VERSION"
+          echo "commit=$OKCODE_COMMIT_HASH"
+          echo "build_timestamp=$OKCODE_BUILD_TIMESTAMP"
+          echo "channel=$OKCODE_RELEASE_CHANNEL"
+
+      - name: Install Apple certificate and provisioning profile
+        env:
+          IOS_CERTIFICATE_P12: ${{ secrets.IOS_CERTIFICATE_P12 }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          IOS_PROVISIONING_PROFILE: ${{ secrets.IOS_PROVISIONING_PROFILE }}
+        run: |
+          set -euo pipefail
+          for secret_name in IOS_CERTIFICATE_P12 IOS_CERTIFICATE_PASSWORD IOS_PROVISIONING_PROFILE; do
+            if [[ -z "${!secret_name}" ]]; then
+              echo "Missing required secret: $secret_name" >&2
+              exit 1
+            fi
+          done
+
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -hex 16)"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          CERT_PATH="$RUNNER_TEMP/certificate.p12"
+          echo "$IOS_CERTIFICATE_P12" | base64 --decode > "$CERT_PATH"
+          security import "$CERT_PATH" \
+            -P "$IOS_CERTIFICATE_PASSWORD" \
+            -A -t cert -f pkcs12 \
+            -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH"
+
+          PROFILE_PATH="$RUNNER_TEMP/profile.mobileprovision"
+          echo "$IOS_PROVISIONING_PROFILE" | base64 --decode > "$PROFILE_PATH"
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp "$PROFILE_PATH" ~/Library/MobileDevice/Provisioning\ Profiles/
+
+      - name: Simulator smoke build
+        run: |
+          set -euo pipefail
+          xcodebuild build \
+            -project apps/mobile/ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Debug \
+            -destination 'platform=iOS Simulator,name=iPhone 15' \
+            COMPILER_INDEX_STORE_ENABLE=NO
+
+      - name: Build iOS archive
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+
+          xcodebuild archive \
+            -project apps/mobile/ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CODE_SIGN_IDENTITY="iPhone Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER="${{ secrets.IOS_PROVISIONING_PROFILE_NAME }}" \
+            -allowProvisioningUpdates \
+            COMPILER_INDEX_STORE_ENABLE=NO
+
+      - name: Generate ExportOptions.plist
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key>
+              <string>app-store-connect</string>
+              <key>destination</key>
+              <string>upload</string>
+              <key>teamID</key>
+              <string>${APPLE_TEAM_ID}</string>
+              <key>uploadSymbols</key>
+              <true/>
+              <key>signingStyle</key>
+              <string>manual</string>
+              <key>provisioningProfiles</key>
+              <dict>
+                  <key>com.openknots.okcode.mobile</key>
+                  <string>${{ secrets.IOS_PROVISIONING_PROFILE_NAME }}</string>
+              </dict>
+          </dict>
+          </plist>
+          PLIST
+
+      - name: Export IPA
+        run: |
+          set -euo pipefail
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist"
+
+      - name: Write App Store Connect API key
+        env:
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+        run: |
+          set -euo pipefail
+          KEY_DIR="$HOME/private_keys"
+          mkdir -p "$KEY_DIR"
+          printf '%s' "$APPLE_API_KEY" > "$KEY_DIR/AuthKey_${APPLE_API_KEY_ID}.p8"
+
+      - name: Upload to TestFlight
+        env:
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          set -euo pipefail
+
+          IPA_FILE=$(find "$RUNNER_TEMP/export" -name "*.ipa" -print -quit)
+          if [[ -z "$IPA_FILE" ]]; then
+            echo "No IPA file found in export directory" >&2
+            exit 1
+          fi
+
+          xcrun altool --upload-app \
+            -f "$IPA_FILE" \
+            -t ios \
+            --apiKey "$APPLE_API_KEY_ID" \
+            --apiIssuer "$APPLE_API_ISSUER"
+
+      - name: Cleanup keychain
+        if: always()
+        run: |
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+          if [[ -f "$KEYCHAIN_PATH" ]]; then
+            security delete-keychain "$KEYCHAIN_PATH" || true
+          fi
+          rm -f "$HOME/private_keys/AuthKey_${{ secrets.APPLE_API_KEY_ID }}.p8" || true
+
+  publish_cli:
+    name: Publish CLI
+    needs: [preflight, desktop_build, ios_testflight]
+    runs-on: ubuntu-24.04
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+      OKCODE_COMMIT_HASH: ${{ github.sha }}
+      OKCODE_BUILD_TIMESTAMP: ${{ needs.preflight.outputs.build_timestamp }}
+      OKCODE_RELEASE_CHANNEL: ${{ needs.preflight.outputs.release_channel }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.preflight.outputs.ref }}
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: package.json
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Align package versions to release version
+        run: node scripts/update-release-package-versions.ts "${{ needs.preflight.outputs.version }}"
+
+      - name: Build CLI package
+        run: bun run --cwd apps/server build
+
+      - name: Verify npm pack
+        working-directory: apps/server
+        run: npm pack
+
+      - name: Verify local CLI entrypoints
+        working-directory: apps/server
+        run: |
+          node dist/index.mjs --version
+          node dist/index.mjs --help >/dev/null
+          node dist/index.mjs doctor --help >/dev/null
+
+      - name: Publish okcodes
+        run: >
+          node apps/server/scripts/cli.ts publish
+          --tag "${{ needs.preflight.outputs.npm_tag }}"
+          --app-version "${{ needs.preflight.outputs.version }}"
+          --verbose
+
+      - name: Verify published CLI
+        run: |
+          npx --yes okcodes@${{ needs.preflight.outputs.version }} --version
+          npx --yes okcodes@${{ needs.preflight.outputs.version }} --help >/dev/null
+
   release:
     name: Publish GitHub Release
-    needs: [preflight, build, configure]
+    needs: [preflight, desktop_build, ios_testflight, publish_cli]
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
@@ -267,34 +539,24 @@ jobs:
         with:
           node-version-file: package.json
 
-      - name: Download all desktop artifacts
+      - name: Download desktop artifacts
         uses: actions/download-artifact@v8
         with:
           pattern: desktop-*
           merge-multiple: true
           path: release-assets
 
-      - name: Merge macOS updater manifests
-        run: |
-          set -euo pipefail
-          echo "Using latest-mac.yml as-is."
-
-      - name: Stage documentation for release assets
+      - name: Stage release documentation
         env:
           RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
         run: |
           set -euo pipefail
-          v="${RELEASE_VERSION}"
-          notes="docs/releases/v${v}.md"
-          manifest="docs/releases/v${v}/assets.md"
-          if [[ ! -f "$notes" ]]; then
-            echo "Missing release notes: $notes" >&2
-            exit 1
-          fi
-          if [[ ! -f "$manifest" ]]; then
-            echo "Missing asset manifest: $manifest" >&2
-            exit 1
-          fi
+          notes="docs/releases/v${RELEASE_VERSION}.md"
+          manifest="docs/releases/v${RELEASE_VERSION}/assets.md"
+
+          [[ -f "$notes" ]] || { echo "Missing release notes: $notes" >&2; exit 1; }
+          [[ -f "$manifest" ]] || { echo "Missing asset manifest: $manifest" >&2; exit 1; }
+
           cp CHANGELOG.md release-assets/okcode-CHANGELOG.md
           cp "$notes" release-assets/okcode-RELEASE-NOTES.md
           cp "$manifest" release-assets/okcode-ASSETS-MANIFEST.md

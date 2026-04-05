@@ -580,14 +580,7 @@ jobs:
 
   release:
     name: Publish GitHub Release
-    needs:
-      [
-        preflight,
-        desktop_build,
-        ios_signing_preflight,
-        ios_testflight,
-        publish_cli,
-      ]
+    needs: [preflight, desktop_build, ios_signing_preflight, ios_testflight, publish_cli]
     if: ${{ always() && !cancelled() && needs.preflight.result == 'success' && needs.desktop_build.result == 'success' && needs.ios_signing_preflight.result == 'success' && (needs.ios_testflight.result == 'success' || needs.ios_testflight.result == 'skipped') && needs.publish_cli.result == 'success' }}
     runs-on: ubuntu-24.04
     steps:

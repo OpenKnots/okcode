@@ -49,7 +49,11 @@ import {
   supportsClaudeThinkingToggle,
   supportsClaudeUltrathinkKeyword,
 } from "@okcode/shared/model";
-import { compactNodeProcessEnv, mergeNodeProcessEnv } from "@okcode/shared/environment";
+import {
+  compactNodeProcessEnv,
+  mergeNodeProcessEnv,
+  sanitizeShellEnvironment,
+} from "@okcode/shared/environment";
 import {
   Cause,
   DateTime,
@@ -2810,7 +2814,7 @@ function makeClaudeAdapter(options?: ClaudeAdapterLiveOptions) {
           ...(newSessionId ? { sessionId: newSessionId } : {}),
           includePartialMessages: true,
           canUseTool,
-          env: mergeNodeProcessEnv(process.env, runtimeEnv),
+          env: sanitizeShellEnvironment(mergeNodeProcessEnv(process.env, runtimeEnv)),
           ...(input.cwd ? { additionalDirectories: [input.cwd] } : {}),
         };
 

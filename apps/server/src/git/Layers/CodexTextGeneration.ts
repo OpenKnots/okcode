@@ -2,7 +2,11 @@ import { randomUUID } from "node:crypto";
 
 import { Effect, FileSystem, Layer, Option, Path, Schema, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
-import { compactNodeProcessEnv, mergeNodeProcessEnv } from "@okcode/shared/environment";
+import {
+  compactNodeProcessEnv,
+  mergeNodeProcessEnv,
+  sanitizeShellEnvironment,
+} from "@okcode/shared/environment";
 
 import { DEFAULT_GIT_TEXT_GENERATION_MODEL } from "@okcode/contracts";
 import { sanitizeBranchFragment, sanitizeFeatureBranchName } from "@okcode/shared/git";
@@ -229,9 +233,11 @@ const makeCodexTextGeneration = Effect.gen(function* () {
           {
             cwd,
             shell: process.platform === "win32",
-            env: mergeNodeProcessEnv(
-              compactNodeProcessEnv(process.env),
-              compactNodeProcessEnv(yield* getRuntimeEnv()),
+            env: sanitizeShellEnvironment(
+              mergeNodeProcessEnv(
+                compactNodeProcessEnv(process.env),
+                compactNodeProcessEnv(yield* getRuntimeEnv()),
+              ),
             ),
             stdin: {
               stream: Stream.make(new TextEncoder().encode(prompt)),

@@ -202,13 +202,6 @@ function ChatRouteLayout() {
   // Auto-delete threads whose PR has been merged (when enabled in settings).
   useAutoDeleteMergedThreads(settings);
 
-  // Apply window opacity via the desktop bridge when the setting changes
-  useEffect(() => {
-    if (window.desktopBridge) {
-      void window.desktopBridge.setWindowOpacity(settings.windowOpacity);
-    }
-  }, [settings.windowOpacity]);
-
   return (
     <SidebarProvider defaultOpen={clientMode !== "mobile"}>
       <ChatRouteGlobalShortcuts />

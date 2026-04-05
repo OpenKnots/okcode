@@ -80,7 +80,6 @@ export const AppSettingsSchema = Schema.Struct({
     withDefaults(() => DEFAULT_SIDEBAR_THREAD_SORT_ORDER),
   ),
   timestampFormat: TimestampFormat.pipe(withDefaults(() => DEFAULT_TIMESTAMP_FORMAT)),
-  windowOpacity: Schema.Number.pipe(withDefaults(() => 1)),
   sidebarOpacity: Schema.Number.pipe(withDefaults(() => 1)),
   sidebarHideFiles: Schema.Boolean.pipe(withDefaults(() => false)),
   sidebarAccentProjectNames: Schema.Boolean.pipe(withDefaults(() => true)),
@@ -159,7 +158,6 @@ function clampOpacity(value: number): number {
 function normalizeAppSettings(settings: AppSettings): AppSettings {
   return {
     ...settings,
-    windowOpacity: clampOpacity(settings.windowOpacity),
     sidebarOpacity: clampOpacity(settings.sidebarOpacity),
     customCodexModels: normalizeCustomModelSlugs(settings.customCodexModels, "codex"),
     customClaudeModels: normalizeCustomModelSlugs(settings.customClaudeModels, "claudeAgent"),

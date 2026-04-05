@@ -33,7 +33,8 @@ function formatUptime(ms: number): string {
 export const ConnectionIndicator = memo(function ConnectionIndicator() {
   const { state, metrics } = useConnectionHealth();
 
-  const config = STATE_DOT_CONFIG[state] ?? STATE_DOT_CONFIG.connecting;
+  // Non-null: `connecting` is always defined in STATE_DOT_CONFIG.
+  const config = (STATE_DOT_CONFIG[state] ?? STATE_DOT_CONFIG.connecting)!;
 
   return (
     <Tooltip>

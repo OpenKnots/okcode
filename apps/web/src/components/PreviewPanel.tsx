@@ -100,10 +100,11 @@ function tabDisplayTitle(tab: PreviewTabState): string {
 
 interface PreviewPanelProps {
   projectId: ProjectId;
+  threadId: string;
   onClose: () => void;
 }
 
-export function PreviewPanel({ projectId, onClose }: PreviewPanelProps) {
+export function PreviewPanel({ projectId, threadId, onClose }: PreviewPanelProps) {
   const previewBridge = readDesktopPreviewBridge();
   const setProjectOpen = usePreviewStateStore((state) => state.setProjectOpen);
   const favoriteUrls = usePreviewStateStore((state) => state.favoriteUrls);

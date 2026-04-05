@@ -619,8 +619,7 @@ export class DesktopPreviewController {
       tabs.push(entry.state);
     }
 
-    const visible =
-      this.bounds.visible && tabs.length > 0 && threadSet.activeTabId !== null;
+    const visible = this.bounds.visible && tabs.length > 0 && threadSet.activeTabId !== null;
 
     return {
       tabs,

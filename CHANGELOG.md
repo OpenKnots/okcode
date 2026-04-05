@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-04-05
+
+See [docs/releases/v0.15.0.md](docs/releases/v0.15.0.md) for full notes and [docs/releases/v0.15.0/assets.md](docs/releases/v0.15.0/assets.md) for release asset inventory.
+
+### Added
+
+- Redesign the chat home empty state with recent activity.
+- Add animated marketing background and deepen dark theme.
+- Add rebase-aware branch sync handling.
+
+### Changed
+
+- Centralize brand constants in @okcode/shared/brand and unify OK Code brand identity across the codebase.
+- Scope preview tabs and preview state by project thread.
+- Scope background image into app settings.
+- Always use wide thread names in the sidebar.
+- Refine stitch border with subtle 3D depth.
+- Wrap menu sections and PR dropdown actions in MenuGroup.
+- Measure composer footer content before compacting.
+- Skip CI jobs when unrelated files change.
+
+### Removed
+
+- Remove window opacity setting.
+
 ## [0.14.0] - 2026-04-04
 
 See [docs/releases/v0.14.0.md](docs/releases/v0.14.0.md) for full notes and [docs/releases/v0.14.0/assets.md](docs/releases/v0.14.0/assets.md) for release asset inventory.

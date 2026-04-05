@@ -7,17 +7,17 @@
 
 ## 1. Brand Identity
 
-| Property                  | Value                  |
-| ------------------------- | ---------------------- |
-| **App Name**              | OK Code                |
-| **Stage Label**           | Dev (development only) |
-| **Display Name**          | OK Code                |
-| **Version**               | 0.0.1                  |
-| **Tagline**               | A Minimal Web GUI for Coding Agents |
+| Property                  | Value                                                                                                              |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| **App Name**              | OK Code                                                                                                            |
+| **Stage Label**           | Dev (development only)                                                                                             |
+| **Display Name**          | OK Code                                                                                                            |
+| **Version**               | 0.0.1                                                                                                              |
+| **Tagline**               | A Minimal Web GUI for Coding Agents                                                                                |
 | **One-liner Description** | Chat with Codex and Claude in a modern web UI. Git worktree isolation, diff review, integrated terminal, and more. |
-| **Parent Organization**   | OpenKnots              |
-| **Website URL**           | `[TBD]`               |
-| **Repository**            | `OpenKnots/okcode`     |
+| **Parent Organization**   | OpenKnots                                                                                                          |
+| **Website URL**           | `[TBD]`                                                                                                            |
+| **Repository**            | `OpenKnots/okcode`                                                                                                 |
 
 ### Brand Voice & Tone
 
@@ -28,7 +28,7 @@
 | **Copy Style**               | Action-oriented imperatives ("New Thread", "Terminal", "Settings"); no unnecessary filler words |
 | **Audience**                 | Software engineers and technical users                                                          |
 | **Emoji Usage**              | None in UI copy; reserved for user-generated content only                                       |
-| **Error/Empty States Voice** | Concise and helpful; state what happened and what to do next, no blame or humor                  |
+| **Error/Empty States Voice** | Concise and helpful; state what happened and what to do next, no blame or humor                 |
 
 ---
 
@@ -256,7 +256,7 @@ A subtle **fractal noise SVG overlay** is applied to `body::after` at **3.5% opa
 | Disabled opacity     | `opacity-64`                        |
 | Disabled interaction | `pointer-events: none`              |
 | Placeholder text     | `muted-foreground/72` (72% opacity) |
-| Contrast standard    | WCAG 2.1 AA minimum                  |
+| Contrast standard    | WCAG 2.1 AA minimum                 |
 
 ---
 
@@ -319,10 +319,10 @@ The app includes bespoke SVG icons for:
 
 ### Motion Preference
 
-| Property                         | Value   |
-| -------------------------------- | ------- |
+| Property                         | Value                                              |
+| -------------------------------- | -------------------------------------------------- |
 | `prefers-reduced-motion` support | Respect; disable non-essential animations when set |
-| Global animation toggle          | `[TBD]` |
+| Global animation toggle          | `[TBD]`                                            |
 
 ---
 

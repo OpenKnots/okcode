@@ -4714,6 +4714,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
                 <PreviewPanel
                   key={previewPanelKey ?? undefined}
                   projectId={activeProject!.id}
+                  threadId={threadId}
                   onClose={() => setPreviewOpen(activeProject!.id, false)}
                 />
               </div>
@@ -5535,6 +5536,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
                 <PreviewPanel
                   key={previewPanelKey ?? undefined}
                   projectId={activeProject!.id}
+                  threadId={threadId}
                   onClose={() => setPreviewOpen(activeProject!.id, false)}
                 />
               </div>

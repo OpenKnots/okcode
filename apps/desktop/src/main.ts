@@ -1291,14 +1291,11 @@ function registerIpcHandlers(): void {
   );
 
   ipcMain.removeHandler(PREVIEW_ACTIVATE_THREAD_CHANNEL);
-  ipcMain.handle(
-    PREVIEW_ACTIVATE_THREAD_CHANNEL,
-    async (event, input: { threadId?: string }) => {
-      const window = resolvePreviewWindow(event.sender);
-      if (!window || !input?.threadId) return createEmptyTabsState();
-      return getPreviewController(window).activateThread(input.threadId);
-    },
-  );
+  ipcMain.handle(PREVIEW_ACTIVATE_THREAD_CHANNEL, async (event, input: { threadId?: string }) => {
+    const window = resolvePreviewWindow(event.sender);
+    if (!window || !input?.threadId) return createEmptyTabsState();
+    return getPreviewController(window).activateThread(input.threadId);
+  });
 
   ipcMain.removeHandler(PREVIEW_CLOSE_TAB_CHANNEL);
   ipcMain.handle(PREVIEW_CLOSE_TAB_CHANNEL, async (event, input: { tabId?: PreviewTabId }) => {

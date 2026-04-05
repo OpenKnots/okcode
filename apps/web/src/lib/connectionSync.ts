@@ -31,9 +31,7 @@ export interface ConnectionSyncManagerOptions {
  * Sets up a listener on the transport's `onReconnected` event.
  * Returns an unsubscribe function for cleanup.
  */
-export function createConnectionSyncManager(
-  options: ConnectionSyncManagerOptions,
-): () => void {
+export function createConnectionSyncManager(options: ConnectionSyncManagerOptions): () => void {
   const { transport, queryClient, onResync } = options;
 
   const unsubscribe = transport.onReconnected(() => {

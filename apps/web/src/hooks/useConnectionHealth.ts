@@ -1,10 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
-import {
-  createWsNativeApi,
-  getTransportMetrics,
-  onTransportStateChange,
-} from "../wsNativeApi";
+import { createWsNativeApi, getTransportMetrics, onTransportStateChange } from "../wsNativeApi";
 import type { ConnectionMetrics, TransportState } from "../wsTransport";
 
 export interface ConnectionHealth {

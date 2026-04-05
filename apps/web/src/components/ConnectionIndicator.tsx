@@ -50,9 +50,7 @@ export const ConnectionIndicator = memo(function ConnectionIndicator() {
           {config.spin ? (
             <RefreshCwIcon className={`h-2.5 w-2.5 animate-spin ${config.iconColor}`} />
           ) : (
-            <span
-              className={`relative inline-flex h-2 w-2 rounded-full ${config.dotColor}`}
-            />
+            <span className={`relative inline-flex h-2 w-2 rounded-full ${config.dotColor}`} />
           )}
         </span>
       </TooltipTrigger>
@@ -62,9 +60,7 @@ export const ConnectionIndicator = memo(function ConnectionIndicator() {
           <div className="flex flex-col gap-0.5 text-[10px] text-muted-foreground">
             <span>Latency: {formatLatency(metrics.latencyMs)}</span>
             <span>Uptime: {formatUptime(metrics.uptimeMs)}</span>
-            {metrics.reconnectCount > 0 && (
-              <span>Reconnects: {metrics.reconnectCount}</span>
-            )}
+            {metrics.reconnectCount > 0 && <span>Reconnects: {metrics.reconnectCount}</span>}
           </div>
         </div>
       </TooltipPopup>

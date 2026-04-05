@@ -213,7 +213,9 @@ export class WsTransport {
    */
   getMetrics(): ConnectionMetrics {
     const liveUptime =
-      this._uptimeAnchor !== null ? this._uptimeMs + (Date.now() - this._uptimeAnchor) : this._uptimeMs;
+      this._uptimeAnchor !== null
+        ? this._uptimeMs + (Date.now() - this._uptimeAnchor)
+        : this._uptimeMs;
 
     return {
       reconnectCount: this._reconnectCount,

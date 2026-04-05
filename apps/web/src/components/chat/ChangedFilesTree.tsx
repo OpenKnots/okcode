@@ -12,7 +12,7 @@ import { DiffStatLabel, hasNonZeroStat } from "./DiffStatLabel";
 import { VscodeEntryIcon } from "./VscodeEntryIcon";
 import { toastManager } from "../ui/toast";
 
-type ChangedFileAction = "view-diff" | "open-in-editor" | "reveal-in-finder" | "copy-path";
+type ChangedFileAction = "open-in-editor" | "reveal-in-finder" | "copy-path";
 type ChangedDirectoryAction = "reveal-in-finder" | "copy-path";
 
 export const ChangedFilesTree = memo(function ChangedFilesTree(props: {
@@ -21,9 +21,8 @@ export const ChangedFilesTree = memo(function ChangedFilesTree(props: {
   allDirectoriesExpanded: boolean;
   resolvedTheme: "light" | "dark";
   cwd: string | undefined;
-  onOpenTurnDiff: (turnId: TurnId, filePath?: string) => void;
 }) {
-  const { files, allDirectoriesExpanded, onOpenTurnDiff, resolvedTheme, turnId, cwd } = props;
+  const { files, allDirectoriesExpanded, resolvedTheme, turnId, cwd } = props;
   const fileManagerName =
     typeof navigator !== "undefined" && isMacPlatform(navigator.platform)
       ? "Finder"
@@ -162,16 +161,13 @@ export const ChangedFilesTree = memo(function ChangedFilesTree(props: {
       if (!api || !cwd) return;
       const clicked = await api.contextMenu.show<ChangedFileAction>(
         [
-          { id: "view-diff", label: "View diff" },
           { id: "open-in-editor", label: "Open in editor" },
           { id: "reveal-in-finder", label: `Reveal in ${fileManagerName}` },
           { id: "copy-path", label: "Copy path" },
         ],
         { x: event.clientX, y: event.clientY },
       );
-      if (clicked === "view-diff") {
-        onOpenTurnDiff(turnId, node.path);
-      } else if (clicked === "open-in-editor") {
+      if (clicked === "open-in-editor") {
         openInEditor(node.path);
       } else if (clicked === "reveal-in-finder") {
         revealInFileManager(node.path);
@@ -179,7 +175,7 @@ export const ChangedFilesTree = memo(function ChangedFilesTree(props: {
         copyPath(node.path);
       }
     },
-    [cwd, fileManagerName, turnId, onOpenTurnDiff, openInEditor, revealInFileManager, copyPath],
+    [cwd, fileManagerName, openInEditor, revealInFileManager, copyPath],
   );
 
   const renderTreeNode = (node: TurnDiffTreeNode, depth: number) => {
@@ -231,7 +227,7 @@ export const ChangedFilesTree = memo(function ChangedFilesTree(props: {
         type="button"
         className="group flex w-full items-center gap-1.5 rounded-md py-1 pr-2 text-left hover:bg-background/80"
         style={{ paddingLeft: `${leftPadding}px` }}
-        onClick={() => onOpenTurnDiff(turnId, node.path)}
+        onClick={() => openInEditor(node.path)}
         onContextMenu={(event) => handleFileContextMenu(event, node)}
       >
         <span aria-hidden="true" className="size-3.5 shrink-0" />

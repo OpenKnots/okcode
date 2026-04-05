@@ -29,7 +29,6 @@ interface ChatHeaderProps {
   activeProjectId: ProjectId | undefined;
   activeProjectName: string | undefined;
   activeProjectCwd: string | undefined;
-  isGitRepo: boolean;
   isLocalDraftThread: boolean;
   openInCwd: string | null;
   activeProjectScripts: ProjectScript[] | undefined;
@@ -38,13 +37,11 @@ interface ChatHeaderProps {
   terminalAvailable: boolean;
   terminalOpen: boolean;
   terminalToggleShortcutLabel: string | null;
-  diffToggleShortcutLabel: string | null;
   previewAvailable: boolean;
   previewOpen: boolean;
   previewDock: PreviewDock;
   threadBranch: string | null;
   gitCwd: string | null;
-  diffOpen: boolean;
   clientMode: ClientMode;
   onRenameDraftThreadTitle: (title: string) => void;
   onRunProjectScript: (script: ProjectScript) => void;
@@ -53,7 +50,6 @@ interface ChatHeaderProps {
   onDeleteProjectScript: (scriptId: string) => Promise<void>;
   onImportProjectScripts: (scripts: ProjectScriptDraft[]) => Promise<void>;
   onToggleTerminal: () => void;
-  onToggleDiff: () => void;
   onTogglePreview: () => void;
   onTogglePreviewLayout: () => void;
 }
@@ -64,7 +60,6 @@ export const ChatHeader = memo(function ChatHeader({
   activeProjectId,
   activeProjectName,
   activeProjectCwd,
-  isGitRepo,
   isLocalDraftThread,
   threadBranch,
   openInCwd: _openInCwd,
@@ -74,12 +69,10 @@ export const ChatHeader = memo(function ChatHeader({
   terminalAvailable,
   terminalOpen,
   terminalToggleShortcutLabel,
-  diffToggleShortcutLabel,
   previewAvailable,
   previewOpen,
   previewDock: _previewDock,
   gitCwd,
-  diffOpen,
   clientMode,
   onRenameDraftThreadTitle,
   onRunProjectScript,
@@ -88,7 +81,6 @@ export const ChatHeader = memo(function ChatHeader({
   onDeleteProjectScript,
   onImportProjectScripts,
   onToggleTerminal,
-  onToggleDiff,
   onTogglePreview,
   onTogglePreviewLayout: _onTogglePreviewLayout,
 }: ChatHeaderProps) {
@@ -226,28 +218,8 @@ export const ChatHeader = memo(function ChatHeader({
             terminalToggleShortcutLabel={terminalToggleShortcutLabel}
             previewAvailable={previewAvailable}
             previewOpen={previewOpen}
-            diffOpen={diffOpen}
-            diffToggleShortcutLabel={diffToggleShortcutLabel}
-            isGitRepo={isGitRepo}
             onToggleTerminal={onToggleTerminal}
             onTogglePreview={onTogglePreview}
-            onToggleDiff={onToggleDiff}
-          />
-        )}
-        {/* Mobile: only diff toggle */}
-        {isMobileCompanion && (
-          <HeaderPanelsMenu
-            terminalAvailable={false}
-            terminalOpen={false}
-            terminalToggleShortcutLabel={null}
-            previewAvailable={false}
-            previewOpen={false}
-            diffOpen={diffOpen}
-            diffToggleShortcutLabel={diffToggleShortcutLabel}
-            isGitRepo={isGitRepo}
-            onToggleTerminal={() => {}}
-            onTogglePreview={() => {}}
-            onToggleDiff={onToggleDiff}
           />
         )}
       </div>

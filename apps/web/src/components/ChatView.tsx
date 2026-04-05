@@ -31,7 +31,7 @@ import {
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDebouncedValue } from "@tanstack/react-pacer";
-import { useNavigate, useSearch } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { gitBranchesQueryOptions, gitCreateWorktreeMutationOptions } from "~/lib/gitReactQuery";
 import { projectSearchEntriesQueryOptions } from "~/lib/projectReactQuery";
 import {
@@ -42,7 +42,6 @@ import {
 import { serverConfigQueryOptions, serverQueryKeys } from "~/lib/serverReactQuery";
 import { isElectron } from "../env";
 import { openFileReference } from "../fileOpen";
-import { parseDiffRouteSearch, stripDiffSearchParams } from "../diffRouteSearch";
 import {
   clampCollapsedComposerCursor,
   type ComposerTrigger,
@@ -407,10 +406,6 @@ export default function ChatView({ threadId }: ChatViewProps) {
     startY: number;
     startSize: number;
   } | null>(null);
-  const rawSearch = useSearch({
-    strict: false,
-    select: (params) => parseDiffRouteSearch(params),
-  });
   const { resolvedTheme } = useTheme();
   const queryClient = useQueryClient();
   const createWorktreeMutation = useMutation(gitCreateWorktreeMutationOptions({ queryClient }));
@@ -669,7 +664,6 @@ export default function ChatView({ threadId }: ChatViewProps) {
   const isServerThread = serverThread !== undefined;
   const isLocalDraftThread = !isServerThread && localDraftThread !== undefined;
   const canCheckoutPullRequestIntoThread = isLocalDraftThread;
-  const diffOpen = rawSearch.diff === "1";
   const activeThreadId = activeThread?.id ?? null;
   const activeLatestTurn = activeThread?.latestTurn ?? null;
   const activeContextWindow = useMemo(
@@ -1473,26 +1467,11 @@ export default function ChatView({ threadId }: ChatViewProps) {
     () => shortcutLabelForCommand(keybindings, "terminal.close"),
     [keybindings],
   );
-  const diffPanelShortcutLabel = useMemo(
-    () => shortcutLabelForCommand(keybindings, "diff.toggle"),
-    [keybindings],
-  );
   const platform = typeof navigator !== "undefined" ? navigator.platform : "";
   const chatShortcutGuides = useMemo(
     () => buildChatShortcutGuides(keybindings, platform),
     [keybindings, platform],
   );
-  const onToggleDiff = useCallback(() => {
-    void navigate({
-      to: "/$threadId",
-      params: { threadId },
-      replace: true,
-      search: (previous) => {
-        const rest = stripDiffSearchParams(previous);
-        return diffOpen ? { ...rest, diff: undefined } : { ...rest, diff: "1" };
-      },
-    });
-  }, [diffOpen, navigate, threadId]);
 
   const pendingContext = useCodeViewerStore((state) => state.pendingContext);
   const clearPendingContext = useCodeViewerStore((state) => state.clearPendingContext);
@@ -2775,13 +2754,6 @@ export default function ChatView({ threadId }: ChatViewProps) {
         return;
       }
 
-      if (command === "diff.toggle") {
-        event.preventDefault();
-        event.stopPropagation();
-        onToggleDiff();
-        return;
-      }
-
       const scriptId = projectScriptIdFromCommand(command);
       if (!scriptId || !activeProject) return;
       const script = activeProject.scripts.find((entry) => entry.id === scriptId);
@@ -2803,7 +2775,6 @@ export default function ChatView({ threadId }: ChatViewProps) {
     runProjectScript,
     splitTerminal,
     keybindings,
-    onToggleDiff,
     toggleTerminalVisibility,
   ]);
 
@@ -4481,21 +4452,6 @@ export default function ChatView({ threadId }: ChatViewProps) {
     setExpandedImage(preview);
   }, []);
   const expandedImageItem = expandedImage ? expandedImage.images[expandedImage.index] : null;
-  const onOpenTurnDiff = useCallback(
-    (turnId: TurnId, filePath?: string) => {
-      void navigate({
-        to: "/$threadId",
-        params: { threadId },
-        search: (previous) => {
-          const rest = stripDiffSearchParams(previous);
-          return filePath
-            ? { ...rest, diff: "1", diffTurnId: turnId, diffFilePath: filePath }
-            : { ...rest, diff: "1", diffTurnId: turnId };
-        },
-      });
-    },
-    [navigate, threadId],
-  );
   const onRevertUserMessage = (messageId: MessageId) => {
     const targetTurnCount = revertTurnCountByUserMessageId.get(messageId);
     if (typeof targetTurnCount !== "number") {
@@ -4646,7 +4602,6 @@ export default function ChatView({ threadId }: ChatViewProps) {
           activeProjectId={activeProject?.id}
           activeProjectName={activeProject?.name}
           activeProjectCwd={activeProject?.cwd}
-          isGitRepo={isGitRepo}
           isLocalDraftThread={isLocalDraftThread}
           threadBranch={activeThread.branch ?? null}
           openInCwd={gitCwd}
@@ -4658,12 +4613,10 @@ export default function ChatView({ threadId }: ChatViewProps) {
           terminalAvailable={activeProject !== undefined}
           terminalOpen={terminalState.terminalOpen}
           terminalToggleShortcutLabel={terminalToggleShortcutLabel}
-          diffToggleShortcutLabel={diffPanelShortcutLabel}
           previewAvailable={isElectron && activeProject !== undefined}
           previewOpen={previewOpen}
           previewDock={previewDock}
           gitCwd={gitCwd}
-          diffOpen={diffOpen}
           clientMode={clientMode}
           onRenameDraftThreadTitle={(title) => {
             setDraftThreadTitle(activeThread.id, title);
@@ -4676,7 +4629,6 @@ export default function ChatView({ threadId }: ChatViewProps) {
           onDeleteProjectScript={deleteProjectScript}
           onImportProjectScripts={importProjectScripts}
           onToggleTerminal={toggleTerminalVisibility}
-          onToggleDiff={onToggleDiff}
           onTogglePreview={() => activeProjectId && togglePreviewOpen(activeProjectId)}
           onTogglePreviewLayout={() => activeProjectId && togglePreviewLayout(activeProjectId)}
         />
@@ -4783,7 +4735,6 @@ export default function ChatView({ threadId }: ChatViewProps) {
                   nowIso={nowIso}
                   expandedWorkGroups={expandedWorkGroups}
                   onToggleWorkGroup={onToggleWorkGroup}
-                  onOpenTurnDiff={onOpenTurnDiff}
                   revertTurnCountByUserMessageId={revertTurnCountByUserMessageId}
                   onRevertUserMessage={onRevertUserMessage}
                   isRevertingCheckpoint={isRevertingCheckpoint}

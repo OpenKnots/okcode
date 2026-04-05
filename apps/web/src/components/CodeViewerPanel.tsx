@@ -8,7 +8,7 @@ import { projectReadFileQueryOptions } from "~/lib/projectReactQuery";
 import { cn, isMacPlatform } from "~/lib/utils";
 import { isMarkdownPreviewFilePath } from "~/markdownPreview";
 import { CodeMirrorViewer, type CodeContextSelection } from "./CodeMirrorViewer";
-import { DiffPanelLoadingState } from "./DiffPanelShell";
+import { Loader2Icon } from "lucide-react";
 import { MarkdownPreview } from "./MarkdownPreview";
 import { isElectron } from "~/env";
 import { Button } from "./ui/button";
@@ -83,7 +83,12 @@ export const CodeViewerFileContent = memo(function CodeViewerFileContent(props: 
   );
 
   if (query.isLoading) {
-    return <DiffPanelLoadingState label="Loading file..." />;
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-2 text-muted-foreground/60">
+        <Loader2Icon className="size-5 animate-spin" />
+        <span className="text-xs">Loading file...</span>
+      </div>
+    );
   }
 
   if (query.isError) {

@@ -15,6 +15,7 @@ const UPDATE_INSTALL_CHANNEL = "desktop:update-install";
 const PREVIEW_CREATE_TAB_CHANNEL = "desktop:preview-create-tab";
 const PREVIEW_CLOSE_TAB_CHANNEL = "desktop:preview-close-tab";
 const PREVIEW_ACTIVATE_TAB_CHANNEL = "desktop:preview-activate-tab";
+const PREVIEW_ACTIVATE_THREAD_CHANNEL = "desktop:preview-activate-thread";
 const PREVIEW_GO_BACK_CHANNEL = "desktop:preview-go-back";
 const PREVIEW_GO_FORWARD_CHANNEL = "desktop:preview-go-forward";
 const PREVIEW_RELOAD_CHANNEL = "desktop:preview-reload";
@@ -63,6 +64,7 @@ contextBridge.exposeInMainWorld("desktopBridge", {
     createTab: (input) => ipcRenderer.invoke(PREVIEW_CREATE_TAB_CHANNEL, input),
     closeTab: (input) => ipcRenderer.invoke(PREVIEW_CLOSE_TAB_CHANNEL, input),
     activateTab: (input) => ipcRenderer.invoke(PREVIEW_ACTIVATE_TAB_CHANNEL, input),
+    activateThread: (input) => ipcRenderer.invoke(PREVIEW_ACTIVATE_THREAD_CHANNEL, input),
     goBack: () => ipcRenderer.invoke(PREVIEW_GO_BACK_CHANNEL),
     goForward: () => ipcRenderer.invoke(PREVIEW_GO_FORWARD_CHANNEL),
     reload: () => ipcRenderer.invoke(PREVIEW_RELOAD_CHANNEL),

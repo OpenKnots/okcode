@@ -1054,34 +1054,6 @@ function SettingsRouteView() {
               />
 
               <SettingsRow
-                title="Wide thread names"
-                description="Give thread names more room by allowing timestamps to compress."
-                resetAction={
-                  settings.sidebarWideThreadNames !== defaults.sidebarWideThreadNames ? (
-                    <SettingResetButton
-                      label="wide thread names"
-                      onClick={() =>
-                        updateSettings({
-                          sidebarWideThreadNames: defaults.sidebarWideThreadNames,
-                        })
-                      }
-                    />
-                  ) : null
-                }
-                control={
-                  <Switch
-                    checked={settings.sidebarWideThreadNames}
-                    onCheckedChange={(checked) =>
-                      updateSettings({
-                        sidebarWideThreadNames: Boolean(checked),
-                      })
-                    }
-                    aria-label="Wide thread names"
-                  />
-                }
-              />
-
-              <SettingsRow
                 title="Time format"
                 description="System default follows your browser or OS clock preference."
                 resetAction={

@@ -16,6 +16,11 @@ import { DeepMutable } from "effect/Types";
 import { normalizeModelSlug } from "@okcode/shared/model";
 import { getLocalStorageItem } from "./hooks/useLocalStorage";
 import {
+  PROMPT_ENHANCEMENT_IDS,
+  isPromptEnhancementId,
+  type PromptEnhancementId,
+} from "./promptEnhancement";
+import {
   DEFAULT_INTERACTION_MODE,
   DEFAULT_RUNTIME_MODE,
   type ChatFileAttachment,
@@ -47,6 +52,7 @@ const DraftThreadEnvModeSchema = Schema.Literals(["local", "worktree"]);
 export type DraftThreadEnvMode = typeof DraftThreadEnvModeSchema.Type;
 
 const COMPOSER_PERSIST_DEBOUNCE_MS = 300;
+const PromptEnhancementIdSchema = Schema.Literals(PROMPT_ENHANCEMENT_IDS);
 
 const composerDebouncedStorage = createDebouncedStorage(
   typeof localStorage !== "undefined" ? localStorage : createMemoryStorage(),
@@ -96,6 +102,7 @@ const PersistedComposerThreadDraftState = Schema.Struct({
   prompt: Schema.String,
   attachments: Schema.Array(PersistedComposerAttachment),
   terminalContexts: Schema.optionalKey(Schema.Array(PersistedTerminalContextDraft)),
+  promptEnhancement: Schema.optionalKey(PromptEnhancementIdSchema),
   provider: Schema.optionalKey(ProviderKind),
   model: Schema.optionalKey(Schema.String),
   modelOptions: Schema.optionalKey(ProviderModelOptions),
@@ -145,6 +152,7 @@ interface ComposerThreadDraftState {
   nonPersistedAttachmentIds: string[];
   persistedAttachments: PersistedComposerAttachment[];
   terminalContexts: TerminalContextDraft[];
+  promptEnhancement: PromptEnhancementId | null;
   provider: ProviderKind | null;
   model: string | null;
   modelOptions: ProviderModelOptions | null;
@@ -208,6 +216,10 @@ interface ComposerDraftStoreState {
   setStickyModel: (model: string | null | undefined) => void;
   setStickyModelOptions: (modelOptions: ProviderModelOptions | null | undefined) => void;
   setPrompt: (threadId: ThreadId, prompt: string) => void;
+  setPromptEnhancement: (
+    threadId: ThreadId,
+    promptEnhancement: PromptEnhancementId | null | undefined,
+  ) => void;
   setTerminalContexts: (threadId: ThreadId, contexts: TerminalContextDraft[]) => void;
   setProvider: (threadId: ThreadId, provider: ProviderKind | null | undefined) => void;
   setModel: (threadId: ThreadId, model: string | null | undefined) => void;
@@ -272,6 +284,7 @@ const EMPTY_THREAD_DRAFT = Object.freeze<ComposerThreadDraftState>({
   nonPersistedAttachmentIds: EMPTY_IDS,
   persistedAttachments: EMPTY_PERSISTED_ATTACHMENTS,
   terminalContexts: EMPTY_TERMINAL_CONTEXTS,
+  promptEnhancement: null,
   provider: null,
   model: null,
   modelOptions: null,
@@ -286,6 +299,7 @@ function createEmptyThreadDraft(): ComposerThreadDraftState {
     nonPersistedAttachmentIds: [],
     persistedAttachments: [],
     terminalContexts: [],
+    promptEnhancement: null,
     provider: null,
     model: null,
     modelOptions: null,
@@ -357,6 +371,7 @@ function shouldRemoveDraft(draft: ComposerThreadDraftState): boolean {
     draft.attachments.length === 0 &&
     draft.persistedAttachments.length === 0 &&
     draft.terminalContexts.length === 0 &&
+    draft.promptEnhancement === null &&
     draft.provider === null &&
     draft.model === null &&
     draft.modelOptions === null &&
@@ -367,6 +382,10 @@ function shouldRemoveDraft(draft: ComposerThreadDraftState): boolean {
 
 function normalizeProviderKind(value: unknown): ProviderKind | null {
   return value === "codex" || value === "claudeAgent" ? value : null;
+}
+
+function normalizePromptEnhancement(value: unknown): PromptEnhancementId | null {
+  return isPromptEnhancementId(value) ? value : null;
 }
 
 function normalizeProviderModelOptions(
@@ -693,6 +712,7 @@ function normalizePersistedDraftsByThreadId(
         ? draftCandidate.runtimeMode
         : null;
     const interactionMode = normalizePersistedInteractionModeValue(draftCandidate.interactionMode);
+    const promptEnhancement = normalizePromptEnhancement(draftCandidate.promptEnhancement);
     const modelOptions = resolveModelOptions(draftCandidate, provider);
     const prompt = ensureInlineTerminalContextPlaceholders(
       promptCandidate,
@@ -702,6 +722,7 @@ function normalizePersistedDraftsByThreadId(
       promptCandidate.length === 0 &&
       attachments.length === 0 &&
       terminalContexts.length === 0 &&
+      promptEnhancement === null &&
       !provider &&
       !model &&
       modelOptions === null &&
@@ -714,6 +735,7 @@ function normalizePersistedDraftsByThreadId(
       prompt,
       attachments,
       ...(terminalContexts.length > 0 ? { terminalContexts } : {}),
+      ...(promptEnhancement ? { promptEnhancement } : {}),
       ...(provider ? { provider } : {}),
       ...(model ? { model } : {}),
       ...(modelOptions ? { modelOptions } : {}),
@@ -778,6 +800,7 @@ function partializeComposerDraftStoreState(
       draft.prompt.length === 0 &&
       draft.persistedAttachments.length === 0 &&
       draft.terminalContexts.length === 0 &&
+      draft.promptEnhancement === null &&
       draft.provider === null &&
       draft.model === null &&
       draft.modelOptions === null &&
@@ -802,6 +825,7 @@ function partializeComposerDraftStoreState(
             })),
           }
         : {}),
+      ...(draft.promptEnhancement ? { promptEnhancement: draft.promptEnhancement } : {}),
       ...(draft.model ? { model: draft.model } : {}),
       ...(draft.modelOptions ? { modelOptions: draft.modelOptions } : {}),
       ...(draft.provider ? { provider: draft.provider } : {}),
@@ -1007,6 +1031,7 @@ function toHydratedThreadDraft(
         ...context,
         text: "",
       })) ?? [],
+    promptEnhancement: persistedDraft.promptEnhancement ?? null,
     provider: persistedDraft.provider ?? null,
     model: persistedDraft.model ?? null,
     modelOptions: persistedDraft.modelOptions ?? null,
@@ -1331,6 +1356,33 @@ export const useComposerDraftStore = create<ComposerDraftStoreState>()(
           const nextDraft: ComposerThreadDraftState = {
             ...existing,
             prompt,
+          };
+          const nextDraftsByThreadId = { ...state.draftsByThreadId };
+          if (shouldRemoveDraft(nextDraft)) {
+            delete nextDraftsByThreadId[threadId];
+          } else {
+            nextDraftsByThreadId[threadId] = nextDraft;
+          }
+          return { draftsByThreadId: nextDraftsByThreadId };
+        });
+      },
+      setPromptEnhancement: (threadId, promptEnhancement) => {
+        if (threadId.length === 0) {
+          return;
+        }
+        const nextPromptEnhancement = normalizePromptEnhancement(promptEnhancement);
+        set((state) => {
+          const existing = state.draftsByThreadId[threadId];
+          if (!existing && nextPromptEnhancement === null) {
+            return state;
+          }
+          const base = existing ?? createEmptyThreadDraft();
+          if (base.promptEnhancement === nextPromptEnhancement) {
+            return state;
+          }
+          const nextDraft: ComposerThreadDraftState = {
+            ...base,
+            promptEnhancement: nextPromptEnhancement,
           };
           const nextDraftsByThreadId = { ...state.draftsByThreadId };
           if (shouldRemoveDraft(nextDraft)) {
@@ -1829,6 +1881,7 @@ export const useComposerDraftStore = create<ComposerDraftStoreState>()(
             nonPersistedAttachmentIds: [],
             persistedAttachments: [],
             terminalContexts: [],
+            promptEnhancement: null,
           };
           const nextDraftsByThreadId = { ...state.draftsByThreadId };
           if (shouldRemoveDraft(nextDraft)) {

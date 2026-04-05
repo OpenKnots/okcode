@@ -199,6 +199,7 @@ import { MobileThreadAttentionBar } from "./chat/MobileThreadAttentionBar";
 import { ThreadErrorBanner } from "./chat/ThreadErrorBanner";
 import {
   buildAutoSelectedWorktreeBaseBranchToastCopy,
+  buildHiddenProviderInput,
   buildExpiredTerminalContextToastCopy,
   buildLocalDraftThread,
   buildTemporaryWorktreeBranchName,
@@ -220,6 +221,7 @@ import { usePreviewStateStore } from "~/previewStateStore";
 import { useClientMode } from "~/hooks/useClientMode";
 import { useTransportState } from "~/hooks/useTransportState";
 import { hasCustomThreadTitle, normalizeThreadTitle } from "~/threadTitle";
+import { type PromptEnhancementId } from "../promptEnhancement";
 
 const ATTACHMENT_PREVIEW_HANDOFF_TTL_MS = 5000;
 const IMAGE_SIZE_LIMIT_LABEL = `${Math.round(PROVIDER_SEND_TURN_MAX_IMAGE_BYTES / (1024 * 1024))}MB`;
@@ -412,6 +414,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
   const createWorktreeMutation = useMutation(gitCreateWorktreeMutationOptions({ queryClient }));
   const composerDraft = useComposerThreadDraft(threadId);
   const prompt = composerDraft.prompt;
+  const composerPromptEnhancement = composerDraft.promptEnhancement;
   const composerAttachments = composerDraft.attachments;
   const composerImageAttachments = useMemo(
     () =>
@@ -441,6 +444,9 @@ export default function ChatView({ threadId }: ChatViewProps) {
   );
   const nonPersistedComposerAttachmentIds = composerDraft.nonPersistedAttachmentIds;
   const setComposerDraftPrompt = useComposerDraftStore((store) => store.setPrompt);
+  const setComposerDraftPromptEnhancement = useComposerDraftStore(
+    (store) => store.setPromptEnhancement,
+  );
   const setComposerDraftProvider = useComposerDraftStore((store) => store.setProvider);
   const setComposerDraftModel = useComposerDraftStore((store) => store.setModel);
   const setComposerDraftRuntimeMode = useComposerDraftStore((store) => store.setRuntimeMode);
@@ -594,6 +600,12 @@ export default function ChatView({ threadId }: ChatViewProps) {
       setComposerDraftPrompt(threadId, nextPrompt);
     },
     [setComposerDraftPrompt, threadId],
+  );
+  const setPromptEnhancement = useCallback(
+    (nextPromptEnhancement: PromptEnhancementId | null) => {
+      setComposerDraftPromptEnhancement(threadId, nextPromptEnhancement);
+    },
+    [setComposerDraftPromptEnhancement, threadId],
   );
   const addComposerAttachment = useCallback(
     (attachment: ComposerAttachment) => {

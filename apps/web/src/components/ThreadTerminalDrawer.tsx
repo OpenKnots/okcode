@@ -19,14 +19,6 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  Menu,
-  MenuItem,
-  MenuPopup,
-  MenuSeparator,
-  MenuShortcut,
-  MenuTrigger,
-} from "~/components/ui/menu";
 import { Popover, PopoverPopup, PopoverTrigger } from "~/components/ui/popover";
 import { type TerminalContextSelection } from "~/lib/terminalContext";
 import { openInPreferredEditor } from "../editorPreferences";
@@ -817,6 +809,7 @@ interface ThreadTerminalDrawerProps {
   closeShortcutLabel?: string | undefined;
   onActiveTerminalChange: (terminalId: string) => void;
   onCloseTerminal: (terminalId: string) => void;
+  onCollapseTerminal: () => void;
   onHeightChange: (height: number) => void;
   onAddTerminalContext: (selection: TerminalContextSelection) => void;
   onSendTerminalContext?: ((selection: TerminalContextSelection) => void) | undefined;
@@ -852,62 +845,60 @@ function TerminalActionButton({ label, className, onClick, children }: TerminalA
   );
 }
 
-interface TerminalDropdownMenuProps {
+interface TerminalActionRailProps {
   onSplitTerminal: () => void;
   onNewTerminal: () => void;
   onCloseTerminal: () => void;
+  onCollapseTerminal: () => void;
   splitDisabled: boolean;
   splitLabel: string;
   newLabel: string;
   closeLabel: string;
-  splitShortcutLabel?: string | undefined;
-  newShortcutLabel?: string | undefined;
-  closeShortcutLabel?: string | undefined;
-  triggerClassName: string;
+  collapseLabel: string;
+  actionClassName: string;
+  destructiveActionClassName?: string | undefined;
 }
 
-function TerminalDropdownMenu({
+function TerminalActionRail({
   onSplitTerminal,
   onNewTerminal,
   onCloseTerminal,
+  onCollapseTerminal,
   splitDisabled,
   splitLabel,
   newLabel,
   closeLabel,
-  splitShortcutLabel,
-  newShortcutLabel,
-  closeShortcutLabel,
-  triggerClassName,
-}: TerminalDropdownMenuProps) {
+  collapseLabel,
+  actionClassName,
+  destructiveActionClassName,
+}: TerminalActionRailProps) {
   return (
-    <Menu>
-      <MenuTrigger
-        render={<button type="button" className={triggerClassName} aria-label="Terminal actions" />}
+    <div className="inline-flex items-center">
+      <TerminalActionButton
+        label={splitLabel}
+        className={`${actionClassName} ${splitDisabled ? "pointer-events-none opacity-45" : ""}`}
+        onClick={onSplitTerminal}
       >
-        <ChevronDown className="size-3.25" />
-      </MenuTrigger>
-      <MenuPopup align="end" side="bottom" sideOffset={6}>
-        <MenuItem
-          className={splitDisabled ? "pointer-events-none opacity-45" : ""}
-          onClick={onSplitTerminal}
-        >
-          <SquareSplitHorizontal className="size-4" />
-          {splitLabel}
-          {splitShortcutLabel ? <MenuShortcut>{splitShortcutLabel}</MenuShortcut> : null}
-        </MenuItem>
-        <MenuItem onClick={onNewTerminal}>
-          <Plus className="size-4" />
-          {newLabel}
-          {newShortcutLabel ? <MenuShortcut>{newShortcutLabel}</MenuShortcut> : null}
-        </MenuItem>
-        <MenuSeparator />
-        <MenuItem variant="destructive" onClick={onCloseTerminal}>
-          <Trash2 className="size-4" />
-          {closeLabel}
-          {closeShortcutLabel ? <MenuShortcut>{closeShortcutLabel}</MenuShortcut> : null}
-        </MenuItem>
-      </MenuPopup>
-    </Menu>
+        <SquareSplitHorizontal className="size-3.5" />
+      </TerminalActionButton>
+      <TerminalActionButton label={newLabel} className={actionClassName} onClick={onNewTerminal}>
+        <Plus className="size-3.5" />
+      </TerminalActionButton>
+      <TerminalActionButton
+        label={closeLabel}
+        className={destructiveActionClassName ?? actionClassName}
+        onClick={onCloseTerminal}
+      >
+        <Trash2 className="size-3.5" />
+      </TerminalActionButton>
+      <TerminalActionButton
+        label={collapseLabel}
+        className={actionClassName}
+        onClick={onCollapseTerminal}
+      >
+        <ChevronDown className="size-3.5" />
+      </TerminalActionButton>
+    </div>
   );
 }
 
@@ -928,6 +919,7 @@ export default function ThreadTerminalDrawer({
   closeShortcutLabel,
   onActiveTerminalChange,
   onCloseTerminal,
+  onCollapseTerminal,
   onHeightChange,
   onAddTerminalContext,
   onSendTerminalContext,
@@ -1056,6 +1048,7 @@ export default function ThreadTerminalDrawer({
   const closeTerminalActionLabel = closeShortcutLabel
     ? `Close Terminal (${closeShortcutLabel})`
     : "Close Terminal";
+  const collapseTerminalActionLabel = "Collapse Terminal";
   const onSplitTerminalAction = useCallback(() => {
     if (hasReachedSplitLimit) return;
     onSplitTerminal();
@@ -1171,18 +1164,18 @@ export default function ThreadTerminalDrawer({
       {!hasTerminalSidebar && (
         <div className="pointer-events-none absolute right-2 top-2 z-20">
           <div className="pointer-events-auto inline-flex items-center overflow-hidden rounded-md border border-border/80 bg-background/70">
-            <TerminalDropdownMenu
+            <TerminalActionRail
               onSplitTerminal={onSplitTerminalAction}
               onNewTerminal={onNewTerminalAction}
               onCloseTerminal={() => onCloseTerminal(resolvedActiveTerminalId)}
+              onCollapseTerminal={onCollapseTerminal}
               splitDisabled={hasReachedSplitLimit}
-              splitLabel="Split Terminal"
-              newLabel="New Terminal"
-              closeLabel="Close Terminal"
-              splitShortcutLabel={splitShortcutLabel}
-              newShortcutLabel={newShortcutLabel}
-              closeShortcutLabel={closeShortcutLabel}
-              triggerClassName="p-1 text-foreground/90 transition-colors hover:bg-accent"
+              splitLabel={splitTerminalActionLabel}
+              newLabel={newTerminalActionLabel}
+              closeLabel={closeTerminalActionLabel}
+              collapseLabel={collapseTerminalActionLabel}
+              actionClassName="inline-flex size-7 items-center justify-center text-foreground/90 transition-colors hover:bg-accent"
+              destructiveActionClassName="inline-flex size-7 items-center justify-center text-destructive transition-colors hover:bg-destructive/10"
             />
           </div>
         </div>
@@ -1255,18 +1248,18 @@ export default function ThreadTerminalDrawer({
             <aside className="flex w-36 min-w-36 flex-col border border-border/70 bg-muted/10">
               <div className="flex h-[22px] items-stretch justify-end border-b border-border/70">
                 <div className="inline-flex h-full items-stretch">
-                  <TerminalDropdownMenu
+                  <TerminalActionRail
                     onSplitTerminal={onSplitTerminalAction}
                     onNewTerminal={onNewTerminalAction}
                     onCloseTerminal={() => onCloseTerminal(resolvedActiveTerminalId)}
+                    onCollapseTerminal={onCollapseTerminal}
                     splitDisabled={hasReachedSplitLimit}
-                    splitLabel="Split Terminal"
-                    newLabel="New Terminal"
-                    closeLabel="Close Terminal"
-                    splitShortcutLabel={splitShortcutLabel}
-                    newShortcutLabel={newShortcutLabel}
-                    closeShortcutLabel={closeShortcutLabel}
-                    triggerClassName="inline-flex h-full items-center px-1 text-foreground/90 transition-colors hover:bg-accent/70"
+                    splitLabel={splitTerminalActionLabel}
+                    newLabel={newTerminalActionLabel}
+                    closeLabel={closeTerminalActionLabel}
+                    collapseLabel={collapseTerminalActionLabel}
+                    actionClassName="inline-flex h-full w-5 items-center justify-center text-foreground/90 transition-colors hover:bg-accent/70"
+                    destructiveActionClassName="inline-flex h-full w-5 items-center justify-center text-destructive transition-colors hover:bg-destructive/10"
                   />
                 </div>
               </div>

@@ -254,7 +254,7 @@ function MergeConflictGuidanceRail({
 
   const navigateToLatestThread = useCallback(() => {
     openCodeViewer();
-    const sorted = [...threads].sort((a, b) =>
+    const sorted = threads.toSorted((a, b) =>
       (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt),
     );
     const latest = sorted[0];

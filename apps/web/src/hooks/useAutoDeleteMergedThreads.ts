@@ -139,11 +139,12 @@ export function useAutoDeleteMergedThreads(settings: AppSettings) {
 
   // Cleanup all timers on unmount.
   useEffect(() => {
+    const timers = timersRef.current;
     return () => {
-      for (const [, timer] of timersRef.current) {
+      for (const [, timer] of timers) {
         clearTimeout(timer.timeoutId);
       }
-      timersRef.current.clear();
+      timers.clear();
     };
   }, []);
 }

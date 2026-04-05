@@ -66,12 +66,7 @@ import {
 } from "./project";
 import { ProjectFileTreeChangedPayload } from "./project";
 import { OpenInEditorInput, OpenPathInput } from "./editor";
-import {
-  GeneratePairingLinkInput,
-  ListTokensResult,
-  RevokeTokenInput,
-  ServerConfigUpdatedPayload,
-} from "./server";
+import { GeneratePairingLinkInput, RevokeTokenInput, ServerConfigUpdatedPayload } from "./server";
 import {
   SkillListInput,
   SkillCatalogInput,

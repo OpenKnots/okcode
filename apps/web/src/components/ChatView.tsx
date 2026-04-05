@@ -1486,7 +1486,6 @@ export default function ChatView({ threadId }: ChatViewProps) {
     });
   }, [diffOpen, navigate, threadId]);
 
-  const toggleCodeViewer = useCodeViewerStore((state) => state.toggle);
   const pendingContext = useCodeViewerStore((state) => state.pendingContext);
   const clearPendingContext = useCodeViewerStore((state) => state.clearPendingContext);
 
@@ -5547,6 +5546,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
             closeShortcutLabel={closeTerminalShortcutLabel ?? undefined}
             onActiveTerminalChange={activateTerminal}
             onCloseTerminal={closeTerminal}
+            onCollapseTerminal={toggleTerminalVisibility}
             onHeightChange={setTerminalHeight}
             onAddTerminalContext={addTerminalContextToDraft}
             onSendTerminalContext={sendSelectedTerminalContext}

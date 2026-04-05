@@ -1091,7 +1091,6 @@ const SimpleWorkEntryRow = memo(function SimpleWorkEntryRow(props: {
   const EntryIcon = workEntryIcon(workEntry);
   const heading = toolWorkEntryHeading(workEntry);
   const preview = workEntryPreview(workEntry);
-  const displayText = preview ? `${heading} - ${preview}` : heading;
   const hasChangedFiles = (workEntry.changedFiles?.length ?? 0) > 0;
   const previewIsChangedFiles = hasChangedFiles && !workEntry.command && !workEntry.detail;
   const hasDiffData = workEntry.diffData != null && workEntry.itemType === "file_change";

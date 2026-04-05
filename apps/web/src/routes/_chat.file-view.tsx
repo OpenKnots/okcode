@@ -27,7 +27,7 @@ function FileViewRouteRedirect() {
     }
 
     // Navigate to the most recent thread (or home)
-    const sorted = [...threads].sort((a, b) =>
+    const sorted = threads.toSorted((a, b) =>
       (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt),
     );
     const latest = sorted[0];

@@ -1,40 +1,87 @@
-import { useQuery } from "@tanstack/react-query";
-import { EyeIcon, EyeOffIcon, FileCodeIcon, XIcon } from "lucide-react";
-import { memo, useCallback, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  EyeIcon,
+  EyeOffIcon,
+  FileCodeIcon,
+  Loader2Icon,
+  PencilIcon,
+  RotateCcwIcon,
+  SaveIcon,
+  XIcon,
+} from "lucide-react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { useCodeViewerStore, type CodeViewerTab } from "~/codeViewerStore";
+import { useAppSettings } from "~/appSettings";
+import {
+  makeCodeViewerTabId,
+  useCodeViewerStore,
+  type CodeViewerTab,
+  type CodeViewerMode,
+} from "~/codeViewerStore";
 import { useTheme } from "~/hooks/useTheme";
-import { projectReadFileQueryOptions } from "~/lib/projectReactQuery";
+import { isElectron } from "~/env";
+import { projectQueryKeys, projectReadFileQueryOptions } from "~/lib/projectReactQuery";
 import { cn, isMacPlatform } from "~/lib/utils";
 import { isMarkdownPreviewFilePath } from "~/markdownPreview";
-import { CodeMirrorViewer, type CodeContextSelection } from "./CodeMirrorViewer";
-import { Loader2Icon } from "lucide-react";
+import { readNativeApi } from "~/nativeApi";
+import { type CodeContextSelection, CodeMirrorViewer } from "./CodeMirrorViewer";
 import { MarkdownPreview } from "./MarkdownPreview";
-import { isElectron } from "~/env";
 import { Button } from "./ui/button";
+import { toastManager } from "./ui/toast";
 
-/** Check if a file path is a dotenv / secrets file whose values should be masked. */
+const AUTOSAVE_DELAY_MS = 750;
+
+function hasTextContentsFromQuery(
+  data: { contents?: string | null } | undefined,
+): data is { contents: string } {
+  return typeof data?.contents === "string";
+}
+
 function isEnvFile(filePath: string): boolean {
   const basename = filePath.split("/").pop() ?? filePath;
   return /^\.env(\..*)?$/.test(basename);
 }
 
+function isEditableTextFile(input: {
+  hasContents: boolean;
+  hasImage: boolean;
+  truncated: boolean;
+  envFile: boolean;
+  envValuesRevealed: boolean;
+}): boolean {
+  if (!input.hasContents || input.hasImage || input.truncated) {
+    return false;
+  }
+  if (input.envFile && !input.envValuesRevealed) {
+    return false;
+  }
+  return true;
+}
+
+async function confirmUnsavedChanges(message: string): Promise<boolean> {
+  const api = readNativeApi();
+  if (api) {
+    return api.dialogs.confirm(message);
+  }
+  return window.confirm(message);
+}
+
 export function CodeViewerTabStrip(props: {
   tabs: CodeViewerTab[];
-  activeTabPath: string | null;
-  onSelectTab: (relativePath: string) => void;
-  onCloseTab: (relativePath: string) => void;
-  onCloseAll: () => void;
+  activeTabId: string | null;
+  onSelectTab: (tabId: string) => void;
+  onCloseTab: (tabId: string) => void | Promise<void>;
+  onCloseAll: () => void | Promise<void>;
 }) {
   return (
     <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto [-webkit-app-region:no-drag]">
       {props.tabs.map((tab) => {
-        const isActive = tab.relativePath === props.activeTabPath;
+        const isActive = tab.tabId === props.activeTabId;
         return (
           <div
-            key={tab.relativePath}
+            key={tab.tabId}
             className={cn(
-              "group flex max-w-[180px] shrink-0 items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] transition-colors",
+              "group flex max-w-[200px] shrink-0 items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] transition-colors",
               isActive
                 ? "border-border bg-accent text-accent-foreground"
                 : "border-transparent text-muted-foreground/70 hover:border-border/60 hover:text-foreground/80",
@@ -43,17 +90,20 @@ export function CodeViewerTabStrip(props: {
             <button
               type="button"
               className="min-w-0 flex-1 truncate text-left font-mono"
-              onClick={() => props.onSelectTab(tab.relativePath)}
+              onClick={() => props.onSelectTab(tab.tabId)}
               title={tab.relativePath}
             >
-              {tab.label}
+              <span className="truncate">{tab.label}</span>
+              {tab.isDirty ? (
+                <span className="ml-1 text-amber-600 dark:text-amber-300">•</span>
+              ) : null}
             </button>
             <button
               type="button"
               className="shrink-0 rounded-sm p-0.5 opacity-0 transition-opacity hover:bg-accent/80 group-hover:opacity-100"
               onClick={(event) => {
                 event.stopPropagation();
-                props.onCloseTab(tab.relativePath);
+                void props.onCloseTab(tab.tabId);
               }}
               aria-label={`Close ${tab.label}`}
             >
@@ -66,14 +116,38 @@ export function CodeViewerTabStrip(props: {
   );
 }
 
-export const CodeViewerFileContent = memo(function CodeViewerFileContent(props: {
+type CodeViewerFileContentProps = {
   cwd: string;
   relativePath: string;
   resolvedTheme: "light" | "dark";
   onAddContext: (ctx: CodeContextSelection) => void;
-}) {
+};
+
+export const CodeViewerFileContent = memo(function CodeViewerFileContent(
+  props: CodeViewerFileContentProps,
+) {
+  const tabId = useMemo(
+    () => makeCodeViewerTabId(props.cwd, props.relativePath),
+    [props.cwd, props.relativePath],
+  );
+  const { settings } = useAppSettings();
+  const queryClient = useQueryClient();
   const envFile = isEnvFile(props.relativePath);
   const [envValuesRevealed, setEnvValuesRevealed] = useState(false);
+  const [isSavingManually, setIsSavingManually] = useState(false);
+  const saveRequestVersionRef = useRef(0);
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const tab = useCodeViewerStore(
+    (state) => state.tabs.find((item) => item.tabId === tabId) ?? null,
+  );
+  const initializeTabContents = useCodeViewerStore((state) => state.initializeTabContents);
+  const updateDraftContents = useCodeViewerStore((state) => state.updateDraftContents);
+  const revertDraftContents = useCodeViewerStore((state) => state.revertDraftContents);
+  const setTabMode = useCodeViewerStore((state) => state.setTabMode);
+  const markTabSaving = useCodeViewerStore((state) => state.markTabSaving);
+  const completeTabSave = useCodeViewerStore((state) => state.completeTabSave);
+  const failTabSave = useCodeViewerStore((state) => state.failTabSave);
 
   const query = useQuery(
     projectReadFileQueryOptions({
@@ -81,6 +155,168 @@ export const CodeViewerFileContent = memo(function CodeViewerFileContent(props: 
       relativePath: props.relativePath,
     }),
   );
+  const fileContents = hasTextContentsFromQuery(query.data) ? query.data.contents : "";
+
+  const hasTextContents = hasTextContentsFromQuery(query.data);
+  const hasImage = Boolean(query.data?.imageDataUrl);
+  const editable = isEditableTextFile({
+    hasContents: hasTextContents,
+    hasImage,
+    truncated: Boolean(query.data?.truncated),
+    envFile,
+    envValuesRevealed,
+  });
+  const draftContents = tab?.draftContents ?? fileContents;
+  const mode: CodeViewerMode =
+    tab?.mode ?? (isMarkdownPreviewFilePath(props.relativePath) ? "view" : "edit");
+  const showMarkdownPreview = isMarkdownPreviewFilePath(props.relativePath) && mode === "view";
+  const isSaving = Boolean(tab?.isSaving);
+
+  const performSave = useCallback(
+    async (reason: "manual" | "autosave") => {
+      if (!tab || !editable || !tab.isDirty || typeof tab.draftContents !== "string") {
+        return true;
+      }
+      const api = readNativeApi();
+      if (!api) {
+        const message = "File saving is unavailable.";
+        failTabSave(tab.tabId, message);
+        toastManager.add({ type: "error", title: "Save failed", description: message });
+        return false;
+      }
+
+      const nextVersion = saveRequestVersionRef.current + 1;
+      saveRequestVersionRef.current = nextVersion;
+      markTabSaving(tab.tabId);
+      if (reason === "manual") {
+        setIsSavingManually(true);
+      }
+
+      try {
+        const contents = tab.draftContents;
+        await api.projects.writeFile({
+          cwd: props.cwd,
+          relativePath: props.relativePath,
+          contents,
+        });
+
+        if (saveRequestVersionRef.current !== nextVersion) {
+          return false;
+        }
+
+        completeTabSave(tab.tabId, contents);
+        queryClient.setQueryData(
+          projectQueryKeys.readFile(props.cwd, props.relativePath),
+          (previous) =>
+            previous && typeof previous === "object"
+              ? {
+                  ...previous,
+                  contents,
+                  truncated: false,
+                }
+              : previous,
+        );
+        await queryClient.invalidateQueries({
+          queryKey: projectQueryKeys.readFile(props.cwd, props.relativePath),
+        });
+        if (reason === "manual") {
+          toastManager.add({ type: "success", title: "File saved" });
+        }
+        return true;
+      } catch (error) {
+        if (saveRequestVersionRef.current === nextVersion) {
+          const message = error instanceof Error ? error.message : "Unable to save file.";
+          failTabSave(tab.tabId, message);
+          toastManager.add({ type: "error", title: "Save failed", description: message });
+        }
+        return false;
+      } finally {
+        if (reason === "manual") {
+          setIsSavingManually(false);
+        }
+      }
+    },
+    [
+      completeTabSave,
+      editable,
+      failTabSave,
+      markTabSaving,
+      props.cwd,
+      props.relativePath,
+      queryClient,
+      tab,
+    ],
+  );
+
+  useEffect(() => {
+    if (!hasTextContents || !tab) {
+      return;
+    }
+    initializeTabContents(tab.tabId, fileContents);
+  }, [fileContents, hasTextContents, initializeTabContents, tab]);
+
+  useEffect(() => {
+    const api = readNativeApi();
+    if (!api?.projects.onFileTreeChanged) {
+      return;
+    }
+    return api.projects.onFileTreeChanged((payload) => {
+      if (payload.cwd !== props.cwd) {
+        return;
+      }
+      void queryClient.invalidateQueries({
+        queryKey: projectQueryKeys.readFile(props.cwd, props.relativePath),
+      });
+    });
+  }, [props.cwd, props.relativePath, queryClient]);
+
+  useEffect(() => {
+    if (!settings.codeViewerAutosave || !tab?.isDirty || !editable || isSaving) {
+      if (autosaveTimerRef.current) {
+        clearTimeout(autosaveTimerRef.current);
+        autosaveTimerRef.current = null;
+      }
+      return;
+    }
+
+    autosaveTimerRef.current = setTimeout(() => {
+      void performSave("autosave");
+    }, AUTOSAVE_DELAY_MS);
+
+    return () => {
+      if (autosaveTimerRef.current) {
+        clearTimeout(autosaveTimerRef.current);
+        autosaveTimerRef.current = null;
+      }
+    };
+  }, [
+    editable,
+    isSaving,
+    performSave,
+    settings.codeViewerAutosave,
+    tab?.isDirty,
+    tab?.draftContents,
+  ]);
+
+  const handleDiscardChanges = useCallback(() => {
+    if (!tab) {
+      return;
+    }
+    revertDraftContents(tab.tabId);
+    if (isMarkdownPreviewFilePath(props.relativePath)) {
+      setTabMode(tab.tabId, "view");
+    }
+  }, [props.relativePath, revertDraftContents, setTabMode, tab]);
+
+  const handleEdit = useCallback(() => {
+    if (tab) {
+      setTabMode(tab.tabId, "edit");
+    }
+  }, [setTabMode, tab]);
+
+  const handleSave = useCallback(() => {
+    void performSave("manual");
+  }, [performSave]);
 
   if (query.isLoading) {
     return (
@@ -100,7 +336,7 @@ export const CodeViewerFileContent = memo(function CodeViewerFileContent(props: 
     );
   }
 
-  if (!query.data?.contents && query.data?.contents !== "" && !query.data?.imageDataUrl) {
+  if (!hasTextContents && !hasImage) {
     return (
       <div className="flex flex-1 items-center justify-center px-5 text-center text-xs text-muted-foreground/70">
         No content available.
@@ -108,55 +344,118 @@ export const CodeViewerFileContent = memo(function CodeViewerFileContent(props: 
     );
   }
 
-  // Render image files
-  if (query.data?.imageDataUrl) {
+  if (hasImage && query.data?.imageDataUrl) {
     return (
-      <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto p-4">
-        <img
-          src={query.data.imageDataUrl}
-          alt={props.relativePath}
-          className="max-h-full max-w-full object-contain"
-          draggable={false}
-        />
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="border-b border-border px-3 py-2 text-[11px] text-muted-foreground">
+          Images are view-only in the code preview.
+        </div>
+        <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto p-4">
+          <img
+            src={query.data.imageDataUrl}
+            alt={props.relativePath}
+            className="max-h-full max-w-full object-contain"
+            draggable={false}
+          />
+        </div>
       </div>
     );
   }
 
+  const toolbarMessage = query.data?.truncated
+    ? "Large files are view-only."
+    : envFile && !envValuesRevealed
+      ? "Reveal values to edit this file."
+      : tab?.hasExternalChange
+        ? "File changed on disk; saving will overwrite external changes."
+        : null;
+
   return (
     <div className="relative min-h-0 flex-1 overflow-y-auto">
-      {query.data.truncated && (
+      {query.data?.truncated ? (
         <div className="border-b border-amber-500/30 bg-amber-500/10 px-3 py-1 text-[11px] text-amber-700 dark:text-amber-300/90">
           File is larger than 1MB. Showing truncated content.
         </div>
-      )}
+      ) : null}
 
-      {/* Env file: show/hide toggle banner */}
-      {envFile && (
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-amber-500/30 bg-amber-500/10 px-3 py-1.5">
-          <span className="text-[11px] font-medium text-amber-700 dark:text-amber-300/90">
-            Sensitive file — values are hidden by default
-          </span>
-          <Button
-            type="button"
-            size="xs"
-            variant="ghost"
-            className="gap-1.5 text-[11px] text-amber-700 hover:text-amber-900 dark:text-amber-300/90 dark:hover:text-amber-100"
-            onClick={() => setEnvValuesRevealed((prev) => !prev)}
-          >
-            {envValuesRevealed ? (
-              <>
-                <EyeOffIcon className="size-3.5" />
-                Hide values
-              </>
-            ) : (
-              <>
-                <EyeIcon className="size-3.5" />
-                Show values
-              </>
-            )}
-          </Button>
+      <div className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur">
+        {envFile ? (
+          <div className="flex items-center justify-between border-b border-amber-500/30 bg-amber-500/10 px-3 py-1.5">
+            <span className="text-[11px] font-medium text-amber-700 dark:text-amber-300/90">
+              Sensitive file — values are hidden by default
+            </span>
+            <Button
+              type="button"
+              size="xs"
+              variant="ghost"
+              className="gap-1.5 text-[11px] text-amber-700 hover:text-amber-900 dark:text-amber-300/90 dark:hover:text-amber-100"
+              onClick={() => setEnvValuesRevealed((prev) => !prev)}
+            >
+              {envValuesRevealed ? (
+                <>
+                  <EyeOffIcon className="size-3.5" />
+                  Hide values
+                </>
+              ) : (
+                <>
+                  <EyeIcon className="size-3.5" />
+                  Show values
+                </>
+              )}
+            </Button>
+          </div>
+        ) : null}
+
+        <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+          <div className="text-[11px] text-muted-foreground">
+            {isSaving ? "Saving..." : tab?.isDirty ? "Unsaved changes" : "Saved"}
+            {settings.codeViewerAutosave ? " • Autosave on" : null}
+            {toolbarMessage ? (
+              <span className="ml-2 text-amber-700 dark:text-amber-300">{toolbarMessage}</span>
+            ) : null}
+            {tab?.lastSaveError ? (
+              <span className="ml-2 text-destructive">{tab.lastSaveError}</span>
+            ) : null}
+          </div>
+          <div className="flex items-center gap-2">
+            {showMarkdownPreview ? (
+              <Button
+                type="button"
+                size="xs"
+                variant="outline"
+                onClick={handleEdit}
+                disabled={!editable}
+              >
+                <PencilIcon className="size-3.5" />
+                Edit
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              size="xs"
+              variant="outline"
+              onClick={handleDiscardChanges}
+              disabled={!tab?.isDirty || isSaving}
+            >
+              <RotateCcwIcon className="size-3.5" />
+              Discard
+            </Button>
+            <Button
+              type="button"
+              size="xs"
+              onClick={handleSave}
+              disabled={!editable || !tab?.isDirty || isSaving}
+            >
+              {isSaving || isSavingManually ? (
+                <Loader2Icon className="size-3.5 animate-spin" />
+              ) : (
+                <SaveIcon className="size-3.5" />
+              )}
+              Save
+            </Button>
+          </div>
         </div>
-      )}
+      </div>
 
       <div
         className={cn(
@@ -165,14 +464,21 @@ export const CodeViewerFileContent = memo(function CodeViewerFileContent(props: 
             "select-none blur-[6px] transition-[filter] duration-200",
         )}
       >
-        {isMarkdownPreviewFilePath(props.relativePath) ? (
-          <MarkdownPreview contents={query.data.contents} />
+        {showMarkdownPreview ? (
+          <MarkdownPreview contents={fileContents} />
         ) : (
           <CodeMirrorViewer
-            contents={query.data.contents}
+            contents={draftContents}
+            editable={editable}
             filePath={props.relativePath}
             resolvedTheme={props.resolvedTheme}
             onAddContext={props.onAddContext}
+            onChange={(contents) => {
+              if (tab) {
+                updateDraftContents(tab.tabId, contents);
+              }
+            }}
+            onSave={handleSave}
           />
         )}
       </div>
@@ -183,20 +489,43 @@ export const CodeViewerFileContent = memo(function CodeViewerFileContent(props: 
 export default function CodeViewerPanel() {
   const { resolvedTheme } = useTheme();
   const tabs = useCodeViewerStore((state) => state.tabs);
-  const activeTabPath = useCodeViewerStore((state) => state.activeTabPath);
+  const activeTabId = useCodeViewerStore((state) => state.activeTabId);
   const setActiveTab = useCodeViewerStore((state) => state.setActiveTab);
   const closeTab = useCodeViewerStore((state) => state.closeTab);
   const closeViewer = useCodeViewerStore((state) => state.close);
   const setPendingContext = useCodeViewerStore((state) => state.setPendingContext);
+  const { settings } = useAppSettings();
 
-  const activeTab = tabs.find((tab) => tab.relativePath === activeTabPath);
+  const activeTab = tabs.find((tab) => tab.tabId === activeTabId) ?? null;
 
-  const onSelectTab = useCallback(
-    (relativePath: string) => setActiveTab(relativePath),
-    [setActiveTab],
+  const onSelectTab = useCallback((tabId: string) => setActiveTab(tabId), [setActiveTab]);
+
+  const onCloseTab = useCallback(
+    async (tabId: string) => {
+      const tab = tabs.find((item) => item.tabId === tabId);
+      if (!tab) {
+        return;
+      }
+      if (tab.isDirty && !settings.codeViewerAutosave) {
+        const confirmed = await confirmUnsavedChanges(`Discard unsaved changes in "${tab.label}"?`);
+        if (!confirmed) {
+          return;
+        }
+      }
+      closeTab(tabId);
+    },
+    [closeTab, settings.codeViewerAutosave, tabs],
   );
 
-  const onCloseTab = useCallback((relativePath: string) => closeTab(relativePath), [closeTab]);
+  const onCloseAll = useCallback(async () => {
+    if (tabs.some((tab) => tab.isDirty) && !settings.codeViewerAutosave) {
+      const confirmed = await confirmUnsavedChanges("Discard unsaved changes in all open files?");
+      if (!confirmed) {
+        return;
+      }
+    }
+    closeViewer();
+  }, [closeViewer, settings.codeViewerAutosave, tabs]);
 
   const onAddContext = useCallback(
     (ctx: CodeContextSelection) => {
@@ -213,7 +542,6 @@ export default function CodeViewerPanel() {
 
   return (
     <div className="flex h-full w-full flex-col bg-background">
-      {/* Header */}
       <div
         className={cn(
           "flex items-center justify-between gap-2 border-b border-border px-4",
@@ -222,10 +550,10 @@ export default function CodeViewerPanel() {
       >
         <CodeViewerTabStrip
           tabs={tabs}
-          activeTabPath={activeTabPath}
+          activeTabId={activeTabId}
           onSelectTab={onSelectTab}
           onCloseTab={onCloseTab}
-          onCloseAll={closeViewer}
+          onCloseAll={onCloseAll}
         />
         <div className="flex shrink-0 items-center gap-2 [-webkit-app-region:no-drag]">
           <span className="hidden text-[10px] text-muted-foreground/50 sm:inline">
@@ -234,7 +562,7 @@ export default function CodeViewerPanel() {
           <Button
             size="icon-xs"
             variant="ghost"
-            onClick={closeViewer}
+            onClick={() => void onCloseAll()}
             aria-label="Close all open files"
             title="Close all open files"
           >
@@ -242,7 +570,6 @@ export default function CodeViewerPanel() {
           </Button>
         </div>
       </div>
-      {/* Content */}
       <div className="flex min-h-0 flex-1 justify-center overflow-y-auto">
         <div className="h-full w-full max-w-5xl">
           {!activeTab ? (
@@ -252,7 +579,7 @@ export default function CodeViewerPanel() {
             </div>
           ) : (
             <CodeViewerFileContent
-              key={activeTab.relativePath}
+              key={activeTab.tabId}
               cwd={activeTab.cwd}
               relativePath={activeTab.relativePath}
               resolvedTheme={resolvedTheme}

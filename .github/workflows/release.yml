@@ -468,6 +468,7 @@ jobs:
   publish_cli:
     name: Publish CLI
     needs: [preflight, desktop_build, ios_testflight]
+    if: ${{ !cancelled() && needs.preflight.result == 'success' && needs.desktop_build.result == 'success' }}
     runs-on: ubuntu-24.04
     env:
       NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
@@ -527,6 +528,7 @@ jobs:
   release:
     name: Publish GitHub Release
     needs: [preflight, desktop_build, ios_testflight, publish_cli]
+    if: ${{ !cancelled() && needs.preflight.result == 'success' && needs.desktop_build.result == 'success' && needs.publish_cli.result == 'success' }}
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
@@ -576,6 +578,7 @@ jobs:
   finalize:
     name: Finalize release
     needs: [preflight, release]
+    if: ${{ !cancelled() && needs.release.result == 'success' }}
     runs-on: ubuntu-24.04
     steps:
       - name: Validate release app secrets

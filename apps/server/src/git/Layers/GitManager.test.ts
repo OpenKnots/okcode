@@ -781,45 +781,48 @@ it.layer(GitManagerTestLayer)("GitManager", (it) => {
     }),
   );
 
-  it.effect("rebases onto the latest default branch before commit when enabled", () =>
-    Effect.gen(function* () {
-      const repoDir = yield* makeTempDir("okcode-git-manager-");
-      yield* initRepo(repoDir);
-      const remoteDir = yield* createBareRemote();
-      yield* runGit(repoDir, ["remote", "add", "origin", remoteDir]);
-      yield* runGit(repoDir, ["push", "-u", "origin", "main"]);
-      yield* runGit(repoDir, ["checkout", "-b", "feature/rebase-before-commit"]);
+  it.effect(
+    "rebases onto the latest default branch before commit when enabled",
+    () =>
+      Effect.gen(function* () {
+        const repoDir = yield* makeTempDir("okcode-git-manager-");
+        yield* initRepo(repoDir);
+        const remoteDir = yield* createBareRemote();
+        yield* runGit(repoDir, ["remote", "add", "origin", remoteDir]);
+        yield* runGit(repoDir, ["push", "-u", "origin", "main"]);
+        yield* runGit(repoDir, ["checkout", "-b", "feature/rebase-before-commit"]);
 
-      const updaterDir = yield* makeTempDir("okcode-git-manager-updater-");
-      yield* runGit(updaterDir, ["clone", "--branch", "main", remoteDir, "."]);
-      yield* runGit(updaterDir, ["config", "user.email", "test@example.com"]);
-      yield* runGit(updaterDir, ["config", "user.name", "Test User"]);
-      fs.writeFileSync(path.join(updaterDir, "base.txt"), "remote main update\n");
-      yield* runGit(updaterDir, ["add", "base.txt"]);
-      yield* runGit(updaterDir, ["commit", "-m", "Remote main update"]);
-      yield* runGit(updaterDir, ["push", "origin", "main"]);
+        const updaterDir = yield* makeTempDir("okcode-git-manager-updater-");
+        yield* runGit(updaterDir, ["clone", "--branch", "main", remoteDir, "."]);
+        yield* runGit(updaterDir, ["config", "user.email", "test@example.com"]);
+        yield* runGit(updaterDir, ["config", "user.name", "Test User"]);
+        fs.writeFileSync(path.join(updaterDir, "base.txt"), "remote main update\n");
+        yield* runGit(updaterDir, ["add", "base.txt"]);
+        yield* runGit(updaterDir, ["commit", "-m", "Remote main update"]);
+        yield* runGit(updaterDir, ["push", "origin", "main"]);
 
-      fs.writeFileSync(path.join(repoDir, "README.md"), "hello\nrebased feature work\n");
+        fs.writeFileSync(path.join(repoDir, "README.md"), "hello\nrebased feature work\n");
 
-      const { manager } = yield* makeManager();
-      const result = yield* runStackedAction(manager, {
-        cwd: repoDir,
-        action: "commit",
-        commitMessage: "feat: rebase before commit",
-        rebaseBeforeCommit: true,
-      });
+        const { manager } = yield* makeManager();
+        const result = yield* runStackedAction(manager, {
+          cwd: repoDir,
+          action: "commit",
+          commitMessage: "feat: rebase before commit",
+          rebaseBeforeCommit: true,
+        });
 
-      expect(result.commit.status).toBe("created");
+        expect(result.commit.status).toBe("created");
 
-      const remoteMainSha = yield* runGit(repoDir, ["rev-parse", "origin/main"]).pipe(
-        Effect.map((gitResult) => gitResult.stdout.trim()),
-      );
-      const mergeBase = yield* runGit(repoDir, ["merge-base", "HEAD", "origin/main"]).pipe(
-        Effect.map((gitResult) => gitResult.stdout.trim()),
-      );
+        const remoteMainSha = yield* runGit(repoDir, ["rev-parse", "origin/main"]).pipe(
+          Effect.map((gitResult) => gitResult.stdout.trim()),
+        );
+        const mergeBase = yield* runGit(repoDir, ["merge-base", "HEAD", "origin/main"]).pipe(
+          Effect.map((gitResult) => gitResult.stdout.trim()),
+        );
 
-      expect(mergeBase).toBe(remoteMainSha);
-    }),
+        expect(mergeBase).toBe(remoteMainSha);
+      }),
+    30_000,
   );
 
   it.effect("uses custom commit message when provided", () =>

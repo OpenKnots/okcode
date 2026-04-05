@@ -25,6 +25,30 @@ const THREAD_SIDEBAR_WIDTH_STORAGE_KEY = "chat_thread_sidebar_width";
 const THREAD_SIDEBAR_MIN_WIDTH = 13 * 16;
 const THREAD_MAIN_CONTENT_MIN_WIDTH = 40 * 16;
 
+function ChatBackgroundLayer({
+  backgroundImageOpacity,
+  backgroundImageUrl,
+}: {
+  backgroundImageOpacity: number;
+  backgroundImageUrl: string;
+}) {
+  const trimmedBackgroundImageUrl = backgroundImageUrl.trim();
+  if (trimmedBackgroundImageUrl.length === 0) {
+    return null;
+  }
+
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none fixed inset-0 z-0 bg-cover bg-center bg-no-repeat"
+      style={{
+        backgroundImage: `url(${JSON.stringify(trimmedBackgroundImageUrl)})`,
+        opacity: backgroundImageOpacity,
+      }}
+    />
+  );
+}
+
 function ChatRouteGlobalShortcuts() {
   const clearSelection = useThreadSelectionStore((state) => state.clearSelection);
   const selectedThreadIdsSize = useThreadSelectionStore((state) => state.selectedThreadIds.size);
@@ -203,31 +227,39 @@ function ChatRouteLayout() {
   useAutoDeleteMergedThreads(settings);
 
   return (
-    <SidebarProvider defaultOpen={clientMode !== "mobile"}>
-      <ChatRouteGlobalShortcuts />
-      <CommandPalette />
-      <Sidebar
-        side="left"
-        collapsible="offcanvas"
-        className="border-r-2 border-border/60 bg-card/80 text-foreground backdrop-blur-sm shadow-[2px_0_12px_-4px_rgba(0,0,0,0.08)] dark:border-border/40 dark:bg-card/60 dark:shadow-[2px_0_16px_-4px_rgba(0,0,0,0.3)]"
-        style={
-          {
-            "--sidebar-background-opacity": settings.sidebarOpacity,
-            "--sidebar-border-opacity": sidebarBorderOpacity,
-          } as CSSProperties
-        }
-        resizable={{
-          minWidth: THREAD_SIDEBAR_MIN_WIDTH,
-          shouldAcceptWidth: ({ nextWidth, wrapper }) =>
-            wrapper.clientWidth - nextWidth >= THREAD_MAIN_CONTENT_MIN_WIDTH,
-          storageKey: THREAD_SIDEBAR_WIDTH_STORAGE_KEY,
-        }}
-      >
-        <ThreadSidebar />
-        <SidebarRail />
-      </Sidebar>
-      <Outlet />
-    </SidebarProvider>
+    <div className="relative isolate min-h-dvh">
+      <ChatBackgroundLayer
+        backgroundImageOpacity={settings.backgroundImageOpacity}
+        backgroundImageUrl={settings.backgroundImageUrl}
+      />
+      <div className="relative z-10 min-h-dvh">
+        <SidebarProvider defaultOpen={clientMode !== "mobile"}>
+          <ChatRouteGlobalShortcuts />
+          <CommandPalette />
+          <Sidebar
+            side="left"
+            collapsible="offcanvas"
+            className="border-r-2 border-border/60 bg-card/80 text-foreground backdrop-blur-sm shadow-[2px_0_12px_-4px_rgba(0,0,0,0.08)] dark:border-border/40 dark:bg-card/60 dark:shadow-[2px_0_16px_-4px_rgba(0,0,0,0.3)]"
+            style={
+              {
+                "--sidebar-background-opacity": settings.sidebarOpacity,
+                "--sidebar-border-opacity": sidebarBorderOpacity,
+              } as CSSProperties
+            }
+            resizable={{
+              minWidth: THREAD_SIDEBAR_MIN_WIDTH,
+              shouldAcceptWidth: ({ nextWidth, wrapper }) =>
+                wrapper.clientWidth - nextWidth >= THREAD_MAIN_CONTENT_MIN_WIDTH,
+              storageKey: THREAD_SIDEBAR_WIDTH_STORAGE_KEY,
+            }}
+          >
+            <ThreadSidebar />
+            <SidebarRail />
+          </Sidebar>
+          <Outlet />
+        </SidebarProvider>
+      </div>
+    </div>
   );
 }
 

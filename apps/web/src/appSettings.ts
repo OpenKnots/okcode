@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { Option, Schema } from "effect";
 import {
   TrimmedNonEmptyString,
@@ -18,6 +18,8 @@ import { EnvMode } from "./components/BranchToolbar.logic";
 const APP_SETTINGS_STORAGE_KEY = "okcode:app-settings:v1";
 const MAX_CUSTOM_MODEL_COUNT = 32;
 export const MAX_CUSTOM_MODEL_LENGTH = 256;
+const BACKGROUND_IMAGE_KEY = "okcode:background-image";
+const BACKGROUND_OPACITY_KEY = "okcode:background-opacity";
 
 export const TimestampFormat = Schema.Literals(["locale", "12-hour", "24-hour"]);
 export type TimestampFormat = typeof TimestampFormat.Type;
@@ -64,6 +66,8 @@ export const AppSettingsSchema = Schema.Struct({
   claudeBinaryPath: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
   codexBinaryPath: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
   codexHomePath: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
+  backgroundImageUrl: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
+  backgroundImageOpacity: Schema.Number.pipe(withDefaults(() => 0.15)),
   defaultThreadEnvMode: EnvMode.pipe(withDefaults(() => "worktree" as const satisfies EnvMode)),
   confirmThreadDelete: Schema.Boolean.pipe(withDefaults(() => true)),
   autoDeleteMergedThreads: Schema.Boolean.pipe(withDefaults(() => false)),
@@ -154,9 +158,15 @@ function clampOpacity(value: number): number {
   return Math.max(0.3, Math.min(1, value));
 }
 
+function clampBackgroundOpacity(value: number): number {
+  return Math.max(0.05, Math.min(1, value));
+}
+
 function normalizeAppSettings(settings: AppSettings): AppSettings {
   return {
     ...settings,
+    backgroundImageUrl: settings.backgroundImageUrl.trim(),
+    backgroundImageOpacity: clampBackgroundOpacity(settings.backgroundImageOpacity),
     sidebarOpacity: clampOpacity(settings.sidebarOpacity),
     customCodexModels: normalizeCustomModelSlugs(settings.customCodexModels, "codex"),
     customClaudeModels: normalizeCustomModelSlugs(settings.customClaudeModels, "claudeAgent"),
@@ -297,6 +307,35 @@ export function useAppSettings() {
     },
     [setSettings],
   );
+
+  useEffect(() => {
+    if (typeof window === "undefined" || settings.backgroundImageUrl.trim().length > 0) {
+      return;
+    }
+
+    const legacyBackgroundImageUrl =
+      window.localStorage.getItem(BACKGROUND_IMAGE_KEY)?.trim() ?? "";
+    if (legacyBackgroundImageUrl.length === 0) {
+      return;
+    }
+
+    const legacyBackgroundOpacityRaw = window.localStorage.getItem(BACKGROUND_OPACITY_KEY);
+    const legacyBackgroundOpacity =
+      legacyBackgroundOpacityRaw === null ? null : Number.parseFloat(legacyBackgroundOpacityRaw);
+
+    setSettings((prev) =>
+      normalizeAppSettings({
+        ...prev,
+        backgroundImageUrl: legacyBackgroundImageUrl,
+        backgroundImageOpacity:
+          typeof legacyBackgroundOpacity === "number" && Number.isFinite(legacyBackgroundOpacity)
+            ? legacyBackgroundOpacity
+            : prev.backgroundImageOpacity,
+      }),
+    );
+    window.localStorage.removeItem(BACKGROUND_IMAGE_KEY);
+    window.localStorage.removeItem(BACKGROUND_OPACITY_KEY);
+  }, [setSettings, settings.backgroundImageUrl]);
 
   const resetSettings = useCallback(() => {
     setSettings(DEFAULT_APP_SETTINGS);

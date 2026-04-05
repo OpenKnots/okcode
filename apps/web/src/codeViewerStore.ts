@@ -69,7 +69,14 @@ function updateTab(
   tabId: string,
   updater: (tab: CodeViewerTab) => CodeViewerTab,
 ): CodeViewerTab[] {
-  return tabs.map((tab) => (tab.tabId === tabId ? updater(tab) : tab));
+  let changed = false;
+  const result = tabs.map((tab) => {
+    if (tab.tabId !== tabId) return tab;
+    const updated = updater(tab);
+    if (updated !== tab) changed = true;
+    return updated;
+  });
+  return changed ? result : tabs;
 }
 
 export const useCodeViewerStore = create<CodeViewerState>((set, get) => ({
@@ -157,6 +164,17 @@ export const useCodeViewerStore = create<CodeViewerState>((set, get) => ({
           }
           return tab;
         }
+        const resolvedMode = mode ?? tab.mode;
+        if (
+          tab.savedContents === contents &&
+          tab.draftContents === contents &&
+          !tab.isSaving &&
+          tab.lastSaveError === null &&
+          !tab.hasExternalChange &&
+          tab.mode === resolvedMode
+        ) {
+          return tab;
+        }
         return {
           ...tab,
           savedContents: contents,
@@ -165,7 +183,7 @@ export const useCodeViewerStore = create<CodeViewerState>((set, get) => ({
           isSaving: false,
           lastSaveError: null,
           hasExternalChange: false,
-          mode: mode ?? tab.mode,
+          mode: resolvedMode,
         };
       }),
     })),

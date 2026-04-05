@@ -302,9 +302,13 @@ export const GitRunStackedActionResult = Schema.Struct({
 export type GitRunStackedActionResult = typeof GitRunStackedActionResult.Type;
 
 export const GitPullResult = Schema.Struct({
-  status: Schema.Literals(["pulled", "skipped_up_to_date"]),
+  status: Schema.Literals(["pulled", "rebased", "skipped_up_to_date", "conflicted"]),
+  strategy: Schema.Literals(["pull", "rebase"]),
+  cwd: TrimmedNonEmptyStringSchema,
   branch: TrimmedNonEmptyStringSchema,
   upstreamBranch: TrimmedNonEmptyStringSchema.pipe(Schema.NullOr),
+  hasConflicts: Schema.Boolean,
+  conflictedFiles: Schema.Array(TrimmedNonEmptyStringSchema),
 });
 export type GitPullResult = typeof GitPullResult.Type;
 

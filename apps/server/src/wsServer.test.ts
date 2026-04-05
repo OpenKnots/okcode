@@ -500,7 +500,7 @@ describe("WebSocket Server", () => {
       providerHealth?: ProviderHealthShape;
       open?: OpenShape;
       gitManager?: GitManagerShape;
-      gitCore?: Pick<GitCoreShape, "listBranches" | "initRepo" | "pullCurrentBranch">;
+      gitCore?: Pick<GitCoreShape, "listBranches" | "initRepo" | "syncCurrentBranch">;
       terminalManager?: TerminalManagerShape;
     } = {},
   ): Promise<Http.Server> {
@@ -1805,10 +1805,10 @@ describe("WebSocket Server", () => {
       }),
     );
     const initRepo = vi.fn(() => Effect.void);
-    const pullCurrentBranch = vi.fn(() =>
+    const syncCurrentBranch = vi.fn(() =>
       Effect.fail(
         new GitCommandError({
-          operation: "GitCore.test.pullCurrentBranch",
+          operation: "GitCore.test.syncCurrentBranch",
           detail: "No upstream configured",
           command: "git pull",
           cwd: "/repo/path",
@@ -1822,7 +1822,7 @@ describe("WebSocket Server", () => {
       gitCore: {
         listBranches,
         initRepo,
-        pullCurrentBranch,
+        syncCurrentBranch,
       },
     });
     const addr = server.address();
@@ -1843,7 +1843,7 @@ describe("WebSocket Server", () => {
     const pullResponse = await sendRequest(ws, WS_METHODS.gitPull, { cwd: "/repo/path" });
     expect(pullResponse.result).toBeUndefined();
     expect(pullResponse.error?.message).toContain("No upstream configured");
-    expect(pullCurrentBranch).toHaveBeenCalledWith("/repo/path");
+    expect(syncCurrentBranch).toHaveBeenCalledWith("/repo/path");
   });
 
   it("supports git.status over websocket", async () => {

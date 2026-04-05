@@ -339,9 +339,9 @@ export function resolveQuickAction(
   if (isDiverged) {
     return {
       label: "Sync branch",
-      disabled: true,
-      kind: "show_hint",
-      hint: "Branch has diverged from upstream. Rebase/merge first.",
+      disabled: false,
+      kind: "run_pull",
+      hint: "Branch has diverged from upstream. Rebase onto the remote branch.",
     };
   }
 
@@ -414,9 +414,9 @@ export function resolveSyncAction(
   if (isAhead && isBehind) {
     return {
       label: "Sync branch",
-      disabled: true,
-      kind: "show_hint",
-      hint: "Branch has diverged from upstream. Rebase/merge first.",
+      disabled: false,
+      kind: "run_pull",
+      hint: "Branch has diverged from upstream. Rebase onto the remote branch.",
     };
   }
 

@@ -1421,38 +1421,74 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
         };
       });
 
-    const pullCurrentBranch: GitCoreShape["pullCurrentBranch"] = (cwd) =>
+    const syncCurrentBranch: GitCoreShape["syncCurrentBranch"] = (cwd) =>
       Effect.gen(function* () {
         const details = yield* statusDetails(cwd);
         const branch = details.branch;
         if (!branch) {
           return yield* createGitCommandError(
-            "GitCore.pullCurrentBranch",
+            "GitCore.syncCurrentBranch",
             cwd,
             ["pull", "--ff-only"],
-            "Cannot pull from detached HEAD.",
+            "Cannot sync from detached HEAD.",
           );
         }
         if (!details.hasUpstream) {
           return yield* createGitCommandError(
-            "GitCore.pullCurrentBranch",
+            "GitCore.syncCurrentBranch",
             cwd,
             ["pull", "--ff-only"],
             "Current branch has no upstream configured. Push with upstream first.",
           );
         }
+        if (details.hasConflicts) {
+          return yield* createGitCommandError(
+            "GitCore.syncCurrentBranch",
+            cwd,
+            ["status", "--porcelain=v2", "--branch"],
+            "Resolve existing merge conflicts before syncing this branch.",
+          );
+        }
         const beforeSha = yield* runGitStdout(
-          "GitCore.pullCurrentBranch.beforeSha",
+          "GitCore.syncCurrentBranch.beforeSha",
           cwd,
           ["rev-parse", "HEAD"],
           true,
         ).pipe(Effect.map((stdout) => stdout.trim()));
-        yield* executeGit("GitCore.pullCurrentBranch.pull", cwd, ["pull", "--ff-only"], {
+        const strategy = details.aheadCount > 0 && details.behindCount > 0 ? "rebase" : "pull";
+        const args =
+          strategy === "rebase"
+            ? (["pull", "--rebase"] as const)
+            : (["pull", "--ff-only"] as const);
+        const syncResult = yield* executeGit("GitCore.syncCurrentBranch.pull", cwd, args, {
           timeoutMs: 30_000,
+          allowNonZeroExit: true,
           fallbackErrorMessage: "git pull failed",
         });
+        if (syncResult.code !== 0) {
+          const refreshed = yield* statusDetails(cwd).pipe(
+            Effect.catch(() => Effect.succeed(details)),
+          );
+          if (strategy === "rebase" && refreshed.hasConflicts) {
+            return {
+              status: "conflicted" as const,
+              strategy,
+              cwd,
+              branch,
+              upstreamBranch: refreshed.upstreamRef,
+              hasConflicts: true,
+              conflictedFiles: refreshed.conflictedFiles,
+            };
+          }
+          return yield* createGitCommandError(
+            "GitCore.syncCurrentBranch",
+            cwd,
+            args,
+            syncResult.stderr.trim().length > 0 ? syncResult.stderr.trim() : "git pull failed",
+          );
+        }
         const afterSha = yield* runGitStdout(
-          "GitCore.pullCurrentBranch.afterSha",
+          "GitCore.syncCurrentBranch.afterSha",
           cwd,
           ["rev-parse", "HEAD"],
           true,
@@ -1460,9 +1496,18 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
 
         const refreshed = yield* statusDetails(cwd);
         return {
-          status: beforeSha.length > 0 && beforeSha === afterSha ? "skipped_up_to_date" : "pulled",
+          status:
+            beforeSha.length > 0 && beforeSha === afterSha
+              ? ("skipped_up_to_date" as const)
+              : strategy === "rebase"
+                ? ("rebased" as const)
+                : ("pulled" as const),
+          strategy,
+          cwd,
           branch,
           upstreamBranch: refreshed.upstreamRef,
+          hasConflicts: refreshed.hasConflicts,
+          conflictedFiles: refreshed.conflictedFiles,
         };
       });
 
@@ -1994,7 +2039,7 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
       prepareCommitContext,
       commit,
       pushCurrentBranch,
-      pullCurrentBranch,
+      syncCurrentBranch,
       readRangeContext,
       readConfigValue,
       listBranches,

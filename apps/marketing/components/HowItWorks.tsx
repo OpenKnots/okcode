@@ -18,7 +18,15 @@ const steps = [
 
 export function HowItWorks() {
   return (
-    <section className="mx-auto max-w-6xl px-6 py-20 sm:py-28">
+    <section className="relative mx-auto max-w-6xl px-6 py-20 sm:py-28">
+      {/* Section top glow line */}
+      <div
+        className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 h-px w-[40%]"
+        style={{
+          background:
+            "linear-gradient(90deg, transparent, oklch(0.50 0.18 270 / 0.20), transparent)",
+        }}
+      />
       <p className="mb-3 text-center text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground sm:text-[13px]">
         Quick start
       </p>

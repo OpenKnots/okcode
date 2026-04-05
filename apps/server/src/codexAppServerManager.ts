@@ -20,7 +20,11 @@ import {
   ProviderInteractionMode,
 } from "@okcode/contracts";
 import { normalizeModelSlug } from "@okcode/shared/model";
-import { compactNodeProcessEnv, mergeNodeProcessEnv } from "@okcode/shared/environment";
+import {
+  compactNodeProcessEnv,
+  mergeNodeProcessEnv,
+  sanitizeShellEnvironment,
+} from "@okcode/shared/environment";
 import { Effect, ServiceMap } from "effect";
 
 import {
@@ -574,9 +578,8 @@ export class CodexAppServerManager extends EventEmitter<CodexAppServerManagerEve
       const codexOptions = readCodexProviderOptions(input);
       const codexBinaryPath = codexOptions.binaryPath ?? "codex";
       const codexHomePath = codexOptions.homePath;
-      const baseEnv = mergeNodeProcessEnv(
-        process.env,
-        input.env ? compactNodeProcessEnv(input.env) : undefined,
+      const baseEnv = sanitizeShellEnvironment(
+        mergeNodeProcessEnv(process.env, input.env ? compactNodeProcessEnv(input.env) : undefined),
       );
       const sessionEnv = codexHomePath ? { ...baseEnv, CODEX_HOME: codexHomePath } : baseEnv;
       this.assertSupportedCodexCliVersion({
@@ -1645,11 +1648,12 @@ function assertSupportedCodexCliVersion(input: {
 }): void {
   const result = spawnSync(input.binaryPath, ["--version"], {
     cwd: input.cwd,
-    env:
+    env: sanitizeShellEnvironment(
       input.env ??
-      (input.homePath
-        ? { ...mergeNodeProcessEnv(process.env), CODEX_HOME: input.homePath }
-        : process.env),
+        (input.homePath
+          ? { ...mergeNodeProcessEnv(process.env), CODEX_HOME: input.homePath }
+          : process.env),
+    ),
     encoding: "utf8",
     shell: process.platform === "win32",
     stdio: ["ignore", "pipe", "pipe"],

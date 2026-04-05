@@ -214,7 +214,7 @@ jobs:
             export APPLE_API_KEY="$key_path"
             args+=(--signed --require-signed)
           elif [[ "${{ matrix.platform }}" == "win" ]]; then
-            if ! require_values \
+            if require_values \
               "$AZURE_TENANT_ID" \
               "$AZURE_CLIENT_ID" \
               "$AZURE_CLIENT_SECRET" \
@@ -222,10 +222,10 @@ jobs:
               "$AZURE_TRUSTED_SIGNING_ACCOUNT_NAME" \
               "$AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME" \
               "$AZURE_TRUSTED_SIGNING_PUBLISHER_NAME"; then
-              echo "Windows stable releases require Azure Trusted Signing secrets." >&2
-              exit 1
+              args+=(--signed --require-signed)
+            else
+              echo "Azure Trusted Signing secrets not configured; building unsigned Windows artifact." >&2
             fi
-            args+=(--signed --require-signed)
           fi
 
           bun run dist:desktop:artifact -- "${args[@]}"

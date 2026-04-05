@@ -1680,13 +1680,12 @@ export default function Sidebar() {
                 <FolderIcon className="size-3 shrink-0" />
                 <span>Files</span>
               </button>
-              {!filesCollapsedByProject.has(project.id) && (
-                <WorkspaceFileTree
-                  key={project.id}
-                  cwd={activeWorkspaceCwd}
-                  resolvedTheme={resolvedTheme}
-                />
-              )}
+              <WorkspaceFileTree
+                key={project.id}
+                cwd={activeWorkspaceCwd}
+                resolvedTheme={resolvedTheme}
+                className={cn(filesCollapsedByProject.has(project.id) && "hidden")}
+              />
             </div>
           ) : null}
         </CollapsibleContent>

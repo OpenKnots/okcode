@@ -18,6 +18,9 @@ export default mergeConfig(
       include: ["src/components/**/*.browser.tsx"],
       browser: {
         enabled: true,
+        api: {
+          port: 0,
+        },
         provider: playwright(),
         instances: [{ browser: "chromium" }],
         headless: true,

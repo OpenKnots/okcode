@@ -2,6 +2,7 @@
 
 import { readdirSync, statSync } from "node:fs";
 import { spawn } from "node:child_process";
+import { createRequire } from "node:module";
 import path from "node:path";
 import process from "node:process";
 
@@ -28,16 +29,30 @@ function listBrowserTests(rootDir) {
   return files.toSorted();
 }
 
-function runTestFile({ configPath, filePath, cwd, timeoutMs }) {
+function resolveVitestBin(cwd, configPath) {
+  const packageDir = path.dirname(configPath);
+  const requireFromPackage = createRequire(path.join(packageDir, "package.json"));
+  const vitestPackageJsonPath = requireFromPackage.resolve("vitest/package.json");
+  const vitestPackageDir = path.dirname(vitestPackageJsonPath);
+  const vitestPackageJson = requireFromPackage(vitestPackageJsonPath);
+  const vitestBinRelative =
+    typeof vitestPackageJson.bin === "string"
+      ? vitestPackageJson.bin
+      : (vitestPackageJson.bin?.vitest ?? "./vitest.mjs");
+
+  return path.resolve(vitestPackageDir, vitestBinRelative);
+}
+
+function runTestFile({ configPath, filePath, timeoutMs, vitestBin }) {
   return new Promise((resolve) => {
-    const vitestBin = path.join(cwd, "node_modules", "vitest", "vitest.mjs");
-    const args = [vitestBin, "run", "--config", configPath, filePath];
-    const relativeFile = path.relative(cwd, filePath);
+    const configDir = path.dirname(configPath);
+    const args = [vitestBin, "run", "--config", configPath, path.relative(configDir, filePath)];
+    const relativeFile = path.relative(configDir, filePath);
 
     console.log(`\n[browser] Running ${relativeFile}`);
 
     const child = spawn(process.execPath, args, {
-      cwd,
+      cwd: configDir,
       stdio: "inherit",
       env: process.env,
     });
@@ -76,6 +91,7 @@ async function main() {
     timeoutArg && Number.isFinite(Number(timeoutArg)) ? Number(timeoutArg) : DEFAULT_TIMEOUT_MS;
 
   const configPath = path.resolve(cwd, configArg);
+  const vitestBin = resolveVitestBin(cwd, configPath);
   const browserTestRoot = path.resolve(path.dirname(configPath), "src", "components");
   const browserTests = listBrowserTests(browserTestRoot);
 
@@ -90,8 +106,8 @@ async function main() {
     const result = await runTestFile({
       configPath,
       filePath,
-      cwd,
       timeoutMs,
+      vitestBin,
     });
 
     if (!result.ok) {

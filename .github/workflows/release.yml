@@ -553,7 +553,7 @@ jobs:
         run: node scripts/update-release-package-versions.ts "${{ needs.preflight.outputs.version }}"
 
       - name: Build CLI package
-        run: bun run --cwd apps/server build
+        run: bun run build --filter=@okcode/web --filter=okcodes
 
       - name: Verify npm pack
         working-directory: apps/server

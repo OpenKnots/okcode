@@ -10,6 +10,7 @@ import {
   GitMergeIcon,
   GitPullRequestIcon,
   XCircleIcon,
+  PanelLeftCloseIcon,
   PlusIcon,
   RocketIcon,
   SettingsIcon,
@@ -97,6 +98,7 @@ import {
   SidebarMenuSubItem,
   SidebarSeparator,
   SidebarTrigger,
+  useSidebar,
 } from "./ui/sidebar";
 import { useThreadSelectionStore } from "../threadSelectionStore";
 import { formatWorktreePathForDisplay, getOrphanedWorktreePathForThread } from "../worktreeCleanup";
@@ -617,6 +619,7 @@ export default function Sidebar() {
     pathname === "/settings" || pathname === "/pr-review" || pathname === "/merge-conflicts";
   const { settings: appSettings, updateSettings } = useAppSettings();
   const { resolvedTheme } = useTheme();
+  const { toggleSidebar } = useSidebar();
   const { handleNewThread } = useHandleNewThread();
   const routeThreadId = useParams({
     strict: false,
@@ -1956,6 +1959,21 @@ export default function Sidebar() {
                   <TooltipPopup side="bottom">{desktopUpdateTooltip}</TooltipPopup>
                 </Tooltip>
               )}
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <button
+                      type="button"
+                      aria-label="Collapse sidebar"
+                      className="hidden md:inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                      onClick={toggleSidebar}
+                    >
+                      <PanelLeftCloseIcon className="size-4" />
+                    </button>
+                  }
+                />
+                <TooltipPopup side="bottom">Collapse sidebar</TooltipPopup>
+              </Tooltip>
             </div>
           </SidebarHeader>
         </>
@@ -1990,6 +2008,21 @@ export default function Sidebar() {
                   </TooltipPopup>
                 </Tooltip>
               )}
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <button
+                      type="button"
+                      aria-label="Collapse sidebar"
+                      className="hidden md:inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                      onClick={toggleSidebar}
+                    >
+                      <PanelLeftCloseIcon className="size-4" />
+                    </button>
+                  }
+                />
+                <TooltipPopup side="bottom">Collapse sidebar</TooltipPopup>
+              </Tooltip>
             </div>
           </div>
         </SidebarHeader>

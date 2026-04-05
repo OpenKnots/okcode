@@ -63,7 +63,11 @@ const RELEASE_PACKAGES = [
 // Helpers
 // ---------------------------------------------------------------------------
 
-function run(cmd: string, args: string[], opts?: { cwd?: string }): { ok: boolean; stdout: string } {
+function run(
+  cmd: string,
+  args: string[],
+  opts?: { cwd?: string },
+): { ok: boolean; stdout: string } {
   try {
     const stdout = execFileSync(cmd, args, {
       cwd: opts?.cwd,
@@ -109,7 +113,11 @@ function checkVersionAlignment(rootDir: string, version: string): CheckResult {
   }
 
   if (mismatched.length === 0) {
-    return { name: "Package version alignment", passed: true, detail: `All packages at ${version}` };
+    return {
+      name: "Package version alignment",
+      passed: true,
+      detail: `All packages at ${version}`,
+    };
   }
   return {
     name: "Package version alignment",
@@ -160,7 +168,11 @@ function checkAssetManifest(rootDir: string, version: string): CheckResult {
 function checkReleasesReadmeEntry(rootDir: string, version: string): CheckResult {
   const readmePath = resolve(rootDir, "docs/releases/README.md");
   if (!existsSync(readmePath)) {
-    return { name: "Releases index entry", passed: false, detail: "docs/releases/README.md missing" };
+    return {
+      name: "Releases index entry",
+      passed: false,
+      detail: "docs/releases/README.md missing",
+    };
   }
 
   const content = readFileSync(readmePath, "utf8");
@@ -203,16 +215,15 @@ function checkOnMain(rootDir: string): CheckResult {
   return {
     name: "On main branch",
     passed: isMain,
-    detail: isMain ? "Currently on main" : `Currently on "${stdout}" — release tags should be cut from main`,
+    detail: isMain
+      ? "Currently on main"
+      : `Currently on "${stdout}" — release tags should be cut from main`,
   };
 }
 
 function checkReleaseReadyDocs(rootDir: string, version: string): CheckResult {
   // Validate the same conditions the release-ready.yml workflow checks
-  const requiredFiles = [
-    `docs/releases/v${version}.md`,
-    `docs/releases/v${version}/assets.md`,
-  ];
+  const requiredFiles = [`docs/releases/v${version}.md`, `docs/releases/v${version}/assets.md`];
   const missing = requiredFiles.filter((f) => !existsSync(resolve(rootDir, f)));
 
   if (missing.length === 0) {
@@ -241,7 +252,8 @@ function checkReleaseNotesContent(rootDir: string, version: string): CheckResult
   if (!content.includes(`v${version}`)) issues.push("version not mentioned in body");
   if (!content.includes("## Summary")) issues.push("missing Summary section");
   if (!content.includes("## Highlights")) issues.push("missing Highlights section");
-  if (!content.includes("## Upgrade and install")) issues.push("missing Upgrade and install section");
+  if (!content.includes("## Upgrade and install"))
+    issues.push("missing Upgrade and install section");
 
   if (issues.length === 0) {
     return { name: "Release notes content", passed: true, detail: "All expected sections present" };
@@ -263,13 +275,18 @@ function checkAssetManifestContent(rootDir: string, version: string): CheckResul
   const issues: string[] = [];
 
   if (!content.includes("Desktop installers")) issues.push("missing Desktop installers section");
-  if (!content.includes("Electron updater metadata")) issues.push("missing updater metadata section");
+  if (!content.includes("Electron updater metadata"))
+    issues.push("missing updater metadata section");
   if (!content.includes("iOS (TestFlight)")) issues.push("missing iOS section");
   if (!content.includes("Checksums")) issues.push("missing Checksums section");
   if (!content.includes(version)) issues.push("version not mentioned in body");
 
   if (issues.length === 0) {
-    return { name: "Asset manifest content", passed: true, detail: "All expected sections present" };
+    return {
+      name: "Asset manifest content",
+      passed: true,
+      detail: "All expected sections present",
+    };
   }
   return {
     name: "Asset manifest content",
@@ -285,7 +302,9 @@ function checkIosProjectVersion(rootDir: string, version: string): CheckResult {
   }
 
   const content = readFileSync(pbxprojPath, "utf8");
-  const versionPattern = new RegExp(`MARKETING_VERSION\\s*=\\s*${version.replace(/\./g, "\\.")}\\s*;`);
+  const versionPattern = new RegExp(
+    `MARKETING_VERSION\\s*=\\s*${version.replace(/\./g, "\\.")}\\s*;`,
+  );
   const matches = content.match(versionPattern);
 
   if (matches) {
@@ -480,7 +499,9 @@ function main(): void {
   }
 
   console.log("");
-  console.log(`  ${passed.length} passed, ${failed.length} failed out of ${allChecks.length} checks.`);
+  console.log(
+    `  ${passed.length} passed, ${failed.length} failed out of ${allChecks.length} checks.`,
+  );
 
   if (failed.length > 0) {
     console.log("");
@@ -507,7 +528,9 @@ function main(): void {
       console.log(`    node scripts/prepare-release.ts ${version} --full-matrix`);
     } else {
       console.log("  Next steps:");
-      console.log(`    1. Cut RC first: node scripts/prepare-release.ts ${version}-rc.1 --full-matrix`);
+      console.log(
+        `    1. Cut RC first: node scripts/prepare-release.ts ${version}-rc.1 --full-matrix`,
+      );
       console.log("    2. Soak RC for 48 hours.");
       console.log(`    3. Promote: node scripts/prepare-release.ts ${version} --full-matrix`);
     }

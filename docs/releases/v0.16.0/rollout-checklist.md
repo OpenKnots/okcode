@@ -81,8 +81,8 @@ All seven gates must pass with zero warnings:
 
 ## Phase 2: RC Soak (48 hours)
 
-Start: ____-__-__T__:__Z
-End:   ____-__-__T__:__Z
+Start: \_**\_-**-**T**:**Z
+End: \_\_**-**-**T**:**Z
 
 ### Soak exit criteria
 
@@ -108,8 +108,8 @@ These checks validate the high-risk surface area introduced in this release:
 
 Run on two devices: one current-generation and one older-generation supported device.
 
-Device 1: ______________ (iOS __.__)
-Device 2: ______________ (iOS __.__)
+Device 1: **\*\***\_\_**\*\*** (iOS **.**)
+Device 2: **\*\***\_\_**\*\*** (iOS **.**)
 
 - [ ] Pair the mobile companion with a desktop/server instance.
 - [ ] Restore a previously saved pairing.
@@ -121,6 +121,7 @@ Device 2: ______________ (iOS __.__)
 ### If soak fails
 
 If any blocker is found during the soak period:
+
 1. Fix the issue on `main`.
 2. Cut `v0.16.0-rc.2` with the fix included.
 3. Restart the 48-hour soak from the beginning.
@@ -166,12 +167,12 @@ Only after the 48-hour soak completes with all exit criteria met.
 
 ## Timeline
 
-| Phase | Duration | Starts after |
-| ----- | -------- | ------------ |
-| Pre-flight | ~30 min | Decision to release |
-| Cut RC | ~45 min | Pre-flight passes |
-| RC Soak | 48 hours | All RC artifacts verified |
-| Promote to stable | ~45 min | Soak exit criteria met |
+| Phase                   | Duration | Starts after              |
+| ----------------------- | -------- | ------------------------- |
+| Pre-flight              | ~30 min  | Decision to release       |
+| Cut RC                  | ~45 min  | Pre-flight passes         |
+| RC Soak                 | 48 hours | All RC artifacts verified |
+| Promote to stable       | ~45 min  | Soak exit criteria met    |
 | Post-release monitoring | 24 hours | Stable artifacts verified |
 
 Total time from decision to stable: ~3 days minimum.

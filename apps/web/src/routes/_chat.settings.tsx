@@ -422,6 +422,9 @@ function SettingsRouteView() {
     ...(settings.enableAssistantStreaming !== defaults.enableAssistantStreaming
       ? ["Assistant output"]
       : []),
+    ...(settings.showReasoningContent !== defaults.showReasoningContent
+      ? ["Reasoning content"]
+      : []),
     ...(settings.showAuthFailuresAsErrors !== defaults.showAuthFailuresAsErrors
       ? ["Auth failure errors"]
       : []),
@@ -1127,6 +1130,34 @@ function SettingsRouteView() {
                       })
                     }
                     aria-label="Stream assistant messages"
+                  />
+                }
+              />
+
+              <SettingsRow
+                title="Reasoning content"
+                description="Show reasoning/thinking content in the work log instead of just showing 'Reasoning update'."
+                resetAction={
+                  settings.showReasoningContent !== defaults.showReasoningContent ? (
+                    <SettingResetButton
+                      label="reasoning content"
+                      onClick={() =>
+                        updateSettings({
+                          showReasoningContent: defaults.showReasoningContent,
+                        })
+                      }
+                    />
+                  ) : null
+                }
+                control={
+                  <Switch
+                    checked={settings.showReasoningContent}
+                    onCheckedChange={(checked) =>
+                      updateSettings({
+                        showReasoningContent: Boolean(checked),
+                      })
+                    }
+                    aria-label="Show reasoning content in work log"
                   />
                 }
               />

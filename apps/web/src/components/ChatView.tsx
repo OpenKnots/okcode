@@ -1489,6 +1489,11 @@ export default function ChatView({ threadId }: ChatViewProps) {
 
   const pendingContext = useCodeViewerStore((state) => state.pendingContext);
   const clearPendingContext = useCodeViewerStore((state) => state.clearPendingContext);
+  const codeViewerOpen = useCodeViewerStore((state) => state.isOpen);
+  const toggleCodeViewer = useCodeViewerStore((state) => state.toggle);
+  const diffViewerOpen = useDiffViewerStore((state) => state.isOpen);
+  const openDiffViewerConversation = useDiffViewerStore((state) => state.openConversation);
+  const closeDiffViewer = useDiffViewerStore((state) => state.close);
   const openTurnDiffViewer = useDiffViewerStore((state) => state.openTurnDiff);
   const handleOpenTurnDiff = useCallback(
     (turnId: TurnId, filePath?: string) => {
@@ -1497,6 +1502,14 @@ export default function ChatView({ threadId }: ChatViewProps) {
     },
     [activeThread, openTurnDiffViewer],
   );
+
+  const handleToggleDiffViewer = useCallback(() => {
+    if (diffViewerOpen) {
+      closeDiffViewer();
+    } else if (activeThread) {
+      openDiffViewerConversation(activeThread.id);
+    }
+  }, [diffViewerOpen, closeDiffViewer, activeThread, openDiffViewerConversation]);
 
   // When Cmd+L is pressed in the code viewer, insert the @file:lines mention into the composer
   useEffect(() => {
@@ -4662,6 +4675,8 @@ export default function ChatView({ threadId }: ChatViewProps) {
           terminalAvailable={activeProject !== undefined}
           terminalOpen={terminalState.terminalOpen}
           terminalToggleShortcutLabel={terminalToggleShortcutLabel}
+          codeViewerOpen={codeViewerOpen}
+          diffViewerOpen={diffViewerOpen}
           previewAvailable={isElectron && activeProject !== undefined}
           previewOpen={previewOpen}
           previewDock={previewDock}
@@ -4678,6 +4693,8 @@ export default function ChatView({ threadId }: ChatViewProps) {
           onDeleteProjectScript={deleteProjectScript}
           onImportProjectScripts={importProjectScripts}
           onToggleTerminal={toggleTerminalVisibility}
+          onToggleCodeViewer={toggleCodeViewer}
+          onToggleDiffViewer={handleToggleDiffViewer}
           onTogglePreview={() => activeProjectId && togglePreviewOpen(activeProjectId)}
           onTogglePreviewLayout={() => activeProjectId && togglePreviewLayout(activeProjectId)}
         />

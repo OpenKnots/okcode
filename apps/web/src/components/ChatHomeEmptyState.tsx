@@ -15,7 +15,7 @@ import {
 import { useCallback, useMemo, useState } from "react";
 
 import { useAppSettings } from "../appSettings";
-import { APP_DISPLAY_NAME } from "../branding";
+import { APP_BASE_NAME, APP_DISPLAY_NAME } from "../branding";
 import { isElectron } from "../env";
 import { useHandleNewThread } from "../hooks/useHandleNewThread";
 import { serverConfigQueryOptions } from "../lib/serverReactQuery";
@@ -363,7 +363,7 @@ export function ChatHomeEmptyState() {
                         Launch a premium coding workspace with reliable agent sessions built in.
                       </h1>
                       <p className="mt-5 max-w-2xl text-sm leading-7 text-muted-foreground sm:text-base">
-                        OK Code keeps threads tied to real repositories, preserves provider state,
+                        {APP_BASE_NAME} keeps threads tied to real repositories, preserves provider state,
                         and gives your desktop a calmer control surface for deep, multi-session
                         work.
                       </p>

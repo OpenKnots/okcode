@@ -26,6 +26,7 @@ import type {
   PreviewTabsState,
 } from "@okcode/contracts";
 import { autoUpdater } from "electron-updater";
+import { APP_BASE_NAME } from "@okcode/shared/brand";
 
 import type { ContextMenuItem } from "@okcode/contracts";
 import { NetService } from "@okcode/shared/Net";
@@ -79,7 +80,7 @@ const STATE_DIR = Path.join(BASE_DIR, "userdata");
 const DESKTOP_SCHEME = "okcode";
 const ROOT_DIR = Path.resolve(__dirname, "../../..");
 const isDevelopment = Boolean(process.env.VITE_DEV_SERVER_URL);
-const APP_DISPLAY_NAME = isDevelopment ? "OK Code (Dev)" : "OK Code";
+const APP_DISPLAY_NAME = isDevelopment ? `${APP_BASE_NAME} (Dev)` : APP_BASE_NAME;
 const APP_USER_MODEL_ID = "com.openknots.okcode";
 const USER_DATA_DIR_NAME = isDevelopment ? "okcode-dev" : "okcode";
 const LEGACY_USER_DATA_DIR_NAME = isDevelopment ? "T3 Code (Dev)" : "T3 Code (Alpha)";

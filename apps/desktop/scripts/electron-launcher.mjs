@@ -17,7 +17,9 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const isDevelopment = Boolean(process.env.VITE_DEV_SERVER_URL);
-const APP_DISPLAY_NAME = isDevelopment ? "OK Code (Dev)" : "OK Code";
+// Keep in sync with APP_BASE_NAME from @okcode/shared/brand
+const APP_BASE_NAME = "OK Code";
+const APP_DISPLAY_NAME = isDevelopment ? `${APP_BASE_NAME} (Dev)` : APP_BASE_NAME;
 const APP_BUNDLE_ID = "com.openknots.okcode";
 const LAUNCHER_VERSION = 1;
 

@@ -1,3 +1,5 @@
+import { APP_BASE_NAME } from "@okcode/shared/brand";
+
 const CODEX_VERSION_PATTERN = /\bv?(\d+\.\d+(?:\.\d+)?(?:-[0-9A-Za-z.-]+)?)\b/;
 
 export const MINIMUM_CODEX_CLI_VERSION = "0.37.0";
@@ -137,5 +139,5 @@ export function isCodexCliVersionSupported(version: string): boolean {
 
 export function formatCodexCliUpgradeMessage(version: string | null): string {
   const versionLabel = version ? `v${version}` : "the installed version";
-  return `Codex CLI ${versionLabel} is too old for OK Code. Upgrade to v${MINIMUM_CODEX_CLI_VERSION} or newer and restart OK Code.`;
+  return `Codex CLI ${versionLabel} is too old for ${APP_BASE_NAME}. Upgrade to v${MINIMUM_CODEX_CLI_VERSION} or newer and restart ${APP_BASE_NAME}.`;
 }

@@ -1328,9 +1328,7 @@ export default function Sidebar() {
                 onCancel={cancelEditing}
               />
             </div>
-            <div
-              className={`ml-auto flex items-center gap-1.5${appSettings.sidebarWideThreadNames ? "" : " shrink-0"}`}
-            >
+            <div className="ml-auto flex items-center gap-1.5">
               {terminalStatus && (
                 <span
                   role="img"

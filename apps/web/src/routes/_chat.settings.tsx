@@ -50,18 +50,13 @@ import {
 } from "../lib/environmentVariablesReactQuery";
 import {
   applyCustomTheme,
-  clearBackgroundImage,
   clearFontOverride,
   clearRadiusOverride,
   clearStoredCustomTheme,
-  getStoredBackgroundImage,
-  getStoredBackgroundOpacity,
   getStoredCustomTheme,
   getStoredFontOverride,
   getStoredRadiusOverride,
   removeCustomTheme,
-  setStoredBackgroundImage,
-  setStoredBackgroundOpacity,
   setStoredFontOverride,
   setStoredRadiusOverride,
   type CustomThemeData,
@@ -235,30 +230,43 @@ function getErrorMessage(error: unknown): string {
   return "Unknown error";
 }
 
-function BackgroundImageSettings() {
-  const [bgUrl, setBgUrl] = useState<string>(() => getStoredBackgroundImage() ?? "");
-  const [bgOpacity, setBgOpacity] = useState<number>(() => getStoredBackgroundOpacity() ?? 0.15);
-  const hasBackground = bgUrl.trim().length > 0;
+function BackgroundImageSettings({
+  backgroundImageUrl,
+  backgroundImageOpacity,
+  defaultBackgroundImageUrl,
+  defaultBackgroundImageOpacity,
+  updateSettings,
+}: {
+  backgroundImageUrl: string;
+  backgroundImageOpacity: number;
+  defaultBackgroundImageUrl: string;
+  defaultBackgroundImageOpacity: number;
+  updateSettings: (patch: { backgroundImageOpacity?: number; backgroundImageUrl?: string }) => void;
+}) {
+  const hasBackground = backgroundImageUrl.trim().length > 0;
 
-  const handleUrlChange = useCallback((value: string) => {
-    setBgUrl(value);
-    if (value.trim().length > 0) {
-      setStoredBackgroundImage(value.trim());
-    } else {
-      clearBackgroundImage();
-    }
-  }, []);
+  const handleUrlChange = useCallback(
+    (value: string) => {
+      updateSettings({
+        backgroundImageUrl: value,
+      });
+    },
+    [updateSettings],
+  );
 
-  const handleOpacityChange = useCallback((value: number) => {
-    setBgOpacity(value);
-    setStoredBackgroundOpacity(value);
-  }, []);
+  const handleOpacityChange = useCallback(
+    (value: number) => {
+      updateSettings({ backgroundImageOpacity: value });
+    },
+    [updateSettings],
+  );
 
   const handleReset = useCallback(() => {
-    setBgUrl("");
-    setBgOpacity(0.15);
-    clearBackgroundImage();
-  }, []);
+    updateSettings({
+      backgroundImageUrl: defaultBackgroundImageUrl,
+      backgroundImageOpacity: defaultBackgroundImageOpacity,
+    });
+  }, [defaultBackgroundImageOpacity, defaultBackgroundImageUrl, updateSettings]);
 
   return (
     <>
@@ -272,7 +280,7 @@ function BackgroundImageSettings() {
         }
         control={
           <Input
-            value={bgUrl}
+            value={backgroundImageUrl}
             onChange={(e) => handleUrlChange(e.target.value)}
             placeholder="https://example.com/image.jpg"
             className="w-full sm:w-56"
@@ -290,7 +298,7 @@ function BackgroundImageSettings() {
                 type="range"
                 min={5}
                 max={100}
-                value={Math.round(bgOpacity * 100)}
+                value={Math.round(backgroundImageOpacity * 100)}
                 onChange={(e) => {
                   const value = Number(e.target.value) / 100;
                   handleOpacityChange(value);
@@ -299,7 +307,7 @@ function BackgroundImageSettings() {
                 aria-label="Background opacity"
               />
               <span className="w-9 text-right text-xs tabular-nums text-muted-foreground">
-                {Math.round(bgOpacity * 100)}%
+                {Math.round(backgroundImageOpacity * 100)}%
               </span>
             </div>
           }
@@ -437,6 +445,10 @@ function SettingsRouteView() {
       ? ["Custom models"]
       : []),
     ...(isInstallSettingsDirty ? ["Provider installs"] : []),
+    ...(settings.backgroundImageUrl !== defaults.backgroundImageUrl ? ["Background image"] : []),
+    ...(settings.backgroundImageOpacity !== defaults.backgroundImageOpacity
+      ? ["Background opacity"]
+      : []),
     ...(radiusOverride !== null ? ["Border radius"] : []),
     ...(fontOverride ? ["Font family"] : []),
   ];
@@ -878,7 +890,13 @@ function SettingsRouteView() {
                 }
               />
 
-              <BackgroundImageSettings />
+              <BackgroundImageSettings
+                backgroundImageOpacity={settings.backgroundImageOpacity}
+                backgroundImageUrl={settings.backgroundImageUrl}
+                defaultBackgroundImageOpacity={defaults.backgroundImageOpacity}
+                defaultBackgroundImageUrl={defaults.backgroundImageUrl}
+                updateSettings={updateSettings}
+              />
 
               <SettingsRow
                 title="Accent project names"

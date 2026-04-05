@@ -37,6 +37,13 @@ describe("AppSettingsSchema", () => {
       ),
     ).not.toHaveProperty("windowOpacity");
   });
+
+  it("defaults background image settings to disabled with a lightweight overlay", () => {
+    const settings = Schema.decodeUnknownSync(AppSettingsSchema)({});
+
+    expect(settings.backgroundImageUrl).toBe("");
+    expect(settings.backgroundImageOpacity).toBe(0.15);
+  });
 });
 
 describe("normalizeCustomModelSlugs", () => {
@@ -276,6 +283,8 @@ describe("AppSettingsSchema", () => {
       claudeBinaryPath: "",
       codexBinaryPath: "/usr/local/bin/codex",
       codexHomePath: "",
+      backgroundImageUrl: "",
+      backgroundImageOpacity: 0.15,
       defaultThreadEnvMode: "worktree",
       confirmThreadDelete: false,
       enableAssistantStreaming: false,

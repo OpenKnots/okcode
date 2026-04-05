@@ -4,14 +4,14 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "~/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-medium transition-all duration-200 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-ring/80 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.99]",
+  "group/button inline-flex shrink-0 select-none items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-medium transition-all duration-200 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-ring/80 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.99]",
   {
     variants: {
       variant: {
         default:
-          "bg-linear-to-b from-primary to-[hsl(223_82%_62%)] text-primary-foreground shadow-[0_18px_45px_-20px_color-mix(in_srgb,var(--primary)_85%,transparent)] hover:brightness-110 hover:shadow-[0_22px_55px_-22px_color-mix(in_srgb,var(--primary)_95%,transparent)]",
+          "bg-linear-to-b from-primary to-[hsl(223_82%_62%)] text-button-primary-foreground shadow-[0_18px_45px_-20px_color-mix(in_srgb,var(--primary)_85%,transparent)] hover:brightness-110 hover:shadow-[0_22px_55px_-22px_color-mix(in_srgb,var(--primary)_95%,transparent)]",
         destructive:
-          "bg-linear-to-b from-destructive to-[hsl(352_72%_52%)] text-destructive-foreground shadow-[0_18px_45px_-20px_color-mix(in_srgb,var(--destructive)_70%,transparent)] hover:brightness-105 hover:shadow-[0_22px_55px_-22px_color-mix(in_srgb,var(--destructive)_80%,transparent)]",
+          "bg-linear-to-b from-destructive to-[hsl(352_72%_52%)] text-button-destructive-foreground shadow-[0_18px_45px_-20px_color-mix(in_srgb,var(--destructive)_70%,transparent)] hover:brightness-105 hover:shadow-[0_22px_55px_-22px_color-mix(in_srgb,var(--destructive)_80%,transparent)]",
         "destructive-outline":
           "border border-destructive/35 bg-destructive/6 text-destructive shadow-[inset_0_1px_0_hsl(0_0%_100%/0.04)] hover:border-destructive/45 hover:bg-destructive/10 hover:text-destructive",
         outline:

@@ -3,6 +3,7 @@
 import { AlertDialog as AlertDialogPrimitive } from "@base-ui/react/alert-dialog";
 
 import { cn } from "~/lib/utils";
+import { modalActionFooterLayoutClassName } from "./modal-action-footer";
 
 const AlertDialogCreateHandle = AlertDialogPrimitive.createHandle;
 
@@ -88,7 +89,8 @@ function AlertDialogFooter({
   return (
     <div
       className={cn(
-        "flex flex-col-reverse gap-2 px-6 sm:flex-row sm:justify-end sm:rounded-b-[calc(var(--radius-2xl)-1px)]",
+        modalActionFooterLayoutClassName,
+        "sm:rounded-b-[calc(var(--radius-2xl)-1px)]",
         variant === "default" && "border-t bg-muted/72 py-4",
         variant === "bare" && "pb-6",
         className,

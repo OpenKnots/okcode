@@ -102,6 +102,7 @@ describe("MessagesTimeline", () => {
         resolvedTheme="light"
         timestampFormat="locale"
         workspaceRoot={undefined}
+        onRemoveQueuedMessage={() => {}}
         shortcutGuides={EMPTY_SHORTCUT_GUIDES}
         onOpenSettings={() => {}}
       />,
@@ -149,6 +150,7 @@ describe("MessagesTimeline", () => {
         resolvedTheme="light"
         timestampFormat="locale"
         workspaceRoot={undefined}
+        onRemoveQueuedMessage={() => {}}
         shortcutGuides={EMPTY_SHORTCUT_GUIDES}
         onOpenSettings={() => {}}
       />,
@@ -183,6 +185,7 @@ describe("MessagesTimeline", () => {
         resolvedTheme="light"
         timestampFormat="locale"
         workspaceRoot={undefined}
+        onRemoveQueuedMessage={() => {}}
         shortcutGuides={EMPTY_SHORTCUT_GUIDES}
         onOpenSettings={() => {}}
       />,

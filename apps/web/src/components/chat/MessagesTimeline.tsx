@@ -33,6 +33,7 @@ import {
   TerminalIcon,
   Undo2Icon,
   WrenchIcon,
+  XIcon,
   ZapIcon,
 } from "lucide-react";
 import { Button } from "../ui/button";
@@ -87,6 +88,7 @@ interface MessagesTimelineProps {
   resolvedTheme: "light" | "dark";
   timestampFormat: TimestampFormat;
   workspaceRoot: string | undefined;
+  onRemoveQueuedMessage: (messageId: MessageId) => void;
   shortcutGuides: ChatShortcutGuide[];
   onOpenSettings: () => void;
 }
@@ -113,6 +115,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
   resolvedTheme,
   timestampFormat,
   workspaceRoot,
+  onRemoveQueuedMessage,
   shortcutGuides,
   onOpenSettings,
 }: MessagesTimelineProps) {
@@ -508,9 +511,16 @@ export const MessagesTimeline = memo(function MessagesTimeline({
                   </div>
                   <div className="flex items-center gap-1.5">
                     {isQueued && (
-                      <span className="inline-flex items-center rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-medium text-amber-600 dark:text-amber-400">
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-medium text-amber-600 transition-colors hover:bg-destructive/15 hover:text-destructive dark:text-amber-400 dark:hover:text-destructive"
+                        title="Remove queued message"
+                        aria-label="Remove queued message"
+                        onClick={() => onRemoveQueuedMessage(row.message.id)}
+                      >
                         Queued
-                      </span>
+                        <XIcon className="size-2.5" />
+                      </button>
                     )}
                     <p className="text-right text-[10px] text-muted-foreground/30">
                       {formatTimestamp(row.message.createdAt, timestampFormat, resolvedLocale)}

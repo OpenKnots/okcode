@@ -1,5 +1,5 @@
 import { ThreadId } from "@okcode/contracts";
-import { createFileRoute, retainSearchParams, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
   Suspense,
   lazy,
@@ -11,19 +11,7 @@ import {
 } from "react";
 
 import ChatView from "../components/ChatView";
-import { DiffWorkerPoolProvider } from "../components/DiffWorkerPoolProvider";
-import {
-  DiffPanelHeaderSkeleton,
-  DiffPanelLoadingState,
-  DiffPanelShell,
-  type DiffPanelMode,
-} from "../components/DiffPanelShell";
 import { useComposerDraftStore } from "../composerDraftStore";
-import {
-  type DiffRouteSearch,
-  parseDiffRouteSearch,
-  stripDiffSearchParams,
-} from "../diffRouteSearch";
 import { useCodeViewerStore } from "../codeViewerStore";
 import { usePreviewStateStore } from "../previewStateStore";
 import { useSimulationViewerStore } from "../simulationViewerStore";
@@ -33,8 +21,8 @@ import { useClientMode } from "../hooks/useClientMode";
 import { useStore } from "../store";
 import { Sheet, SheetPopup } from "../components/ui/sheet";
 import { Sidebar, SidebarInset, SidebarProvider, SidebarRail } from "~/components/ui/sidebar";
+import { Loader2Icon } from "lucide-react";
 
-const DiffPanel = lazy(() => import("../components/DiffPanel"));
 const CodeViewerPanel = lazy(() => import("../components/CodeViewerPanel"));
 const SimulationViewerLazy = lazy(() =>
   import("../components/simulation/SimulationViewer").then((m) => ({
@@ -42,40 +30,10 @@ const SimulationViewerLazy = lazy(() =>
   })),
 );
 
-const DIFF_INLINE_LAYOUT_MEDIA_QUERY = "(max-width: 1180px)";
-const DIFF_INLINE_SIDEBAR_WIDTH_STORAGE_KEY = "chat_diff_sidebar_width";
-const DIFF_INLINE_DEFAULT_WIDTH = "clamp(28rem,48vw,44rem)";
-const DIFF_INLINE_SIDEBAR_MIN_WIDTH = 26 * 16;
 const CODE_VIEWER_SIDEBAR_WIDTH_STORAGE_KEY = "chat_code_viewer_sidebar_width";
 const CODE_VIEWER_DEFAULT_WIDTH = "clamp(28rem,48vw,44rem)";
 const CODE_VIEWER_SIDEBAR_MIN_WIDTH = 26 * 16;
 const COMPOSER_COMPACT_MIN_LEFT_CONTROLS_WIDTH_PX = 208;
-
-const DiffPanelSheet = (props: {
-  children: ReactNode;
-  diffOpen: boolean;
-  onCloseDiff: () => void;
-}) => {
-  return (
-    <Sheet
-      open={props.diffOpen}
-      onOpenChange={(open) => {
-        if (!open) {
-          props.onCloseDiff();
-        }
-      }}
-    >
-      <SheetPopup
-        side="right"
-        showCloseButton={false}
-        keepMounted
-        className="w-[min(88vw,820px)] max-w-[820px] p-0"
-      >
-        {props.children}
-      </SheetPopup>
-    </Sheet>
-  );
-};
 
 const CodeViewerSheet = (props: {
   children: ReactNode;
@@ -103,29 +61,14 @@ const CodeViewerSheet = (props: {
   );
 };
 
-const DiffLoadingFallback = (props: { mode: DiffPanelMode }) => {
-  return (
-    <DiffPanelShell mode={props.mode} header={<DiffPanelHeaderSkeleton />}>
-      <DiffPanelLoadingState label="Loading diff viewer..." />
-    </DiffPanelShell>
-  );
-};
-
 const CodeViewerLoadingFallback = () => {
   return (
     <div className="flex h-full w-full items-center justify-center bg-background">
-      <DiffPanelLoadingState label="Loading code viewer..." />
+      <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground/60">
+        <Loader2Icon className="size-5 animate-spin" />
+        <span className="text-xs">Loading code viewer...</span>
+      </div>
     </div>
-  );
-};
-
-const LazyDiffPanel = (props: { mode: DiffPanelMode }) => {
-  return (
-    <DiffWorkerPoolProvider>
-      <Suspense fallback={<DiffLoadingFallback mode={props.mode} />}>
-        <DiffPanel mode={props.mode} />
-      </Suspense>
-    </DiffWorkerPoolProvider>
   );
 };
 
@@ -140,7 +83,10 @@ const LazyCodeViewerPanel = () => {
 const SimulationLoadingFallback = () => {
   return (
     <div className="flex h-full w-full items-center justify-center bg-background">
-      <DiffPanelLoadingState label="Loading simulation viewer..." />
+      <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground/60">
+        <Loader2Icon className="size-5 animate-spin" />
+        <span className="text-xs">Loading simulation viewer...</span>
+      </div>
     </div>
   );
 };
@@ -198,50 +144,6 @@ function useShouldAcceptInlineSidebarWidth() {
   }, []);
 }
 
-const DiffPanelInlineSidebar = (props: {
-  diffOpen: boolean;
-  onCloseDiff: () => void;
-  onOpenDiff: () => void;
-  renderDiffContent: boolean;
-}) => {
-  const { diffOpen, onCloseDiff, onOpenDiff, renderDiffContent } = props;
-  const onOpenChange = useCallback(
-    (open: boolean) => {
-      if (open) {
-        onOpenDiff();
-        return;
-      }
-      onCloseDiff();
-    },
-    [onCloseDiff, onOpenDiff],
-  );
-  const shouldAcceptInlineSidebarWidth = useShouldAcceptInlineSidebarWidth();
-
-  return (
-    <SidebarProvider
-      defaultOpen={false}
-      open={diffOpen}
-      onOpenChange={onOpenChange}
-      className="w-auto min-h-0 flex-none bg-transparent"
-      style={{ "--sidebar-width": DIFF_INLINE_DEFAULT_WIDTH } as CSSProperties}
-    >
-      <Sidebar
-        side="right"
-        collapsible="offcanvas"
-        className="border-l border-border/60 bg-card text-foreground"
-        resizable={{
-          minWidth: DIFF_INLINE_SIDEBAR_MIN_WIDTH,
-          shouldAcceptWidth: shouldAcceptInlineSidebarWidth,
-          storageKey: DIFF_INLINE_SIDEBAR_WIDTH_STORAGE_KEY,
-        }}
-      >
-        {renderDiffContent ? <LazyDiffPanel mode="sidebar" /> : null}
-        <SidebarRail />
-      </Sidebar>
-    </SidebarProvider>
-  );
-};
-
 /** Right-side sidebar panel for the code viewer — sits alongside the chat area. */
 const CodeViewerInlineSidebar = (props: {
   codeViewerOpen: boolean;
@@ -290,16 +192,12 @@ function ChatThreadRouteView() {
   const threadId = Route.useParams({
     select: (params) => ThreadId.makeUnsafe(params.threadId),
   });
-  const search = Route.useSearch();
   const threadExists = useStore((store) => store.threads.some((thread) => thread.id === threadId));
   const draftThreadExists = useComposerDraftStore((store) =>
     Object.hasOwn(store.draftThreadsByThreadId, threadId),
   );
   const routeThreadExists = threadExists || draftThreadExists;
-  const diffOpen = search.diff === "1";
   const clientMode = useClientMode();
-  const isNarrowDiffLayout = useMediaQuery(DIFF_INLINE_LAYOUT_MEDIA_QUERY);
-  const shouldUseDiffSheet = clientMode === "mobile" || isNarrowDiffLayout;
   const shouldUseCodeViewerSheet = clientMode === "mobile";
 
   // Code viewer state from Zustand store
@@ -322,27 +220,8 @@ function ChatThreadRouteView() {
 
   // TanStack Router keeps active route components mounted across param-only navigations
   // unless remountDeps are configured, so this stays warm across thread switches.
-  const [hasOpenedDiff, setHasOpenedDiff] = useState(diffOpen);
   const [hasOpenedCodeViewer, setHasOpenedCodeViewer] = useState(codeViewerOpen);
   const [hasOpenedSimulation, setHasOpenedSimulation] = useState(simulationOpen);
-
-  const closeDiff = useCallback(() => {
-    void navigate({
-      to: "/$threadId",
-      params: { threadId },
-      search: { diff: undefined },
-    });
-  }, [navigate, threadId]);
-  const openDiff = useCallback(() => {
-    void navigate({
-      to: "/$threadId",
-      params: { threadId },
-      search: (previous) => {
-        const rest = stripDiffSearchParams(previous);
-        return { ...rest, diff: "1" };
-      },
-    });
-  }, [navigate, threadId]);
 
   const closeCodeViewer = useCallback(() => {
     closeCodeViewerStore();
@@ -358,21 +237,13 @@ function ChatThreadRouteView() {
 
   // Enforce mutual exclusivity: only one right-side panel open at a time.
   useMutuallyExclusivePanels(
-    diffOpen,
     codeViewerOpen,
     previewOpen,
-    closeDiff,
     closeCodeViewer,
     closePreview,
     simulationOpen,
     closeSimulation,
   );
-
-  useEffect(() => {
-    if (diffOpen) {
-      setHasOpenedDiff(true);
-    }
-  }, [diffOpen]);
 
   useEffect(() => {
     if (codeViewerOpen) {
@@ -401,7 +272,6 @@ function ChatThreadRouteView() {
     return null;
   }
 
-  const shouldRenderDiffContent = diffOpen || hasOpenedDiff;
   const shouldRenderCodeViewerContent = codeViewerOpen || hasOpenedCodeViewer;
   const shouldRenderSimulation = simulationOpen || hasOpenedSimulation;
 
@@ -450,7 +320,7 @@ function ChatThreadRouteView() {
     )
   ) : null;
 
-  if (!shouldUseDiffSheet) {
+  if (!shouldUseCodeViewerSheet) {
     return (
       <>
         <SidebarInset className="relative h-dvh min-h-0 overflow-hidden overscroll-y-none bg-background text-foreground">
@@ -460,12 +330,6 @@ function ChatThreadRouteView() {
           codeViewerOpen={codeViewerOpen}
           onCloseCodeViewer={closeCodeViewer}
           renderContent={shouldRenderCodeViewerContent}
-        />
-        <DiffPanelInlineSidebar
-          diffOpen={diffOpen}
-          onCloseDiff={closeDiff}
-          onOpenDiff={openDiff}
-          renderDiffContent={shouldRenderDiffContent}
         />
         {simulationNode}
       </>
@@ -477,29 +341,14 @@ function ChatThreadRouteView() {
       <SidebarInset className="relative h-dvh min-h-0 overflow-hidden overscroll-y-none bg-background text-foreground">
         <ChatView key={threadId} threadId={threadId} />
       </SidebarInset>
-      {shouldUseCodeViewerSheet ? (
-        <CodeViewerSheet codeViewerOpen={codeViewerOpen} onCloseCodeViewer={closeCodeViewer}>
-          {shouldRenderCodeViewerContent ? <LazyCodeViewerPanel /> : null}
-        </CodeViewerSheet>
-      ) : (
-        <CodeViewerInlineSidebar
-          codeViewerOpen={codeViewerOpen}
-          onCloseCodeViewer={closeCodeViewer}
-          renderContent={shouldRenderCodeViewerContent}
-        />
-      )}
-      <DiffPanelSheet diffOpen={diffOpen} onCloseDiff={closeDiff}>
-        {shouldRenderDiffContent ? <LazyDiffPanel mode="sheet" /> : null}
-      </DiffPanelSheet>
+      <CodeViewerSheet codeViewerOpen={codeViewerOpen} onCloseCodeViewer={closeCodeViewer}>
+        {shouldRenderCodeViewerContent ? <LazyCodeViewerPanel /> : null}
+      </CodeViewerSheet>
       {simulationNode}
     </>
   );
 }
 
 export const Route = createFileRoute("/_chat/$threadId")({
-  validateSearch: (search) => parseDiffRouteSearch(search),
-  search: {
-    middlewares: [retainSearchParams<DiffRouteSearch>(["diff"])],
-  },
   component: ChatThreadRouteView,
 });

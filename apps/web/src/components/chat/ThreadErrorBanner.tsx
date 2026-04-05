@@ -1,16 +1,21 @@
 import { memo } from "react";
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "../ui/alert";
 import { CircleAlertIcon, XIcon } from "lucide-react";
-import { humanizeThreadError } from "./threadError";
+import { humanizeThreadError, isAuthenticationThreadError } from "./threadError";
 
 export const ThreadErrorBanner = memo(function ThreadErrorBanner({
   error,
+  showAuthFailuresAsErrors = true,
   onDismiss,
 }: {
   error: string | null;
+  showAuthFailuresAsErrors?: boolean;
   onDismiss?: () => void;
 }) {
   if (!error) return null;
+  if (!showAuthFailuresAsErrors && isAuthenticationThreadError(error)) {
+    return null;
+  }
   const presentation = humanizeThreadError(error);
   return (
     <div className="pt-3 mx-auto max-w-7xl">

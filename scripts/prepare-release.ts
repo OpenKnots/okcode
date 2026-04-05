@@ -288,7 +288,6 @@ After the workflow completes, expect **installer and updater** artifacts similar
 | Platform            | Kind           | Typical pattern |
 | ------------------- | -------------- | --------------- |
 | macOS Apple Silicon | DMG            | \`*.dmg\` (arm64) |
-| macOS Intel         | DMG            | \`*.dmg\` (x64)   |
 | macOS               | ZIP (updater)  | \`*.zip\`         |
 | Linux x64           | AppImage       | \`*.AppImage\`    |
 | Windows x64         | NSIS installer | \`*.exe\`         |
@@ -297,7 +296,7 @@ After the workflow completes, expect **installer and updater** artifacts similar
 
 | File               | Purpose                                                   |
 | ------------------ | --------------------------------------------------------- |
-| \`latest-mac.yml\`   | macOS update manifest (merged from per-arch builds in CI) |
+| \`latest-mac.yml\`   | macOS update manifest                                      |
 | \`latest-linux.yml\` | Linux update manifest                                     |
 | \`latest.yml\`       | Windows update manifest                                   |
 | \`*.blockmap\`       | Differential download block maps                          |
@@ -326,6 +325,16 @@ function updateChangelog(rootDir: string, version: string, section: string): voi
   const changelogPath = resolve(rootDir, "CHANGELOG.md");
   let content = readFileSync(changelogPath, "utf8");
 
+  const escapedVersion = version.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const sectionRe = new RegExp(
+    `\\n## \\[${escapedVersion}\\][^\\n]*\\n[\\s\\S]*?(?=\\n## \\[|\\n\\[|$)`,
+    "g",
+  );
+  content = content.replace(sectionRe, "\n");
+
+  const linkRe = new RegExp(`\\n\\[${escapedVersion}\\]: .*`, "g");
+  content = content.replace(linkRe, "");
+
   // Insert new section after ## [Unreleased] block
   const unreleasedIndex = content.indexOf("## [Unreleased]");
   if (unreleasedIndex === -1) {
@@ -336,7 +345,7 @@ function updateChangelog(rootDir: string, version: string, section: string): voi
   const afterUnreleased = content.indexOf("\n## [", unreleasedIndex + 1);
   const insertAt = afterUnreleased !== -1 ? afterUnreleased : content.length;
 
-  content = content.slice(0, insertAt) + "\n" + section + "\n" + content.slice(insertAt);
+  content = content.slice(0, insertAt) + section + "\n" + content.slice(insertAt);
 
   // Add the version comparison link at the bottom
   const versionLink = `[${version}]: ${REPO_URL}/releases/tag/v${version}`;
@@ -355,6 +364,13 @@ function updateChangelog(rootDir: string, version: string, section: string): voi
 function updateReleasesReadme(rootDir: string, version: string, shortDescription: string): boolean {
   const readmePath = resolve(rootDir, "docs/releases/README.md");
   let content = readFileSync(readmePath, "utf8");
+
+  // Remove any pre-existing row for this version to keep release notes index idempotent.
+  const existingVersionRow = new RegExp(
+    `^\\| \\[${version.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\]\\(v${version.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\.md\\) \\| .*?\\|$\\n?`,
+    "gm",
+  );
+  content = content.replace(existingVersionRow, "");
 
   // Find the table header separator line (| --- | --- | --- |)
   const separatorRe = /^\|[ -]+\|[ -]+\|[ -]+\|$/m;

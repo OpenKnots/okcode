@@ -3,7 +3,12 @@ import { ArrowDownIcon, FolderIcon, GitForkIcon, LoaderIcon } from "lucide-react
 import { useCallback, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { gitPullMutationOptions, gitQueryKeys, gitStatusQueryOptions, invalidateGitQueries } from "../lib/gitReactQuery";
+import {
+  gitPullMutationOptions,
+  gitQueryKeys,
+  gitStatusQueryOptions,
+  invalidateGitQueries,
+} from "../lib/gitReactQuery";
 import { newCommandId } from "../lib/utils";
 import { readNativeApi } from "../nativeApi";
 import { useComposerDraftStore } from "../composerDraftStore";
@@ -222,14 +227,19 @@ export default function BranchToolbar({
                       <ArrowDownIcon className="size-3" />
                     )}
                     Pull
-                    <Badge variant="outline" size="sm" className="ml-0.5 px-1 py-0 text-[10px] text-warning border-warning/30">
+                    <Badge
+                      variant="outline"
+                      size="sm"
+                      className="ml-0.5 px-1 py-0 text-[10px] text-warning border-warning/30"
+                    >
                       {behindCount}
                     </Badge>
                   </Button>
                 }
               />
               <TooltipPopup side="bottom" align="end">
-                Local branch is {behindCount} commit{behindCount !== 1 ? "s" : ""} behind upstream. Pull to update before starting a new thread.
+                Local branch is {behindCount} commit{behindCount !== 1 ? "s" : ""} behind upstream.
+                Pull to update before starting a new thread.
               </TooltipPopup>
             </Tooltip>
           ) : null}

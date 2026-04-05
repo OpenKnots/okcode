@@ -19,6 +19,14 @@ import {
   resolveAppModelSelection,
 } from "./appSettings";
 
+describe("AppSettingsSchema", () => {
+  it("defaults auth failure errors to enabled", () => {
+    const settings = Schema.decodeUnknownSync(AppSettingsSchema)({});
+
+    expect(settings.showAuthFailuresAsErrors).toBe(true);
+  });
+});
+
 describe("normalizeCustomModelSlugs", () => {
   it("normalizes aliases, removes built-ins, and deduplicates values", () => {
     expect(

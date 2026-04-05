@@ -4646,6 +4646,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
       <ProviderHealthBanner status={activeProviderStatus} />
       <ThreadErrorBanner
         error={activeThread.error}
+        showAuthFailuresAsErrors={settings.showAuthFailuresAsErrors}
         onDismiss={() => setThreadError(activeThread.id, null)}
       />
       {/* Main content area with optional plan sidebar */}

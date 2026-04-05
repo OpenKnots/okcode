@@ -230,6 +230,25 @@ it.effect("accepts a source proposed plan reference in thread.turn.start", () =>
   }),
 );
 
+it.effect("accepts a hidden provider input in thread.turn.start", () =>
+  Effect.gen(function* () {
+    const parsed = yield* decodeThreadTurnStartCommand({
+      type: "thread.turn.start",
+      commandId: "cmd-turn-provider-input",
+      threadId: "thread-1",
+      message: {
+        messageId: "msg-provider-input",
+        role: "user",
+        text: "Fix the button",
+        attachments: [],
+      },
+      providerInput: "Enhance and then execute: Fix the button",
+      createdAt: "2026-01-01T00:00:00.000Z",
+    });
+    assert.strictEqual(parsed.providerInput, "Enhance and then execute: Fix the button");
+  }),
+);
+
 it.effect(
   "decodes thread.turn-start-requested defaults for provider, runtime mode, and interaction mode",
   () =>
@@ -261,6 +280,18 @@ it.effect("decodes thread.turn-start-requested source proposed plan metadata whe
       threadId: "thread-1",
       planId: "plan-1",
     });
+  }),
+);
+
+it.effect("accepts hidden provider input in thread.turn-start-requested payload", () =>
+  Effect.gen(function* () {
+    const parsed = yield* decodeThreadTurnStartRequestedPayload({
+      threadId: "thread-2",
+      messageId: "msg-2",
+      providerInput: "Hidden enhanced input",
+      createdAt: "2026-01-01T00:00:00.000Z",
+    });
+    assert.strictEqual(parsed.providerInput, "Hidden enhanced input");
   }),
 );
 

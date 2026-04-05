@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildAutoSelectedWorktreeBaseBranchToastCopy,
   buildLocalDraftThread,
+  buildHiddenProviderInput,
   buildExpiredTerminalContextToastCopy,
   deriveComposerSendState,
 } from "./ChatView.logic";
@@ -80,6 +81,44 @@ describe("buildExpiredTerminalContextToastCopy", () => {
       title: "Expired terminal contexts omitted from message",
       description: "Re-add it if you want that terminal output included.",
     });
+  });
+});
+
+describe("buildHiddenProviderInput", () => {
+  it("returns undefined when no enhancement is selected", () => {
+    expect(
+      buildHiddenProviderInput({
+        prompt: "Fix the enhance button",
+        terminalContexts: [],
+        promptEnhancement: null,
+      }),
+    ).toBeUndefined();
+  });
+
+  it("wraps the prompt enhancement as hidden interpretation guidance", () => {
+    const providerInput = buildHiddenProviderInput({
+      prompt: "Fix this \uFFFC button",
+      terminalContexts: [
+        {
+          id: "ctx-1",
+          threadId: ThreadId.makeUnsafe("thread-1"),
+          terminalId: "default",
+          terminalLabel: "Terminal 1",
+          lineStart: 4,
+          lineEnd: 6,
+          text: "bun lint\nerror: failed",
+          createdAt: "2026-03-17T12:52:29.000Z",
+        },
+      ],
+      promptEnhancement: "specificity",
+    });
+
+    expect(providerInput).toContain(
+      'Before responding, improve the user\'s request using the "Add specificity" enhancement mode',
+    );
+    expect(providerInput).toContain("Fix this [terminal-1:4-6] button");
+    expect(providerInput).toContain("<terminal_context>");
+    expect(providerInput).toContain("bun lint");
   });
 });
 

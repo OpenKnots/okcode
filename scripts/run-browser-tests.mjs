@@ -25,7 +25,7 @@ function listBrowserTests(rootDir) {
   };
 
   visit(rootDir);
-  return files.sort();
+  return files.toSorted();
 }
 
 function runTestFile({ configPath, filePath, cwd, timeoutMs }) {

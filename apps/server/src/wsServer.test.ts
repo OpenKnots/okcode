@@ -464,6 +464,13 @@ function deriveServerPathsSync(baseDir: string, devUrl: URL | undefined) {
   );
 }
 
+function makeWorkspaceFixture(name: string): { baseDir: string; cwd: string } {
+  const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), "okcode-ws-fixture-"));
+  const cwd = path.join(baseDir, name);
+  fs.mkdirSync(cwd, { recursive: true });
+  return { baseDir, cwd };
+}
+
 describe("WebSocket Server", () => {
   let server: Http.Server | null = null;
   let serverScope: Scope.Closeable | null = null;
@@ -504,6 +511,8 @@ describe("WebSocket Server", () => {
     const baseDir = options.baseDir ?? makeTempDir("okcode-ws-base-");
     const devUrl = options.devUrl ? new URL(options.devUrl) : undefined;
     const derivedPaths = deriveServerPathsSync(baseDir, devUrl);
+    const cwd = options.cwd ?? path.join(baseDir, "project");
+    fs.mkdirSync(cwd, { recursive: true });
     const scope = await Effect.runPromise(Scope.make("sequential"));
     const persistenceLayer = options.persistenceLayer ?? SqlitePersistenceMemory;
     const providerLayer = options.providerLayer ?? makeServerProviderLayer();
@@ -516,7 +525,7 @@ describe("WebSocket Server", () => {
       mode: "web",
       port: 0,
       host: undefined,
-      cwd: options.cwd ?? "/test/project",
+      cwd,
       baseDir,
       ...derivedPaths,
       staticDir: options.staticDir,
@@ -595,7 +604,8 @@ describe("WebSocket Server", () => {
   });
 
   it("sends welcome message on connect", async () => {
-    server = await createTestServer({ cwd: "/test/project" });
+    const { cwd } = makeWorkspaceFixture("project");
+    server = await createTestServer({ cwd });
     const addr = server.address();
     const port = typeof addr === "object" && addr !== null ? addr.port : 0;
     expect(port).toBeGreaterThan(0);
@@ -605,7 +615,7 @@ describe("WebSocket Server", () => {
 
     expect(welcome.type).toBe("push");
     expect(welcome.data).toEqual({
-      cwd: "/test/project",
+      cwd,
       projectName: "project",
     });
   });
@@ -617,7 +627,8 @@ describe("WebSocket Server", () => {
     fs.mkdirSync(path.dirname(attachmentPath), { recursive: true });
     fs.writeFileSync(attachmentPath, Buffer.from("hello-attachment"));
 
-    server = await createTestServer({ cwd: "/test/project", baseDir });
+    const { cwd } = makeWorkspaceFixture("project");
+    server = await createTestServer({ cwd, baseDir });
     const addr = server.address();
     const port = typeof addr === "object" && addr !== null ? addr.port : 0;
     expect(port).toBeGreaterThan(0);
@@ -641,7 +652,8 @@ describe("WebSocket Server", () => {
     fs.mkdirSync(path.dirname(attachmentPath), { recursive: true });
     fs.writeFileSync(attachmentPath, Buffer.from("hello-encoded-attachment"));
 
-    server = await createTestServer({ cwd: "/test/project", baseDir });
+    const { cwd } = makeWorkspaceFixture("project");
+    server = await createTestServer({ cwd, baseDir });
     const addr = server.address();
     const port = typeof addr === "object" && addr !== null ? addr.port : 0;
     expect(port).toBeGreaterThan(0);
@@ -660,7 +672,8 @@ describe("WebSocket Server", () => {
     const staticDir = makeTempDir("okcode-static-root-");
     fs.writeFileSync(path.join(staticDir, "index.html"), "<h1>static-root</h1>", "utf8");
 
-    server = await createTestServer({ cwd: "/test/project", baseDir, staticDir });
+    const { cwd } = makeWorkspaceFixture("project");
+    server = await createTestServer({ cwd, baseDir, staticDir });
     const addr = server.address();
     const port = typeof addr === "object" && addr !== null ? addr.port : 0;
     expect(port).toBeGreaterThan(0);
@@ -675,7 +688,8 @@ describe("WebSocket Server", () => {
     const staticDir = makeTempDir("okcode-static-traversal-");
     fs.writeFileSync(path.join(staticDir, "index.html"), "<h1>safe</h1>", "utf8");
 
-    server = await createTestServer({ cwd: "/test/project", baseDir, staticDir });
+    const { cwd } = makeWorkspaceFixture("project");
+    server = await createTestServer({ cwd, baseDir, staticDir });
     const addr = server.address();
     const port = typeof addr === "object" && addr !== null ? addr.port : 0;
     expect(port).toBeGreaterThan(0);
@@ -686,8 +700,9 @@ describe("WebSocket Server", () => {
   });
 
   it("bootstraps the cwd project on startup when enabled", async () => {
+    const { cwd } = makeWorkspaceFixture("bootstrap-workspace");
     server = await createTestServer({
-      cwd: "/test/bootstrap-workspace",
+      cwd,
       autoBootstrapProjectFromCwd: true,
     });
     const addr = server.address();
@@ -698,7 +713,7 @@ describe("WebSocket Server", () => {
     connections.push(ws);
     expect(welcome.data).toEqual(
       expect.objectContaining({
-        cwd: "/test/bootstrap-workspace",
+        cwd,
         projectName: "bootstrap-workspace",
         bootstrapProjectId: expect.any(String),
         bootstrapThreadId: expect.any(String),
@@ -732,7 +747,7 @@ describe("WebSocket Server", () => {
       expect.arrayContaining([
         expect.objectContaining({
           id: bootstrapProjectId,
-          workspaceRoot: "/test/bootstrap-workspace",
+          workspaceRoot: cwd,
           title: "bootstrap-workspace",
           defaultModel: "gpt-5-codex",
         }),
@@ -758,7 +773,7 @@ describe("WebSocket Server", () => {
     const persistenceLayer = makeSqlitePersistenceLive(dbPath).pipe(
       Layer.provide(NodeServices.layer),
     );
-    const cwd = "/test/bootstrap-existing";
+    const { cwd } = makeWorkspaceFixture("bootstrap-existing");
 
     server = await createTestServer({
       cwd,
@@ -810,8 +825,9 @@ describe("WebSocket Server", () => {
       // Keep test output clean while verifying websocket logs.
     });
 
+    const { cwd } = makeWorkspaceFixture("project");
     server = await createTestServer({
-      cwd: "/test/project",
+      cwd,
       devUrl: "http://localhost:5173",
     });
     const addr = server.address();
@@ -840,7 +856,8 @@ describe("WebSocket Server", () => {
     ensureParentDir(keybindingsPath);
     fs.writeFileSync(keybindingsPath, "[]", "utf8");
 
-    server = await createTestServer({ cwd: "/my/workspace", baseDir });
+    const { cwd } = makeWorkspaceFixture("workspace");
+    server = await createTestServer({ cwd, baseDir });
     const addr = server.address();
     const port = typeof addr === "object" && addr !== null ? addr.port : 0;
 
@@ -850,7 +867,7 @@ describe("WebSocket Server", () => {
     const response = await sendRequest(ws, WS_METHODS.serverGetConfig);
     expect(response.error).toBeUndefined();
     expect(response.result).toEqual({
-      cwd: "/my/workspace",
+      cwd,
       keybindingsConfigPath: keybindingsPath,
       keybindings: DEFAULT_RESOLVED_KEYBINDINGS,
       issues: [],
@@ -865,7 +882,8 @@ describe("WebSocket Server", () => {
     const { keybindingsConfigPath: keybindingsPath } = deriveServerPathsSync(baseDir, undefined);
     expect(fs.existsSync(keybindingsPath)).toBe(false);
 
-    server = await createTestServer({ cwd: "/my/workspace", baseDir });
+    const { cwd } = makeWorkspaceFixture("workspace");
+    server = await createTestServer({ cwd, baseDir });
     const addr = server.address();
     const port = typeof addr === "object" && addr !== null ? addr.port : 0;
 
@@ -875,7 +893,7 @@ describe("WebSocket Server", () => {
     const response = await sendRequest(ws, WS_METHODS.serverGetConfig);
     expect(response.error).toBeUndefined();
     expect(response.result).toEqual({
-      cwd: "/my/workspace",
+      cwd,
       keybindingsConfigPath: keybindingsPath,
       keybindings: DEFAULT_RESOLVED_KEYBINDINGS,
       issues: [],
@@ -896,7 +914,8 @@ describe("WebSocket Server", () => {
     ensureParentDir(keybindingsPath);
     fs.writeFileSync(keybindingsPath, "{ not-json", "utf8");
 
-    server = await createTestServer({ cwd: "/my/workspace", baseDir });
+    const { cwd } = makeWorkspaceFixture("workspace");
+    server = await createTestServer({ cwd, baseDir });
     const addr = server.address();
     const port = typeof addr === "object" && addr !== null ? addr.port : 0;
 
@@ -906,7 +925,7 @@ describe("WebSocket Server", () => {
     const response = await sendRequest(ws, WS_METHODS.serverGetConfig);
     expect(response.error).toBeUndefined();
     expect(response.result).toEqual({
-      cwd: "/my/workspace",
+      cwd,
       keybindingsConfigPath: keybindingsPath,
       keybindings: DEFAULT_RESOLVED_KEYBINDINGS,
       issues: [
@@ -936,7 +955,8 @@ describe("WebSocket Server", () => {
       "utf8",
     );
 
-    server = await createTestServer({ cwd: "/my/workspace", baseDir });
+    const { cwd } = makeWorkspaceFixture("workspace");
+    server = await createTestServer({ cwd, baseDir });
     const addr = server.address();
     const port = typeof addr === "object" && addr !== null ? addr.port : 0;
 
@@ -953,7 +973,7 @@ describe("WebSocket Server", () => {
       providers: ReadonlyArray<ServerProviderStatus>;
       availableEditors: unknown;
     };
-    expect(result.cwd).toBe("/my/workspace");
+    expect(result.cwd).toBe(cwd);
     expect(result.keybindingsConfigPath).toBe(keybindingsPath);
     expect(result.issues).toEqual([
       {
@@ -986,7 +1006,8 @@ describe("WebSocket Server", () => {
     ensureParentDir(keybindingsPath);
     fs.writeFileSync(keybindingsPath, "[]", "utf8");
 
-    server = await createTestServer({ cwd: "/my/workspace", baseDir });
+    const { cwd } = makeWorkspaceFixture("workspace");
+    server = await createTestServer({ cwd, baseDir });
     const addr = server.address();
     const port = typeof addr === "object" && addr !== null ? addr.port : 0;
 
@@ -1017,6 +1038,7 @@ describe("WebSocket Server", () => {
   });
 
   it("routes shell.openInEditor through the injected open service", async () => {
+    const { cwd } = makeWorkspaceFixture("workspace");
     const openCalls: Array<{ cwd: string; editor: string }> = [];
     const openService: OpenShape = {
       openBrowser: () => Effect.void,
@@ -1028,7 +1050,7 @@ describe("WebSocket Server", () => {
       revealInFileManager: () => Effect.void,
     };
 
-    server = await createTestServer({ cwd: "/my/workspace", open: openService });
+    server = await createTestServer({ cwd, open: openService });
     const addr = server.address();
     const port = typeof addr === "object" && addr !== null ? addr.port : 0;
 
@@ -1036,14 +1058,15 @@ describe("WebSocket Server", () => {
     connections.push(ws);
 
     const response = await sendRequest(ws, WS_METHODS.shellOpenInEditor, {
-      cwd: "/my/workspace",
+      cwd,
       editor: "cursor",
     });
     expect(response.error).toBeUndefined();
-    expect(openCalls).toEqual([{ cwd: "/my/workspace", editor: "cursor" }]);
+    expect(openCalls).toEqual([{ cwd, editor: "cursor" }]);
   });
 
   it("routes shell.openInFileManager through the injected open service", async () => {
+    const { cwd } = makeWorkspaceFixture("workspace");
     const openCalls: string[] = [];
     const openService: OpenShape = {
       openBrowser: () => Effect.void,
@@ -1055,7 +1078,7 @@ describe("WebSocket Server", () => {
       revealInFileManager: () => Effect.void,
     };
 
-    server = await createTestServer({ cwd: "/my/workspace", open: openService });
+    server = await createTestServer({ cwd, open: openService });
     const addr = server.address();
     const port = typeof addr === "object" && addr !== null ? addr.port : 0;
 
@@ -1063,13 +1086,14 @@ describe("WebSocket Server", () => {
     connections.push(ws);
 
     const response = await sendRequest(ws, WS_METHODS.shellOpenInFileManager, {
-      path: "/my/workspace/src",
+      path: path.join(cwd, "src"),
     });
     expect(response.error).toBeUndefined();
-    expect(openCalls).toEqual(["/my/workspace/src"]);
+    expect(openCalls).toEqual([path.join(cwd, "src")]);
   });
 
   it("routes shell.revealInFileManager through the injected open service", async () => {
+    const { cwd } = makeWorkspaceFixture("workspace");
     const revealCalls: string[] = [];
     const openService: OpenShape = {
       openBrowser: () => Effect.void,
@@ -1081,7 +1105,7 @@ describe("WebSocket Server", () => {
       },
     };
 
-    server = await createTestServer({ cwd: "/my/workspace", open: openService });
+    server = await createTestServer({ cwd, open: openService });
     const addr = server.address();
     const port = typeof addr === "object" && addr !== null ? addr.port : 0;
 
@@ -1089,10 +1113,10 @@ describe("WebSocket Server", () => {
     connections.push(ws);
 
     const response = await sendRequest(ws, WS_METHODS.shellRevealInFileManager, {
-      path: "/my/workspace/src/index.ts",
+      path: path.join(cwd, "src", "index.ts"),
     });
     expect(response.error).toBeUndefined();
-    expect(revealCalls).toEqual(["/my/workspace/src/index.ts"]);
+    expect(revealCalls).toEqual([path.join(cwd, "src", "index.ts")]);
   });
 
   it("reads keybindings from the configured state directory", async () => {
@@ -1108,7 +1132,8 @@ describe("WebSocket Server", () => {
       ]),
       "utf8",
     );
-    server = await createTestServer({ cwd: "/my/workspace", baseDir });
+    const { cwd } = makeWorkspaceFixture("workspace");
+    server = await createTestServer({ cwd, baseDir });
     const addr = server.address();
     const port = typeof addr === "object" && addr !== null ? addr.port : 0;
 
@@ -1121,7 +1146,7 @@ describe("WebSocket Server", () => {
       fs.readFileSync(keybindingsPath, "utf8"),
     ) as KeybindingsConfig;
     expect(response.result).toEqual({
-      cwd: "/my/workspace",
+      cwd,
       keybindingsConfigPath: keybindingsPath,
       keybindings: compileKeybindings(persistedConfig),
       issues: [],
@@ -1141,7 +1166,8 @@ describe("WebSocket Server", () => {
       "utf8",
     );
 
-    server = await createTestServer({ cwd: "/my/workspace", baseDir });
+    const { cwd } = makeWorkspaceFixture("workspace");
+    server = await createTestServer({ cwd, baseDir });
     const addr = server.address();
     const port = typeof addr === "object" && addr !== null ? addr.port : 0;
 
@@ -1169,7 +1195,7 @@ describe("WebSocket Server", () => {
     const configResponse = await sendRequest(ws, WS_METHODS.serverGetConfig);
     expect(configResponse.error).toBeUndefined();
     expect(configResponse.result).toEqual({
-      cwd: "/my/workspace",
+      cwd,
       keybindingsConfigPath: keybindingsPath,
       keybindings: compileKeybindings(persistedConfig),
       issues: [],
@@ -1182,7 +1208,8 @@ describe("WebSocket Server", () => {
   });
 
   it("returns error for unknown methods", async () => {
-    server = await createTestServer({ cwd: "/test" });
+    const { cwd } = makeWorkspaceFixture("test");
+    server = await createTestServer({ cwd });
     const addr = server.address();
     const port = typeof addr === "object" && addr !== null ? addr.port : 0;
 
@@ -1195,7 +1222,8 @@ describe("WebSocket Server", () => {
   });
 
   it("returns error when requesting turn diff for unknown thread", async () => {
-    server = await createTestServer({ cwd: "/test" });
+    const { cwd } = makeWorkspaceFixture("test");
+    server = await createTestServer({ cwd });
     const addr = server.address();
     const port = typeof addr === "object" && addr !== null ? addr.port : 0;
 
@@ -1212,7 +1240,8 @@ describe("WebSocket Server", () => {
   });
 
   it("returns error when requesting turn diff with an inverted range", async () => {
-    server = await createTestServer({ cwd: "/test" });
+    const { cwd } = makeWorkspaceFixture("test");
+    server = await createTestServer({ cwd });
     const addr = server.address();
     const port = typeof addr === "object" && addr !== null ? addr.port : 0;
 
@@ -1231,7 +1260,8 @@ describe("WebSocket Server", () => {
   });
 
   it("returns error when requesting full thread diff for unknown thread", async () => {
-    server = await createTestServer({ cwd: "/test" });
+    const { cwd } = makeWorkspaceFixture("test");
+    server = await createTestServer({ cwd });
     const addr = server.address();
     const port = typeof addr === "object" && addr !== null ? addr.port : 0;
 
@@ -1247,7 +1277,8 @@ describe("WebSocket Server", () => {
   });
 
   it("returns retryable error when requested turn exceeds current checkpoint turn count", async () => {
-    server = await createTestServer({ cwd: "/test" });
+    const { cwd } = makeWorkspaceFixture("test");
+    server = await createTestServer({ cwd });
     const addr = server.address();
     const port = typeof addr === "object" && addr !== null ? addr.port : 0;
 
@@ -1292,6 +1323,7 @@ describe("WebSocket Server", () => {
 
   it("keeps orchestration domain push behavior for provider runtime events", async () => {
     const runtimeEventPubSub = Effect.runSync(PubSub.unbounded<ProviderRuntimeEvent>());
+    const { cwd } = makeWorkspaceFixture("test");
     const emitRuntimeEvent = (event: ProviderRuntimeEvent) => {
       Effect.runSync(PubSub.publish(runtimeEventPubSub, event));
     };
@@ -1323,7 +1355,7 @@ describe("WebSocket Server", () => {
     const providerLayer = Layer.succeed(ProviderService, providerService);
 
     server = await createTestServer({
-      cwd: "/test",
+      cwd,
       providerLayer,
     });
     const addr = server.address();
@@ -1414,8 +1446,9 @@ describe("WebSocket Server", () => {
   it("routes terminal RPC methods and broadcasts terminal events", async () => {
     const cwd = makeTempDir("okcode-ws-terminal-cwd-");
     const terminalManager = new MockTerminalManager();
+    const { cwd: workspaceCwd } = makeWorkspaceFixture("test");
     server = await createTestServer({
-      cwd: "/test",
+      cwd: workspaceCwd,
       terminalManager,
     });
     const addr = server.address();
@@ -1486,8 +1519,9 @@ describe("WebSocket Server", () => {
 
   it("detaches terminal event listener on stop for injected manager", async () => {
     const terminalManager = new MockTerminalManager();
+    const { cwd } = makeWorkspaceFixture("test");
     server = await createTestServer({
-      cwd: "/test",
+      cwd,
       terminalManager,
     });
 
@@ -1500,7 +1534,8 @@ describe("WebSocket Server", () => {
   });
 
   it("returns validation errors for invalid terminal open params", async () => {
-    server = await createTestServer({ cwd: "/test" });
+    const { cwd } = makeWorkspaceFixture("test");
+    server = await createTestServer({ cwd });
     const addr = server.address();
     const port = typeof addr === "object" && addr !== null ? addr.port : 0;
 
@@ -1517,7 +1552,8 @@ describe("WebSocket Server", () => {
   });
 
   it("handles invalid JSON gracefully", async () => {
-    server = await createTestServer({ cwd: "/test" });
+    const { cwd } = makeWorkspaceFixture("test");
+    server = await createTestServer({ cwd });
     const addr = server.address();
     const port = typeof addr === "object" && addr !== null ? addr.port : 0;
 
@@ -1560,9 +1596,10 @@ describe("WebSocket Server", () => {
       openInFileManager: () => Effect.void,
       revealInFileManager: () => Effect.void,
     };
+    const { cwd } = makeWorkspaceFixture("test");
 
     try {
-      server = await createTestServer({ cwd: "/test", open: brokenOpenService });
+      server = await createTestServer({ cwd, open: brokenOpenService });
       const addr = server.address();
       const port = typeof addr === "object" && addr !== null ? addr.port : 0;
 
@@ -1607,7 +1644,8 @@ describe("WebSocket Server", () => {
   });
 
   it("returns errors for removed projects CRUD methods", async () => {
-    server = await createTestServer({ cwd: "/test" });
+    const { cwd } = makeWorkspaceFixture("test");
+    server = await createTestServer({ cwd });
     const addr = server.address();
     const port = typeof addr === "object" && addr !== null ? addr.port : 0;
 
@@ -1643,7 +1681,8 @@ describe("WebSocket Server", () => {
     fs.mkdirSync(path.join(workspace, ".git"), { recursive: true });
     fs.writeFileSync(path.join(workspace, ".git", "HEAD"), "ref: refs/heads/main\n", "utf8");
 
-    server = await createTestServer({ cwd: "/test" });
+    const { cwd } = makeWorkspaceFixture("test");
+    server = await createTestServer({ cwd });
     const addr = server.address();
     const port = typeof addr === "object" && addr !== null ? addr.port : 0;
 
@@ -1675,7 +1714,8 @@ describe("WebSocket Server", () => {
       "utf8",
     );
 
-    server = await createTestServer({ cwd: "/test" });
+    const { cwd } = makeWorkspaceFixture("test");
+    server = await createTestServer({ cwd });
     const addr = server.address();
     const port = typeof addr === "object" && addr !== null ? addr.port : 0;
 
@@ -1709,7 +1749,8 @@ describe("WebSocket Server", () => {
   it("supports projects.writeFile within the workspace root", async () => {
     const workspace = makeTempDir("okcode-ws-write-file-");
 
-    server = await createTestServer({ cwd: "/test" });
+    const { cwd } = makeWorkspaceFixture("test");
+    server = await createTestServer({ cwd });
     const addr = server.address();
     const port = typeof addr === "object" && addr !== null ? addr.port : 0;
 
@@ -1734,7 +1775,8 @@ describe("WebSocket Server", () => {
   it("rejects projects.writeFile paths outside the workspace root", async () => {
     const workspace = makeTempDir("okcode-ws-write-file-reject-");
 
-    server = await createTestServer({ cwd: "/test" });
+    const { cwd } = makeWorkspaceFixture("test");
+    server = await createTestServer({ cwd });
     const addr = server.address();
     const port = typeof addr === "object" && addr !== null ? addr.port : 0;
 
@@ -1774,8 +1816,9 @@ describe("WebSocket Server", () => {
       ),
     );
 
+    const { cwd } = makeWorkspaceFixture("test");
     server = await createTestServer({
-      cwd: "/test",
+      cwd,
       gitCore: {
         listBranches,
         initRepo,
@@ -1832,7 +1875,8 @@ describe("WebSocket Server", () => {
       listPullRequests: vi.fn(() => Effect.succeed({ pullRequests: [] })),
     };
 
-    server = await createTestServer({ cwd: "/test", gitManager });
+    const { cwd } = makeWorkspaceFixture("test");
+    server = await createTestServer({ cwd, gitManager });
     const addr = server.address();
     const port = typeof addr === "object" && addr !== null ? addr.port : 0;
 
@@ -1840,11 +1884,11 @@ describe("WebSocket Server", () => {
     connections.push(ws);
 
     const response = await sendRequest(ws, WS_METHODS.gitStatus, {
-      cwd: "/test",
+      cwd,
     });
     expect(response.error).toBeUndefined();
     expect(response.result).toEqual(statusResult);
-    expect(status).toHaveBeenCalledWith({ cwd: "/test" });
+    expect(status).toHaveBeenCalledWith({ cwd });
   });
 
   it("supports git pull request routing over websocket", async () => {
@@ -1872,7 +1916,8 @@ describe("WebSocket Server", () => {
       listPullRequests: vi.fn(() => Effect.succeed({ pullRequests: [] })),
     };
 
-    server = await createTestServer({ cwd: "/test", gitManager });
+    const { cwd } = makeWorkspaceFixture("test");
+    server = await createTestServer({ cwd, gitManager });
     const addr = server.address();
     const port = typeof addr === "object" && addr !== null ? addr.port : 0;
 
@@ -1880,25 +1925,25 @@ describe("WebSocket Server", () => {
     connections.push(ws);
 
     const resolveResponse = await sendRequest(ws, WS_METHODS.gitResolvePullRequest, {
-      cwd: "/test",
+      cwd,
       reference: "#42",
     });
     expect(resolveResponse.error).toBeUndefined();
     expect(resolveResponse.result).toEqual(resolvePullRequestResult);
 
     const prepareResponse = await sendRequest(ws, WS_METHODS.gitPreparePullRequestThread, {
-      cwd: "/test",
+      cwd,
       reference: "42",
       mode: "worktree",
     });
     expect(prepareResponse.error).toBeUndefined();
     expect(prepareResponse.result).toEqual(preparePullRequestThreadResult);
     expect(gitManager.resolvePullRequest).toHaveBeenCalledWith({
-      cwd: "/test",
+      cwd,
       reference: "#42",
     });
     expect(gitManager.preparePullRequestThread).toHaveBeenCalledWith({
-      cwd: "/test",
+      cwd,
       reference: "42",
       mode: "worktree",
     });
@@ -1932,7 +1977,8 @@ describe("WebSocket Server", () => {
       listPullRequests: vi.fn(() => Effect.succeed({ pullRequests: [] })),
     };
 
-    server = await createTestServer({ cwd: "/test", gitManager });
+    const { cwd } = makeWorkspaceFixture("test");
+    server = await createTestServer({ cwd, gitManager });
     const addr = server.address();
     const port = typeof addr === "object" && addr !== null ? addr.port : 0;
 
@@ -1941,7 +1987,7 @@ describe("WebSocket Server", () => {
 
     const response = await sendRequest(ws, WS_METHODS.gitRunStackedAction, {
       actionId: "client-action-1",
-      cwd: "/test",
+      cwd,
       action: "commit_push",
     });
     expect(response.result).toBeUndefined();
@@ -1956,7 +2002,7 @@ describe("WebSocket Server", () => {
     expect(runStackedAction).toHaveBeenCalledWith(
       {
         actionId: "client-action-1",
-        cwd: "/test",
+        cwd,
         action: "commit_push",
       },
       expect.objectContaining({
@@ -1998,7 +2044,8 @@ describe("WebSocket Server", () => {
       listPullRequests: vi.fn(() => Effect.succeed({ pullRequests: [] })),
     };
 
-    server = await createTestServer({ cwd: "/test", gitManager });
+    const { cwd } = makeWorkspaceFixture("test");
+    server = await createTestServer({ cwd, gitManager });
     const addr = server.address();
     const port = typeof addr === "object" && addr !== null ? addr.port : 0;
 
@@ -2008,14 +2055,14 @@ describe("WebSocket Server", () => {
 
     const responsePromise = sendRequest(initiatingWs, WS_METHODS.gitRunStackedAction, {
       actionId: "client-action-2",
-      cwd: "/test",
+      cwd,
       action: "commit",
     });
     const progressPush = await waitForPush(initiatingWs, WS_CHANNELS.gitActionProgress);
 
     expect(progressPush.data).toEqual({
       actionId: "client-action-2",
-      cwd: "/test",
+      cwd,
       action: "commit",
       kind: "phase_started",
       phase: "commit",
@@ -2035,7 +2082,8 @@ describe("WebSocket Server", () => {
   });
 
   it("rejects websocket connections without a valid auth token", async () => {
-    server = await createTestServer({ cwd: "/test", authToken: "secret-token" });
+    const { cwd } = makeWorkspaceFixture("test");
+    server = await createTestServer({ cwd, authToken: "secret-token" });
     const addr = server.address();
     const port = typeof addr === "object" && addr !== null ? addr.port : 0;
 

@@ -14,13 +14,13 @@ After the workflow completes, expect **installer and updater** artifacts similar
 
 ## Desktop installers and payloads
 
-| Platform            | Kind           | Typical pattern   |
-| ------------------- | -------------- | ----------------- |
-| macOS Apple Silicon | DMG (signed)   | `*.dmg` (arm64)   |
-| macOS Intel         | DMG (signed)   | `*.dmg` (x64)     |
-| macOS               | ZIP (updater)  | `*.zip`           |
-| Linux x64           | AppImage       | `*.AppImage`      |
-| Windows x64         | NSIS installer | `*.exe`           |
+| Platform            | Kind           | Typical pattern |
+| ------------------- | -------------- | --------------- |
+| macOS Apple Silicon | DMG (signed)   | `*.dmg` (arm64) |
+| macOS Intel         | DMG (signed)   | `*.dmg` (x64)   |
+| macOS               | ZIP (updater)  | `*.zip`         |
+| Linux x64           | AppImage       | `*.AppImage`    |
+| Windows x64         | NSIS installer | `*.exe`         |
 
 ### macOS code signing and notarization
 

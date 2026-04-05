@@ -448,7 +448,7 @@ export function SkillsPage(props: {
   );
 
   return (
-    <SidebarInset>
+    <SidebarInset className="h-dvh min-h-0 overflow-hidden">
       <div className="flex h-full min-h-0 flex-col overflow-hidden">
         <div className="border-b px-4 py-3 sm:px-6">
           <div className="flex items-center gap-3">

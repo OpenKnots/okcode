@@ -29,6 +29,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import {
   Menu,
+  MenuGroup,
   MenuGroupLabel,
   MenuPopup,
   MenuRadioGroup,
@@ -372,38 +373,40 @@ export function PreviewPanel({ threadId, onClose }: PreviewPanelProps) {
               </span>
             </MenuTrigger>
             <MenuPopup side="bottom" align="end" sideOffset={6}>
-              <MenuGroupLabel>Viewport</MenuGroupLabel>
-              <MenuRadioGroup
-                value={presetId ?? RESPONSIVE_VALUE}
-                onValueChange={(value) => {
-                  setThreadPreset(
-                    threadId,
-                    value === RESPONSIVE_VALUE ? null : (value as BrowserPresetId),
-                  );
-                }}
-              >
-                <MenuRadioItem value={RESPONSIVE_VALUE}>
-                  <span className="flex items-center gap-2">
-                    <MaximizeIcon className="size-3.5 opacity-60" />
-                    Responsive
-                  </span>
-                </MenuRadioItem>
-                <MenuSeparator />
-                {BROWSER_PRESETS.map((preset) => {
-                  const Icon = PRESET_ICONS[preset.id];
-                  return (
-                    <MenuRadioItem key={preset.id} value={preset.id}>
-                      <span className="flex items-center gap-2">
-                        <Icon className="size-3.5 opacity-60" />
-                        <span>{preset.label}</span>
-                        <span className="ml-auto text-[10px] tabular-nums text-muted-foreground/60">
-                          {preset.width}&times;{preset.height}
+              <MenuGroup>
+                <MenuGroupLabel>Viewport</MenuGroupLabel>
+                <MenuRadioGroup
+                  value={presetId ?? RESPONSIVE_VALUE}
+                  onValueChange={(value) => {
+                    setThreadPreset(
+                      threadId,
+                      value === RESPONSIVE_VALUE ? null : (value as BrowserPresetId),
+                    );
+                  }}
+                >
+                  <MenuRadioItem value={RESPONSIVE_VALUE}>
+                    <span className="flex items-center gap-2">
+                      <MaximizeIcon className="size-3.5 opacity-60" />
+                      Responsive
+                    </span>
+                  </MenuRadioItem>
+                  <MenuSeparator />
+                  {BROWSER_PRESETS.map((preset) => {
+                    const Icon = PRESET_ICONS[preset.id];
+                    return (
+                      <MenuRadioItem key={preset.id} value={preset.id}>
+                        <span className="flex items-center gap-2">
+                          <Icon className="size-3.5 opacity-60" />
+                          <span>{preset.label}</span>
+                          <span className="ml-auto text-[10px] tabular-nums text-muted-foreground/60">
+                            {preset.width}&times;{preset.height}
+                          </span>
                         </span>
-                      </span>
-                    </MenuRadioItem>
-                  );
-                })}
-              </MenuRadioGroup>
+                      </MenuRadioItem>
+                    );
+                  })}
+                </MenuRadioGroup>
+              </MenuGroup>
             </MenuPopup>
           </Menu>
 

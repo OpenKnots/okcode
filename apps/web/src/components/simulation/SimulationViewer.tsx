@@ -22,6 +22,7 @@ import { useMediaQuery, useIsMobile } from "~/hooks/useMediaQuery";
 import { Button } from "~/components/ui/button";
 import {
   Menu,
+  MenuGroup,
   MenuGroupLabel,
   MenuPopup,
   MenuRadioGroup,
@@ -120,37 +121,39 @@ function SimulationToolbar({ onClose }: { onClose: () => void }) {
             <span className="max-sm:hidden">{preset ? preset.label : "Responsive"}</span>
           </MenuTrigger>
           <MenuPopup side="bottom" align="end" sideOffset={6}>
-            <MenuGroupLabel>Simulation Viewport</MenuGroupLabel>
-            <MenuRadioGroup
-              value={viewportPreset ?? RESPONSIVE_VALUE}
-              onValueChange={(value) => {
-                setViewportPreset(
-                  value === RESPONSIVE_VALUE ? null : (value as SimulationViewportPreset),
-                );
-              }}
-            >
-              <MenuRadioItem value={RESPONSIVE_VALUE}>
-                <span className="flex items-center gap-2">
-                  <MaximizeIcon className="size-3.5 opacity-60" />
-                  Responsive
-                </span>
-              </MenuRadioItem>
-              <MenuSeparator />
-              {SIMULATION_VIEWPORT_PRESETS.map((p) => {
-                const Icon = PRESET_ICONS[p.id];
-                return (
-                  <MenuRadioItem key={p.id} value={p.id}>
-                    <span className="flex items-center gap-2">
-                      <Icon className="size-3.5 opacity-60" />
-                      <span>{p.label}</span>
-                      <span className="ml-auto text-[10px] tabular-nums text-muted-foreground/60">
-                        {p.width}&times;{p.height}
+            <MenuGroup>
+              <MenuGroupLabel>Simulation Viewport</MenuGroupLabel>
+              <MenuRadioGroup
+                value={viewportPreset ?? RESPONSIVE_VALUE}
+                onValueChange={(value) => {
+                  setViewportPreset(
+                    value === RESPONSIVE_VALUE ? null : (value as SimulationViewportPreset),
+                  );
+                }}
+              >
+                <MenuRadioItem value={RESPONSIVE_VALUE}>
+                  <span className="flex items-center gap-2">
+                    <MaximizeIcon className="size-3.5 opacity-60" />
+                    Responsive
+                  </span>
+                </MenuRadioItem>
+                <MenuSeparator />
+                {SIMULATION_VIEWPORT_PRESETS.map((p) => {
+                  const Icon = PRESET_ICONS[p.id];
+                  return (
+                    <MenuRadioItem key={p.id} value={p.id}>
+                      <span className="flex items-center gap-2">
+                        <Icon className="size-3.5 opacity-60" />
+                        <span>{p.label}</span>
+                        <span className="ml-auto text-[10px] tabular-nums text-muted-foreground/60">
+                          {p.width}&times;{p.height}
+                        </span>
                       </span>
-                    </span>
-                  </MenuRadioItem>
-                );
-              })}
-            </MenuRadioGroup>
+                    </MenuRadioItem>
+                  );
+                })}
+              </MenuRadioGroup>
+            </MenuGroup>
           </MenuPopup>
         </Menu>
 

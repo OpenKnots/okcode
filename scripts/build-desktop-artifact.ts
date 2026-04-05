@@ -8,6 +8,7 @@ import rootPackageJson from "../package.json" with { type: "json" };
 import desktopPackageJson from "../apps/desktop/package.json" with { type: "json" };
 import serverPackageJson from "../apps/server/package.json" with { type: "json" };
 
+import { APP_BASE_NAME } from "@okcode/shared/brand";
 import { BRAND_ASSET_PATHS } from "./lib/brand-assets.ts";
 import { resolveCatalogDependencies } from "./lib/resolve-catalog.ts";
 
@@ -519,7 +520,7 @@ const createBuildConfig = Effect.fn("createBuildConfig")(function* (
   macEntitlementsPlistAbsolutePath: string | undefined,
 ) {
   const buildConfig: Record<string, unknown> = {
-    appId: "com.okcode.okcode",
+    appId: "com.openknots.okcode",
     productName,
     artifactName: "OK-Code-${version}-${arch}.${ext}",
     directories: {
@@ -736,7 +737,7 @@ const buildDesktopArtifact = Effect.fn("buildDesktopArtifact")(function* (
     build: yield* createBuildConfig(
       options.platform,
       options.target,
-      desktopPackageJson.productName ?? "OK Code",
+      desktopPackageJson.productName ?? APP_BASE_NAME,
       options.signed,
       options.signed && options.platform === "mac" ? macEntitlementsPlistAbsolutePath : undefined,
     ),

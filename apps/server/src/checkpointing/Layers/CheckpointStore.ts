@@ -18,6 +18,7 @@ import { GitCommandError } from "../../git/Errors.ts";
 import { GitCore } from "../../git/Services/GitCore.ts";
 import { CheckpointStore, type CheckpointStoreShape } from "../Services/CheckpointStore.ts";
 import { CheckpointRef } from "@okcode/contracts";
+import { GIT_IDENTITY_NAME } from "@okcode/shared/brand";
 
 const makeCheckpointStore = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem;
@@ -98,9 +99,9 @@ const makeCheckpointStore = Effect.gen(function* () {
             const commitEnv: NodeJS.ProcessEnv = {
               ...process.env,
               GIT_INDEX_FILE: tempIndexPath,
-              GIT_AUTHOR_NAME: "OK Code",
+              GIT_AUTHOR_NAME: GIT_IDENTITY_NAME,
               GIT_AUTHOR_EMAIL: "okcode@users.noreply.github.com",
-              GIT_COMMITTER_NAME: "OK Code",
+              GIT_COMMITTER_NAME: GIT_IDENTITY_NAME,
               GIT_COMMITTER_EMAIL: "okcode@users.noreply.github.com",
             };
 

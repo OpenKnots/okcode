@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Regenerate favicons and desktop icon PNGs/ICOs from assets/source/okcode-mark-512.png.
 
-Windows `.ico` files use `assets/source/openknot-mark-512.png` when present (OpenKnots org
-mark); otherwise they fall back to the OK Code mark.
+All platforms (macOS, Windows, Linux, iOS, web) use the same OK Code mark as their source.
 
 Requires Pillow (`python3 -m pip install pillow` if missing).
 Run from repository root: python3 scripts/generate-brand-assets.py
@@ -22,7 +21,6 @@ except ImportError as e:
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "assets/source/okcode-mark-512.png"
-OPENKNOT_MARK_SRC = ROOT / "assets/source/openknot-mark-512.png"
 
 ICO_SIZES_WEB = (16, 32, 48)
 ICO_SIZES_DESKTOP = (16, 32, 48, 64, 128, 256)
@@ -99,11 +97,6 @@ def main() -> None:
 
     img = Image.open(SRC).convert("RGBA")
 
-    if OPENKNOT_MARK_SRC.exists():
-        windows_icon_source = Image.open(OPENKNOT_MARK_SRC).convert("RGBA")
-    else:
-        windows_icon_source = img
-
     # Master 1024 for desktop / marketing hero
     mark_1024 = resize(img, 1024)
     prod_dir = ROOT / "assets/prod"
@@ -133,8 +126,8 @@ def main() -> None:
 
     save_ico(prod_dir / "okcode-web-favicon.ico", img, ICO_SIZES_WEB)
     save_ico(dev_dir / "okcode-dev-web-favicon.ico", img, ICO_SIZES_WEB)
-    save_ico(prod_dir / "okcode-windows.ico", windows_icon_source, ICO_SIZES_DESKTOP)
-    save_ico(dev_dir / "okcode-dev-windows.ico", windows_icon_source, ICO_SIZES_DESKTOP)
+    save_ico(prod_dir / "okcode-windows.ico", img, ICO_SIZES_DESKTOP)
+    save_ico(dev_dir / "okcode-dev-windows.ico", img, ICO_SIZES_DESKTOP)
 
     # Marketing site: large nav icon + same favicons as prod web
     mkt = ROOT / "apps/marketing/public"

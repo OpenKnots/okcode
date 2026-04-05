@@ -50,7 +50,7 @@ import {
   useAppSettings,
 } from "../appSettings";
 import { isElectron } from "../env";
-import { APP_VERSION } from "../branding";
+import { APP_BASE_NAME, APP_VERSION } from "../branding";
 import { cn, isLinuxPlatform, isMacPlatform, newCommandId, newProjectId } from "../lib/utils";
 import { useStore } from "../store";
 import { shortcutLabelForCommand } from "../keybindings";
@@ -1805,8 +1805,8 @@ export default function Sidebar() {
           render={
             <div className="wordmark-stitch flex min-w-0 flex-1 items-center justify-center gap-1.5 cursor-pointer mx-auto px-3 py-1.5 rounded-lg">
               <OkCodeMark className="size-6 text-foreground drop-shadow-[0_1px_0_rgba(255,255,255,0.15)]" />
-              <span className="truncate text-base font-semibold tracking-wide text-foreground uppercase drop-shadow-[0_1px_0_rgba(255,255,255,0.15)]">
-                OK Code
+              <span className="truncate text-base font-semibold tracking-wide text-foreground drop-shadow-[0_1px_0_rgba(255,255,255,0.15)]">
+                {APP_BASE_NAME}
               </span>
             </div>
           }
@@ -1860,7 +1860,7 @@ export default function Sidebar() {
                       onClick={() => {
                         toastManager.add({
                           type: "info",
-                          title: `OK Code ${serverUpdateInfo.latestVersion} available`,
+                          title: `${APP_BASE_NAME} ${serverUpdateInfo.latestVersion} available`,
                           description: `Update with: npm install -g okcodes@latest`,
                         });
                       }}

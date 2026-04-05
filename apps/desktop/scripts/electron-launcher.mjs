@@ -18,7 +18,7 @@ import { fileURLToPath } from "node:url";
 
 const isDevelopment = Boolean(process.env.VITE_DEV_SERVER_URL);
 const APP_DISPLAY_NAME = isDevelopment ? "OK Code (Dev)" : "OK Code";
-const APP_BUNDLE_ID = "com.okcode.okcode";
+const APP_BUNDLE_ID = "com.openknots.okcode";
 const LAUNCHER_VERSION = 1;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));

@@ -519,7 +519,7 @@ const createBuildConfig = Effect.fn("createBuildConfig")(function* (
   macEntitlementsPlistAbsolutePath: string | undefined,
 ) {
   const buildConfig: Record<string, unknown> = {
-    appId: "com.okcode.okcode",
+    appId: "com.openknots.okcode",
     productName,
     artifactName: "OK-Code-${version}-${arch}.${ext}",
     directories: {

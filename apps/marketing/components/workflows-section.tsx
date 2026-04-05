@@ -203,7 +203,7 @@ function ApiMockup() {
   return (
     <div className="flex items-center justify-center h-full">
       <div className="bg-secondary/50 rounded-lg px-4 py-2 border border-border/50">
-        <span className="text-xs font-mono text-muted-foreground">OK CODE API</span>
+        <span className="text-xs font-mono text-muted-foreground">OK Code API</span>
       </div>
     </div>
   );

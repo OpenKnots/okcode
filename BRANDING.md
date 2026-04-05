@@ -13,10 +13,10 @@
 | **Stage Label**           | Dev (development only) |
 | **Display Name**          | OK Code                |
 | **Version**               | 0.0.1                  |
-| **Tagline**               | `[TBD]`                |
-| **One-liner Description** | `[TBD]`                |
+| **Tagline**               | A Minimal Web GUI for Coding Agents |
+| **One-liner Description** | Chat with Codex and Claude in a modern web UI. Git worktree isolation, diff review, integrated terminal, and more. |
 | **Parent Organization**   | OpenKnots              |
-| **Website URL**           | `[TBD]`                |
+| **Website URL**           | `[TBD]`               |
 | **Repository**            | `OpenKnots/okcode`     |
 
 ### Brand Voice & Tone
@@ -27,8 +27,8 @@
 | **Tone**                     | Confident but not arrogant; technical but accessible                                            |
 | **Copy Style**               | Action-oriented imperatives ("New Thread", "Terminal", "Settings"); no unnecessary filler words |
 | **Audience**                 | Software engineers and technical users                                                          |
-| **Emoji Usage**              | `[TBD — currently none in the UI]`                                                              |
-| **Error/Empty States Voice** | `[TBD]`                                                                                         |
+| **Emoji Usage**              | None in UI copy; reserved for user-generated content only                                       |
+| **Error/Empty States Voice** | Concise and helpful; state what happened and what to do next, no blame or humor                  |
 
 ---
 
@@ -256,7 +256,7 @@ A subtle **fractal noise SVG overlay** is applied to `body::after` at **3.5% opa
 | Disabled opacity     | `opacity-64`                        |
 | Disabled interaction | `pointer-events: none`              |
 | Placeholder text     | `muted-foreground/72` (72% opacity) |
-| Contrast standard    | `[TBD — WCAG level target]`         |
+| Contrast standard    | WCAG 2.1 AA minimum                  |
 
 ---
 
@@ -321,7 +321,7 @@ The app includes bespoke SVG icons for:
 
 | Property                         | Value   |
 | -------------------------------- | ------- |
-| `prefers-reduced-motion` support | `[TBD]` |
+| `prefers-reduced-motion` support | Respect; disable non-essential animations when set |
 | Global animation toggle          | `[TBD]` |
 
 ---
@@ -385,19 +385,19 @@ Built with:
 
 The following need to be provided/decided:
 
-- [ ] **Tagline** — short memorable phrase
-- [ ] **One-liner description** — for app stores, meta tags, social cards
+- [x] **Tagline** — "A Minimal Web GUI for Coding Agents"
+- [x] **One-liner description** — see Brand Identity table above
+- [x] **WCAG contrast target** — AA minimum
+- [x] **Reduced motion support** — respect `prefers-reduced-motion`
+- [x] **Emoji policy** — none in UI copy
+- [x] **Error/empty state voice** — concise and helpful
 - [ ] **Logo mark description** — what does the mark depict?
 - [ ] **Logo usage guidelines** — minimum size, clear space, do's and don'ts
 - [ ] **Heading type scale** — H1–H6 sizes and weights
-- [ ] **WCAG contrast target** — AA or AAA?
-- [ ] **Reduced motion support** — respect `prefers-reduced-motion`?
 - [ ] **Website URL**
 - [ ] **Social media handles / links**
 - [ ] **App store descriptions**
 - [ ] **Open Graph / social card image**
 - [ ] **Brand color as hex** — the primary `oklch(0.488 0.217 264)` converts to approximately **#2b4acb** (a deep blue-violet); confirm this is the intended brand hex
 - [ ] **Secondary brand color** — is there a distinct secondary brand color beyond the neutral system?
-- [ ] **Emoji policy** — use in UI copy, notifications, etc.?
-- [ ] **Error/empty state voice** — tone for error messages, empty states, onboarding
 - [ ] **Icon stroke width** — confirm Lucide default (2) or custom

@@ -60,6 +60,7 @@ describe("MessagesTimeline", () => {
     const { MessagesTimeline } = await import("./MessagesTimeline");
     const markup = renderWithI18n(
       <MessagesTimeline
+        threadId={"thread-1" as never}
         hasMessages
         isWorking={false}
         activeTurnInProgress={false}
@@ -105,6 +106,7 @@ describe("MessagesTimeline", () => {
         onRemoveQueuedMessage={() => {}}
         shortcutGuides={EMPTY_SHORTCUT_GUIDES}
         onOpenSettings={() => {}}
+        onOpenTurnDiff={() => {}}
       />,
     );
 
@@ -117,6 +119,7 @@ describe("MessagesTimeline", () => {
     const { MessagesTimeline } = await import("./MessagesTimeline");
     const markup = renderWithI18n(
       <MessagesTimeline
+        threadId={"thread-1" as never}
         hasMessages
         isWorking={false}
         activeTurnInProgress={false}
@@ -153,6 +156,7 @@ describe("MessagesTimeline", () => {
         onRemoveQueuedMessage={() => {}}
         shortcutGuides={EMPTY_SHORTCUT_GUIDES}
         onOpenSettings={() => {}}
+        onOpenTurnDiff={() => {}}
       />,
     );
 
@@ -164,6 +168,7 @@ describe("MessagesTimeline", () => {
     const { MessagesTimeline } = await import("./MessagesTimeline");
     const markup = renderWithI18n(
       <MessagesTimeline
+        threadId={"thread-1" as never}
         hasMessages={false}
         isWorking={false}
         activeTurnInProgress={false}
@@ -188,6 +193,7 @@ describe("MessagesTimeline", () => {
         onRemoveQueuedMessage={() => {}}
         shortcutGuides={EMPTY_SHORTCUT_GUIDES}
         onOpenSettings={() => {}}
+        onOpenTurnDiff={() => {}}
       />,
     );
 

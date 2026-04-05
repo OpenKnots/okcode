@@ -16,6 +16,7 @@ import {
   type ResolvedKeybindingsConfig,
   type ServerProviderStatus,
   type ThreadId,
+  type TurnId,
   type KeybindingCommand,
   OrchestrationThreadActivity,
   ProviderInteractionMode,
@@ -177,6 +178,7 @@ import { MessagesTimeline } from "./chat/MessagesTimeline";
 import { ChatHeader } from "./chat/ChatHeader";
 import { ChatHomeEmptyState } from "./home/ChatHomeEmptyState";
 import { useCodeViewerStore } from "~/codeViewerStore";
+import { useDiffViewerStore } from "~/diffViewerStore";
 import { PreviewPanel } from "./PreviewPanel";
 import { ContextWindowMeter } from "./chat/ContextWindowMeter";
 import { buildExpandedImagePreview, ExpandedImagePreview } from "./chat/ExpandedImagePreview";
@@ -1227,6 +1229,12 @@ export default function ChatView({ threadId }: ChatViewProps) {
         worktreePath: activeThread?.worktreePath ?? null,
       })
     : null;
+  const handleOpenTurnDiff = useCallback(
+    (turnId: TurnId, filePath?: string) => {
+      openTurnDiffViewer(activeThread.id, turnId, filePath);
+    },
+    [activeThread.id, openTurnDiffViewer],
+  );
   const composerTriggerKind = composerTrigger?.kind ?? null;
   const pathTriggerQuery = composerTrigger?.kind === "path" ? composerTrigger.query : "";
   const isPathTrigger = composerTriggerKind === "path";
@@ -1487,6 +1495,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
 
   const pendingContext = useCodeViewerStore((state) => state.pendingContext);
   const clearPendingContext = useCodeViewerStore((state) => state.clearPendingContext);
+  const openTurnDiffViewer = useDiffViewerStore((state) => state.openTurnDiff);
 
   // When Cmd+L is pressed in the code viewer, insert the @file:lines mention into the composer
   useEffect(() => {
@@ -4761,6 +4770,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
                 onTouchCancel={onMessagesTouchEnd}
               >
                 <MessagesTimeline
+                  threadId={activeThread.id}
                   key={activeThread.id}
                   hasMessages={timelineEntries.length > 0}
                   isWorking={isWorking}
@@ -4786,6 +4796,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
                   shortcutGuides={chatShortcutGuides}
                   onRemoveQueuedMessage={onRemoveQueuedMessage}
                   onOpenSettings={() => void navigate({ to: "/settings" })}
+                  onOpenTurnDiff={handleOpenTurnDiff}
                 />
               </div>
 

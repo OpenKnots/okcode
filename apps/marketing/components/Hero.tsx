@@ -9,14 +9,14 @@ import { OKCodeMockup } from "./OKCodeMockup";
 export function Hero() {
   return (
     <section className="relative overflow-hidden px-6 pt-36 pb-0 sm:pt-44">
-      {/* Ambient glow */}
+      {/* Ambient glow — amplified for true black */}
       <div
         className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2"
         style={{
-          width: "900px",
-          height: "600px",
+          width: "1100px",
+          height: "700px",
           background:
-            "radial-gradient(ellipse at center, oklch(0.588 0.217 264 / 0.06) 0%, transparent 70%)",
+            "radial-gradient(ellipse at center, oklch(0.50 0.22 270 / 0.12) 0%, oklch(0.40 0.15 250 / 0.05) 40%, transparent 70%)",
         }}
       />
 
@@ -95,9 +95,9 @@ export function Hero() {
             className="pointer-events-none absolute -bottom-24 left-1/2 -translate-x-1/2"
             style={{
               width: "80%",
-              height: "120px",
+              height: "140px",
               background:
-                "radial-gradient(ellipse at center, oklch(0.588 0.217 264 / 0.04) 0%, transparent 70%)",
+                "radial-gradient(ellipse at center, oklch(0.50 0.20 270 / 0.08) 0%, transparent 70%)",
             }}
           />
         </motion.div>

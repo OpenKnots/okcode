@@ -1,4 +1,4 @@
-import type { ThreadId } from "@okcode/contracts";
+import type { ProjectId } from "@okcode/contracts";
 import { create } from "zustand";
 
 import type { BrowserPresetId } from "./lib/browserPresets";
@@ -6,26 +6,26 @@ import type { BrowserPresetId } from "./lib/browserPresets";
 export type PreviewDock = "left" | "right" | "top" | "bottom";
 
 interface PersistedPreviewUiState {
-  globalOpen: boolean;
-  dockByThreadId: Record<string, PreviewDock>;
-  sizeByThreadId: Record<string, number>;
-  presetByThreadId: Record<string, BrowserPresetId>;
+  openByProjectId: Record<string, boolean>;
+  dockByProjectId: Record<string, PreviewDock>;
+  sizeByProjectId: Record<string, number>;
+  presetByProjectId: Record<string, BrowserPresetId>;
   favoriteUrls: string[];
 }
 
 interface PreviewStateStore extends PersistedPreviewUiState {
-  setGlobalOpen: (open: boolean) => void;
-  toggleGlobalOpen: () => void;
-  setThreadDock: (threadId: ThreadId, dock: PreviewDock) => void;
-  toggleThreadLayout: (threadId: ThreadId) => void;
-  setThreadSize: (threadId: ThreadId, size: number) => void;
-  setThreadPreset: (threadId: ThreadId, preset: BrowserPresetId | null) => void;
+  setProjectOpen: (projectId: ProjectId, open: boolean) => void;
+  toggleProjectOpen: (projectId: ProjectId) => void;
+  setProjectDock: (projectId: ProjectId, dock: PreviewDock) => void;
+  toggleProjectLayout: (projectId: ProjectId) => void;
+  setProjectSize: (projectId: ProjectId, size: number) => void;
+  setProjectPreset: (projectId: ProjectId, preset: BrowserPresetId | null) => void;
   addFavoriteUrl: (url: string) => void;
   removeFavoriteUrl: (url: string) => void;
   toggleFavoriteUrl: (url: string) => void;
 }
 
-const PREVIEW_STATE_STORAGE_KEY = "okcode:desktop-preview:v3";
+const PREVIEW_STATE_STORAGE_KEY = "okcode:desktop-preview:v4";
 
 const VALID_PRESETS = new Set<string>(["mobile", "tablet", "laptop", "desktop", "ultrawide"]);
 
@@ -35,10 +35,10 @@ function isValidPresetId(value: unknown): value is BrowserPresetId {
 
 function createEmptyPersistedPreviewUiState(): PersistedPreviewUiState {
   return {
-    globalOpen: false,
-    dockByThreadId: {},
-    sizeByThreadId: {},
-    presetByThreadId: {},
+    openByProjectId: {},
+    dockByProjectId: {},
+    sizeByProjectId: {},
+    presetByProjectId: {},
     favoriteUrls: [],
   };
 }
@@ -63,11 +63,19 @@ function readPersistedPreviewUiState(): PersistedPreviewUiState {
 
     const parsed = JSON.parse(raw) as Partial<PersistedPreviewUiState>;
     return {
-      globalOpen: parsed.globalOpen === true,
-      dockByThreadId:
-        parsed.dockByThreadId && typeof parsed.dockByThreadId === "object"
+      openByProjectId:
+        parsed.openByProjectId && typeof parsed.openByProjectId === "object"
           ? Object.fromEntries(
-              Object.entries(parsed.dockByThreadId).filter(
+              Object.entries(parsed.openByProjectId).filter(
+                (entry): entry is [string, boolean] =>
+                  typeof entry[0] === "string" && typeof entry[1] === "boolean",
+              ),
+            )
+          : {},
+      dockByProjectId:
+        parsed.dockByProjectId && typeof parsed.dockByProjectId === "object"
+          ? Object.fromEntries(
+              Object.entries(parsed.dockByProjectId).filter(
                 (entry): entry is [string, PreviewDock] =>
                   typeof entry[0] === "string" &&
                   (entry[1] === "left" ||
@@ -77,21 +85,21 @@ function readPersistedPreviewUiState(): PersistedPreviewUiState {
               ),
             )
           : {},
-      sizeByThreadId:
-        parsed.sizeByThreadId && typeof parsed.sizeByThreadId === "object"
+      sizeByProjectId:
+        parsed.sizeByProjectId && typeof parsed.sizeByProjectId === "object"
           ? Object.fromEntries(
-              Object.entries(parsed.sizeByThreadId).flatMap(([threadId, size]) => {
+              Object.entries(parsed.sizeByProjectId).flatMap(([projectId, size]) => {
                 const normalizedSize = normalizePreviewSize(size);
-                return typeof threadId === "string" && normalizedSize !== null
-                  ? [[threadId, normalizedSize] as const]
+                return typeof projectId === "string" && normalizedSize !== null
+                  ? [[projectId, normalizedSize] as const]
                   : [];
               }),
             )
           : {},
-      presetByThreadId:
-        parsed.presetByThreadId && typeof parsed.presetByThreadId === "object"
+      presetByProjectId:
+        parsed.presetByProjectId && typeof parsed.presetByProjectId === "object"
           ? Object.fromEntries(
-              Object.entries(parsed.presetByThreadId).filter(
+              Object.entries(parsed.presetByProjectId).filter(
                 (entry): entry is [string, BrowserPresetId] =>
                   typeof entry[0] === "string" && isValidPresetId(entry[1]),
               ),
@@ -117,10 +125,10 @@ function persistPreviewUiState(state: PersistedPreviewUiState): void {
     window.localStorage.setItem(
       PREVIEW_STATE_STORAGE_KEY,
       JSON.stringify({
-        globalOpen: state.globalOpen,
-        dockByThreadId: state.dockByThreadId,
-        sizeByThreadId: state.sizeByThreadId,
-        presetByThreadId: state.presetByThreadId,
+        openByProjectId: state.openByProjectId,
+        dockByProjectId: state.dockByProjectId,
+        sizeByProjectId: state.sizeByProjectId,
+        presetByProjectId: state.presetByProjectId,
         favoriteUrls: state.favoriteUrls,
       } satisfies PersistedPreviewUiState),
     );
@@ -131,10 +139,10 @@ function persistPreviewUiState(state: PersistedPreviewUiState): void {
 
 function snapshotState(state: PreviewStateStore): PersistedPreviewUiState {
   return {
-    globalOpen: state.globalOpen,
-    dockByThreadId: state.dockByThreadId,
-    sizeByThreadId: state.sizeByThreadId,
-    presetByThreadId: state.presetByThreadId,
+    openByProjectId: state.openByProjectId,
+    dockByProjectId: state.dockByProjectId,
+    sizeByProjectId: state.sizeByProjectId,
+    presetByProjectId: state.presetByProjectId,
     favoriteUrls: state.favoriteUrls,
   };
 }
@@ -144,36 +152,36 @@ const initialState = readPersistedPreviewUiState();
 export const usePreviewStateStore = create<PreviewStateStore>((set, get) => ({
   ...initialState,
 
-  setGlobalOpen: (open) => {
+  setProjectOpen: (projectId, open) => {
     set((state) => {
-      const next = { ...snapshotState(state), globalOpen: open };
-      persistPreviewUiState(next);
-      return { globalOpen: open };
+      const nextOpenByProjectId = { ...state.openByProjectId, [projectId]: open };
+      persistPreviewUiState({ ...snapshotState(state), openByProjectId: nextOpenByProjectId });
+      return { openByProjectId: nextOpenByProjectId };
     });
   },
 
-  toggleGlobalOpen: () => {
-    get().setGlobalOpen(!get().globalOpen);
+  toggleProjectOpen: (projectId) => {
+    get().setProjectOpen(projectId, !(get().openByProjectId[projectId] ?? false));
   },
 
-  setThreadDock: (threadId, dock) => {
+  setProjectDock: (projectId, dock) => {
     set((state) => {
-      const nextDockByThreadId = {
-        ...state.dockByThreadId,
-        [threadId]: dock,
+      const nextDockByProjectId = {
+        ...state.dockByProjectId,
+        [projectId]: dock,
       };
       persistPreviewUiState({
         ...snapshotState(state),
-        dockByThreadId: nextDockByThreadId,
+        dockByProjectId: nextDockByProjectId,
       });
-      return { dockByThreadId: nextDockByThreadId };
+      return { dockByProjectId: nextDockByProjectId };
     });
   },
 
-  toggleThreadLayout: (threadId) => {
-    const current = get().dockByThreadId[threadId] ?? "right";
-    get().setThreadDock(
-      threadId,
+  toggleProjectLayout: (projectId) => {
+    const current = get().dockByProjectId[projectId] ?? "right";
+    get().setProjectDock(
+      projectId,
       current === "left"
         ? "top"
         : current === "right"
@@ -184,37 +192,37 @@ export const usePreviewStateStore = create<PreviewStateStore>((set, get) => ({
     );
   },
 
-  setThreadSize: (threadId, size) => {
+  setProjectSize: (projectId, size) => {
     const normalizedSize = normalizePreviewSize(size);
     if (normalizedSize === null) {
       return;
     }
     set((state) => {
-      const nextSizeByThreadId = {
-        ...state.sizeByThreadId,
-        [threadId]: normalizedSize,
+      const nextSizeByProjectId = {
+        ...state.sizeByProjectId,
+        [projectId]: normalizedSize,
       };
       persistPreviewUiState({
         ...snapshotState(state),
-        sizeByThreadId: nextSizeByThreadId,
+        sizeByProjectId: nextSizeByProjectId,
       });
-      return { sizeByThreadId: nextSizeByThreadId };
+      return { sizeByProjectId: nextSizeByProjectId };
     });
   },
 
-  setThreadPreset: (threadId, preset) => {
+  setProjectPreset: (projectId, preset) => {
     set((state) => {
-      const nextPresetByThreadId = { ...state.presetByThreadId };
+      const nextPresetByProjectId = { ...state.presetByProjectId };
       if (preset === null) {
-        delete nextPresetByThreadId[threadId];
+        delete nextPresetByProjectId[projectId];
       } else {
-        nextPresetByThreadId[threadId] = preset;
+        nextPresetByProjectId[projectId] = preset;
       }
       persistPreviewUiState({
         ...snapshotState(state),
-        presetByThreadId: nextPresetByThreadId,
+        presetByProjectId: nextPresetByProjectId,
       });
-      return { presetByThreadId: nextPresetByThreadId };
+      return { presetByProjectId: nextPresetByProjectId };
     });
   },
 

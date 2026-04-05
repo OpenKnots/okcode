@@ -306,9 +306,15 @@ function ChatThreadRouteView() {
   const codeViewerOpen = useCodeViewerStore((state) => state.isOpen);
   const closeCodeViewerStore = useCodeViewerStore((state) => state.close);
 
-  // Preview state from Zustand store
-  const previewOpen = usePreviewStateStore((state) => state.globalOpen);
-  const setPreviewOpen = usePreviewStateStore((state) => state.setGlobalOpen);
+  // Preview state from Zustand store (project-scoped)
+  const activeProjectId = useStore((store) => {
+    const thread = store.threads.find((t) => t.id === threadId);
+    return thread?.projectId ?? null;
+  });
+  const previewOpen = usePreviewStateStore((state) =>
+    activeProjectId ? (state.openByProjectId[activeProjectId] ?? false) : false,
+  );
+  const setPreviewOpen = usePreviewStateStore((state) => state.setProjectOpen);
 
   // Simulation viewer state from Zustand store
   const simulationOpen = useSimulationViewerStore((state) => state.isOpen);
@@ -343,8 +349,8 @@ function ChatThreadRouteView() {
   }, [closeCodeViewerStore]);
 
   const closePreview = useCallback(() => {
-    setPreviewOpen(false);
-  }, [setPreviewOpen]);
+    if (activeProjectId) setPreviewOpen(activeProjectId, false);
+  }, [activeProjectId, setPreviewOpen]);
 
   const closeSimulation = useCallback(() => {
     closeSimulationStore();

@@ -382,17 +382,24 @@ export default function ChatView({ threadId }: ChatViewProps) {
   const setStickyComposerModel = useComposerDraftStore((store) => store.setStickyModel);
   const timestampFormat = settings.timestampFormat;
   const navigate = useNavigate();
-  const previewOpen = usePreviewStateStore((state) => state.globalOpen);
-  const togglePreviewOpen = usePreviewStateStore((state) => state.toggleGlobalOpen);
-  const setPreviewOpen = usePreviewStateStore((state) => state.setGlobalOpen);
-  const previewDock = usePreviewStateStore((state) => state.dockByThreadId[threadId] ?? "right");
-  const previewSize = usePreviewStateStore(
-    (state) => state.sizeByThreadId[threadId] ?? PREVIEW_SPLIT_DEFAULT_SIZE_PX,
+  const activeProjectId = threads.find((t) => t.id === threadId)?.projectId ?? null;
+  const previewOpen = usePreviewStateStore((state) =>
+    activeProjectId ? (state.openByProjectId[activeProjectId] ?? false) : false,
+  );
+  const togglePreviewOpen = usePreviewStateStore((state) => state.toggleProjectOpen);
+  const setPreviewOpen = usePreviewStateStore((state) => state.setProjectOpen);
+  const previewDock = usePreviewStateStore((state) =>
+    activeProjectId ? (state.dockByProjectId[activeProjectId] ?? "right") : "right",
+  );
+  const previewSize = usePreviewStateStore((state) =>
+    activeProjectId
+      ? (state.sizeByProjectId[activeProjectId] ?? PREVIEW_SPLIT_DEFAULT_SIZE_PX)
+      : PREVIEW_SPLIT_DEFAULT_SIZE_PX,
   );
   const previewStacked = previewDock === "top" || previewDock === "bottom";
-  const setPreviewDock = usePreviewStateStore((state) => state.setThreadDock);
-  const togglePreviewLayout = usePreviewStateStore((state) => state.toggleThreadLayout);
-  const setPreviewSize = usePreviewStateStore((state) => state.setThreadSize);
+  const setPreviewDock = usePreviewStateStore((state) => state.setProjectDock);
+  const togglePreviewLayout = usePreviewStateStore((state) => state.toggleProjectLayout);
+  const setPreviewSize = usePreviewStateStore((state) => state.setProjectSize);
   const previewSplitRef = useRef<HTMLDivElement | null>(null);
   const previewResizeStateRef = useRef<{
     pointerId: number;
@@ -671,9 +678,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
   );
   const latestTurnSettled = isLatestTurnSettled(activeLatestTurn, activeThread?.session ?? null);
   const activeProject = projects.find((p) => p.id === activeThread?.projectId);
-  const previewPanelKey = activeThread
-    ? `${activeThread.id}:${activeProject?.id ?? "no-project"}:${previewDock}`
-    : null;
+  const previewPanelKey = activeProject ? `${activeProject.id}:${previewDock}` : null;
 
   const openPullRequestDialog = useCallback(
     (reference?: string) => {
@@ -1593,7 +1598,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
   const handlePreviewUrl = useCallback(
     (url: string) => {
       if (!activeProject || !activeThread) return;
-      setPreviewOpen(true);
+      setPreviewOpen(activeProject.id, true);
       void previewBridgeRef?.createTab({ url });
     },
     [activeProject, activeThread, setPreviewOpen, previewBridgeRef],
@@ -4549,9 +4554,9 @@ export default function ChatView({ threadId }: ChatViewProps) {
         PREVIEW_SPLIT_MIN_SIZE_PX,
         Math.min(Math.round(nextSizeUnclamped), maxSize),
       );
-      setPreviewSize(threadId, nextSize);
+      if (activeProjectId) setPreviewSize(activeProjectId, nextSize);
     },
-    [previewDock, previewStacked, setPreviewSize, threadId],
+    [activeProjectId, previewDock, previewStacked, setPreviewSize],
   );
 
   const handlePreviewResizePointerEnd = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
@@ -4604,20 +4609,22 @@ export default function ChatView({ threadId }: ChatViewProps) {
       }
 
       event.preventDefault();
+      if (!activeProjectId) return;
+
       if (previewOpen && previewDock === targetDock) {
-        setPreviewOpen(false);
+        setPreviewOpen(activeProjectId, false);
         return;
       }
 
-      setPreviewOpen(true);
-      setPreviewDock(threadId, targetDock);
+      setPreviewOpen(activeProjectId, true);
+      setPreviewDock(activeProjectId, targetDock);
     };
 
     window.addEventListener("keydown", onWindowKeyDown);
     return () => {
       window.removeEventListener("keydown", onWindowKeyDown);
     };
-  }, [activeProject, previewDock, previewOpen, setPreviewDock, setPreviewOpen, threadId]);
+  }, [activeProject, activeProjectId, previewDock, previewOpen, setPreviewDock, setPreviewOpen]);
 
   // Empty state: no active thread
   if (!activeThread) {
@@ -4670,8 +4677,8 @@ export default function ChatView({ threadId }: ChatViewProps) {
           onImportProjectScripts={importProjectScripts}
           onToggleTerminal={toggleTerminalVisibility}
           onToggleDiff={onToggleDiff}
-          onTogglePreview={() => togglePreviewOpen()}
-          onTogglePreviewLayout={() => togglePreviewLayout(activeThread.id)}
+          onTogglePreview={() => activeProjectId && togglePreviewOpen(activeProjectId)}
+          onTogglePreviewLayout={() => activeProjectId && togglePreviewLayout(activeProjectId)}
         />
       </header>
 
@@ -4706,8 +4713,8 @@ export default function ChatView({ threadId }: ChatViewProps) {
               >
                 <PreviewPanel
                   key={previewPanelKey ?? undefined}
-                  threadId={activeThread.id}
-                  onClose={() => setPreviewOpen(false)}
+                  projectId={activeProject!.id}
+                  onClose={() => setPreviewOpen(activeProject!.id, false)}
                 />
               </div>
               <div
@@ -5527,8 +5534,8 @@ export default function ChatView({ threadId }: ChatViewProps) {
               >
                 <PreviewPanel
                   key={previewPanelKey ?? undefined}
-                  threadId={activeThread.id}
-                  onClose={() => setPreviewOpen(false)}
+                  projectId={activeProject!.id}
+                  onClose={() => setPreviewOpen(activeProject!.id, false)}
                 />
               </div>
             </>

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const STORAGE_KEY = "okcode:desktop-preview:v3";
+const STORAGE_KEY = "okcode:desktop-preview:v4";
 
 let usePreviewStateStore: typeof import("./previewStateStore").usePreviewStateStore;
 let storage: Map<string, string>;
@@ -26,10 +26,10 @@ describe("previewStateStore", () => {
 
     ({ usePreviewStateStore } = await import("./previewStateStore"));
     usePreviewStateStore.setState({
-      globalOpen: false,
-      dockByThreadId: {},
-      sizeByThreadId: {},
-      presetByThreadId: {},
+      openByProjectId: {},
+      dockByProjectId: {},
+      sizeByProjectId: {},
+      presetByProjectId: {},
       favoriteUrls: [],
     });
     storage.clear();
@@ -46,14 +46,29 @@ describe("previewStateStore", () => {
     expect(usePreviewStateStore.getState().favoriteUrls).not.toContain("http://localhost:3000/");
   });
 
-  it("toggles globalOpen", () => {
+  it("toggles project open state", () => {
     const store = usePreviewStateStore.getState();
+    const projectId = "test-project-id" as any;
 
-    store.setGlobalOpen(true);
-    expect(usePreviewStateStore.getState().globalOpen).toBe(true);
-    expect(storage.get(STORAGE_KEY)).toContain('"globalOpen":true');
+    store.setProjectOpen(projectId, true);
+    expect(usePreviewStateStore.getState().openByProjectId[projectId]).toBe(true);
+    expect(storage.get(STORAGE_KEY)).toContain('"openByProjectId"');
 
-    store.toggleGlobalOpen();
-    expect(usePreviewStateStore.getState().globalOpen).toBe(false);
+    store.toggleProjectOpen(projectId);
+    expect(usePreviewStateStore.getState().openByProjectId[projectId]).toBe(false);
+  });
+
+  it("scopes open state per project", () => {
+    const store = usePreviewStateStore.getState();
+    const projectA = "project-a" as any;
+    const projectB = "project-b" as any;
+
+    store.setProjectOpen(projectA, true);
+    expect(usePreviewStateStore.getState().openByProjectId[projectA]).toBe(true);
+    expect(usePreviewStateStore.getState().openByProjectId[projectB]).toBeUndefined();
+
+    store.setProjectOpen(projectB, false);
+    expect(usePreviewStateStore.getState().openByProjectId[projectA]).toBe(true);
+    expect(usePreviewStateStore.getState().openByProjectId[projectB]).toBe(false);
   });
 });

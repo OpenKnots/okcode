@@ -11,6 +11,7 @@ import { serverConfigQueryOptions } from "../../lib/serverReactQuery";
 import { newCommandId, newProjectId } from "../../lib/utils";
 import { readNativeApi } from "../../nativeApi";
 import { useStore } from "../../store";
+import { CloneRepositoryDialog } from "../CloneRepositoryDialog";
 import { sortProjectsForSidebar } from "../Sidebar.logic";
 import { ProviderSetupCard } from "../chat/ProviderSetupCard";
 import { SidebarTrigger, useSidebar } from "../ui/sidebar";
@@ -36,6 +37,7 @@ export function ChatHomeEmptyState() {
   const threads = useStore((store) => store.threads);
   const { handleNewThread } = useHandleNewThread();
   const [isOpeningProject, setIsOpeningProject] = useState(false);
+  const [cloneDialogOpen, setCloneDialogOpen] = useState(false);
   const { open: sidebarOpen, isMobile: sidebarIsMobile } = useSidebar();
 
   const latestProject = useMemo(
@@ -129,6 +131,47 @@ export function ChatHomeEmptyState() {
     setIsOpeningProject(false);
   }, [appSettings.defaultThreadEnvMode, handleNewThread, isOpeningProject, projects]);
 
+  const handleCloneComplete = useCallback(
+    async (result: { path: string; branch: string; repoName: string }) => {
+      const api = readNativeApi();
+      if (!api) return;
+
+      const existingProject = projects.find((project) => project.cwd === result.path);
+      if (existingProject) {
+        await handleNewThread(existingProject.id, {
+          envMode: appSettings.defaultThreadEnvMode,
+        }).catch(() => undefined);
+        return;
+      }
+
+      const projectId = newProjectId();
+      try {
+        await api.orchestration.dispatchCommand({
+          type: "project.create",
+          commandId: newCommandId(),
+          projectId,
+          title: result.repoName,
+          workspaceRoot: result.path,
+          defaultModel: DEFAULT_MODEL_BY_PROVIDER.codex,
+          createdAt: new Date().toISOString(),
+        });
+        await handleNewThread(projectId, {
+          envMode: appSettings.defaultThreadEnvMode,
+        }).catch(() => undefined);
+      } catch (error) {
+        toastManager.add({
+          type: "error",
+          title: "Failed to add project",
+          description:
+            error instanceof Error
+              ? error.message
+              : "An unexpected error occurred while adding the project.",
+        });
+      }
+    },
+    [appSettings.defaultThreadEnvMode, handleNewThread, projects],
+  );
+
   const startLatestThread = useCallback(async () => {
     if (!latestProject) {
       await openProjectFolder();
@@ -175,7 +218,14 @@ export function ChatHomeEmptyState() {
                 isOpeningProject={isOpeningProject}
                 onNewThread={() => void startLatestThread()}
                 onOpenFolder={() => void openProjectFolder()}
+                onCloneRepo={() => setCloneDialogOpen(true)}
                 onSettings={() => void navigate({ to: "/settings" })}
+              />
+
+              <CloneRepositoryDialog
+                open={cloneDialogOpen}
+                onOpenChange={setCloneDialogOpen}
+                onCloned={handleCloneComplete}
               />
 
               <HomeProviderStatus

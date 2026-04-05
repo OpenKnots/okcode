@@ -1,4 +1,4 @@
-import { FolderOpenIcon, SettingsIcon, TerminalSquareIcon } from "lucide-react";
+import { FolderOpenIcon, GitBranchIcon, SettingsIcon, TerminalSquareIcon } from "lucide-react";
 
 import { Button } from "../ui/button";
 
@@ -7,6 +7,7 @@ interface HomeActionsProps {
   isOpeningProject: boolean;
   onNewThread: () => void;
   onOpenFolder: () => void;
+  onCloneRepo: () => void;
   onSettings: () => void;
 }
 
@@ -15,6 +16,7 @@ export function HomeActions({
   isOpeningProject,
   onNewThread,
   onOpenFolder,
+  onCloneRepo,
   onSettings,
 }: HomeActionsProps) {
   return (
@@ -26,6 +28,10 @@ export function HomeActions({
       <Button variant="outline" onClick={onOpenFolder} disabled={isOpeningProject}>
         <FolderOpenIcon className="size-4" />
         {isOpeningProject ? "Opening..." : "Open folder"}
+      </Button>
+      <Button variant="outline" onClick={onCloneRepo}>
+        <GitBranchIcon className="size-4" />
+        Clone repo
       </Button>
       <Button variant="ghost" onClick={onSettings}>
         <SettingsIcon className="size-4" />

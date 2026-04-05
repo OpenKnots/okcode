@@ -6,6 +6,7 @@ import {
   EyeOffIcon,
   ZapIcon,
   FolderIcon,
+  GitBranchIcon,
   GitMergeIcon,
   GitPullRequestIcon,
   XCircleIcon,
@@ -121,6 +122,7 @@ import {
   resolvePackageManagerResolution,
 } from "~/projectScriptDefaults";
 import { useClientMode } from "~/hooks/useClientMode";
+import { CloneRepositoryDialog } from "~/components/CloneRepositoryDialog";
 import { getProjectColor } from "~/projectColors";
 import type { Thread } from "../types";
 
@@ -398,6 +400,7 @@ export default function Sidebar() {
   const [isAddingProject, setIsAddingProject] = useState(false);
   const [addProjectError, setAddProjectError] = useState<string | null>(null);
   const [manualProjectPathEntry, setManualProjectPathEntry] = useState(false);
+  const [cloneDialogOpen, setCloneDialogOpen] = useState(false);
   const addProjectInputRef = useRef<HTMLInputElement | null>(null);
   const [expandedThreadListsByProject, setExpandedThreadListsByProject] = useState<
     ReadonlySet<ProjectId>
@@ -679,6 +682,13 @@ export default function Sidebar() {
     setManualProjectPathEntry(false);
     setAddingProject((prev) => !prev);
   };
+
+  const handleCloneComplete = useCallback(
+    async (result: { path: string; branch: string; repoName: string }) => {
+      await addProjectFromPath(result.path);
+    },
+    [addProjectFromPath],
+  );
 
   /**
    * Delete a single thread: stop session, close terminal, dispatch delete,
@@ -2044,6 +2054,15 @@ export default function Sidebar() {
                 <FolderIcon className="size-3.5" />
                 {isPickingFolder ? "Picking folder..." : "Browse for folder"}
               </button>
+              <button
+                type="button"
+                className="mb-1.5 flex w-full items-center justify-center gap-2 rounded-md border border-border bg-secondary py-1.5 text-xs text-foreground/80 transition-[background-color,border-color,color] duration-150 ease-out hover:border-border/80 hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={() => setCloneDialogOpen(true)}
+                disabled={isAddingProject}
+              >
+                <GitBranchIcon className="size-3.5" />
+                Clone from GitHub
+              </button>
               {!manualProjectPathEntry && (
                 <button
                   type="button"
@@ -2226,6 +2245,12 @@ export default function Sidebar() {
           )}
         </SidebarMenu>
       </SidebarFooter>
+
+      <CloneRepositoryDialog
+        open={cloneDialogOpen}
+        onOpenChange={setCloneDialogOpen}
+        onCloned={handleCloneComplete}
+      />
     </>
   );
 }

@@ -1,7 +1,15 @@
 import { useCallback, useState } from "react";
 import { SparklesIcon, CheckIcon } from "lucide-react";
 import { Button } from "./ui/button";
-import { Menu, MenuItem, MenuPopup, MenuTrigger, MenuSeparator, MenuGroupLabel } from "./ui/menu";
+import {
+  Menu,
+  MenuGroup,
+  MenuGroupLabel,
+  MenuItem,
+  MenuPopup,
+  MenuSeparator,
+  MenuTrigger,
+} from "./ui/menu";
 
 // ────────────────────────────────────────────────────────────────────────────
 // Prompt Enhancement Presets
@@ -104,30 +112,32 @@ export default function PromptEnhancer({ prompt, onEnhance, disabled }: PromptEn
         <SparklesIcon className="size-4" />
       </MenuTrigger>
       <MenuPopup align="end" side="top">
-        <MenuGroupLabel>Enhance your prompt</MenuGroupLabel>
-        <MenuSeparator />
-        {ENHANCEMENTS.map((enhancement) => {
-          const isApplied = appliedIds.has(enhancement.id);
-          return (
-            <MenuItem
-              key={enhancement.id}
-              onClick={() => handleEnhance(enhancement)}
-              disabled={isApplied}
-            >
-              <div className="flex items-center gap-2">
-                {isApplied ? (
-                  <CheckIcon className="size-3.5 text-green-500" />
-                ) : (
-                  <span className="size-3.5" />
-                )}
-                <div className="flex flex-col">
-                  <span>{enhancement.label}</span>
-                  <span className="text-muted-foreground text-xs">{enhancement.description}</span>
+        <MenuGroup>
+          <MenuGroupLabel>Enhance your prompt</MenuGroupLabel>
+          <MenuSeparator />
+          {ENHANCEMENTS.map((enhancement) => {
+            const isApplied = appliedIds.has(enhancement.id);
+            return (
+              <MenuItem
+                key={enhancement.id}
+                onClick={() => handleEnhance(enhancement)}
+                disabled={isApplied}
+              >
+                <div className="flex items-center gap-2">
+                  {isApplied ? (
+                    <CheckIcon className="size-3.5 text-green-500" />
+                  ) : (
+                    <span className="size-3.5" />
+                  )}
+                  <div className="flex flex-col">
+                    <span>{enhancement.label}</span>
+                    <span className="text-muted-foreground text-xs">{enhancement.description}</span>
+                  </div>
                 </div>
-              </div>
-            </MenuItem>
-          );
-        })}
+              </MenuItem>
+            );
+          })}
+        </MenuGroup>
       </MenuPopup>
     </Menu>
   );

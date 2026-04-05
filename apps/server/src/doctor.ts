@@ -15,6 +15,7 @@ import {
 } from "./provider/Layers/ProviderHealth";
 import type { ServerProviderStatus } from "@okcode/contracts";
 import { fixPath } from "./os-jank";
+import { serverBuildInfo } from "./buildInfo";
 
 const STATUS_ICONS: Record<string, string> = {
   ready: "\u2705",
@@ -53,6 +54,14 @@ const doctorProgram = Effect.gen(function* () {
 
   console.log("OK Code Doctor");
   console.log("==============");
+  console.log("");
+  console.log(`Version: ${serverBuildInfo.version}`);
+  console.log(
+    `Surface: ${serverBuildInfo.surface} (${serverBuildInfo.platform}/${serverBuildInfo.arch})`,
+  );
+  console.log(`Channel: ${serverBuildInfo.channel}`);
+  console.log(`Commit: ${serverBuildInfo.commitHash ?? "unknown"}`);
+  console.log(`Built: ${serverBuildInfo.buildTimestamp}`);
   console.log("");
   console.log("Checking provider health...");
 

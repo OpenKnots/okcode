@@ -23,7 +23,7 @@ import {
   patchCustomModels,
   useAppSettings,
 } from "../appSettings";
-import { APP_VERSION } from "../branding";
+import { APP_BUILD_INFO } from "../branding";
 import { Button } from "../components/ui/button";
 import { Collapsible, CollapsibleContent } from "../components/ui/collapsible";
 import { EnvironmentVariablesEditor } from "../components/EnvironmentVariablesEditor";
@@ -1904,10 +1904,35 @@ function SettingsRouteView() {
               />
 
               <SettingsRow
-                title="Version"
-                description="Current application version."
+                title="Build"
+                description="Current app-shell and server build metadata."
                 control={
-                  <code className="text-xs font-medium text-muted-foreground">{APP_VERSION}</code>
+                  <div className="space-y-2 text-left">
+                    <div className="space-y-0.5">
+                      <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                        App
+                      </div>
+                      <code className="block text-xs font-medium text-muted-foreground">
+                        {`${APP_BUILD_INFO.version} · ${APP_BUILD_INFO.surface} · ${APP_BUILD_INFO.platform}/${APP_BUILD_INFO.arch}`}
+                      </code>
+                      <code className="block text-[11px] text-muted-foreground">
+                        {`${APP_BUILD_INFO.channel} · ${APP_BUILD_INFO.commitHash ?? "unknown"} · ${APP_BUILD_INFO.buildTimestamp}`}
+                      </code>
+                    </div>
+                    {serverConfigQuery.data?.buildInfo ? (
+                      <div className="space-y-0.5">
+                        <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                          Server
+                        </div>
+                        <code className="block text-xs font-medium text-muted-foreground">
+                          {`${serverConfigQuery.data.buildInfo.version} · ${serverConfigQuery.data.buildInfo.surface} · ${serverConfigQuery.data.buildInfo.platform}/${serverConfigQuery.data.buildInfo.arch}`}
+                        </code>
+                        <code className="block text-[11px] text-muted-foreground">
+                          {`${serverConfigQuery.data.buildInfo.channel} · ${serverConfigQuery.data.buildInfo.commitHash ?? "unknown"} · ${serverConfigQuery.data.buildInfo.buildTimestamp}`}
+                        </code>
+                      </div>
+                    ) : null}
+                  </div>
                 }
               />
             </SettingsSection>

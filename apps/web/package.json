@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
-    "test:browser": "vitest run --config vitest.browser.config.ts",
+    "test:browser": "node ../../scripts/run-browser-tests.mjs vitest.browser.config.ts",
     "test:browser:install": "playwright install --with-deps chromium"
   },
   "dependencies": {

@@ -16,7 +16,6 @@ import { useCodeViewerStore } from "../codeViewerStore";
 import { usePreviewStateStore } from "../previewStateStore";
 import { useSimulationViewerStore } from "../simulationViewerStore";
 import { useMutuallyExclusivePanels } from "../mutuallyExclusivePanels";
-import { useMediaQuery } from "../hooks/useMediaQuery";
 import { useClientMode } from "../hooks/useClientMode";
 import { useStore } from "../store";
 import { Sheet, SheetPopup } from "../components/ui/sheet";

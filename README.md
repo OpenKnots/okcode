@@ -185,16 +185,13 @@ Notes:
 
 ## 8) Release operations
 
-Release is mostly driven by `.github/workflows/release.yml` and docs in `docs/releases`.
+Release is driven by `.github/workflows/release.yml` and the canonical runbook in
+[`docs/release.md`](/Users/buns/.okcode/worktrees/okcode/okcode-1c7a5554/docs/release.md).
 
-- Trigger on tag push (`vX.Y.Z`) or `workflow_dispatch`.
-- Preflight does `bun run lint`, `bun run typecheck`, `bun run test`,
-  and release smoke.
-- Artifact build step executes `bun run dist:desktop:artifact`.
-- Publishing requires release notes + asset manifest for the version.
-
-For a practical walkthrough, use the release playbook in
-[`docs/releases/README.md`](/Users/buns/.okcode/worktrees/okcode/okcode-ddc899c0/docs/releases/README.md).
+- The stable train now coordinates desktop, iOS TestFlight, and `okcodes` CLI on one version.
+- Preflight runs format, lint, typecheck, tests, browser tests, desktop smoke, and release smoke.
+- The separate Intel mac workflow is compatibility-only and non-blocking.
+- Publishing still requires release notes and an asset manifest for the tagged version.
 
 ## 9) Extending the system (recommended pattern)
 
@@ -216,8 +213,8 @@ For a practical walkthrough, use the release playbook in
 
 ## 11) FAQ
 
-- **Why are x64 macOS artifacts sometimes absent from release matrix?**  
-  The release workflow can be configured to build only Apple Silicon by default for `workflow_dispatch` with `mac_arm64_only=true`.
+- **Why is Intel macOS not part of the stable gate?**  
+  Apple Silicon is the blocking macOS target for the next release train. Intel builds run in a separate compatibility workflow until that lane is consistently green.
 - **Why strict release gates?**  
   They prevent format/type drift from reaching published artifacts.
 - **Can I run release checks locally first?**  
@@ -236,7 +233,7 @@ For a practical walkthrough, use the release playbook in
 ### Pre-release hardening
 
 1. Ensure release notes and asset manifest are prepared.
-2. Confirm release matrix intent (`mac_arm64_only` expectation).
+2. Confirm macOS, Windows, Linux, iOS TestFlight, and CLI release inputs are ready.
 3. Confirm signing secrets availability for macOS/Windows targets.
 4. Confirm `docs/releases/v<version>.md` and `docs/releases/v<version>/assets.md` exist.
 5. Trigger release and monitor all jobs.

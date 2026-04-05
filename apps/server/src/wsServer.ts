@@ -94,6 +94,7 @@ import { SkillService } from "./skills/SkillService.ts";
 import { TokenManager } from "./tokenManager.ts";
 import { resolveRuntimeEnvironment, RuntimeEnv } from "./runtimeEnvironment.ts";
 import { version as serverVersion } from "../package.json" with { type: "json" };
+import { serverBuildInfo } from "./buildInfo";
 
 /**
  * Returns true if `a` is a strictly higher semver than `b`.
@@ -1420,6 +1421,7 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
           issues: keybindingsConfig.issues,
           providers: providerStatuses,
           availableEditors,
+          buildInfo: serverBuildInfo,
         };
 
       case WS_METHODS.serverCheckUpdate: {

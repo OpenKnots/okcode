@@ -22,7 +22,7 @@ export const ChangedFilesTree = memo(function ChangedFilesTree(props: {
   resolvedTheme: "light" | "dark";
   cwd: string | undefined;
 }) {
-  const { files, allDirectoriesExpanded, resolvedTheme, turnId, cwd } = props;
+  const { files, allDirectoriesExpanded, resolvedTheme, cwd } = props;
   const fileManagerName =
     typeof navigator !== "undefined" && isMacPlatform(navigator.platform)
       ? "Finder"

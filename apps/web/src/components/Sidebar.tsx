@@ -61,7 +61,11 @@ import { readNativeApi } from "../nativeApi";
 import { resolveServerHttpOrigin } from "../lib/runtimeBridge";
 import { useComposerDraftStore } from "../composerDraftStore";
 import { useHandleNewThread } from "../hooks/useHandleNewThread";
-import { selectThreadTerminalState, useTerminalStateStore } from "../terminalStateStore";
+import {
+  selectThreadTerminalState,
+  type ThreadTerminalState,
+  useTerminalStateStore,
+} from "../terminalStateStore";
 import { toastManager } from "./ui/toast";
 import {
   getArm64IntelBuildWarningDescription,
@@ -370,9 +374,7 @@ interface MemoizedThreadRowProps {
   routeThreadId: ThreadIdType | null;
   pColor: ReturnType<typeof getProjectColor>;
   prByThreadId: Map<ThreadIdType, ThreadPr>;
-  terminalStateByThreadId: ReturnType<
-    typeof useTerminalStateStore.getState
-  >["terminalStateByThreadId"];
+  terminalStateByThreadId: Record<ThreadIdType, ThreadTerminalState>;
   orderedProjectThreadIds: ThreadIdType[];
   selectedThreadIds: ReadonlySet<ThreadIdType>;
   editingThreadId: ThreadIdType | null;

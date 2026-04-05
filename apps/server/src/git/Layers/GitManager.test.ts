@@ -791,7 +791,7 @@ it.layer(GitManagerTestLayer)("GitManager", (it) => {
       yield* runGit(repoDir, ["checkout", "-b", "feature/rebase-before-commit"]);
 
       const updaterDir = yield* makeTempDir("okcode-git-manager-updater-");
-      yield* runGit(updaterDir, ["clone", remoteDir, "."]);
+      yield* runGit(updaterDir, ["clone", "--branch", "main", remoteDir, "."]);
       yield* runGit(updaterDir, ["config", "user.email", "test@example.com"]);
       yield* runGit(updaterDir, ["config", "user.name", "Test User"]);
       fs.writeFileSync(path.join(updaterDir, "base.txt"), "remote main update\n");

@@ -3597,6 +3597,15 @@ export default function ChatView({ threadId }: ChatViewProps) {
     setQueuedMessages([]);
   }, []);
 
+  const onRemoveQueuedMessage = useCallback((messageId: MessageId) => {
+    setOptimisticUserMessages((existing) => {
+      const target = existing.find((msg) => msg.id === messageId && msg.queued);
+      if (target) revokeUserMessagePreviewUrls(target);
+      return existing.filter((msg) => msg.id !== messageId);
+    });
+    setQueuedMessages((existing) => existing.filter((msg) => msg.id !== messageId));
+  }, []);
+
   const onRespondToApproval = useCallback(
     async (requestId: ApprovalRequestId, decision: ProviderApprovalDecision) => {
       const api = readNativeApi();
@@ -4737,6 +4746,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
                   timestampFormat={timestampFormat}
                   workspaceRoot={activeProject?.cwd ?? undefined}
                   shortcutGuides={chatShortcutGuides}
+                  onRemoveQueuedMessage={onRemoveQueuedMessage}
                   onOpenSettings={() => void navigate({ to: "/settings" })}
                 />
               </div>

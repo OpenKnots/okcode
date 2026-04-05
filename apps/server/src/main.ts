@@ -25,6 +25,7 @@ import { ProviderHealthLive } from "./provider/Layers/ProviderHealth";
 import { Server } from "./wsServer";
 import { ServerLoggerLive } from "./serverLogger";
 import { doctorCmd } from "./doctor";
+import { serverBuildInfo } from "./buildInfo";
 
 export class StartupError extends Data.TaggedError("StartupError")<{
   readonly message: string;
@@ -235,6 +236,7 @@ const makeServerProgram = (input: CliInput) =>
       ...safeConfig,
       devUrl: devUrl?.toString(),
       authEnabled: Boolean(authToken),
+      buildInfo: serverBuildInfo,
     });
 
     if (!config.noBrowser) {

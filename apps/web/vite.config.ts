@@ -14,6 +14,10 @@ const buildSourcemap =
     : sourcemapEnv === "hidden"
       ? "hidden"
       : true;
+const buildTimestamp = process.env.OKCODE_BUILD_TIMESTAMP ?? new Date().toISOString();
+const releaseChannel =
+  process.env.OKCODE_RELEASE_CHANNEL ?? (pkg.version.includes("-") ? "prerelease" : "stable");
+const commitHash = process.env.OKCODE_COMMIT_HASH ?? process.env.GITHUB_SHA ?? "";
 
 export default defineConfig({
   plugins: [
@@ -36,6 +40,9 @@ export default defineConfig({
     // In dev mode, tell the web app where the WebSocket server lives
     "import.meta.env.VITE_WS_URL": JSON.stringify(process.env.VITE_WS_URL ?? ""),
     "import.meta.env.APP_VERSION": JSON.stringify(pkg.version),
+    "import.meta.env.APP_COMMIT_HASH": JSON.stringify(commitHash),
+    "import.meta.env.APP_BUILD_TIMESTAMP": JSON.stringify(buildTimestamp),
+    "import.meta.env.APP_RELEASE_CHANNEL": JSON.stringify(releaseChannel),
   },
   resolve: {
     tsconfigPaths: true,

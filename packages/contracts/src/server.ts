@@ -1,5 +1,6 @@
 import { Schema } from "effect";
 import { IsoDateTime, TrimmedNonEmptyString } from "./baseSchemas";
+import { BuildMetadata } from "./buildInfo";
 import { KeybindingRule, ResolvedKeybindingsConfig } from "./keybindings";
 import { EditorId } from "./editor";
 import { ProviderKind } from "./orchestration";
@@ -52,6 +53,7 @@ export const ServerConfig = Schema.Struct({
   issues: ServerConfigIssues,
   providers: ServerProviderStatuses,
   availableEditors: Schema.Array(EditorId),
+  buildInfo: Schema.optional(BuildMetadata),
 });
 export type ServerConfig = typeof ServerConfig.Type;
 

@@ -667,11 +667,32 @@ label:has(> select#reasoning-effort) select {
 @keyframes voodoo-stitch-pulse {
   0%,
   100% {
-    opacity: 0.08;
+    opacity: 0.06;
   }
   50% {
-    opacity: 0.3;
+    opacity: 0.18;
   }
+}
+
+/* ─── 3D depth shadow around viewport edge ─── */
+.voodoo-depth-shadow {
+  position: absolute;
+  inset: 0;
+  border-radius: 2px;
+  box-shadow:
+    inset 0 1px 3px 0 rgba(0, 0, 0, 0.08),
+    inset 0 -1px 2px 0 rgba(255, 255, 255, 0.02),
+    inset 1px 0 2px 0 rgba(0, 0, 0, 0.05),
+    inset -1px 0 2px 0 rgba(0, 0, 0, 0.05);
+  pointer-events: none;
+}
+
+.dark .voodoo-depth-shadow {
+  box-shadow:
+    inset 0 1px 4px 0 rgba(0, 0, 0, 0.25),
+    inset 0 -1px 2px 0 rgba(255, 255, 255, 0.015),
+    inset 1px 0 3px 0 rgba(0, 0, 0, 0.18),
+    inset -1px 0 3px 0 rgba(0, 0, 0, 0.18);
 }
 
 /* ─── Accessibility ─── */

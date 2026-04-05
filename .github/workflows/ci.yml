@@ -6,9 +6,59 @@ on:
     branches:
       - main
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  detect_changes:
+    name: Detect changed areas
+    runs-on: ubuntu-24.04
+    outputs:
+      browser_tests: ${{ steps.filter.outputs.browser_tests }}
+      desktop_windows: ${{ steps.filter.outputs.desktop_windows }}
+      release_smoke: ${{ steps.filter.outputs.release_smoke }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - id: filter
+        name: Classify changed files
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            browser_tests:
+              - 'apps/web/**'
+              - 'apps/server/**'
+              - 'packages/contracts/**'
+              - 'packages/shared/**'
+              - 'package.json'
+              - 'bun.lock'
+              - 'turbo.json'
+              - 'vitest.config.ts'
+              - 'apps/web/vitest.browser.config.ts'
+              - 'apps/web/vite.config.ts'
+            desktop_windows:
+              - 'apps/desktop/**'
+              - 'apps/server/**'
+              - 'packages/contracts/**'
+              - 'packages/shared/**'
+              - 'scripts/build-desktop-artifact.ts'
+              - 'package.json'
+              - 'bun.lock'
+              - 'turbo.json'
+            release_smoke:
+              - '.github/workflows/release.yml'
+              - '.github/workflows/release-ios.yml'
+              - 'scripts/release-smoke.ts'
+              - 'scripts/build-desktop-artifact.ts'
+              - 'scripts/update-release-package-versions.ts'
+              - 'package.json'
+              - 'bun.lock'
+
   quality:
     name: Format, Lint, Typecheck, Test, Browser Test, Build
+    needs: detect_changes
     runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Checkout
@@ -58,11 +108,13 @@ jobs:
         run: bun run test
 
       - name: Install browser test runtime
+        if: needs.detect_changes.outputs.browser_tests == 'true'
         run: |
           cd apps/web
           bunx playwright install --with-deps chromium
 
       - name: Browser test
+        if: needs.detect_changes.outputs.browser_tests == 'true'
         run: bun run --cwd apps/web test:browser
 
       - name: Build desktop pipeline
@@ -75,6 +127,8 @@ jobs:
 
   desktop_windows:
     name: Windows Desktop Build
+    needs: detect_changes
+    if: needs.detect_changes.outputs.desktop_windows == 'true'
     runs-on: windows-2022
     steps:
       - name: Checkout
@@ -119,6 +173,8 @@ jobs:
 
   release_smoke:
     name: Release Smoke
+    needs: detect_changes
+    if: needs.detect_changes.outputs.release_smoke == 'true'
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout

@@ -43,7 +43,7 @@ function resolveVitestBin(cwd, configPath) {
   return path.resolve(vitestPackageDir, vitestBinRelative);
 }
 
-function runTestFile({ configPath, filePath, cwd, timeoutMs, vitestBin }) {
+function runTestFile({ configPath, filePath, timeoutMs, vitestBin }) {
   return new Promise((resolve) => {
     const configDir = path.dirname(configPath);
     const args = [vitestBin, "run", "--config", configPath, path.relative(configDir, filePath)];
@@ -106,7 +106,6 @@ async function main() {
     const result = await runTestFile({
       configPath,
       filePath,
-      cwd,
       timeoutMs,
       vitestBin,
     });

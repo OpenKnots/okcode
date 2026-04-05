@@ -71,6 +71,7 @@ import { ScrollArea } from "~/components/ui/scroll-area";
 import { Textarea } from "~/components/ui/textarea";
 import { toastManager } from "~/components/ui/toast";
 import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
+import { useFileViewNavigation } from "~/hooks/useFileViewNavigation";
 import { openInPreferredEditor } from "~/editorPreferences";
 import {
   gitBranchesQueryOptions,
@@ -350,6 +351,7 @@ function GitSyncActionIcon() {
 
 export default function GitActionsControl({ gitCwd, activeThreadId }: GitActionsControlProps) {
   const { settings } = useAppSettings();
+  const openFileInViewer = useFileViewNavigation();
   const threadToastData = useMemo(
     () => (activeThreadId ? { threadId: activeThreadId } : undefined),
     [activeThreadId],
@@ -1158,28 +1160,19 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
     setDialogCommitMessage,
   ]);
 
-  const openChangedFileInEditor = useCallback(
+  const openChangedFileInApp = useCallback(
     (filePath: string) => {
-      const api = readNativeApi();
-      if (!api || !gitCwd) {
+      if (!gitCwd) {
         toastManager.add({
           type: "error",
-          title: "Editor opening is unavailable.",
+          title: "File opening is unavailable.",
           data: threadToastData,
         });
         return;
       }
-      const target = resolvePathLinkTarget(filePath, gitCwd);
-      void openInPreferredEditor(api, target).catch((error) => {
-        toastManager.add({
-          type: "error",
-          title: "Unable to open file",
-          description: error instanceof Error ? error.message : "An error occurred.",
-          data: threadToastData,
-        });
-      });
+      openFileInViewer(gitCwd, filePath);
     },
-    [gitCwd, threadToastData],
+    [gitCwd, openFileInViewer, threadToastData],
   );
 
   if (!gitCwd) return null;
@@ -1507,7 +1500,7 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
                               <button
                                 type="button"
                                 className="flex flex-1 items-center justify-between gap-3 text-left truncate"
-                                onClick={() => openChangedFileInEditor(file.path)}
+                                onClick={() => openChangedFileInApp(file.path)}
                               >
                                 <span
                                   className={`truncate${isExcluded ? " text-muted-foreground" : ""}`}

@@ -1,4 +1,4 @@
-import { DEFAULT_MODEL_BY_PROVIDER, type ServerProviderStatus } from "@okcode/contracts";
+import { DEFAULT_MODEL_BY_PROVIDER } from "@okcode/contracts";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useMemo, useState } from "react";

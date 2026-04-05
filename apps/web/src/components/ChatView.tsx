@@ -16,7 +16,6 @@ import {
   type ResolvedKeybindingsConfig,
   type ServerProviderStatus,
   type ThreadId,
-  type TurnId,
   type KeybindingCommand,
   OrchestrationThreadActivity,
   ProviderInteractionMode,

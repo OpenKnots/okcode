@@ -4,7 +4,7 @@ import { Badge } from "../ui/badge";
 import { getProviderBadgeVariant, getProviderLabel, getProviderStatusLabel } from "./home-utils";
 
 interface HomeProviderStatusProps {
-  providers: ServerProviderStatus[];
+  providers: readonly ServerProviderStatus[];
   onSettingsClick: () => void;
 }
 

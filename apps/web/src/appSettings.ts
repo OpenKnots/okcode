@@ -72,6 +72,7 @@ export const AppSettingsSchema = Schema.Struct({
   confirmThreadDelete: Schema.Boolean.pipe(withDefaults(() => true)),
   autoDeleteMergedThreads: Schema.Boolean.pipe(withDefaults(() => false)),
   autoDeleteMergedThreadsDelayMinutes: Schema.Number.pipe(withDefaults(() => 5)),
+  rebaseBeforeCommit: Schema.Boolean.pipe(withDefaults(() => false)),
   enableAssistantStreaming: Schema.Boolean.pipe(withDefaults(() => false)),
   showAuthFailuresAsErrors: Schema.Boolean.pipe(withDefaults(() => true)),
   locale: AppLocale.pipe(withDefaults(() => DEFAULT_APP_LOCALE)),

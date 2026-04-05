@@ -19,6 +19,7 @@ import {
   Stream,
 } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
+import { existsSync, statSync } from "node:fs";
 import { compactNodeProcessEnv, mergeNodeProcessEnv } from "@okcode/shared/environment";
 
 import { getRuntimeEnv } from "../../runtimeEnvironment.ts";
@@ -1136,8 +1137,10 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
 
     const statusDetails: GitCoreShape["statusDetails"] = (cwd) =>
       Effect.gen(function* () {
-        const cwdStat = yield* fileSystem.stat(cwd).pipe(Effect.catch(() => Effect.succeed(null)));
-        if (!cwdStat || cwdStat.type !== "Directory") {
+        // Use synchronous check to avoid PlatformError defects from the Effect
+        // filesystem when the directory has been deleted (e.g. during tests or
+        // when a workspace is removed while the server is running).
+        if (!existsSync(cwd) || !statSync(cwd, { throwIfNoEntry: false })?.isDirectory()) {
           return EMPTY_STATUS_DETAILS;
         }
 

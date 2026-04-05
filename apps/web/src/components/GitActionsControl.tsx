@@ -56,6 +56,7 @@ import {
 import { Group, GroupSeparator } from "~/components/ui/group";
 import {
   Menu,
+  MenuGroup,
   MenuGroupLabel,
   MenuItem,
   MenuPopup,
@@ -998,30 +999,57 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
     (messages?: {
       loadingTitle?: string;
       pulledTitle?: string;
+      rebasedTitle?: string;
+      conflictedTitle?: string;
       skippedTitle?: string;
       errorTitle?: string;
     }) => {
-      const promise = pullMutation.mutateAsync();
-      toastManager.promise(promise, {
-        loading: { title: messages?.loadingTitle ?? "Pulling...", data: threadToastData },
-        success: (result) => ({
-          title:
-            result.status === "pulled"
-              ? (messages?.pulledTitle ?? "Pulled")
-              : (messages?.skippedTitle ?? "Already up to date"),
-          description:
-            result.status === "pulled"
-              ? `Updated ${result.branch} from ${result.upstreamBranch ?? "upstream"}`
-              : `${result.branch} is already synchronized.`,
-          data: threadToastData,
-        }),
-        error: (err) => ({
-          title: messages?.errorTitle ?? "Pull failed",
-          description: err instanceof Error ? err.message : "An error occurred.",
-          data: threadToastData,
-        }),
+      const loadingToastId = toastManager.add({
+        type: "loading",
+        title: messages?.loadingTitle ?? "Pulling...",
+        timeout: 0,
+        data: threadToastData,
       });
-      void promise.catch(() => undefined);
+      void pullMutation
+        .mutateAsync()
+        .then((result) => {
+          if (result.status === "conflicted") {
+            toastManager.update(loadingToastId, {
+              type: "warning",
+              title: messages?.conflictedTitle ?? "Rebase stopped with conflicts",
+              description:
+                result.conflictedFiles.length > 0
+                  ? `Resolve ${result.conflictedFiles.length} conflicted file${result.conflictedFiles.length === 1 ? "" : "s"} in ${result.cwd}, then continue from the conflict controls.`
+                  : `Resolve conflicts in ${result.cwd} before continuing.`,
+              data: threadToastData,
+            });
+            return;
+          }
+          toastManager.update(loadingToastId, {
+            type: "success",
+            title:
+              result.status === "pulled"
+                ? (messages?.pulledTitle ?? "Pulled")
+                : result.status === "rebased"
+                  ? (messages?.rebasedTitle ?? "Rebased")
+                  : (messages?.skippedTitle ?? "Already up to date"),
+            description:
+              result.status === "pulled"
+                ? `Updated ${result.branch} from ${result.upstreamBranch ?? "upstream"}`
+                : result.status === "rebased"
+                  ? `Rebased ${result.branch} onto ${result.upstreamBranch ?? "upstream"}`
+                  : `${result.branch} is already synchronized.`,
+            data: threadToastData,
+          });
+        })
+        .catch((err) => {
+          toastManager.update(loadingToastId, {
+            type: "error",
+            title: messages?.errorTitle ?? "Pull failed",
+            description: err instanceof Error ? err.message : "An error occurred.",
+            data: threadToastData,
+          });
+        });
     },
     [pullMutation, threadToastData],
   );
@@ -1034,6 +1062,8 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
       runPullWithToast({
         loadingTitle: "Syncing...",
         pulledTitle: "Synced branch",
+        rebasedTitle: "Rebased branch",
+        conflictedTitle: "Sync stopped with conflicts",
         skippedTitle: "Already up to date",
         errorTitle: "Sync failed",
       });

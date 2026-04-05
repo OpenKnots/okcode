@@ -1133,7 +1133,7 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
         const snapshot = yield* projectionReadModelQuery.getSnapshot();
         const gitEnv = yield* resolveRuntimeEnvironment({ cwd: body.cwd, readModel: snapshot });
         return yield* git
-          .pullCurrentBranch(body.cwd)
+          .syncCurrentBranch(body.cwd)
           .pipe(Effect.provideService(RuntimeEnv, gitEnv));
       }
 

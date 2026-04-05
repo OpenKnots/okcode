@@ -122,8 +122,10 @@ export default function BranchToolbar({
   const queryClient = useQueryClient();
   const gitCwd = activeWorktreePath ?? activeProject?.cwd ?? null;
   const gitStatus = useQuery(gitStatusQueryOptions(gitCwd));
+  const aheadCount = gitStatus.data?.aheadCount ?? 0;
   const behindCount = gitStatus.data?.behindCount ?? 0;
-  const isBehindUpstream = behindCount > 0 && !hasServerThread;
+  const isDiverged = aheadCount > 0 && behindCount > 0;
+  const needsSync = behindCount > 0 && !hasServerThread;
   const pullMutation = useMutation(gitPullMutationOptions({ cwd: gitCwd, queryClient }));
 
   // Force a fresh git-status fetch when a draft thread mounts so we catch
@@ -139,12 +141,25 @@ export default function BranchToolbar({
     void promise
       .then((result) => {
         toastManager.add({
-          type: "success",
-          title: result.status === "pulled" ? "Pulled" : "Already up to date",
+          type: result.status === "conflicted" ? "warning" : "success",
+          title:
+            result.status === "pulled"
+              ? "Pulled"
+              : result.status === "rebased"
+                ? "Rebased"
+                : result.status === "conflicted"
+                  ? "Rebase stopped with conflicts"
+                  : "Already up to date",
           description:
             result.status === "pulled"
               ? `Updated ${result.branch} from ${result.upstreamBranch ?? "upstream"}.`
-              : "Branch is already up to date.",
+              : result.status === "rebased"
+                ? `Rebased ${result.branch} onto ${result.upstreamBranch ?? "upstream"}.`
+                : result.status === "conflicted"
+                  ? result.conflictedFiles.length > 0
+                    ? `Resolve ${result.conflictedFiles.length} conflicted file${result.conflictedFiles.length === 1 ? "" : "s"} in ${result.cwd}.`
+                    : `Resolve conflicts in ${result.cwd} before continuing.`
+                  : "Branch is already up to date.",
         });
       })
       .catch((error) => {
@@ -210,7 +225,7 @@ export default function BranchToolbar({
 
       <div className="flex flex-col items-end gap-1">
         <div className="flex items-center gap-1.5">
-          {isBehindUpstream ? (
+          {needsSync ? (
             <Tooltip>
               <TooltipTrigger
                 render={
@@ -226,7 +241,7 @@ export default function BranchToolbar({
                     ) : (
                       <ArrowDownIcon className="size-3" />
                     )}
-                    Pull
+                    {isDiverged ? "Rebase" : "Pull"}
                     <Badge
                       variant="outline"
                       size="sm"
@@ -238,8 +253,9 @@ export default function BranchToolbar({
                 }
               />
               <TooltipPopup side="bottom" align="end">
-                Local branch is {behindCount} commit{behindCount !== 1 ? "s" : ""} behind upstream.
-                Pull to update before starting a new thread.
+                {isDiverged
+                  ? `Local branch has diverged from upstream (${aheadCount} ahead, ${behindCount} behind). Rebase before starting a new thread.`
+                  : `Local branch is ${behindCount} commit${behindCount !== 1 ? "s" : ""} behind upstream. Pull to update before starting a new thread.`}
               </TooltipPopup>
             </Tooltip>
           ) : null}

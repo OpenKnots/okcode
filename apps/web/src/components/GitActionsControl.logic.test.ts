@@ -422,13 +422,13 @@ describe("when: branch is behind upstream", () => {
 });
 
 describe("when: branch has diverged from upstream", () => {
-  it("resolveQuickAction returns a disabled sync hint", () => {
+  it("resolveQuickAction offers a sync action", () => {
     const quick = resolveQuickAction(status({ aheadCount: 2, behindCount: 1 }), false);
     assert.deepEqual(quick, {
       label: "Sync branch",
-      disabled: true,
-      kind: "show_hint",
-      hint: "Branch has diverged from upstream. Rebase/merge first.",
+      disabled: false,
+      kind: "run_pull",
+      hint: "Branch has diverged from upstream. Rebase onto the remote branch.",
     });
   });
 });
@@ -453,13 +453,13 @@ describe("sync button state", () => {
     });
   });
 
-  it("returns a disabled sync hint when the branch has diverged from upstream", () => {
+  it("returns a rebase sync action when the branch has diverged from upstream", () => {
     const syncAction = resolveSyncAction(status({ aheadCount: 2, behindCount: 1 }), false);
     assert.deepEqual(syncAction, {
       label: "Sync branch",
-      disabled: true,
-      kind: "show_hint",
-      hint: "Branch has diverged from upstream. Rebase/merge first.",
+      disabled: false,
+      kind: "run_pull",
+      hint: "Branch has diverged from upstream. Rebase onto the remote branch.",
     });
   });
 

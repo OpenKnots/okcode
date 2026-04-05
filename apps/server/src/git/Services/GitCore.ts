@@ -199,9 +199,10 @@ export interface GitCoreShape {
   ) => Effect.Effect<GitListBranchesResult, GitCommandError>;
 
   /**
-   * Pull current branch from upstream using fast-forward only.
+   * Synchronize the current branch with its upstream using fast-forward pull
+   * when cleanly behind and rebase when the branch has diverged.
    */
-  readonly pullCurrentBranch: (cwd: string) => Effect.Effect<GitPullResult, GitCommandError>;
+  readonly syncCurrentBranch: (cwd: string) => Effect.Effect<GitPullResult, GitCommandError>;
 
   /**
    * Create a worktree and branch from a base branch.

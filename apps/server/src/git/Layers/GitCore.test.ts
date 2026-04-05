@@ -1823,12 +1823,50 @@ it.layer(TestLayer)("git integration", (it) => {
         yield* git(clone, ["push", "origin", initialBranch]);
 
         const core = yield* GitCore;
-        const pulled = yield* core.pullCurrentBranch(source);
+        const pulled = yield* core.syncCurrentBranch(source);
         expect(pulled.status).toBe("pulled");
+        expect(pulled.strategy).toBe("pull");
         expect((yield* core.statusDetails(source)).behindCount).toBe(0);
 
-        const skipped = yield* core.pullCurrentBranch(source);
+        const skipped = yield* core.syncCurrentBranch(source);
         expect(skipped.status).toBe("skipped_up_to_date");
+      }),
+    );
+
+    it.effect("rebases diverged branches and reports conflicts", () =>
+      Effect.gen(function* () {
+        const remote = yield* makeTmpDir();
+        const source = yield* makeTmpDir();
+        const clone = yield* makeTmpDir();
+        yield* git(remote, ["init", "--bare"]);
+
+        yield* initRepoWithCommit(source);
+        const initialBranch = (yield* (yield* GitCore).listBranches({ cwd: source })).branches.find(
+          (branch) => branch.current,
+        )!.name;
+        yield* git(source, ["remote", "add", "origin", remote]);
+        yield* git(source, ["push", "-u", "origin", initialBranch]);
+
+        yield* writeTextFile(path.join(source, "README.md"), "local change\n");
+        yield* git(source, ["add", "README.md"]);
+        yield* git(source, ["commit", "-m", "local update"]);
+
+        yield* git(clone, ["clone", remote, "."]);
+        yield* git(clone, ["config", "user.email", "test@test.com"]);
+        yield* git(clone, ["config", "user.name", "Test"]);
+        yield* writeTextFile(path.join(clone, "README.md"), "remote change\n");
+        yield* git(clone, ["add", "README.md"]);
+        yield* git(clone, ["commit", "-m", "remote update"]);
+        yield* git(clone, ["push", "origin", initialBranch]);
+
+        const core = yield* GitCore;
+        const result = yield* core.syncCurrentBranch(source);
+
+        expect(result.status).toBe("conflicted");
+        expect(result.strategy).toBe("rebase");
+        expect(result.hasConflicts).toBe(true);
+        expect(result.conflictedFiles).toContain("README.md");
+        expect((yield* core.statusDetails(source)).hasConflicts).toBe(true);
       }),
     );
 
@@ -1836,7 +1874,7 @@ it.layer(TestLayer)("git integration", (it) => {
       Effect.gen(function* () {
         const tmp = yield* makeTmpDir();
         yield* initRepoWithCommit(tmp);
-        const result = yield* Effect.result((yield* GitCore).pullCurrentBranch(tmp));
+        const result = yield* Effect.result((yield* GitCore).syncCurrentBranch(tmp));
         expect(result._tag).toBe("Failure");
         if (result._tag === "Failure") {
           expect(result.failure.message.toLowerCase()).toContain("no upstream");

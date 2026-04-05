@@ -25,6 +25,18 @@ describe("AppSettingsSchema", () => {
 
     expect(settings.showAuthFailuresAsErrors).toBe(true);
   });
+
+  it("drops deprecated window opacity values from persisted settings", () => {
+    const decode = Schema.decodeSync(Schema.fromJsonString(AppSettingsSchema));
+
+    expect(
+      decode(
+        JSON.stringify({
+          windowOpacity: 0.3,
+        }),
+      ),
+    ).not.toHaveProperty("windowOpacity");
+  });
 });
 
 describe("normalizeCustomModelSlugs", () => {

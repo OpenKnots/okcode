@@ -20,9 +20,12 @@ import { clearPromotedDraftThreads, useComposerDraftStore } from "../composerDra
 import { useStore } from "../store";
 import { useTerminalStateStore } from "../terminalStateStore";
 import { terminalRunningSubprocessFromEvent } from "../terminalActivity";
-import { onServerConfigUpdated, onServerWelcome } from "../wsNativeApi";
+import { onServerConfigUpdated, onServerWelcome, onTransportReconnected } from "../wsNativeApi";
 import { providerQueryKeys } from "../lib/providerReactQuery";
 import { projectQueryKeys } from "../lib/projectReactQuery";
+import { gitQueryKeys } from "../lib/gitReactQuery";
+import { prReviewQueryKeys } from "../lib/prReviewReactQuery";
+import { skillQueryKeys } from "../lib/skillReactQuery";
 import { collectActiveTerminalThreadIds } from "../lib/terminalStateCleanup";
 import { OnboardingDialog } from "../components/onboarding/OnboardingDialog";
 import { MobileConnectionBanner } from "../components/mobile/MobileConnectionBanner";
@@ -298,6 +301,26 @@ function EventRouter() {
         handledBootstrapThreadIdRef.current = payload.bootstrapThreadId;
       })().catch(() => undefined);
     });
+    // ── Reconnection sync ──────────────────────────────────────────────
+    // When the WebSocket re-opens after a network interruption, invalidate
+    // all query caches and re-fetch the orchestration snapshot so the UI
+    // converges back to the server's truth.
+    const unsubReconnected = onTransportReconnected(() => {
+      // Reset the sequence tracker so replayed domain events are accepted.
+      latestSequence = 0;
+
+      // Invalidate all domain query caches.
+      void queryClient.invalidateQueries({ queryKey: gitQueryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: providerQueryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: serverQueryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: prReviewQueryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: skillQueryKeys.all });
+
+      // Trigger a full snapshot sync.
+      void syncSnapshot();
+    });
+
     // onServerConfigUpdated replays the latest cached value synchronously
     // during subscribe. Skip the toast for that replay so effect re-runs
     // don't produce duplicate toasts.
@@ -351,6 +374,7 @@ function EventRouter() {
       unsubDomainEvent();
       unsubTerminalEvent();
       unsubWelcome();
+      unsubReconnected();
       unsubServerConfigUpdated();
     };
   }, [

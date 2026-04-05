@@ -161,6 +161,9 @@ export const WS_METHODS = {
   serverRotateToken: "server.rotateToken",
   serverRevokeToken: "server.revokeToken",
   serverListTokens: "server.listTokens",
+
+  // Connection health
+  serverPing: "server.ping",
 } as const;
 
 // ── Push Event Channels ──────────────────────────────────────────────
@@ -280,6 +283,9 @@ const WebSocketRequestBody = Schema.Union([
   tagRequestBody(WS_METHODS.serverRotateToken, Schema.Struct({})),
   tagRequestBody(WS_METHODS.serverRevokeToken, RevokeTokenInput),
   tagRequestBody(WS_METHODS.serverListTokens, Schema.Struct({})),
+
+  // Connection health
+  tagRequestBody(WS_METHODS.serverPing, Schema.Struct({})),
 ]);
 
 export const WebSocketRequest = Schema.Struct({

@@ -15,7 +15,7 @@ import {
 
 import { showContextMenuFallback } from "./contextMenuFallback";
 import { initMobileNotifications } from "./lib/mobileNotifications";
-import { type TransportState, WsTransport } from "./wsTransport";
+import { type ConnectionMetrics, type TransportState, WsTransport } from "./wsTransport";
 
 let instance: { api: NativeApi; transport: WsTransport } | null = null;
 const welcomeListeners = new Set<(payload: WsWelcomePayload) => void>();
@@ -88,6 +88,33 @@ export function onTransportStateChange(listener: (state: TransportState) => void
 
   return () => {
     transportStateListeners.delete(listener);
+  };
+}
+
+/**
+ * Read-only snapshot of transport connection metrics.
+ * Returns null if the transport is not initialised yet.
+ */
+export function getTransportMetrics(): ConnectionMetrics | null {
+  return instance?.transport.getMetrics() ?? null;
+}
+
+/**
+ * Subscribe to reconnection events. The listener fires each time the
+ * WebSocket re-opens after a prior successful connection (not on the
+ * initial connect). This is the primary hook for triggering data
+ * re-synchronisation after a network interruption.
+ */
+export function onTransportReconnected(listener: () => void): () => void {
+  if (instance) {
+    return instance.transport.onReconnected(listener);
+  }
+
+  // Transport not ready yet – defer until it exists.
+  const reconnectedListeners = new Set<() => void>();
+  reconnectedListeners.add(listener);
+  return () => {
+    reconnectedListeners.delete(listener);
   };
 }
 

@@ -2,6 +2,7 @@ import { mutationOptions, queryOptions, type QueryClient } from "@tanstack/react
 import { ensureNativeApi } from "../nativeApi";
 
 export const prReviewQueryKeys = {
+  all: ["prReview"] as const,
   config: (cwd: string | null) => ["prReview", "config", cwd] as const,
   dashboard: (cwd: string | null, prNumber: number | null) =>
     ["prReview", "dashboard", cwd, prNumber] as const,

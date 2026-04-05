@@ -391,6 +391,7 @@ export interface NativeApi {
   server: {
     getConfig: () => Promise<ServerConfig>;
     checkUpdate: () => Promise<ServerUpdateInfo>;
+    ping: () => Promise<{ pong: boolean; serverTime: number }>;
     getGlobalEnvironmentVariables: () => Promise<GlobalEnvironmentVariablesResult>;
     saveGlobalEnvironmentVariables: (
       input: SaveGlobalEnvironmentVariablesInput,

@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { ThemeModeSwitcher } from "./ThemeModeSwitcher";
 import { OkCodeMark } from "./OkCodeMark";
+import { ConnectionIndicator } from "./ConnectionIndicator";
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import {
   DndContext,
@@ -1934,59 +1935,63 @@ export default function Sidebar() {
         <>
           <SidebarHeader className="drag-region h-[52px] flex-row items-center gap-2 px-4 py-0 pl-[90px]">
             {wordmark}
-            {showDesktopUpdateButton && (
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <button
-                      type="button"
-                      aria-label={desktopUpdateTooltip}
-                      aria-disabled={desktopUpdateButtonDisabled || undefined}
-                      disabled={desktopUpdateButtonDisabled}
-                      className={`inline-flex size-7 ml-auto mt-1.5 items-center justify-center rounded-md text-muted-foreground transition-colors ${desktopUpdateButtonInteractivityClasses} ${desktopUpdateButtonClasses}`}
-                      onClick={handleDesktopUpdateButtonClick}
-                    >
-                      <RocketIcon className="size-3.5" />
-                    </button>
-                  }
-                />
-                <TooltipPopup side="bottom">{desktopUpdateTooltip}</TooltipPopup>
-              </Tooltip>
-            )}
+            <div className="ml-auto flex items-center gap-1 mt-1.5">
+              <ConnectionIndicator />
+              {showDesktopUpdateButton && (
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <button
+                        type="button"
+                        aria-label={desktopUpdateTooltip}
+                        aria-disabled={desktopUpdateButtonDisabled || undefined}
+                        disabled={desktopUpdateButtonDisabled}
+                        className={`inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors ${desktopUpdateButtonInteractivityClasses} ${desktopUpdateButtonClasses}`}
+                        onClick={handleDesktopUpdateButtonClick}
+                      >
+                        <RocketIcon className="size-3.5" />
+                      </button>
+                    }
+                  />
+                  <TooltipPopup side="bottom">{desktopUpdateTooltip}</TooltipPopup>
+                </Tooltip>
+              )}
+            </div>
           </SidebarHeader>
         </>
       ) : (
         <SidebarHeader className="gap-3 px-3 py-2 sm:gap-2.5 sm:px-4 sm:py-3">
-          {serverUpdateInfo?.updateAvailable ? (
-            <div className="flex flex-row items-center gap-2">
-              {wordmark}
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <button
-                      type="button"
-                      aria-label={`Update available: ${serverUpdateInfo.latestVersion}`}
-                      className="inline-flex size-7 ml-auto items-center justify-center rounded-md transition-colors hover:bg-accent hover:text-foreground text-amber-500 animate-pulse"
-                      onClick={() => {
-                        toastManager.add({
-                          type: "info",
-                          title: `${APP_BASE_NAME} ${serverUpdateInfo.latestVersion} available`,
-                          description: `Update with: npm install -g okcodes@latest`,
-                        });
-                      }}
-                    >
-                      <RocketIcon className="size-3.5" />
-                    </button>
-                  }
-                />
-                <TooltipPopup side="bottom">
-                  Update {serverUpdateInfo.latestVersion} available
-                </TooltipPopup>
-              </Tooltip>
+          <div className="flex flex-row items-center gap-2">
+            {wordmark}
+            <div className="ml-auto flex items-center gap-1">
+              <ConnectionIndicator />
+              {serverUpdateInfo?.updateAvailable && (
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <button
+                        type="button"
+                        aria-label={`Update available: ${serverUpdateInfo.latestVersion}`}
+                        className="inline-flex size-7 items-center justify-center rounded-md transition-colors hover:bg-accent hover:text-foreground text-amber-500 animate-pulse"
+                        onClick={() => {
+                          toastManager.add({
+                            type: "info",
+                            title: `${APP_BASE_NAME} ${serverUpdateInfo.latestVersion} available`,
+                            description: `Update with: npm install -g okcodes@latest`,
+                          });
+                        }}
+                      >
+                        <RocketIcon className="size-3.5" />
+                      </button>
+                    }
+                  />
+                  <TooltipPopup side="bottom">
+                    Update {serverUpdateInfo.latestVersion} available
+                  </TooltipPopup>
+                </Tooltip>
+              )}
             </div>
-          ) : (
-            wordmark
-          )}
+          </div>
         </SidebarHeader>
       )}
 

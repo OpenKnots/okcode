@@ -1507,6 +1507,10 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
         return { tokens };
       }
 
+      // ── Connection health ───────────────────────────────────────────
+      case WS_METHODS.serverPing:
+        return { pong: true, serverTime: Date.now() };
+
       case WS_METHODS.skillList: {
         const body = stripRequestTag(request.body);
         return yield* skillService.list(body);

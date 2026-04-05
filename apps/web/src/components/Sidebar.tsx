@@ -2208,14 +2208,15 @@ export default function Sidebar() {
                   }}
                   autoFocus={manualProjectPathEntry}
                 />
-                <button
+                <Button
                   type="button"
-                  className="shrink-0 rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground transition-colors duration-150 hover:bg-primary/90 disabled:opacity-60"
+                  size="xs"
+                  className="rounded-md"
                   onClick={handleAddProject}
                   disabled={!canAddProject}
                 >
                   {isAddingProject ? "Adding..." : "Add"}
-                </button>
+                </Button>
               </div>
               {addProjectError && (
                 <p className="mt-1 px-0.5 text-[11px] leading-tight text-red-400">

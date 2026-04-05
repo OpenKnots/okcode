@@ -212,14 +212,15 @@ function MobileLayout({ onClose }: { onClose: () => void }) {
       </div>
 
       {/* Floating inspector toggle for mobile */}
-      <button
+      <Button
         type="button"
-        className="absolute bottom-16 right-3 z-10 flex size-10 items-center justify-center rounded-full bg-primary/90 text-primary-foreground shadow-lg transition-transform active:scale-95"
+        size="icon"
+        className="absolute right-3 bottom-16 z-10 size-10 rounded-full shadow-lg active:scale-95"
         onClick={toggleInspector}
         aria-label="Toggle inspector"
       >
         <PanelRightOpenIcon className="size-4" />
-      </button>
+      </Button>
 
       {/* Inspector as sheet */}
       <Sheet

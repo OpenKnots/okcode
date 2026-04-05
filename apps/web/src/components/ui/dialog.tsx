@@ -5,6 +5,7 @@ import { XIcon } from "lucide-react";
 import type * as React from "react";
 
 import { cn } from "~/lib/utils";
+import { modalActionFooterLayoutClassName } from "./modal-action-footer";
 
 const DialogCreateHandle = DialogPrimitive.createHandle;
 
@@ -109,7 +110,7 @@ function DialogFooter({
   return (
     <div
       className={cn(
-        "flex flex-col-reverse gap-2 px-6 sm:flex-row sm:justify-end",
+        modalActionFooterLayoutClassName,
         variant === "default" &&
           "rounded-b-[calc(var(--radius-2xl)-1px)] border-t bg-muted/72 py-4",
         variant === "bare" && "pb-6",

@@ -5321,9 +5321,10 @@ export default function ChatView({ threadId }: ChatViewProps) {
                                   <rect x="2" y="2" width="8" height="8" rx="1.5" />
                                 </svg>
                               </button>
-                              <button
+                              <Button
                                 type="submit"
-                                className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/90 text-primary-foreground transition-all duration-150 hover:bg-primary hover:scale-105 disabled:opacity-30 disabled:hover:scale-100 sm:h-8 sm:w-8"
+                                size="icon"
+                                className="h-9 w-9 rounded-full hover:scale-105 disabled:opacity-30 disabled:hover:scale-100 sm:h-8 sm:w-8"
                                 disabled={
                                   isSendBusy ||
                                   isConnecting ||
@@ -5348,7 +5349,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
                                     strokeLinejoin="round"
                                   />
                                 </svg>
-                              </button>
+                              </Button>
                             </div>
                           ) : pendingUserInputs.length === 0 ? (
                             showPlanFollowUpPrompt ? (
@@ -5409,9 +5410,10 @@ export default function ChatView({ threadId }: ChatViewProps) {
                                 </div>
                               )
                             ) : (
-                              <button
+                              <Button
                                 type="submit"
-                                className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/90 text-primary-foreground transition-all duration-150 hover:bg-primary hover:scale-105 disabled:opacity-30 disabled:hover:scale-100 sm:h-8 sm:w-8"
+                                size="icon"
+                                className="h-9 w-9 rounded-full hover:scale-105 disabled:opacity-30 disabled:hover:scale-100 sm:h-8 sm:w-8"
                                 disabled={
                                   isSendBusy ||
                                   isConnecting ||
@@ -5466,7 +5468,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
                                     />
                                   </svg>
                                 )}
-                              </button>
+                              </Button>
                             )
                           ) : null}
                         </div>

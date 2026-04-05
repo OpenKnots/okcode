@@ -2,6 +2,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { FileCodeIcon, XIcon } from "lucide-react";
 import { useCallback, useEffect } from "react";
 
+import { useAppSettings } from "~/appSettings";
 import { useCodeViewerStore } from "~/codeViewerStore";
 import { useTheme } from "~/hooks/useTheme";
 import { isMacPlatform } from "~/lib/utils";
@@ -12,9 +13,10 @@ import { Button } from "../ui/button";
 export function FileViewShell(props: { initialCwd: string; initialPath: string | null }) {
   const { resolvedTheme } = useTheme();
   const navigate = useNavigate();
+  const { settings } = useAppSettings();
 
   const tabs = useCodeViewerStore((state) => state.tabs);
-  const activeTabPath = useCodeViewerStore((state) => state.activeTabPath);
+  const activeTabId = useCodeViewerStore((state) => state.activeTabId);
   const setActiveTab = useCodeViewerStore((state) => state.setActiveTab);
   const closeTab = useCodeViewerStore((state) => state.closeTab);
   const closeAllTabs = useCodeViewerStore((state) => state.closeAllTabs);
@@ -30,16 +32,16 @@ export function FileViewShell(props: { initialCwd: string; initialPath: string |
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const activeTab = tabs.find((tab) => tab.relativePath === activeTabPath);
+  const activeTab = tabs.find((tab) => tab.tabId === activeTabId);
 
   const onSelectTab = useCallback(
-    (relativePath: string) => {
-      setActiveTab(relativePath);
-      const tab = tabs.find((t) => t.relativePath === relativePath);
+    (tabId: string) => {
+      setActiveTab(tabId);
+      const tab = tabs.find((t) => t.tabId === tabId);
       if (tab) {
         void navigate({
           to: "/file-view",
-          search: { cwd: tab.cwd, path: relativePath },
+          search: { cwd: tab.cwd, path: tab.relativePath },
           replace: true,
         });
       }
@@ -48,20 +50,29 @@ export function FileViewShell(props: { initialCwd: string; initialPath: string |
   );
 
   const onCloseTab = useCallback(
-    (relativePath: string) => {
-      closeTab(relativePath);
-      // Check if this was the last tab (after closing, store will have tabs.length - 1)
+    async (tabId: string) => {
+      const tab = tabs.find((item) => item.tabId === tabId);
+      if (!tab) return;
+      if (tab.isDirty && !settings.codeViewerAutosave) {
+        const confirmed = window.confirm(`Discard unsaved changes in "${tab.label}"?`);
+        if (!confirmed) return;
+      }
+      closeTab(tabId);
       if (tabs.length <= 1) {
-        void navigate({ to: "/" });
+        await navigate({ to: "/" });
       }
     },
-    [closeTab, tabs.length, navigate],
+    [closeTab, navigate, settings.codeViewerAutosave, tabs],
   );
 
-  const onCloseAll = useCallback(() => {
+  const onCloseAll = useCallback(async () => {
+    if (tabs.some((tab) => tab.isDirty) && !settings.codeViewerAutosave) {
+      const confirmed = window.confirm("Discard unsaved changes in all open files?");
+      if (!confirmed) return;
+    }
     closeAllTabs();
-    void navigate({ to: "/" });
-  }, [closeAllTabs, navigate]);
+    await navigate({ to: "/" });
+  }, [closeAllTabs, navigate, settings.codeViewerAutosave, tabs]);
 
   const onAddContext = useCallback(
     (ctx: CodeContextSelection) => {
@@ -82,7 +93,7 @@ export function FileViewShell(props: { initialCwd: string; initialPath: string |
       <div className="flex items-center justify-between gap-2 border-b border-border px-4 h-12">
         <CodeViewerTabStrip
           tabs={tabs}
-          activeTabPath={activeTabPath}
+          activeTabId={activeTabId}
           onSelectTab={onSelectTab}
           onCloseTab={onCloseTab}
           onCloseAll={onCloseAll}
@@ -113,7 +124,7 @@ export function FileViewShell(props: { initialCwd: string; initialPath: string |
             </div>
           ) : (
             <CodeViewerFileContent
-              key={activeTab.relativePath}
+              key={activeTab.tabId}
               cwd={activeTab.cwd}
               relativePath={activeTab.relativePath}
               resolvedTheme={resolvedTheme}

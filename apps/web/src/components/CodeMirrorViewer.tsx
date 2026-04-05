@@ -5,6 +5,7 @@ import {
   highlightActiveLine,
   highlightSpecialChars,
   keymap,
+  type ViewUpdate,
 } from "@codemirror/view";
 import {
   syntaxHighlighting,
@@ -24,14 +25,14 @@ export interface CodeContextSelection {
 const themeCompartment = new Compartment();
 const languageCompartment = new Compartment();
 const keymapCompartment = new Compartment();
+const editableCompartment = new Compartment();
+const updateListenerCompartment = new Compartment();
 
 const baseExtensions: Extension[] = [
   lineNumbers(),
   highlightActiveLine(),
   highlightSpecialChars(),
   syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
-  EditorView.editable.of(false),
-  EditorState.readOnly.of(true),
   EditorView.theme({
     "&": {
       height: "100%",
@@ -89,44 +90,84 @@ async function loadLanguageExtension(filePath: string): Promise<Extension> {
   return support;
 }
 
-function buildAddContextKeymap(
+function buildEditorKeymap(
   filePath: string,
   onAddContext: (ctx: CodeContextSelection) => void,
+  onSave?: () => void,
 ): Extension {
-  return keymap.of([
+  const bindings = [
     {
       key: isMacPlatform(navigator.platform) ? "Mod-l" : "Ctrl-l",
-      run: (view) => {
+      run: (view: EditorView) => {
         const { from, to } = view.state.selection.main;
-        if (from === to) return false; // No selection
+        if (from === to) return false;
         const fromLine = view.state.doc.lineAt(from).number;
         const toLine = view.state.doc.lineAt(to).number;
         onAddContext({ filePath, fromLine, toLine });
         return true;
       },
     },
-  ]);
+  ];
+  if (onSave) {
+    bindings.unshift({
+      key: "Mod-s",
+      run: () => {
+        onSave();
+        return true;
+      },
+    });
+  }
+  return keymap.of(bindings);
+}
+
+function buildEditableExtension(editable: boolean): Extension {
+  return [EditorView.editable.of(editable), EditorState.readOnly.of(!editable)];
+}
+
+function buildUpdateListener(editable: boolean, onChange?: (contents: string) => void): Extension {
+  if (!editable || !onChange) {
+    return [];
+  }
+  return EditorView.updateListener.of((update: ViewUpdate) => {
+    if (update.docChanged) {
+      onChange(update.state.doc.toString());
+    }
+  });
 }
 
 export const CodeMirrorViewer = memo(function CodeMirrorViewer(props: {
   contents: string;
   filePath: string;
   resolvedTheme: "light" | "dark";
+  editable?: boolean;
+  onChange?: (contents: string) => void;
+  onSave?: () => void;
   onAddContext?: (ctx: CodeContextSelection) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const filePathRef = useRef<string | null>(null);
   const onAddContextRef = useRef(props.onAddContext);
+  const onChangeRef = useRef(props.onChange);
+  const onSaveRef = useRef(props.onSave);
   onAddContextRef.current = props.onAddContext;
+  onChangeRef.current = props.onChange;
+  onSaveRef.current = props.onSave;
 
   // Create editor on mount
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const addContextKeymap = buildAddContextKeymap(props.filePath, (ctx) => {
-      onAddContextRef.current?.(ctx);
-    });
+    const editorKeymap = buildEditorKeymap(
+      props.filePath,
+      (ctx) => {
+        onAddContextRef.current?.(ctx);
+      },
+      () => {
+        onSaveRef.current?.();
+      },
+    );
+    const editable = props.editable ?? false;
 
     const state = EditorState.create({
       doc: props.contents,
@@ -134,7 +175,13 @@ export const CodeMirrorViewer = memo(function CodeMirrorViewer(props: {
         ...baseExtensions,
         themeCompartment.of(getThemeExtension(props.resolvedTheme)),
         languageCompartment.of([]),
-        keymapCompartment.of(addContextKeymap),
+        keymapCompartment.of(editorKeymap),
+        editableCompartment.of(buildEditableExtension(editable)),
+        updateListenerCompartment.of(
+          buildUpdateListener(editable, (contents) => {
+            onChangeRef.current?.(contents);
+          }),
+        ),
       ],
     });
 
@@ -186,29 +233,53 @@ export const CodeMirrorViewer = memo(function CodeMirrorViewer(props: {
     });
   }, [props.resolvedTheme]);
 
-  // Update language and keymap when file path changes
+  // Update editability and update listeners when it changes
   useEffect(() => {
-    if (filePathRef.current === props.filePath) return;
-    filePathRef.current = props.filePath;
-
     const view = viewRef.current;
     if (!view) return;
 
-    void loadLanguageExtension(props.filePath).then((langExt) => {
-      if (viewRef.current === view) {
-        view.dispatch({
-          effects: languageCompartment.reconfigure(langExt),
-        });
-      }
-    });
-
-    const addContextKeymap = buildAddContextKeymap(props.filePath, (ctx) => {
-      onAddContextRef.current?.(ctx);
-    });
+    const editable = props.editable ?? false;
     view.dispatch({
-      effects: keymapCompartment.reconfigure(addContextKeymap),
+      effects: [
+        editableCompartment.reconfigure(buildEditableExtension(editable)),
+        updateListenerCompartment.reconfigure(
+          buildUpdateListener(editable, (contents) => {
+            onChangeRef.current?.(contents);
+          }),
+        ),
+      ],
     });
-  }, [props.filePath]);
+  }, [props.editable]);
+
+  // Update language and keymap when file path or save behavior changes
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+
+    const nextKeymap = buildEditorKeymap(
+      props.filePath,
+      (ctx) => {
+        onAddContextRef.current?.(ctx);
+      },
+      () => {
+        onSaveRef.current?.();
+      },
+    );
+    const effects = [keymapCompartment.reconfigure(nextKeymap)];
+    if (filePathRef.current !== props.filePath) {
+      filePathRef.current = props.filePath;
+      void loadLanguageExtension(props.filePath).then((langExt) => {
+        if (viewRef.current === view) {
+          view.dispatch({
+            effects: languageCompartment.reconfigure(langExt),
+          });
+        }
+      });
+    }
+    view.dispatch({
+      effects,
+    });
+  }, [props.filePath, props.onSave]);
 
   return <div ref={containerRef} className="h-full min-h-0 overflow-hidden" />;
 });

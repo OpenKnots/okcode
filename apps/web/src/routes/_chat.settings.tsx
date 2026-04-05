@@ -431,6 +431,9 @@ function SettingsRouteView() {
     ...(settings.openLinksExternally !== defaults.openLinksExternally
       ? ["Open links externally"]
       : []),
+    ...(settings.codeViewerAutosave !== defaults.codeViewerAutosave
+      ? ["Code preview autosave"]
+      : []),
     ...(settings.defaultThreadEnvMode !== defaults.defaultThreadEnvMode ? ["New thread mode"] : []),
     ...(settings.autoUpdateWorktreeBaseBranch !== defaults.autoUpdateWorktreeBaseBranch
       ? ["Worktree base refresh"]
@@ -1220,6 +1223,34 @@ function SettingsRouteView() {
                       })
                     }
                     aria-label="Open links externally"
+                  />
+                }
+              />
+
+              <SettingsRow
+                title="Code Preview Autosave"
+                description="Automatically save edits made in the built-in code preview after a short delay."
+                resetAction={
+                  settings.codeViewerAutosave !== defaults.codeViewerAutosave ? (
+                    <SettingResetButton
+                      label="code preview autosave"
+                      onClick={() =>
+                        updateSettings({
+                          codeViewerAutosave: defaults.codeViewerAutosave,
+                        })
+                      }
+                    />
+                  ) : null
+                }
+                control={
+                  <Switch
+                    checked={settings.codeViewerAutosave}
+                    onCheckedChange={(checked) =>
+                      updateSettings({
+                        codeViewerAutosave: Boolean(checked),
+                      })
+                    }
+                    aria-label="Enable code preview autosave"
                   />
                 }
               />

@@ -1,4 +1,4 @@
-import type { PreviewTabsState, PreviewTabState, ThreadId } from "@okcode/contracts";
+import type { PreviewTabsState, PreviewTabState, ProjectId } from "@okcode/contracts";
 import { type FormEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   ChevronLeftIcon,
@@ -99,17 +99,17 @@ function tabDisplayTitle(tab: PreviewTabState): string {
 }
 
 interface PreviewPanelProps {
-  threadId: ThreadId;
+  projectId: ProjectId;
   onClose: () => void;
 }
 
-export function PreviewPanel({ threadId, onClose }: PreviewPanelProps) {
+export function PreviewPanel({ projectId, onClose }: PreviewPanelProps) {
   const previewBridge = readDesktopPreviewBridge();
-  const setGlobalOpen = usePreviewStateStore((state) => state.setGlobalOpen);
+  const setProjectOpen = usePreviewStateStore((state) => state.setProjectOpen);
   const favoriteUrls = usePreviewStateStore((state) => state.favoriteUrls);
   const toggleFavoriteUrl = usePreviewStateStore((state) => state.toggleFavoriteUrl);
-  const presetId = usePreviewStateStore((state) => state.presetByThreadId[threadId] ?? null);
-  const setThreadPreset = usePreviewStateStore((state) => state.setThreadPreset);
+  const presetId = usePreviewStateStore((state) => state.presetByProjectId[projectId] ?? null);
+  const setProjectPreset = usePreviewStateStore((state) => state.setProjectPreset);
   const activePreset = presetId ? getBrowserPreset(presetId) : null;
   const PresetIcon = presetId ? PRESET_ICONS[presetId] : null;
 
@@ -239,7 +239,7 @@ export function PreviewPanel({ threadId, onClose }: PreviewPanelProps) {
       visualViewport?.removeEventListener("scroll", invalidateBounds);
       void previewBridge.setBounds(HIDDEN_PREVIEW_BOUNDS);
     };
-  }, [previewBridge, tabsState.tabs.length, threadId]);
+  }, [previewBridge, tabsState.tabs.length, projectId]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -281,7 +281,7 @@ export function PreviewPanel({ threadId, onClose }: PreviewPanelProps) {
   };
 
   const onClosePreview = () => {
-    setGlobalOpen(false);
+    setProjectOpen(projectId, false);
     void previewBridge?.closeAll();
     onClose();
   };
@@ -378,8 +378,8 @@ export function PreviewPanel({ threadId, onClose }: PreviewPanelProps) {
                 <MenuRadioGroup
                   value={presetId ?? RESPONSIVE_VALUE}
                   onValueChange={(value) => {
-                    setThreadPreset(
-                      threadId,
+                    setProjectPreset(
+                      projectId,
                       value === RESPONSIVE_VALUE ? null : (value as BrowserPresetId),
                     );
                   }}

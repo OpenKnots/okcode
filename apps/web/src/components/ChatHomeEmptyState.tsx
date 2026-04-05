@@ -54,6 +54,14 @@ const commandPreview = [
 ] as const;
 
 const shellStatusItems = ["Agent-ready", "Desktop-native", "Workspace-first"] as const;
+const heroGraphicNodes = [
+  { className: "left-[8%] top-[14%] h-12 w-24", delay: "0ms" },
+  { className: "left-[34%] top-[8%] h-16 w-32", delay: "120ms" },
+  { className: "right-[12%] top-[18%] h-12 w-28", delay: "220ms" },
+  { className: "left-[18%] bottom-[22%] h-14 w-36", delay: "160ms" },
+  { className: "left-[50%] bottom-[12%] h-12 w-24", delay: "280ms" },
+  { className: "right-[10%] bottom-[24%] h-16 w-32", delay: "340ms" },
+] as const;
 
 function formatEnvModeLabel(envMode: "local" | "worktree") {
   return envMode === "worktree" ? "New worktree" : "Local mode";
@@ -91,6 +99,56 @@ function getProviderStatusClasses(provider: ServerProviderStatus) {
   return "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
 }
 
+function formatRelativeTimeCompact(value: string | undefined) {
+  if (!value) {
+    return "Just now";
+  }
+
+  const timestamp = Date.parse(value);
+  if (Number.isNaN(timestamp)) {
+    return "Recently";
+  }
+
+  const diffMs = Date.now() - timestamp;
+  const minute = 60_000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+
+  if (diffMs < minute) {
+    return "Just now";
+  }
+  if (diffMs < hour) {
+    return `${Math.max(1, Math.round(diffMs / minute))}m ago`;
+  }
+  if (diffMs < day) {
+    return `${Math.max(1, Math.round(diffMs / hour))}h ago`;
+  }
+  return `${Math.max(1, Math.round(diffMs / day))}d ago`;
+}
+
+function getThreadActivityLabel(input: {
+  updatedAt: string | undefined;
+  sessionStatus: string | null | undefined;
+  hasLatestTurn: boolean;
+}) {
+  if (input.sessionStatus === "running") {
+    return "Running";
+  }
+  if (input.sessionStatus === "connecting") {
+    return "Connecting";
+  }
+  if (input.sessionStatus === "error") {
+    return "Needs attention";
+  }
+  if (input.hasLatestTurn) {
+    return "Ready to resume";
+  }
+  if (input.updatedAt) {
+    return "Recently updated";
+  }
+  return "New thread";
+}
+
 export function ChatHomeEmptyState() {
   const navigate = useNavigate();
   const serverConfigQuery = useQuery(serverConfigQueryOptions());
@@ -114,6 +172,29 @@ export function ChatHomeEmptyState() {
       latestProject ? threads.filter((thread) => thread.projectId === latestProject.id).length : 0,
     [latestProject, threads],
   );
+
+  const recentThreads = useMemo(() => {
+    const projectsById = new Map(projects.map((project) => [project.id, project] as const));
+
+    return threads
+      .toSorted((a, b) => {
+        const aTime = Date.parse(a.updatedAt ?? a.createdAt);
+        const bTime = Date.parse(b.updatedAt ?? b.createdAt);
+        return bTime - aTime;
+      })
+      .slice(0, 4)
+      .map((thread) => ({
+        id: thread.id,
+        title: thread.title,
+        projectName: projectsById.get(thread.projectId)?.name ?? "Unknown project",
+        updatedLabel: formatRelativeTimeCompact(thread.updatedAt ?? thread.createdAt),
+        statusLabel: getThreadActivityLabel({
+          updatedAt: thread.updatedAt,
+          sessionStatus: thread.session?.status ?? null,
+          hasLatestTurn: thread.latestTurn !== null,
+        }),
+      }));
+  }, [projects, threads]);
 
   const openProjectFolder = useCallback(async () => {
     const api = readNativeApi();
@@ -375,8 +456,30 @@ export function ChatHomeEmptyState() {
                             ))}
                           </div>
                         </div>
-                        <div className="flex flex-col justify-between bg-[linear-gradient(180deg,hsl(var(--primary)/0.12),transparent)] p-4">
-                          <div>
+                        <div className="relative flex min-h-[220px] flex-col justify-between overflow-hidden bg-[linear-gradient(180deg,hsl(var(--primary)/0.12),transparent)] p-4">
+                          <div
+                            aria-hidden="true"
+                            className="absolute inset-0 bg-[radial-gradient(circle_at_center,hsl(var(--primary)/0.18),transparent_62%)]"
+                          />
+                          <div
+                            aria-hidden="true"
+                            className="absolute inset-4 rounded-[1.5rem] border border-white/6"
+                          />
+                          <div aria-hidden="true" className="absolute inset-0">
+                            <div className="absolute left-1/2 top-1/2 h-[68%] w-px -translate-x-1/2 -translate-y-1/2 bg-linear-to-b from-transparent via-primary/45 to-transparent" />
+                            <div className="absolute left-1/2 top-1/2 h-px w-[72%] -translate-x-1/2 -translate-y-1/2 bg-linear-to-r from-transparent via-primary/35 to-transparent" />
+                            {heroGraphicNodes.map((node) => (
+                              <div
+                                key={`${node.className}-${node.delay}`}
+                                className={`absolute rounded-2xl border border-primary/20 bg-background/70 shadow-[0_16px_40px_-28px_hsl(var(--foreground)/0.85)] backdrop-blur-sm animate-in fade-in-0 zoom-in-95 duration-700 ${node.className}`}
+                                style={{ animationDelay: node.delay }}
+                              />
+                            ))}
+                            <div className="absolute left-1/2 top-1/2 flex size-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-2xl border border-primary/25 bg-background/85 text-primary shadow-[0_20px_60px_-30px_hsl(var(--primary)/0.95)]">
+                              <OkCodeMark className="size-5" />
+                            </div>
+                          </div>
+                          <div className="relative">
                             <p className="text-[11px] tracking-[0.16em] text-muted-foreground uppercase">
                               Current default
                             </p>
@@ -388,7 +491,7 @@ export function ChatHomeEmptyState() {
                               you to reorient each time.
                             </p>
                           </div>
-                          <div className="mt-5 flex items-center gap-2 text-xs text-muted-foreground">
+                          <div className="relative mt-5 flex items-center gap-2 text-xs text-muted-foreground">
                             <span className="inline-flex size-6 items-center justify-center rounded-full border border-primary/25 bg-primary/10 text-primary">
                               <TerminalSquareIcon className="size-3.5" />
                             </span>
@@ -526,6 +629,44 @@ export function ChatHomeEmptyState() {
                           <div className="rounded-2xl border border-border/70 bg-background/55 p-4 text-sm leading-6 text-muted-foreground">
                             Provider status will appear here after the app finishes loading
                             configuration.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-3 border-t border-border/70 pt-6">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-[11px] tracking-[0.16em] text-muted-foreground uppercase">
+                          Recent activity
+                        </p>
+                        <Button variant="ghost" size="sm" onClick={() => void startLatestThread()}>
+                          Open recent thread
+                        </Button>
+                      </div>
+
+                      <div className="grid gap-3">
+                        {recentThreads.length > 0 ? (
+                          recentThreads.map((thread) => (
+                            <div
+                              key={thread.id}
+                              className="flex items-center justify-between gap-3 rounded-[1.35rem] border border-border/70 bg-background/55 px-4 py-3 shadow-[inset_0_1px_0_hsl(var(--foreground)/0.04)]"
+                            >
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-medium text-foreground">
+                                  {thread.title}
+                                </p>
+                                <p className="mt-1 truncate text-xs text-muted-foreground">
+                                  {thread.projectName} · {thread.statusLabel}
+                                </p>
+                              </div>
+                              <span className="shrink-0 text-[11px] text-muted-foreground">
+                                {thread.updatedLabel}
+                              </span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="rounded-[1.35rem] border border-border/70 bg-background/55 p-4 text-sm leading-6 text-muted-foreground">
+                            Recent threads will appear here after you start working in a project.
                           </div>
                         )}
                       </div>

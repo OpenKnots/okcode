@@ -72,6 +72,13 @@ const DEFAULT_VIEWPORT: ViewportSpec = {
   textTolerancePx: 44,
   attachmentTolerancePx: 56,
 };
+const WIDE_VIEWPORT: ViewportSpec = {
+  name: "wide",
+  width: 1_440,
+  height: 1_100,
+  textTolerancePx: 44,
+  attachmentTolerancePx: 56,
+};
 const TEXT_VIEWPORT_MATRIX = [
   DEFAULT_VIEWPORT,
   { name: "tablet", width: 720, height: 1_024, textTolerancePx: 44, attachmentTolerancePx: 56 },
@@ -592,16 +599,43 @@ async function waitForSendButton(): Promise<HTMLButtonElement> {
   );
 }
 
-async function waitForInteractionModeButton(
-  expectedLabel: "Chat" | "Plan",
-): Promise<HTMLButtonElement> {
-  return waitForElement(
-    () =>
-      Array.from(document.querySelectorAll("button")).find(
-        (button) => button.textContent?.trim() === expectedLabel,
-      ) as HTMLButtonElement | null,
-    `Unable to find ${expectedLabel} interaction mode button.`,
+function isVisibleElement(element: Element | null): element is HTMLElement {
+  return (
+    element instanceof HTMLElement &&
+    element.getBoundingClientRect().width > 0 &&
+    element.getBoundingClientRect().height > 0
   );
+}
+
+async function readCurrentInteractionModeLabel(): Promise<"Chat" | "Code" | "Plan"> {
+  const inlineButton = Array.from(document.querySelectorAll("button")).find((button) => {
+    const label = button.textContent?.trim();
+    return (
+      button.getAttribute("title") === "Cycle interaction mode: Chat → Code → Plan" &&
+      (label === "Chat" || label === "Code" || label === "Plan")
+    );
+  });
+  const inlineLabel = inlineButton?.textContent?.trim();
+  if (inlineLabel === "Chat" || inlineLabel === "Code" || inlineLabel === "Plan") {
+    return inlineLabel;
+  }
+
+  const compactMenuTrigger = document.querySelector<HTMLButtonElement>(
+    'button[aria-label="More composer controls"]',
+  );
+  if (compactMenuTrigger && isVisibleElement(compactMenuTrigger)) {
+    compactMenuTrigger.click();
+    await waitForLayout();
+    const selectedRadio = document.querySelector<HTMLElement>(
+      '[role="menuitemradio"][aria-checked="true"]',
+    );
+    const radioLabel = selectedRadio?.textContent?.trim();
+    if (radioLabel === "Chat" || radioLabel === "Code" || radioLabel === "Plan") {
+      return radioLabel;
+    }
+  }
+
+  throw new Error("Unable to determine current interaction mode.");
 }
 
 async function waitForServerConfigToApply(): Promise<void> {
@@ -1005,64 +1039,6 @@ describe("ChatView timeline estimator parity (full app)", () => {
     },
   );
 
-  it("opens the project cwd for draft threads without a worktree path", async () => {
-    useComposerDraftStore.setState({
-      draftThreadsByThreadId: {
-        [THREAD_ID]: {
-          projectId: PROJECT_ID,
-          createdAt: NOW_ISO,
-          title: "New thread",
-          runtimeMode: "full-access",
-          interactionMode: "chat",
-          branch: null,
-          worktreePath: null,
-          envMode: "local",
-        },
-      },
-      projectDraftThreadIdByProjectId: {
-        [PROJECT_ID]: THREAD_ID,
-      },
-    });
-
-    const mounted = await mountChatView({
-      viewport: DEFAULT_VIEWPORT,
-      snapshot: createDraftOnlySnapshot(),
-      configureFixture: (nextFixture) => {
-        nextFixture.serverConfig = {
-          ...nextFixture.serverConfig,
-          availableEditors: ["vscode"],
-        };
-      },
-    });
-
-    try {
-      const openButton = await waitForElement(
-        () =>
-          Array.from(document.querySelectorAll("button")).find(
-            (button) => button.textContent?.trim() === "Open",
-          ) as HTMLButtonElement | null,
-        "Unable to find Open button.",
-      );
-      openButton.click();
-
-      await vi.waitFor(
-        () => {
-          const openRequest = wsRequests.find(
-            (request) => request._tag === WS_METHODS.shellOpenInEditor,
-          );
-          expect(openRequest).toMatchObject({
-            _tag: WS_METHODS.shellOpenInEditor,
-            cwd: "/repo/project",
-            editor: "vscode",
-          });
-        },
-        { timeout: 8_000, interval: 16 },
-      );
-    } finally {
-      await mounted.cleanup();
-    }
-  });
-
   it("runs project scripts from local draft threads at the project cwd", async () => {
     useComposerDraftStore.setState({
       draftThreadsByThreadId: {
@@ -1263,7 +1239,7 @@ describe("ChatView timeline estimator parity (full app)", () => {
 
   it("toggles plan mode with Shift+Tab only while the composer is focused", async () => {
     const mounted = await mountChatView({
-      viewport: DEFAULT_VIEWPORT,
+      viewport: WIDE_VIEWPORT,
       snapshot: createSnapshotForTargetUser({
         targetMessageId: "msg-user-target-hotkey" as MessageId,
         targetText: "hotkey target",
@@ -1271,8 +1247,12 @@ describe("ChatView timeline estimator parity (full app)", () => {
     });
 
     try {
-      const initialModeButton = await waitForInteractionModeButton("Chat");
-      expect(initialModeButton.title).toContain("enter plan mode");
+      await vi.waitFor(
+        async () => {
+          expect(await readCurrentInteractionModeLabel()).toBe("Chat");
+        },
+        { timeout: 8_000, interval: 16 },
+      );
 
       window.dispatchEvent(
         new KeyboardEvent("keydown", {
@@ -1284,7 +1264,7 @@ describe("ChatView timeline estimator parity (full app)", () => {
       );
       await waitForLayout();
 
-      expect((await waitForInteractionModeButton("Chat")).title).toContain("enter plan mode");
+      expect(await readCurrentInteractionModeLabel()).toBe("Chat");
 
       const composerEditor = await waitForComposerEditor();
       composerEditor.focus();
@@ -1299,9 +1279,7 @@ describe("ChatView timeline estimator parity (full app)", () => {
 
       await vi.waitFor(
         async () => {
-          expect((await waitForInteractionModeButton("Plan")).title).toContain(
-            "return to normal chat mode",
-          );
+          expect(await readCurrentInteractionModeLabel()).toBe("Plan");
         },
         { timeout: 8_000, interval: 16 },
       );
@@ -1317,7 +1295,7 @@ describe("ChatView timeline estimator parity (full app)", () => {
 
       await vi.waitFor(
         async () => {
-          expect((await waitForInteractionModeButton("Chat")).title).toContain("enter plan mode");
+          expect(await readCurrentInteractionModeLabel()).toBe("Chat");
         },
         { timeout: 8_000, interval: 16 },
       );

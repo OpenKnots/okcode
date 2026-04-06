@@ -134,6 +134,7 @@ export class DesktopPreviewController {
       canGoBack: false,
       canGoForward: false,
       devToolsOpen: false,
+      isPinned: false,
     };
 
     const entry: TabEntry = { id: tabId, view, state: tabState };
@@ -167,6 +168,9 @@ export class DesktopPreviewController {
     const entry = threadSet.tabs.get(tabId);
     if (!entry) return this.buildTabsState();
 
+    // Pinned tabs cannot be closed directly — unpin first
+    if (entry.state.isPinned) return this.buildTabsState();
+
     this.disposeTabView(entry);
     threadSet.tabs.delete(tabId);
 
@@ -179,6 +183,15 @@ export class DesktopPreviewController {
       }
     }
 
+    return this.broadcastState();
+  }
+
+  togglePinTab(tabId: PreviewTabId): PreviewTabsState {
+    const threadSet = this.getActiveThreadSet();
+    const entry = threadSet.tabs.get(tabId);
+    if (!entry) return this.buildTabsState();
+
+    entry.state = { ...entry.state, isPinned: !entry.state.isPinned };
     return this.broadcastState();
   }
 
@@ -618,6 +631,9 @@ export class DesktopPreviewController {
       }
       tabs.push(entry.state);
     }
+
+    // Sort pinned tabs first, preserving insertion order within each group
+    tabs.sort((a, b) => Number(b.isPinned) - Number(a.isPinned));
 
     const visible = this.bounds.visible && tabs.length > 0 && threadSet.activeTabId !== null;
 

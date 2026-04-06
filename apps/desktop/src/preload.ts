@@ -23,6 +23,7 @@ const PREVIEW_NAVIGATE_CHANNEL = "desktop:preview-navigate";
 const PREVIEW_TOGGLE_DEVTOOLS_CHANNEL = "desktop:preview-toggle-devtools";
 const PREVIEW_GET_STATE_CHANNEL = "desktop:preview-get-state";
 const PREVIEW_SET_BOUNDS_CHANNEL = "desktop:preview-set-bounds";
+const PREVIEW_TOGGLE_PIN_TAB_CHANNEL = "desktop:preview-toggle-pin-tab";
 const PREVIEW_CLOSE_ALL_CHANNEL = "desktop:preview-close-all";
 const PREVIEW_TABS_STATE_CHANNEL = "desktop:preview-tabs-state";
 const wsUrl = process.env.OKCODE_DESKTOP_WS_URL ?? null;
@@ -70,6 +71,7 @@ contextBridge.exposeInMainWorld("desktopBridge", {
     reload: () => ipcRenderer.invoke(PREVIEW_RELOAD_CHANNEL),
     navigate: (input) => ipcRenderer.invoke(PREVIEW_NAVIGATE_CHANNEL, input),
     toggleDevTools: () => ipcRenderer.invoke(PREVIEW_TOGGLE_DEVTOOLS_CHANNEL),
+    togglePinTab: (input) => ipcRenderer.invoke(PREVIEW_TOGGLE_PIN_TAB_CHANNEL, input),
     setBounds: (bounds) => ipcRenderer.invoke(PREVIEW_SET_BOUNDS_CHANNEL, bounds),
     closeAll: () => ipcRenderer.invoke(PREVIEW_CLOSE_ALL_CHANNEL),
     getState: () => ipcRenderer.invoke(PREVIEW_GET_STATE_CHANNEL),

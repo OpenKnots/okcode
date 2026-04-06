@@ -1,4 +1,5 @@
 import { CheckIcon, SparklesIcon } from "lucide-react";
+import { cn } from "~/lib/utils";
 import { Button } from "./ui/button";
 import {
   Menu,
@@ -18,14 +19,21 @@ import {
 interface PromptEnhancerProps {
   prompt: string;
   value: PromptEnhancementId | null;
-  onChange: (nextValue: PromptEnhancementId | null) => void;
+  onChange: (nextValue: PromptEnhancementId | null) => void | Promise<void>;
+  isEnhancing?: boolean;
   disabled?: boolean;
 }
 
-export default function PromptEnhancer({ prompt, value, onChange, disabled }: PromptEnhancerProps) {
+export default function PromptEnhancer({
+  prompt,
+  value,
+  onChange,
+  isEnhancing = false,
+  disabled,
+}: PromptEnhancerProps) {
   const hasPrompt = prompt.trim().length > 0;
   const activeEnhancement = getPromptEnhancementById(value);
-  const canOpenMenu = !disabled && (hasPrompt || value !== null);
+  const canOpenMenu = !disabled && !isEnhancing && (hasPrompt || value !== null);
 
   return (
     <Menu>
@@ -35,26 +43,31 @@ export default function PromptEnhancer({ prompt, value, onChange, disabled }: Pr
             variant="ghost"
             size="icon-xs"
             type="button"
-            className={
+            className={cn(
+              isEnhancing && "text-foreground",
               activeEnhancement
                 ? "text-foreground hover:text-foreground"
-                : "text-muted-foreground/70 hover:text-foreground/80"
-            }
+                : "text-muted-foreground/70 hover:text-foreground/80",
+            )}
             disabled={!canOpenMenu}
             title={
-              activeEnhancement
-                ? `Prompt enhancement: ${activeEnhancement.label}`
-                : "Enhance prompt"
+              isEnhancing
+                ? "Enhancing prompt"
+                : activeEnhancement
+                  ? `Prompt enhancement: ${activeEnhancement.label}`
+                  : "Enhance prompt"
             }
             aria-label={
-              activeEnhancement
-                ? `Prompt enhancement: ${activeEnhancement.label}`
-                : "Enhance prompt"
+              isEnhancing
+                ? "Enhancing prompt"
+                : activeEnhancement
+                  ? `Prompt enhancement: ${activeEnhancement.label}`
+                  : "Enhance prompt"
             }
           />
         }
       >
-        <SparklesIcon className="size-4" />
+        <SparklesIcon className={cn("size-4", isEnhancing && "animate-spin")} />
       </MenuTrigger>
       <MenuPopup align="end" side="top">
         <MenuGroup>
@@ -65,6 +78,7 @@ export default function PromptEnhancer({ prompt, value, onChange, disabled }: Pr
             return (
               <MenuItem
                 key={enhancement.id}
+                disabled={isEnhancing}
                 onClick={() => onChange(isSelected ? null : enhancement.id)}
               >
                 <div className="flex items-center gap-2">
@@ -75,7 +89,11 @@ export default function PromptEnhancer({ prompt, value, onChange, disabled }: Pr
                   )}
                   <div className="flex flex-col">
                     <span>{enhancement.label}</span>
-                    <span className="text-muted-foreground text-xs">{enhancement.description}</span>
+                    <span className="text-muted-foreground text-xs">
+                      {isSelected
+                        ? `${enhancement.description} • Select again to revert`
+                        : enhancement.description}
+                    </span>
                   </div>
                 </div>
               </MenuItem>

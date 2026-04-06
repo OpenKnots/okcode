@@ -4,13 +4,11 @@ import { randomUUID } from "~/lib/utils";
 import { type ComposerAttachment, type DraftThreadState } from "../composerDraftStore";
 import { Schema } from "effect";
 import {
-  buildTerminalContextBlock,
   filterTerminalContextsWithText,
-  materializeInlineTerminalContextPrompt,
   stripInlineTerminalContextPlaceholders,
   type TerminalContextDraft,
 } from "../lib/terminalContext";
-import { buildEnhancedPromptInput, type PromptEnhancementId } from "../promptEnhancement";
+import { type PromptEnhancementId } from "../promptEnhancement";
 import { normalizeThreadTitle } from "../threadTitle";
 
 export const LAST_INVOKED_SCRIPT_BY_PROJECT_KEY = "okcode:last-invoked-script-by-project";
@@ -169,25 +167,10 @@ export function buildHiddenProviderInput(options: {
   terminalContexts: ReadonlyArray<TerminalContextDraft>;
   promptEnhancement: PromptEnhancementId | null | undefined;
 }): string | undefined {
-  if (!options.promptEnhancement) {
-    return undefined;
-  }
-
-  const materializedPrompt = materializeInlineTerminalContextPrompt(
-    options.prompt,
-    options.terminalContexts,
-  ).trim();
-  const enhancedPrompt = buildEnhancedPromptInput(materializedPrompt, options.promptEnhancement);
-  if (enhancedPrompt.length === 0) {
-    return undefined;
-  }
-
-  const contextBlock = buildTerminalContextBlock(options.terminalContexts);
-  if (contextBlock.length === 0) {
-    return enhancedPrompt;
-  }
-
-  return `${enhancedPrompt}\n\n${contextBlock}`;
+  void options.prompt;
+  void options.terminalContexts;
+  void options.promptEnhancement;
+  return undefined;
 }
 
 export function buildExpiredTerminalContextToastCopy(

@@ -222,7 +222,7 @@ import { usePreviewStateStore } from "~/previewStateStore";
 import { useClientMode } from "~/hooks/useClientMode";
 import { useTransportState } from "~/hooks/useTransportState";
 import { hasCustomThreadTitle, normalizeThreadTitle } from "~/threadTitle";
-import { type PromptEnhancementId } from "../promptEnhancement";
+import { enhancePrompt, type PromptEnhancementId } from "../promptEnhancement";
 
 const ATTACHMENT_PREVIEW_HANDOFF_TTL_MS = 5000;
 const IMAGE_SIZE_LIMIT_LABEL = `${Math.round(PROVIDER_SEND_TURN_MAX_IMAGE_BYTES / (1024 * 1024))}MB`;
@@ -416,6 +416,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
   const composerDraft = useComposerThreadDraft(threadId);
   const prompt = composerDraft.prompt;
   const composerPromptEnhancement = composerDraft.promptEnhancement;
+  const composerPromptEnhancementOriginalPrompt = composerDraft.promptEnhancementOriginalPrompt;
   const composerAttachments = composerDraft.attachments;
   const composerImageAttachments = useMemo(
     () =>
@@ -445,8 +446,8 @@ export default function ChatView({ threadId }: ChatViewProps) {
   );
   const nonPersistedComposerAttachmentIds = composerDraft.nonPersistedAttachmentIds;
   const setComposerDraftPrompt = useComposerDraftStore((store) => store.setPrompt);
-  const setComposerDraftPromptEnhancement = useComposerDraftStore(
-    (store) => store.setPromptEnhancement,
+  const setComposerDraftPromptEnhancementState = useComposerDraftStore(
+    (store) => store.setPromptEnhancementState,
   );
   const setComposerDraftProvider = useComposerDraftStore((store) => store.setProvider);
   const setComposerDraftModel = useComposerDraftStore((store) => store.setModel);
@@ -508,6 +509,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
   const [sendStartedAt, setSendStartedAt] = useState<string | null>(null);
   const [isConnecting, _setIsConnecting] = useState(false);
   const [isRevertingCheckpoint, setIsRevertingCheckpoint] = useState(false);
+  const [isEnhancingPrompt, setIsEnhancingPrompt] = useState(false);
   const [respondingRequestIds, setRespondingRequestIds] = useState<ApprovalRequestId[]>([]);
   const [respondingUserInputRequestIds, setRespondingUserInputRequestIds] = useState<
     ApprovalRequestId[]
@@ -602,11 +604,17 @@ export default function ChatView({ threadId }: ChatViewProps) {
     },
     [setComposerDraftPrompt, threadId],
   );
-  const setPromptEnhancement = useCallback(
-    (nextPromptEnhancement: PromptEnhancementId | null) => {
-      setComposerDraftPromptEnhancement(threadId, nextPromptEnhancement);
+  const setPromptEnhancementState = useCallback(
+    (
+      nextPromptEnhancement: PromptEnhancementId | null,
+      originalPrompt: string | null | undefined,
+    ) => {
+      setComposerDraftPromptEnhancementState(threadId, {
+        promptEnhancement: nextPromptEnhancement,
+        originalPrompt,
+      });
     },
-    [setComposerDraftPromptEnhancement, threadId],
+    [setComposerDraftPromptEnhancementState, threadId],
   );
   const addComposerAttachment = useCallback(
     (attachment: ComposerAttachment) => {
@@ -3011,6 +3019,8 @@ export default function ChatView({ threadId }: ChatViewProps) {
       : null;
     const nextPrompt = latestDraft?.prompt ?? promptRef.current;
     const nextPromptEnhancement = latestDraft?.promptEnhancement ?? composerPromptEnhancement;
+    const nextPromptEnhancementOriginalPrompt =
+      latestDraft?.promptEnhancementOriginalPrompt ?? composerPromptEnhancementOriginalPrompt;
     const nextAttachments = latestDraft?.attachments ?? composerAttachmentsRef.current;
     const nextTerminalContexts =
       latestDraft?.terminalContexts ?? composerTerminalContextsRef.current;
@@ -3020,10 +3030,11 @@ export default function ChatView({ threadId }: ChatViewProps) {
     return {
       prompt: nextPrompt,
       promptEnhancement: nextPromptEnhancement,
+      promptEnhancementOriginalPrompt: nextPromptEnhancementOriginalPrompt,
       attachments: nextAttachments,
       terminalContexts: nextTerminalContexts,
     };
-  }, [activeThread, composerPromptEnhancement]);
+  }, [activeThread, composerPromptEnhancement, composerPromptEnhancementOriginalPrompt]);
 
   const onSend = async (e?: { preventDefault: () => void }) => {
     e?.preventDefault();
@@ -3036,6 +3047,8 @@ export default function ChatView({ threadId }: ChatViewProps) {
     const liveComposerDraft = readLiveComposerDraftSnapshot();
     const promptForSend = liveComposerDraft.prompt;
     const promptEnhancementForSend = liveComposerDraft.promptEnhancement;
+    const promptEnhancementOriginalPromptForSend =
+      liveComposerDraft.promptEnhancementOriginalPrompt;
     const composerAttachmentsForSend = liveComposerDraft.attachments;
     const composerTerminalContextsForSend = liveComposerDraft.terminalContexts;
     const {
@@ -3061,7 +3074,6 @@ export default function ChatView({ threadId }: ChatViewProps) {
       await onSubmitPlanFollowUp({
         text: followUp.text,
         interactionMode: followUp.interactionMode,
-        promptEnhancement: promptEnhancementForSend,
       });
       return;
     }
@@ -3610,7 +3622,10 @@ export default function ChatView({ threadId }: ChatViewProps) {
         });
         promptRef.current = promptForSend;
         setPrompt(promptForSend);
-        setPromptEnhancement(promptEnhancementForSend ?? null);
+        setPromptEnhancementState(
+          promptEnhancementForSend ?? null,
+          promptEnhancementOriginalPromptForSend,
+        );
         setComposerCursor(collapseExpandedComposerCursor(promptForSend, promptForSend.length));
         addComposerAttachmentsToDraft(
           composerAttachmentsSnapshot.map(cloneComposerAttachmentForRetry),
@@ -3825,11 +3840,9 @@ export default function ChatView({ threadId }: ChatViewProps) {
     async ({
       text,
       interactionMode: nextInteractionMode,
-      promptEnhancement,
     }: {
       text: string;
       interactionMode: ProviderInteractionMode;
-      promptEnhancement: PromptEnhancementId | null | undefined;
     }) => {
       const api = readNativeApi();
       if (
@@ -3852,11 +3865,6 @@ export default function ChatView({ threadId }: ChatViewProps) {
       const threadIdForSend = activeThread.id;
       const messageIdForSend = newMessageId();
       const messageCreatedAt = new Date().toISOString();
-      const hiddenProviderInput = buildHiddenProviderInput({
-        prompt: trimmed,
-        terminalContexts: [],
-        promptEnhancement,
-      });
       const outgoingMessageText = formatOutgoingPrompt({
         provider: selectedProvider,
         effort: selectedPromptEffort,
@@ -3902,7 +3910,6 @@ export default function ChatView({ threadId }: ChatViewProps) {
             text: outgoingMessageText,
             attachments: [],
           },
-          ...(hiddenProviderInput ? { providerInput: hiddenProviderInput } : {}),
           provider: selectedProvider,
           model: selectedModel || undefined,
           ...(selectedModelOptionsForDispatch
@@ -4132,6 +4139,56 @@ export default function ChatView({ threadId }: ChatViewProps) {
       scheduleComposerFocus();
     },
     [scheduleComposerFocus, setPrompt],
+  );
+  const onPromptEnhancementChange = useCallback(
+    async (nextPromptEnhancement: PromptEnhancementId | null) => {
+      if (isEnhancingPrompt) {
+        return;
+      }
+
+      const currentPrompt = promptRef.current;
+      const currentEnhancement = composerPromptEnhancement;
+      const revertPrompt = composerPromptEnhancementOriginalPrompt ?? currentPrompt;
+      const basePrompt = currentEnhancement !== null ? revertPrompt : currentPrompt;
+
+      if (nextPromptEnhancement === null) {
+        promptRef.current = revertPrompt;
+        setPrompt(revertPrompt);
+        setPromptEnhancementState(null, null);
+        const nextCursor = collapseExpandedComposerCursor(revertPrompt, revertPrompt.length);
+        setComposerCursor(nextCursor);
+        setComposerTrigger(detectComposerTrigger(revertPrompt, revertPrompt.length));
+        scheduleComposerFocus();
+        return;
+      }
+
+      if (basePrompt.trim().length === 0) {
+        return;
+      }
+
+      setIsEnhancingPrompt(true);
+      try {
+        await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+        const enhancedPrompt = enhancePrompt(basePrompt, nextPromptEnhancement);
+        promptRef.current = enhancedPrompt;
+        setPrompt(enhancedPrompt);
+        setPromptEnhancementState(nextPromptEnhancement, basePrompt);
+        const nextCursor = collapseExpandedComposerCursor(enhancedPrompt, enhancedPrompt.length);
+        setComposerCursor(nextCursor);
+        setComposerTrigger(detectComposerTrigger(enhancedPrompt, enhancedPrompt.length));
+        scheduleComposerFocus();
+      } finally {
+        setIsEnhancingPrompt(false);
+      }
+    },
+    [
+      composerPromptEnhancement,
+      composerPromptEnhancementOriginalPrompt,
+      isEnhancingPrompt,
+      scheduleComposerFocus,
+      setPrompt,
+      setPromptEnhancementState,
+    ],
   );
   const providerTraitsMenuContent = renderProviderTraitsMenuContent({
     provider: selectedProvider,
@@ -5252,7 +5309,8 @@ export default function ChatView({ threadId }: ChatViewProps) {
                               <PromptEnhancer
                                 prompt={prompt}
                                 value={composerPromptEnhancement}
-                                onChange={setPromptEnhancement}
+                                onChange={onPromptEnhancementChange}
+                                isEnhancing={isEnhancingPrompt}
                               />
                               <Button
                                 variant="ghost"

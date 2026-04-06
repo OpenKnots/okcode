@@ -493,13 +493,13 @@ export const CodeViewerFileContent = memo(function CodeViewerFileContent(
               disabled={!editable || isSaving}
               aria-live="polite"
               className={cn(
-                "min-w-[7rem] justify-center overflow-hidden transition-all duration-300",
+                "min-w-[7rem] justify-center overflow-hidden transition-[color,background-color,border-color,box-shadow] duration-200",
                 saveButtonState === "dirty" &&
-                  "shadow-[0_18px_48px_-22px_color-mix(in_srgb,var(--primary)_92%,transparent)] hover:-translate-y-px",
+                  "border border-primary/25 bg-linear-to-b from-primary to-[hsl(223_82%_62%)] text-button-primary-foreground shadow-[0_14px_30px_-22px_color-mix(in_srgb,var(--primary)_65%,transparent)] hover:brightness-105",
                 saveButtonState === "saved" &&
-                  "border border-emerald-500/25 bg-linear-to-b from-emerald-500/18 to-emerald-500/8 text-emerald-700 shadow-[0_16px_40px_-26px_rgba(16,185,129,0.65)] hover:brightness-100 dark:text-emerald-200",
+                  "border border-emerald-500/20 bg-emerald-500/10 text-emerald-700 shadow-none hover:bg-emerald-500/10 dark:text-emerald-200",
                 saveButtonState === "clean" &&
-                  "border border-border/70 bg-card text-muted-foreground shadow-[inset_0_1px_0_hsl(0_0%_100%/0.06)] hover:border-emerald-500/25 hover:bg-emerald-500/6 hover:text-emerald-700 dark:hover:text-emerald-200",
+                  "border border-border/80 bg-card text-muted-foreground shadow-none hover:border-border/80 hover:bg-card hover:text-muted-foreground",
               )}
               title={
                 saveButtonState === "dirty"

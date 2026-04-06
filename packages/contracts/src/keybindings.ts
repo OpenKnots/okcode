@@ -14,6 +14,7 @@ const STATIC_KEYBINDING_COMMANDS = [
   "terminal.close",
   "chat.new",
   "chat.newLocal",
+  "git.pullRequest",
   "editor.openFavorite",
 ] as const;
 

@@ -82,6 +82,7 @@ import {
   gitStatusQueryOptions,
   invalidateGitQueries,
 } from "~/lib/gitReactQuery";
+import { subscribeToGitPullRequestAction } from "~/lib/gitPullRequestAction";
 import { newCommandId, newMessageId, randomUUID } from "~/lib/utils";
 import { resolvePathLinkTarget } from "~/terminal-links";
 import { readNativeApi } from "~/nativeApi";
@@ -1108,6 +1109,18 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
       setActiveDialogAction(quickAction.action);
     }
   }, [openConflictedFilesInEditor, openExistingPr, quickAction, runPullWithToast, threadToastData]);
+
+  useEffect(() => {
+    if (!activeThreadId) {
+      return;
+    }
+    return subscribeToGitPullRequestAction(({ threadId }) => {
+      if (threadId !== activeThreadId) {
+        return;
+      }
+      runQuickAction();
+    });
+  }, [activeThreadId, runQuickAction]);
 
   const openDialogForMenuItem = useCallback(
     (item: GitActionMenuItem) => {

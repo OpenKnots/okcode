@@ -38,6 +38,12 @@ export const CHAT_SHORTCUT_GUIDE_DEFINITIONS = [
     title: "Open your favorite editor",
     description: "Jump straight to the editor you last used on this project.",
   },
+  {
+    id: "pull-request",
+    command: "git.pullRequest",
+    title: "Open or create a pull request",
+    description: "Jump to the current PR or start the PR flow for the active branch.",
+  },
 ] as const satisfies readonly ChatShortcutGuideDefinition[];
 
 export function buildChatShortcutGuides(

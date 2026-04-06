@@ -5,17 +5,20 @@ import {
   type ResolvedKeybindingsConfig,
 } from "@okcode/contracts";
 import { useQuery } from "@tanstack/react-query";
-import { GitPullRequestIcon } from "lucide-react";
+import { ExternalLinkIcon, GitPullRequestIcon } from "lucide-react";
 import { memo, useCallback, useEffect } from "react";
 import type { ProjectScriptDraft } from "~/projectScriptDefaults";
 import GitActionsControl from "../GitActionsControl";
 import { EditableThreadTitle } from "../EditableThreadTitle";
 import { Badge } from "../ui/badge";
+import { Button } from "../ui/button";
+import { Kbd } from "../ui/kbd";
 import ProjectScriptsControl, { type NewProjectScriptInput } from "../ProjectScriptsControl";
 import { SidebarTrigger } from "../ui/sidebar";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { useThreadTitleEditor } from "~/hooks/useThreadTitleEditor";
 import { gitStatusQueryOptions } from "~/lib/gitReactQuery";
+import { shortcutLabelsForCommand } from "~/keybindings";
 import { ensureNativeApi } from "~/nativeApi";
 import { useProjectColor } from "~/projectColors";
 import { useTheme } from "~/hooks/useTheme";
@@ -126,6 +129,8 @@ export const ChatHeader = memo(function ChatHeader({
 
   const threadPr =
     threadBranch !== null && gitStatus?.branch === threadBranch ? (gitStatus?.pr ?? null) : null;
+  const pullRequestShortcutLabels = shortcutLabelsForCommand(keybindings, "git.pullRequest");
+  const primaryPullRequestShortcutLabel = pullRequestShortcutLabels[0] ?? null;
 
   const openPrLink = useCallback((url: string) => {
     void ensureNativeApi().shell.openExternal(url);
@@ -194,24 +199,38 @@ export const ChatHeader = memo(function ChatHeader({
           <Tooltip>
             <TooltipTrigger
               render={
-                <button
+                <Button
                   type="button"
-                  aria-label={`#${threadPr.number} PR ${threadPr.state}: ${threadPr.title}`}
-                  className={`inline-flex size-7 cursor-pointer items-center justify-center rounded-md transition-colors hover:bg-accent ${
+                  size="xs"
+                  variant="outline"
+                  aria-label={`Open PR #${threadPr.number}: ${threadPr.title}`}
+                  className={`gap-1.5 pr-1.5 ${
                     threadPr.state === "open"
-                      ? "text-emerald-600 dark:text-emerald-300/90"
+                      ? "border-emerald-500/40 text-emerald-700 dark:border-emerald-400/35 dark:text-emerald-200"
                       : threadPr.state === "merged"
-                        ? "text-violet-600 dark:text-violet-300/90"
-                        : "text-zinc-500 dark:text-zinc-400/80"
+                        ? "border-violet-500/40 text-violet-700 dark:border-violet-400/35 dark:text-violet-200"
+                        : "border-border text-foreground"
                   }`}
                   onClick={() => openPrLink(threadPr.url)}
                 >
-                  <GitPullRequestIcon className="size-4" />
-                </button>
+                  <GitPullRequestIcon className="size-3.5" />
+                  <span className="max-w-40 truncate">
+                    View PR #{threadPr.number}
+                  </span>
+                  <ExternalLinkIcon className="size-3" />
+                  {primaryPullRequestShortcutLabel ? (
+                    <Kbd className="ml-0.5 hidden sm:inline-flex">
+                      {primaryPullRequestShortcutLabel}
+                    </Kbd>
+                  ) : null}
+                </Button>
               }
             />
             <TooltipPopup side="bottom">
               #{threadPr.number} PR {threadPr.state}: {threadPr.title}
+              {pullRequestShortcutLabels.length > 0
+                ? ` (${pullRequestShortcutLabels.join(" or ")})`
+                : ""}
             </TooltipPopup>
           </Tooltip>
         )}

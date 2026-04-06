@@ -40,6 +40,12 @@ it.effect("parses keybinding rules", () =>
       command: "chat.newLocal",
     });
     assert.strictEqual(parsedLocal.command, "chat.newLocal");
+
+    const parsedPullRequest = yield* decode(KeybindingRule, {
+      key: "mod+down",
+      command: "git.pullRequest",
+    });
+    assert.strictEqual(parsedPullRequest.command, "git.pullRequest");
   }),
 );
 

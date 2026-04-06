@@ -98,6 +98,7 @@ import { useTurnDiffSummaries } from "../hooks/useTurnDiffSummaries";
 import BranchToolbar from "./BranchToolbar";
 import { resolveShortcutCommand, shortcutLabelForCommand } from "../keybindings";
 import { buildChatShortcutGuides } from "~/lib/chatShortcutGuidance";
+import { dispatchGitPullRequestAction } from "~/lib/gitPullRequestAction";
 import PlanSidebar from "./PlanSidebar";
 import ThreadTerminalDrawer from "./ThreadTerminalDrawer";
 import {
@@ -2880,6 +2881,13 @@ export default function ChatView({ threadId }: ChatViewProps) {
           setTerminalOpen(true);
         }
         createNewTerminal();
+        return;
+      }
+
+      if (command === "git.pullRequest") {
+        event.preventDefault();
+        event.stopPropagation();
+        dispatchGitPullRequestAction(activeThreadId);
         return;
       }
 

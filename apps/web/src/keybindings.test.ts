@@ -105,6 +105,8 @@ const DEFAULT_BINDINGS = compile([
   },
   { shortcut: modShortcut("o", { shiftKey: true }), command: "chat.new" },
   { shortcut: modShortcut("n", { shiftKey: true }), command: "chat.newLocal" },
+  { shortcut: modShortcut("arrowdown"), command: "git.pullRequest" },
+  { shortcut: modShortcut("p", { shiftKey: true }), command: "git.pullRequest" },
   { shortcut: modShortcut("o"), command: "editor.openFavorite" },
 ]);
 
@@ -261,6 +263,10 @@ describe("shortcutLabelForCommand", () => {
   it("returns labels for non-terminal commands", () => {
     assert.strictEqual(shortcutLabelForCommand(DEFAULT_BINDINGS, "chat.new", "MacIntel"), "⇧⌘O");
     assert.strictEqual(
+      shortcutLabelForCommand(DEFAULT_BINDINGS, "git.pullRequest", "MacIntel"),
+      "⇧⌘P",
+    );
+    assert.strictEqual(
       shortcutLabelForCommand(DEFAULT_BINDINGS, "editor.openFavorite", "Linux"),
       "Ctrl+O",
     );
@@ -274,6 +280,10 @@ describe("shortcutLabelForCommand", () => {
     assert.deepStrictEqual(shortcutLabelsForCommand(DEFAULT_BINDINGS, "chat.newLocal", "Linux"), [
       "Ctrl+Shift+N",
     ]);
+    assert.deepStrictEqual(
+      shortcutLabelsForCommand(DEFAULT_BINDINGS, "git.pullRequest", "MacIntel"),
+      ["⌘Down", "⇧⌘P"],
+    );
   });
 });
 
@@ -389,6 +399,21 @@ describe("resolveShortcutCommand", () => {
         platform: "Linux",
       }),
       "script.setup.run",
+    );
+  });
+
+  it("returns the pull request command for either default shortcut", () => {
+    assert.strictEqual(
+      resolveShortcutCommand(event({ key: "ArrowDown", metaKey: true }), DEFAULT_BINDINGS, {
+        platform: "MacIntel",
+      }),
+      "git.pullRequest",
+    );
+    assert.strictEqual(
+      resolveShortcutCommand(event({ key: "P", metaKey: true, shiftKey: true }), DEFAULT_BINDINGS, {
+        platform: "MacIntel",
+      }),
+      "git.pullRequest",
     );
   });
 });

@@ -649,6 +649,22 @@ async function main(): Promise<void> {
     } else {
       log("--", "No release index table in docs/releases/README.md (skipped).");
     }
+
+    execFileSync(
+      "bun",
+      [
+        "run",
+        "fmt",
+        "CHANGELOG.md",
+        `docs/releases/v${version}.md`,
+        `docs/releases/v${version}/assets.md`,
+        "docs/releases/README.md",
+      ],
+      {
+        cwd: rootDir,
+        stdio: "inherit",
+      },
+    );
   }
   console.log("");
 

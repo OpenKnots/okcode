@@ -2,9 +2,15 @@ name: CI
 
 on:
   pull_request:
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
   push:
     branches:
       - main
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -16,6 +22,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       browser_tests: ${{ steps.filter.outputs.browser_tests }}
+      desktop_pipeline: ${{ steps.filter.outputs.desktop_pipeline }}
       desktop_windows: ${{ steps.filter.outputs.desktop_windows }}
       release_smoke: ${{ steps.filter.outputs.release_smoke }}
     steps:
@@ -38,6 +45,15 @@ jobs:
               - 'vitest.config.ts'
               - 'apps/web/vitest.browser.config.ts'
               - 'apps/web/vite.config.ts'
+            desktop_pipeline:
+              - 'apps/desktop/**'
+              - 'apps/server/**'
+              - 'packages/contracts/**'
+              - 'packages/shared/**'
+              - 'scripts/build-desktop-artifact.ts'
+              - 'package.json'
+              - 'bun.lock'
+              - 'turbo.json'
             desktop_windows:
               - 'apps/desktop/**'
               - 'apps/server/**'
@@ -57,7 +73,7 @@ jobs:
               - 'bun.lock'
 
   quality:
-    name: Format, Lint, Typecheck, Test, Browser Test, Build
+    name: Format, Lint, Typecheck, Test, Optional Browser/Desktop
     needs: detect_changes
     runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
@@ -118,9 +134,11 @@ jobs:
         run: bun run --cwd apps/web test:browser
 
       - name: Build desktop pipeline
+        if: needs.detect_changes.outputs.desktop_pipeline == 'true'
         run: bun run build:desktop
 
       - name: Verify preload bundle output
+        if: needs.detect_changes.outputs.desktop_pipeline == 'true'
         run: |
           test -f apps/desktop/dist-electron/preload.js
           grep -nE "desktopBridge|getWsUrl|PICK_FOLDER_CHANNEL|wsUrl" apps/desktop/dist-electron/preload.js

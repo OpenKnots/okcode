@@ -67,6 +67,13 @@ function isValidCustomViewport(value: unknown): value is CustomViewport {
   );
 }
 
+function clampCustomViewport(viewport: CustomViewport): CustomViewport {
+  return {
+    width: Math.max(320, Math.min(3840, Math.round(viewport.width))),
+    height: Math.max(320, Math.min(2160, Math.round(viewport.height))),
+  };
+}
+
 function createEmptyPersistedPreviewUiState(): PersistedPreviewUiState {
   return {
     openByProjectId: {},
@@ -153,9 +160,10 @@ function readPersistedPreviewUiState(): PersistedPreviewUiState {
       customViewportByProjectId:
         parsed.customViewportByProjectId && typeof parsed.customViewportByProjectId === "object"
           ? Object.fromEntries(
-              Object.entries(parsed.customViewportByProjectId).filter(
-                (entry): entry is [string, CustomViewport] =>
-                  typeof entry[0] === "string" && isValidCustomViewport(entry[1]),
+              Object.entries(parsed.customViewportByProjectId).flatMap(([projectId, viewport]) =>
+                typeof projectId === "string" && isValidCustomViewport(viewport)
+                  ? [[projectId, clampCustomViewport(viewport)] as const]
+                  : [],
               ),
             )
           : {},
@@ -304,10 +312,7 @@ export const usePreviewStateStore = create<PreviewStateStore>((set, get) => ({
   },
 
   setCustomViewport: (projectId, viewport) => {
-    const clamped: CustomViewport = {
-      width: Math.max(320, Math.min(3840, Math.round(viewport.width))),
-      height: Math.max(320, Math.min(2160, Math.round(viewport.height))),
-    };
+    const clamped = clampCustomViewport(viewport);
     set((state) => {
       const nextCustomViewportByProjectId = {
         ...state.customViewportByProjectId,

@@ -14,6 +14,7 @@ import {
   TrimmedNonEmptyString,
   TurnId,
 } from "./baseSchemas";
+import { GitHubRef } from "./github";
 
 export const ORCHESTRATION_WS_METHODS = {
   getSnapshot: "orchestration.getSnapshot",
@@ -387,6 +388,7 @@ const ThreadCreateCommand = Schema.Struct({
   ),
   branch: Schema.NullOr(TrimmedNonEmptyString),
   worktreePath: Schema.NullOr(TrimmedNonEmptyString),
+  githubRef: Schema.optional(GitHubRef),
   createdAt: IsoDateTime,
 });
 
@@ -404,6 +406,7 @@ const ThreadMetaUpdateCommand = Schema.Struct({
   model: Schema.optional(TrimmedNonEmptyString),
   branch: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
   worktreePath: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
+  githubRef: Schema.optional(GitHubRef),
 });
 
 const ThreadRuntimeModeSetCommand = Schema.Struct({
@@ -695,6 +698,7 @@ export const ThreadCreatedPayload = Schema.Struct({
   ),
   branch: Schema.NullOr(TrimmedNonEmptyString),
   worktreePath: Schema.NullOr(TrimmedNonEmptyString),
+  githubRef: Schema.optional(GitHubRef),
   createdAt: IsoDateTime,
   updatedAt: IsoDateTime,
 });
@@ -710,6 +714,7 @@ export const ThreadMetaUpdatedPayload = Schema.Struct({
   model: Schema.optional(TrimmedNonEmptyString),
   branch: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
   worktreePath: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
+  githubRef: Schema.optional(GitHubRef),
   updatedAt: IsoDateTime,
 });
 

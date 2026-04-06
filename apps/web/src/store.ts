@@ -310,6 +310,7 @@ export function syncServerReadModel(state: AppState, readModel: OrchestrationRea
         branch: thread.branch,
         worktreePath: thread.worktreePath,
         worktreeBaseBranch: existing?.worktreeBaseBranch ?? null,
+        githubRef: thread.githubRef ?? existing?.githubRef,
         turnDiffSummaries: thread.checkpoints.map((checkpoint) => ({
           turnId: checkpoint.turnId,
           completedAt: checkpoint.completedAt,

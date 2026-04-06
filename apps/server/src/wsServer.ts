@@ -88,6 +88,7 @@ import { makeServerPushBus } from "./wsServer/pushBus.ts";
 import { makeServerReadiness } from "./wsServer/readiness.ts";
 import { decodeJsonResult, formatSchemaError } from "@okcode/shared/schemaJson";
 import { PrReview } from "./prReview/Services/PrReview.ts";
+import { GitHub } from "./github/Services/GitHub.ts";
 import { GitActionExecutionError } from "./git/Errors.ts";
 import { EnvironmentVariables } from "./persistence/Services/EnvironmentVariables.ts";
 import { SkillService } from "./skills/SkillService.ts";
@@ -290,6 +291,7 @@ export type ServerRuntimeServices =
   | GitManager
   | GitCore
   | PrReview
+  | GitHub
   | TerminalManager
   | Keybindings
   | SkillService
@@ -744,6 +746,7 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
   const checkpointDiffQuery = yield* CheckpointDiffQuery;
   const orchestrationReactor = yield* OrchestrationReactor;
   const prReview = yield* PrReview;
+  const github = yield* GitHub;
   const { openInEditor, openInFileManager, revealInFileManager } = yield* Open;
   const environmentVariables = yield* EnvironmentVariables;
   const skillService = yield* SkillService;
@@ -1298,6 +1301,23 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
           prNumber: body.prNumber,
         });
         return result;
+      }
+
+      // ── GitHub issue methods ──────────────────────────────────────
+
+      case WS_METHODS.githubListIssues: {
+        const body = stripRequestTag(request.body);
+        return yield* github.listIssues(body);
+      }
+
+      case WS_METHODS.githubGetIssue: {
+        const body = stripRequestTag(request.body);
+        return yield* github.getIssue(body);
+      }
+
+      case WS_METHODS.githubPostComment: {
+        const body = stripRequestTag(request.body);
+        return yield* github.postComment(body);
       }
 
       case WS_METHODS.gitListBranches: {

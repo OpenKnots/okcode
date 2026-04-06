@@ -38,6 +38,7 @@ import { PrReviewProjectionLive } from "./prReview/Layers/PrReviewProjection";
 import { WorkflowEngineLive } from "./prReview/Layers/WorkflowEngine";
 import { MergeConflictResolverLive } from "./prReview/Layers/MergeConflictResolver";
 import { PrReviewLive } from "./prReview/Layers/PrReview";
+import { GitHubLive } from "./github/Layers/GitHub";
 import { PtyAdapter } from "./terminal/Services/PTY";
 
 type RuntimePtyAdapterLoader = {
@@ -152,11 +153,14 @@ export function makeServerRuntimeServicesLayer() {
     Layer.provideMerge(MergeConflictResolverLive.pipe(Layer.provideMerge(GitCoreLive))),
   );
 
+  const githubLayer = GitHubLive.pipe(Layer.provideMerge(GitHubCliLive));
+
   return Layer.mergeAll(
     orchestrationReactorLayer,
     GitCoreLive,
     gitManagerLayer,
     prReviewLayer,
+    githubLayer,
     terminalLayer,
     KeybindingsLive,
     SkillServiceLive,

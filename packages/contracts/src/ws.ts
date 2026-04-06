@@ -67,6 +67,7 @@ import {
 import { ProjectFileTreeChangedPayload } from "./project";
 import { OpenInEditorInput, OpenPathInput } from "./editor";
 import { GeneratePairingLinkInput, RevokeTokenInput, ServerConfigUpdatedPayload } from "./server";
+import { GitHubGetIssueInput, GitHubListIssuesInput, GitHubPostCommentInput } from "./github";
 import {
   SkillListInput,
   SkillCatalogInput,
@@ -111,6 +112,11 @@ export const WS_METHODS = {
   gitResolvePullRequest: "git.resolvePullRequest",
   gitPreparePullRequestThread: "git.preparePullRequestThread",
   gitListPullRequests: "git.listPullRequests",
+
+  // GitHub issue methods
+  githubListIssues: "github.listIssues",
+  githubGetIssue: "github.getIssue",
+  githubPostComment: "github.postComment",
 
   // PR review methods
   prReviewGetConfig: "prReview.getConfig",
@@ -227,6 +233,11 @@ const WebSocketRequestBody = Schema.Union([
   tagRequestBody(WS_METHODS.gitResolvePullRequest, GitPullRequestRefInput),
   tagRequestBody(WS_METHODS.gitPreparePullRequestThread, GitPreparePullRequestThreadInput),
   tagRequestBody(WS_METHODS.gitListPullRequests, GitListPullRequestsInput),
+
+  // GitHub issue methods
+  tagRequestBody(WS_METHODS.githubListIssues, GitHubListIssuesInput),
+  tagRequestBody(WS_METHODS.githubGetIssue, GitHubGetIssueInput),
+  tagRequestBody(WS_METHODS.githubPostComment, GitHubPostCommentInput),
 
   // PR review methods
   tagRequestBody(WS_METHODS.prReviewGetConfig, PrReviewConfigInput),

@@ -803,6 +803,43 @@ function SettingsRouteView() {
               />
 
               <SettingsRow
+                title="Font size"
+                description="Adjust the font size for code editors and terminal."
+                resetAction={
+                  fontSizeOverride !== null ? (
+                    <SettingResetButton
+                      label="font size"
+                      onClick={() => {
+                        clearFontSizeOverride();
+                        setFontSizeOverrideState(null);
+                      }}
+                    />
+                  ) : null
+                }
+                control={
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="range"
+                      min={10}
+                      max={20}
+                      step={1}
+                      value={fontSizeOverride ?? 12}
+                      onChange={(e) => {
+                        const value = Number.parseFloat(e.target.value);
+                        setFontSizeOverrideState(value);
+                        setStoredFontSizeOverride(value);
+                      }}
+                      className="h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-muted accent-foreground sm:w-28"
+                      aria-label="Font size"
+                    />
+                    <span className="w-12 text-right text-xs tabular-nums text-muted-foreground">
+                      {fontSizeOverride ?? 12}px
+                    </span>
+                  </div>
+                }
+              />
+
+              <SettingsRow
                 title="Font family"
                 description="Override the UI font. Use any Google Font name."
                 resetAction={

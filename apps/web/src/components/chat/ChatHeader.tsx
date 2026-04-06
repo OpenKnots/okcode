@@ -214,9 +214,7 @@ export const ChatHeader = memo(function ChatHeader({
                   onClick={() => openPrLink(threadPr.url)}
                 >
                   <GitPullRequestIcon className="size-3.5" />
-                  <span className="max-w-40 truncate">
-                    View PR #{threadPr.number}
-                  </span>
+                  <span className="max-w-40 truncate">View PR #{threadPr.number}</span>
                   <ExternalLinkIcon className="size-3" />
                   {primaryPullRequestShortcutLabel ? (
                     <Kbd className="ml-0.5 hidden sm:inline-flex">

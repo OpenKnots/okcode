@@ -350,19 +350,16 @@ export const CodeViewerFileContent = memo(function CodeViewerFileContent(
     void performSave("manual");
   }, [performSave]);
 
-  const saveButtonState = isSaving || isSavingManually
-    ? "saving"
-    : tab?.isDirty
-      ? "dirty"
-      : showSavedConfirmation
-        ? "saved"
-        : "clean";
+  const saveButtonState =
+    isSaving || isSavingManually
+      ? "saving"
+      : tab?.isDirty
+        ? "dirty"
+        : showSavedConfirmation
+          ? "saved"
+          : "clean";
   const saveButtonLabel =
-    saveButtonState === "saving"
-      ? "Saving..."
-      : saveButtonState === "dirty"
-        ? "Save"
-        : "Saved";
+    saveButtonState === "saving" ? "Saving..." : saveButtonState === "dirty" ? "Save" : "Saved";
 
   if (query.isLoading) {
     return (

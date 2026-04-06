@@ -1705,6 +1705,49 @@ it.layer(TestLayer)("git integration", (it) => {
         }),
     );
 
+    it.effect(
+      "resets upstream to the current branch when stale tracking points at a different branch",
+      () =>
+        Effect.gen(function* () {
+          const tmp = yield* makeTmpDir();
+          const remote = yield* makeTmpDir();
+          yield* git(remote, ["init", "--bare"]);
+
+          yield* initRepoWithCommit(tmp);
+          const initialBranch = (yield* (yield* GitCore).listBranches({ cwd: tmp })).branches.find(
+            (branch) => branch.current,
+          )!.name;
+          yield* git(tmp, ["remote", "add", "origin", remote]);
+          yield* git(tmp, ["push", "-u", "origin", initialBranch]);
+
+          const staleBranch = "codex/update-create-markdown-2-0-1";
+          yield* git(tmp, ["checkout", "-b", staleBranch]);
+          yield* writeTextFile(path.join(tmp, "stale.txt"), "stale\n");
+          yield* git(tmp, ["add", "stale.txt"]);
+          yield* git(tmp, ["commit", "-m", "stale branch"]);
+          yield* git(tmp, ["push", "-u", "origin", staleBranch]);
+
+          const featureBranch = "fresh-auth-flow";
+          yield* git(tmp, ["checkout", initialBranch]);
+          yield* git(tmp, ["checkout", "-b", featureBranch]);
+          yield* writeTextFile(path.join(tmp, "fresh.txt"), "fresh\n");
+          yield* git(tmp, ["add", "fresh.txt"]);
+          yield* git(tmp, ["commit", "-m", "fresh branch"]);
+          yield* git(tmp, ["push", "-u", "origin", featureBranch]);
+          yield* git(tmp, ["branch", "--set-upstream-to", `origin/${staleBranch}`]);
+
+          const core = yield* GitCore;
+          const pushed = yield* core.pushCurrentBranch(tmp, null);
+
+          expect(pushed.status).toBe("pushed");
+          expect(pushed.setUpstream).toBe(true);
+          expect(pushed.upstreamBranch).toBe(`origin/${featureBranch}`);
+          expect(yield* git(tmp, ["rev-parse", "--abbrev-ref", "@{upstream}"])).toBe(
+            `origin/${featureBranch}`,
+          );
+        }),
+    );
+
     it.effect("includes command context when worktree removal fails", () =>
       Effect.gen(function* () {
         const tmp = yield* makeTmpDir();

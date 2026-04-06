@@ -313,6 +313,7 @@ See [docs/releases/v0.0.7.md](docs/releases/v0.0.7.md) for full notes and [docs/
 ### Removed
 
 - None.
+- Add private local maintainer profiles for PR Review so OK Code can load external maintainer workflows without committing `.okcode/` files to the target repo.
 
 ## [0.0.6] - 2026-03-28
 

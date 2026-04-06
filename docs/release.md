@@ -25,9 +25,8 @@ The next stable train ships one semver across all blocking surfaces:
 
 ## Versioning and promotion
 
-- Always cut `vX.Y.Z-rc.1` first.
-- Soak the exact RC commit for 48 hours before promotion.
-- Promote the same commit to `vX.Y.Z`. Do not retag a new commit as stable without another RC.
+- Prereleases like `vX.Y.Z-rc.1` are optional. Use them when we want soak time or extra validation, not as a mandatory gate.
+- Stable releases may ship directly as `vX.Y.Z` when the change set is understood and approved.
 - Publish prereleases to npm with the `next` dist-tag.
 - Publish stable releases to npm with the `latest` dist-tag.
 

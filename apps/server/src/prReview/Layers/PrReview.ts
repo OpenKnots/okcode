@@ -21,6 +21,8 @@ import type {
   PrWorkflowStepRunResult,
 } from "@okcode/contracts";
 import { GitHubCli } from "../../git/Services/GitHubCli.ts";
+import { runProcess } from "../../processRunner";
+import { decodePrReviewLocalCommandAction } from "../localProfiles.ts";
 import { RepoReviewConfig } from "../Services/RepoReviewConfig.ts";
 import { PrReviewProjection } from "../Services/PrReviewProjection.ts";
 import { WorkflowEngine } from "../Services/WorkflowEngine.ts";
@@ -592,6 +594,75 @@ const makePrReview = Effect.gen(function* () {
     }) => Effect.Effect<A, PrReviewServiceError>,
   ): Effect.Effect<A, PrReviewServiceError> => getRepoOwnerAndName(cwd).pipe(Effect.flatMap(f));
 
+  const executeLocalCommandAction = (input: {
+    action: string;
+    prNumber: number;
+    step: { id: string; title: string; requiresConfirmation: boolean };
+  }): Effect.Effect<PrWorkflowStepRunResult, PrReviewError> =>
+    Effect.tryPromise({
+      try: async () => {
+        const decoded = decodePrReviewLocalCommandAction(input.action);
+        if (!decoded) {
+          return {
+            stepId: input.step.id,
+            status: "failed",
+            summary: `Workflow step ${input.step.title} is missing a runnable local command.`,
+            requiresConfirmation: input.step.requiresConfirmation,
+          } satisfies PrWorkflowStepRunResult;
+        }
+
+        const args = decoded.args.map((entry) =>
+          entry.replaceAll("{{prNumber}}", String(input.prNumber)),
+        );
+        try {
+          const result = await runProcess(args[0] ?? decoded.label, args.slice(1), {
+            cwd: decoded.cwd,
+            timeoutMs: 10 * 60_000,
+            allowNonZeroExit: true,
+            maxBufferBytes: 512 * 1024,
+            outputMode: "truncate",
+          });
+          const stderr = result.stderr.trim();
+          const stdout = result.stdout.trim();
+          const snippet = stderr || stdout;
+          if (result.code !== 0 || result.timedOut) {
+            return {
+              stepId: input.step.id,
+              status: "failed",
+              summary:
+                snippet.length > 0
+                  ? snippet.slice(0, 280)
+                  : `${decoded.label} failed${result.timedOut ? " (timed out)" : ""}.`,
+              requiresConfirmation: input.step.requiresConfirmation,
+            } satisfies PrWorkflowStepRunResult;
+          }
+          return {
+            stepId: input.step.id,
+            status: "done",
+            summary:
+              snippet.length > 0
+                ? snippet.slice(0, 280)
+                : `${decoded.label} completed successfully.`,
+            requiresConfirmation: input.step.requiresConfirmation,
+          } satisfies PrWorkflowStepRunResult;
+        } catch (error) {
+          return {
+            stepId: input.step.id,
+            status: "failed",
+            summary:
+              error instanceof Error ? error.message.slice(0, 280) : `${decoded.label} failed.`,
+            requiresConfirmation: input.step.requiresConfirmation,
+          } satisfies PrWorkflowStepRunResult;
+        }
+      },
+      catch: (cause) =>
+        new PrReviewError({
+          operation: "runWorkflowStep",
+          detail: `Failed to execute workflow step ${input.step.title}.`,
+          cause,
+        }),
+    });
+
   const service: PrReviewShape = {
     getConfig: ({ cwd }) => repoReviewConfig.getConfig({ cwd }),
     watchRepoConfig: ({ cwd, onChange }) => repoReviewConfig.watchRepo({ cwd, onChange }),
@@ -807,6 +878,18 @@ const makePrReview = Effect.gen(function* () {
         } else if (step.kind === "reviewAction") {
           status = "blocked";
           summary = "Submit a review from the action rail to complete this step.";
+        } else if (
+          config.source === "localProfile" &&
+          typeof step.action === "string" &&
+          decodePrReviewLocalCommandAction(step.action)
+        ) {
+          const commandResult = yield* executeLocalCommandAction({
+            action: step.action,
+            prNumber: input.prNumber,
+            step,
+          });
+          status = commandResult.status;
+          summary = commandResult.summary;
         } else if (step.kind === "skillSet" && step.skillSet) {
           summary = `Skill set ${step.skillSet} is ready to run.`;
         }

@@ -519,9 +519,6 @@ export const makeGitManager = Effect.gen(function* () {
       const headBranchFromUpstream = details.upstreamRef
         ? extractBranchFromRef(details.upstreamRef)
         : "";
-      const headBranch =
-        headBranchFromUpstream.length > 0 ? headBranchFromUpstream : details.branch;
-
       const [remoteRepository, originRepository] = yield* Effect.all(
         [
           resolveRemoteRepositoryContext(cwd, remoteName),
@@ -538,6 +535,11 @@ export const makeGitManager = Effect.gen(function* () {
           : remoteName !== null &&
             remoteName !== "origin" &&
             remoteRepository.repositoryNameWithOwner !== null;
+
+      const headBranch =
+        isCrossRepository && headBranchFromUpstream.length > 0
+          ? headBranchFromUpstream
+          : details.branch;
 
       const ownerHeadSelector =
         remoteRepository.ownerLogin && headBranch.length > 0
@@ -557,6 +559,12 @@ export const makeGitManager = Effect.gen(function* () {
         );
       }
       appendUnique(headSelectors, details.branch);
+      appendUnique(
+        headSelectors,
+        headBranchFromUpstream.length > 0 && headBranchFromUpstream !== details.branch
+          ? headBranchFromUpstream
+          : null,
+      );
       appendUnique(headSelectors, headBranch !== details.branch ? headBranch : null);
       if (!isCrossRepository && shouldProbeRemoteOwnedSelectors) {
         appendUnique(headSelectors, ownerHeadSelector);
@@ -662,27 +670,31 @@ export const makeGitManager = Effect.gen(function* () {
     cwd: string,
     branch: string,
     upstreamRef: string | null,
-    headContext: Pick<BranchHeadContext, "isCrossRepository">,
+    headContext: Pick<BranchHeadContext, "headBranch" | "isCrossRepository">,
   ) =>
     Effect.gen(function* () {
+      const defaultFromGh = yield* gitHubCli
+        .getDefaultBranch({ cwd })
+        .pipe(Effect.catch(() => Effect.succeed(null)));
+      const fallbackBase = defaultFromGh ?? "main";
       const configured = yield* gitCore.readConfigValue(cwd, `branch.${branch}.gh-merge-base`);
-      if (configured) return configured;
+      if (configured && configured !== headContext.headBranch && configured === fallbackBase) {
+        return configured;
+      }
 
       if (upstreamRef && !headContext.isCrossRepository) {
         const upstreamBranch = extractBranchFromRef(upstreamRef);
-        if (upstreamBranch.length > 0 && upstreamBranch !== branch) {
+        if (
+          upstreamBranch.length > 0 &&
+          upstreamBranch !== branch &&
+          upstreamBranch !== headContext.headBranch &&
+          upstreamBranch === fallbackBase
+        ) {
           return upstreamBranch;
         }
       }
 
-      const defaultFromGh = yield* gitHubCli
-        .getDefaultBranch({ cwd })
-        .pipe(Effect.catch(() => Effect.succeed(null)));
-      if (defaultFromGh) {
-        return defaultFromGh;
-      }
-
-      return "main";
+      return fallbackBase;
     });
 
   const resolvePreferredRemoteName = (cwd: string, branch: string) =>
@@ -1014,7 +1026,13 @@ export const makeGitManager = Effect.gen(function* () {
         };
       }
 
-      const baseBranch = yield* resolveBaseBranch(cwd, branch, details.upstreamRef, headContext);
+      let baseBranch = yield* resolveBaseBranch(cwd, branch, details.upstreamRef, headContext);
+      if (baseBranch === headContext.headBranch) {
+        const defaultBase = yield* gitHubCli
+          .getDefaultBranch({ cwd })
+          .pipe(Effect.catch(() => Effect.succeed(null)));
+        baseBranch = defaultBase && defaultBase !== headContext.headBranch ? defaultBase : "main";
+      }
       const rangeContext = yield* gitCore.readRangeContext(cwd, baseBranch);
 
       const generated = yield* textGeneration.generatePrContent({

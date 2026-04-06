@@ -1427,6 +1427,74 @@ it.layer(GitManagerTestLayer)("GitManager", (it) => {
     }),
   );
 
+  it.effect("prefers the current local branch for head and ignores stale PR base metadata", () =>
+    Effect.gen(function* () {
+      const repoDir = yield* makeTempDir("okcode-git-manager-");
+      yield* initRepo(repoDir);
+      const remoteDir = yield* createBareRemote();
+      yield* runGit(repoDir, ["remote", "add", "origin", remoteDir]);
+      yield* runGit(repoDir, ["push", "-u", "origin", "main"]);
+
+      yield* runGit(repoDir, ["checkout", "-b", "codex/update-create-markdown-2-0-1"]);
+      fs.writeFileSync(path.join(repoDir, "old.txt"), "old\n");
+      yield* runGit(repoDir, ["add", "old.txt"]);
+      yield* runGit(repoDir, ["commit", "-m", "Old branch commit"]);
+      yield* runGit(repoDir, ["push", "-u", "origin", "codex/update-create-markdown-2-0-1"]);
+
+      yield* runGit(repoDir, ["checkout", "main"]);
+      yield* runGit(repoDir, ["checkout", "-b", "fresh-auth-flow"]);
+      fs.writeFileSync(path.join(repoDir, "fresh.txt"), "fresh\n");
+      yield* runGit(repoDir, ["add", "fresh.txt"]);
+      yield* runGit(repoDir, ["commit", "-m", "Fresh branch commit"]);
+      yield* runGit(repoDir, ["push", "-u", "origin", "fresh-auth-flow"]);
+      yield* runGit(repoDir, [
+        "branch",
+        "--set-upstream-to",
+        "origin/codex/update-create-markdown-2-0-1",
+      ]);
+      yield* runGit(repoDir, [
+        "config",
+        "branch.fresh-auth-flow.gh-merge-base",
+        "codex/update-create-markdown-2-0-1",
+      ]);
+
+      const { manager, ghCalls } = yield* makeManager({
+        ghScenario: {
+          prListSequence: [
+            JSON.stringify([]),
+            JSON.stringify([
+              {
+                number: 233,
+                title: "Fresh auth flow",
+                url: "https://github.com/pingdotgg/codething-mvp/pull/233",
+                baseRefName: "main",
+                headRefName: "fresh-auth-flow",
+              },
+            ]),
+          ],
+        },
+      });
+
+      const result = yield* runStackedAction(manager, {
+        cwd: repoDir,
+        action: "commit_push_pr",
+      });
+
+      expect(result.pr.status).toBe("created");
+      expect(result.pr.number).toBe(233);
+      expect(
+        ghCalls.some((call) => call.includes("pr create --base main --head fresh-auth-flow")),
+      ).toBe(true);
+      expect(
+        ghCalls.some((call) =>
+          call.includes(
+            "pr create --base codex/update-create-markdown-2-0-1 --head codex/update-create-markdown-2-0-1",
+          ),
+        ),
+      ).toBe(false);
+    }),
+  );
+
   it.effect("rejects push/pr actions from detached HEAD", () =>
     Effect.gen(function* () {
       const repoDir = yield* makeTempDir("okcode-git-manager-");

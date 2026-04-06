@@ -195,7 +195,7 @@ export const PrReviewConfigIssue = Schema.Struct({
 export type PrReviewConfigIssue = typeof PrReviewConfigIssue.Type;
 
 export const PrReviewConfig = Schema.Struct({
-  source: Schema.Literals(["default", "repo"]),
+  source: Schema.Literals(["default", "repo", "localProfile"]),
   rules: PrReviewRules,
   workflows: Schema.Array(PrWorkflowDefinition),
   skillSets: Schema.Array(PrSkillSetDefinition),

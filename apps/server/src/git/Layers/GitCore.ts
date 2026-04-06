@@ -1433,16 +1433,34 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
           Effect.catch(() => Effect.succeed(null)),
         );
         if (currentUpstream) {
-          yield* runGit("GitCore.pushCurrentBranch.pushUpstream", cwd, [
+          if (
+            currentUpstream.upstreamBranch === branch ||
+            currentUpstream.remoteName !== "origin"
+          ) {
+            yield* runGit("GitCore.pushCurrentBranch.pushUpstream", cwd, [
+              "push",
+              currentUpstream.remoteName,
+              `HEAD:${currentUpstream.upstreamBranch}`,
+            ]);
+            return {
+              status: "pushed" as const,
+              branch,
+              upstreamBranch: currentUpstream.upstreamRef,
+              setUpstream: false,
+            };
+          }
+
+          yield* runGit("GitCore.pushCurrentBranch.pushResetUpstream", cwd, [
             "push",
+            "-u",
             currentUpstream.remoteName,
-            `HEAD:${currentUpstream.upstreamBranch}`,
+            branch,
           ]);
           return {
             status: "pushed" as const,
             branch,
-            upstreamBranch: currentUpstream.upstreamRef,
-            setUpstream: false,
+            upstreamBranch: `${currentUpstream.remoteName}/${branch}`,
+            setUpstream: true,
           };
         }
 

@@ -51,7 +51,11 @@ export function PrWorkflowPanel({
               Repo workflow
             </p>
             <h3 className="mt-1 font-semibold text-sm text-foreground">
-              {config?.source === "default" ? "Using default repo workflow" : "Loaded from .okcode"}
+              {config?.source === "default"
+                ? "Using default repo workflow"
+                : config?.source === "localProfile"
+                  ? "Loaded from local maintainer profile"
+                  : "Loaded from .okcode"}
             </h3>
           </div>
           <Button onClick={onOpenRules} size="xs" variant="outline">

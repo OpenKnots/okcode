@@ -3,6 +3,7 @@ import {
   type ClaudeCodeEffort,
   type CodexReasoningEffort,
   DEFAULT_REASONING_EFFORT_BY_PROVIDER,
+  type GitHubRef,
   ProjectId,
   ProviderInteractionMode,
   ProviderKind,
@@ -171,6 +172,7 @@ export interface DraftThreadState {
   branch: string | null;
   worktreePath: string | null;
   worktreeBaseBranch?: string | null;
+  githubRef?: GitHubRef | undefined;
   envMode: DraftThreadEnvMode;
 }
 
@@ -196,6 +198,7 @@ interface ComposerDraftStoreState {
       envMode?: DraftThreadEnvMode;
       runtimeMode?: RuntimeMode;
       interactionMode?: ProviderInteractionMode;
+      githubRef?: GitHubRef | null;
     },
   ) => void;
   setDraftThreadContext: (
@@ -209,6 +212,7 @@ interface ComposerDraftStoreState {
       envMode?: DraftThreadEnvMode;
       runtimeMode?: RuntimeMode;
       interactionMode?: ProviderInteractionMode;
+      githubRef?: GitHubRef | null;
     },
   ) => void;
   setDraftThreadTitle: (threadId: ThreadId, title: string) => void;
@@ -1105,6 +1109,10 @@ export const useComposerDraftStore = create<ComposerDraftStoreState>()(
             options?.worktreePath === undefined
               ? (existingThread?.worktreePath ?? null)
               : (options.worktreePath ?? null);
+          const nextGithubRef =
+            options?.githubRef === undefined
+              ? existingThread?.githubRef
+              : (options.githubRef ?? undefined);
           const nextDraftThread: DraftThreadState = {
             projectId,
             createdAt: options?.createdAt ?? existingThread?.createdAt ?? new Date().toISOString(),
@@ -1120,6 +1128,7 @@ export const useComposerDraftStore = create<ComposerDraftStoreState>()(
                 ? (existingThread?.branch ?? null)
                 : (options.branch ?? null),
             worktreePath: nextWorktreePath,
+            ...(nextGithubRef ? { githubRef: nextGithubRef } : {}),
             envMode:
               options?.envMode ??
               (nextWorktreePath ? "worktree" : (existingThread?.envMode ?? "local")),
@@ -1134,6 +1143,7 @@ export const useComposerDraftStore = create<ComposerDraftStoreState>()(
             existingThread.interactionMode === nextDraftThread.interactionMode &&
             existingThread.branch === nextDraftThread.branch &&
             existingThread.worktreePath === nextDraftThread.worktreePath &&
+            existingThread.githubRef === nextDraftThread.githubRef &&
             existingThread.envMode === nextDraftThread.envMode;
           if (hasSameProjectMapping && hasSameDraftThread) {
             return state;
@@ -1182,6 +1192,8 @@ export const useComposerDraftStore = create<ComposerDraftStoreState>()(
             options.worktreePath === undefined
               ? existing.worktreePath
               : (options.worktreePath ?? null);
+          const nextGithubRef =
+            options.githubRef === undefined ? existing.githubRef : (options.githubRef ?? undefined);
           const nextDraftThread: DraftThreadState = {
             projectId: nextProjectId,
             createdAt:
@@ -1194,6 +1206,7 @@ export const useComposerDraftStore = create<ComposerDraftStoreState>()(
             interactionMode: options.interactionMode ?? existing.interactionMode,
             branch: options.branch === undefined ? existing.branch : (options.branch ?? null),
             worktreePath: nextWorktreePath,
+            ...(nextGithubRef ? { githubRef: nextGithubRef } : {}),
             envMode:
               options.envMode ?? (nextWorktreePath ? "worktree" : (existing.envMode ?? "local")),
           };
@@ -1205,6 +1218,7 @@ export const useComposerDraftStore = create<ComposerDraftStoreState>()(
             nextDraftThread.interactionMode === existing.interactionMode &&
             nextDraftThread.branch === existing.branch &&
             nextDraftThread.worktreePath === existing.worktreePath &&
+            nextDraftThread.githubRef === existing.githubRef &&
             nextDraftThread.envMode === existing.envMode;
           if (isUnchanged) {
             return state;

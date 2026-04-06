@@ -39,6 +39,7 @@ export function buildLocalDraftThread(
     branch: draftThread.branch,
     worktreePath: draftThread.worktreePath,
     worktreeBaseBranch: null,
+    ...(draftThread.githubRef ? { githubRef: draftThread.githubRef } : {}),
     turnDiffSummaries: [],
     activities: [],
     proposedPlans: [],
@@ -90,6 +91,11 @@ export interface QueuedMessage {
 }
 
 export interface PullRequestDialogState {
+  initialReference: string | null;
+  key: number;
+}
+
+export interface IssueDialogState {
   initialReference: string | null;
   key: number;
 }

@@ -36,7 +36,7 @@ const baseExtensions: Extension[] = [
   EditorView.theme({
     "&": {
       height: "100%",
-      fontSize: "12px",
+      fontSize: "var(--font-size-code, 12px)",
       backgroundColor: "var(--background)",
     },
     ".cm-scroller": {

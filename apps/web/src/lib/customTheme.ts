@@ -71,6 +71,7 @@ const CUSTOM_THEME_STYLE_ID = "okcode-custom-theme-style";
 const CUSTOM_THEME_FONT_LINK_ID = "okcode-custom-theme-fonts";
 const RADIUS_OVERRIDE_KEY = "okcode:radius-override";
 const FONT_OVERRIDE_KEY = "okcode:font-override";
+const FONT_SIZE_OVERRIDE_KEY = "okcode:font-size-override";
 const LEGACY_BACKGROUND_STYLE_ID = "okcode-background-image-style";
 
 /** System-bundled fonts that don't need to be loaded from Google Fonts. */
@@ -569,6 +570,39 @@ export function applyFontOverride(): void {
 }
 
 // ---------------------------------------------------------------------------
+// Font Size Override (applies to code editors and terminal)
+// ---------------------------------------------------------------------------
+
+export function getStoredFontSizeOverride(): number | null {
+  const raw = localStorage.getItem(FONT_SIZE_OVERRIDE_KEY);
+  if (raw === null) return null;
+  const num = Number.parseFloat(raw);
+  return Number.isFinite(num) ? num : null;
+}
+
+export function setStoredFontSizeOverride(px: number): void {
+  localStorage.setItem(FONT_SIZE_OVERRIDE_KEY, String(px));
+  if (hasDom()) {
+    document.documentElement.style.setProperty("--font-size-code", `${px}px`);
+  }
+}
+
+export function clearFontSizeOverride(): void {
+  localStorage.removeItem(FONT_SIZE_OVERRIDE_KEY);
+  if (hasDom()) {
+    document.documentElement.style.removeProperty("--font-size-code");
+  }
+}
+
+export function applyFontSizeOverride(): void {
+  if (!hasDom()) return;
+  const val = getStoredFontSizeOverride();
+  if (val !== null) {
+    document.documentElement.style.setProperty("--font-size-code", `${val}px`);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Initialization (called on module load)
 // ---------------------------------------------------------------------------
 
@@ -590,4 +624,7 @@ export function initCustomTheme(): void {
 
   // Always apply font override if set
   applyFontOverride();
+
+  // Always apply font size override if set
+  applyFontSizeOverride();
 }

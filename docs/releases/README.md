@@ -9,6 +9,7 @@ Use this directory for versioned release notes and asset manifests only:
 
 | Version              | Summary                                                                                    | Assets                        |
 | -------------------- | ------------------------------------------------------------------------------------------ | ----------------------------- |
+| [0.16.1](v0.16.1.md) | Fix stale PR branch metadata, improve private maintainer wor                               | [manifest](v0.16.1/assets.md) |
 | [0.16.0](v0.16.0.md) | Right-panel diff review, editable code previews, and stronger release stability            | [manifest](v0.16.0/assets.md) |
 | [0.15.0](v0.15.0.md) | Brand refresh, scoped preview tabs, redesigned chat home, and rebase-aware branch sync     | [manifest](v0.15.0/assets.md) |
 | [0.14.0](v0.14.0.md) | Inline diffs, prompt enhancement, auto-refreshing file tree, and link-based mobile pairing | [manifest](v0.14.0/assets.md) |

@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.1] - 2026-04-06
+
+See [docs/releases/v0.16.1.md](docs/releases/v0.16.1.md) for full notes and [docs/releases/v0.16.1/assets.md](docs/releases/v0.16.1/assets.md) for release asset inventory.
+
+### Added
+
+- Pr-review: add private maintainer profiles.
+- Add pull request shortcut and header action.
+- Add per-file diff acceptance controls.
+- Add GitHub issue thread integration.
+- Add screenshot selection overlay and shortcut.
+- Add pinned preview tabs.
+- Add configurable code font size override.
+
+### Changed
+
+- Drop mandatory rc release gate.
+- Polish save button state styling.
+- Show saved confirmation on manual file saves.
+- Filter diffs by file change type.
+- Clamp persisted custom preview viewports.
+- Simplify the sidebar workspace list.
+- Tighten outline button contrast.
+- Make prompt enhancements visible and reversible.
+
+### Fixed
+
+- Git: fix stale PR branch metadata.
+
 ## [0.16.0] - 2026-04-05
 
 See [docs/releases/v0.16.0.md](docs/releases/v0.16.0.md) for full notes and [docs/releases/v0.16.0/assets.md](docs/releases/v0.16.0/assets.md) for release asset inventory.
@@ -469,3 +498,4 @@ First public version tag. See [docs/releases/v0.0.1.md](docs/releases/v0.0.1.md)
 [0.10.0]: https://github.com/OpenKnots/okcode/releases/tag/v0.10.0
 [0.14.0]: https://github.com/OpenKnots/okcode/releases/tag/v0.14.0
 [0.13.0]: https://github.com/OpenKnots/okcode/releases/tag/v0.13.0
+[0.16.1]: https://github.com/OpenKnots/okcode/releases/tag/v0.16.1

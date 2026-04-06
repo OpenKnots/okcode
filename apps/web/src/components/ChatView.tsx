@@ -3,6 +3,8 @@ import {
   DEFAULT_CHAT_FILE_MIME_TYPE,
   DEFAULT_MODEL_BY_PROVIDER,
   type ClaudeCodeEffort,
+  type GitHubIssueDetail,
+  type GitHubRef,
   type MessageId,
   type ProjectScript,
   type ModelSlug,
@@ -173,6 +175,7 @@ import { deriveLatestContextWindowSnapshot } from "../lib/contextWindow";
 import { shouldUseCompactComposerFooter } from "./composerFooterLayout";
 import { selectThreadTerminalState, useTerminalStateStore } from "../terminalStateStore";
 import { ComposerPromptEditor, type ComposerPromptEditorHandle } from "./ComposerPromptEditor";
+import { IssueThreadDialog } from "./IssueThreadDialog";
 import { PullRequestThreadDialog } from "./PullRequestThreadDialog";
 import { MessagesTimeline } from "./chat/MessagesTimeline";
 import { ChatHeader } from "./chat/ChatHeader";
@@ -209,6 +212,7 @@ import {
   deriveComposerSendState,
   LAST_INVOKED_SCRIPT_BY_PROJECT_KEY,
   LastInvokedScriptByProjectSchema,
+  IssueDialogState,
   PullRequestDialogState,
   QueuedMessage,
   readFileAsDataUrl,
@@ -532,6 +536,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
   const [composerHighlightedItemId, setComposerHighlightedItemId] = useState<string | null>(null);
   const [pullRequestDialogState, setPullRequestDialogState] =
     useState<PullRequestDialogState | null>(null);
+  const [issueDialogState, setIssueDialogState] = useState<IssueDialogState | null>(null);
   const [pendingProjectScriptRun, setPendingProjectScriptRun] = useState<{
     script: ProjectScript;
     inputIds: string[];
@@ -714,6 +719,24 @@ export default function ChatView({ threadId }: ChatViewProps) {
     setPullRequestDialogState(null);
   }, []);
 
+  const openIssueDialog = useCallback(
+    (reference?: string) => {
+      if (!isLocalDraftThread) {
+        return;
+      }
+      setIssueDialogState({
+        initialReference: reference ?? null,
+        key: Date.now(),
+      });
+      setComposerHighlightedItemId(null);
+    },
+    [isLocalDraftThread],
+  );
+
+  const closeIssueDialog = useCallback(() => {
+    setIssueDialogState(null);
+  }, []);
+
   const openOrReuseProjectDraftThread = useCallback(
     async (input: { branch: string; worktreePath: string | null; envMode: DraftThreadEnvMode }) => {
       if (!activeProject) {
@@ -774,6 +797,68 @@ export default function ChatView({ threadId }: ChatViewProps) {
       });
     },
     [openOrReuseProjectDraftThread],
+  );
+
+  const handleStartIssueThread = useCallback(
+    async (input: { issue: GitHubIssueDetail; mode: "local" | "worktree" }) => {
+      if (!activeProject) {
+        return;
+      }
+      // Extract owner/repo from the issue URL
+      let owner = "";
+      let repo = "";
+      try {
+        const url = new URL(input.issue.url);
+        const parts = url.pathname.split("/").filter(Boolean);
+        if (parts.length >= 2) {
+          owner = parts[0]!;
+          repo = parts[1]!;
+        }
+      } catch {
+        // Fallback: cannot parse URL
+      }
+
+      if (!owner || !repo) {
+        return;
+      }
+
+      const githubRef = {
+        kind: "issue" as const,
+        owner,
+        repo,
+        number: input.issue.number,
+      } satisfies GitHubRef;
+
+      // Always create a fresh thread for an issue
+      clearProjectDraftThreadId(activeProject.id);
+      const nextId = newThreadId();
+      setProjectDraftThreadId(activeProject.id, nextId, {
+        createdAt: new Date().toISOString(),
+        runtimeMode: DEFAULT_RUNTIME_MODE,
+        envMode: input.mode,
+        githubRef,
+      });
+
+      // Pre-populate the composer with an issue context prompt
+      const { setPrompt: storeSetPrompt } = useComposerDraftStore.getState();
+      const labelsText =
+        input.issue.labels.length > 0
+          ? `Labels: ${input.issue.labels.map((l) => l.name).join(", ")}\n`
+          : "";
+      const bodyPreview = input.issue.body
+        ? input.issue.body.slice(0, 2000) + (input.issue.body.length > 2000 ? "\n..." : "")
+        : "";
+      storeSetPrompt(
+        nextId,
+        `Resolve GitHub issue #${input.issue.number}: ${input.issue.title}\n\n${labelsText}${bodyPreview ? `${bodyPreview}\n\n` : ""}Please analyze this issue and implement a fix.`,
+      );
+
+      await navigate({
+        to: "/$threadId",
+        params: { threadId: nextId },
+      });
+    },
+    [activeProject, clearProjectDraftThreadId, navigate, setProjectDraftThreadId],
   );
 
   useEffect(() => {

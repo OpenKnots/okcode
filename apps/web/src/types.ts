@@ -4,6 +4,7 @@ import type {
   OrchestrationSessionStatus,
   OrchestrationThreadActivity,
   ProjectScript as ContractProjectScript,
+  GitHubRef,
   ThreadId,
   ProjectId,
   TurnId,
@@ -116,6 +117,7 @@ export interface Thread {
   branch: string | null;
   worktreePath: string | null;
   worktreeBaseBranch?: string | null;
+  githubRef?: GitHubRef | undefined;
   turnDiffSummaries: TurnDiffSummary[];
   activities: OrchestrationThreadActivity[];
 }

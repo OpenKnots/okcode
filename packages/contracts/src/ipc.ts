@@ -59,6 +59,14 @@ import type {
   PrSubmitReviewResult,
   PrWorkflowStepRunResult,
 } from "./prReview";
+import type {
+  GitHubGetIssueInput,
+  GitHubGetIssueResult,
+  GitHubListIssuesInput,
+  GitHubListIssuesResult,
+  GitHubPostCommentInput,
+  GitHubPostCommentResult,
+} from "./github";
 import type { ServerConfig } from "./server";
 import type {
   GlobalEnvironmentVariablesResult,
@@ -351,6 +359,11 @@ export interface NativeApi {
     status: (input: GitStatusInput) => Promise<GitStatusResult>;
     runStackedAction: (input: GitRunStackedActionInput) => Promise<GitRunStackedActionResult>;
     onActionProgress: (callback: (event: GitActionProgressEvent) => void) => () => void;
+  };
+  github: {
+    listIssues: (input: GitHubListIssuesInput) => Promise<GitHubListIssuesResult>;
+    getIssue: (input: GitHubGetIssueInput) => Promise<GitHubGetIssueResult>;
+    postComment: (input: GitHubPostCommentInput) => Promise<GitHubPostCommentResult>;
   };
   prReview: {
     getConfig: (input: PrReviewConfigInput) => Promise<PrReviewConfig>;

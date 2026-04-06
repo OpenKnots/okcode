@@ -292,6 +292,11 @@ export function createWsNativeApi(): NativeApi {
         };
       },
     },
+    github: {
+      listIssues: (input) => transport.request(WS_METHODS.githubListIssues, input),
+      getIssue: (input) => transport.request(WS_METHODS.githubGetIssue, input),
+      postComment: (input) => transport.request(WS_METHODS.githubPostComment, input),
+    },
     prReview: {
       getConfig: (input) => transport.request(WS_METHODS.prReviewGetConfig, input),
       getDashboard: (input) => transport.request(WS_METHODS.prReviewGetDashboard, input),

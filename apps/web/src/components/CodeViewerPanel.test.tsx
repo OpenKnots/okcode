@@ -105,7 +105,7 @@ describe("CodeViewerFileContent", () => {
     expect(markup).toContain("Save");
   });
 
-  it("renders the source editor for editable text files and disables save when clean", async () => {
+  it("renders the source editor for editable text files and keeps the saved state visible when clean", async () => {
     const tabId = makeCodeViewerTabId("/repo", "src/index.ts");
     useCodeViewerStore.setState({
       isOpen: true,
@@ -152,7 +152,7 @@ describe("CodeViewerFileContent", () => {
     expect(markup).toContain('data-testid="mock-editor"');
     expect(markup).toContain('data-editable="true"');
     expect(markup).toContain("Saved");
-    expect(markup).toContain("disabled");
+    expect(markup).not.toContain("Save</button>");
   });
 
   it("keeps env files read-only until values are revealed", async () => {

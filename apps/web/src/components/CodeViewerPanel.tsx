@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  CheckIcon,
   EyeIcon,
   EyeOffIcon,
   FileCodeIcon,
@@ -30,6 +31,7 @@ import { Button } from "./ui/button";
 import { toastManager } from "./ui/toast";
 
 const AUTOSAVE_DELAY_MS = 750;
+const MANUAL_SAVE_SUCCESS_FLASH_MS = 2200;
 
 function hasTextContentsFromQuery(
   data: { contents?: string | null } | undefined,
@@ -135,8 +137,10 @@ export const CodeViewerFileContent = memo(function CodeViewerFileContent(
   const envFile = isEnvFile(props.relativePath);
   const [envValuesRevealed, setEnvValuesRevealed] = useState(false);
   const [isSavingManually, setIsSavingManually] = useState(false);
+  const [showSavedConfirmation, setShowSavedConfirmation] = useState(false);
   const saveRequestVersionRef = useRef(0);
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const manualSaveConfirmationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const tab = useCodeViewerStore(
     (state) => state.tabs.find((item) => item.tabId === tabId) ?? null,
@@ -220,6 +224,14 @@ export const CodeViewerFileContent = memo(function CodeViewerFileContent(
           queryKey: projectQueryKeys.readFile(props.cwd, props.relativePath),
         });
         if (reason === "manual") {
+          setShowSavedConfirmation(true);
+          if (manualSaveConfirmationTimerRef.current) {
+            clearTimeout(manualSaveConfirmationTimerRef.current);
+          }
+          manualSaveConfirmationTimerRef.current = setTimeout(() => {
+            setShowSavedConfirmation(false);
+            manualSaveConfirmationTimerRef.current = null;
+          }, MANUAL_SAVE_SUCCESS_FLASH_MS);
           toastManager.add({ type: "success", title: "File saved" });
         }
         return true;
@@ -299,6 +311,25 @@ export const CodeViewerFileContent = memo(function CodeViewerFileContent(
     tab?.draftContents,
   ]);
 
+  useEffect(() => {
+    if (tab?.isDirty && showSavedConfirmation) {
+      setShowSavedConfirmation(false);
+      if (manualSaveConfirmationTimerRef.current) {
+        clearTimeout(manualSaveConfirmationTimerRef.current);
+        manualSaveConfirmationTimerRef.current = null;
+      }
+    }
+  }, [showSavedConfirmation, tab?.isDirty]);
+
+  useEffect(
+    () => () => {
+      if (manualSaveConfirmationTimerRef.current) {
+        clearTimeout(manualSaveConfirmationTimerRef.current);
+      }
+    },
+    [],
+  );
+
   const handleDiscardChanges = useCallback(() => {
     if (!tab) {
       return;
@@ -318,6 +349,20 @@ export const CodeViewerFileContent = memo(function CodeViewerFileContent(
   const handleSave = useCallback(() => {
     void performSave("manual");
   }, [performSave]);
+
+  const saveButtonState = isSaving || isSavingManually
+    ? "saving"
+    : tab?.isDirty
+      ? "dirty"
+      : showSavedConfirmation
+        ? "saved"
+        : "clean";
+  const saveButtonLabel =
+    saveButtonState === "saving"
+      ? "Saving..."
+      : saveButtonState === "dirty"
+        ? "Save"
+        : "Saved";
 
   if (query.isLoading) {
     return (
@@ -445,14 +490,33 @@ export const CodeViewerFileContent = memo(function CodeViewerFileContent(
               type="button"
               size="xs"
               onClick={handleSave}
-              disabled={!editable || !tab?.isDirty || isSaving}
+              disabled={!editable || isSaving}
+              aria-live="polite"
+              className={cn(
+                "min-w-[7rem] justify-center overflow-hidden transition-all duration-300",
+                saveButtonState === "dirty" &&
+                  "shadow-[0_18px_48px_-22px_color-mix(in_srgb,var(--primary)_92%,transparent)] hover:-translate-y-px",
+                saveButtonState === "saved" &&
+                  "border border-emerald-500/25 bg-linear-to-b from-emerald-500/18 to-emerald-500/8 text-emerald-700 shadow-[0_16px_40px_-26px_rgba(16,185,129,0.65)] hover:brightness-100 dark:text-emerald-200",
+                saveButtonState === "clean" &&
+                  "border border-border/70 bg-card text-muted-foreground shadow-[inset_0_1px_0_hsl(0_0%_100%/0.06)] hover:border-emerald-500/25 hover:bg-emerald-500/6 hover:text-emerald-700 dark:hover:text-emerald-200",
+              )}
+              title={
+                saveButtonState === "dirty"
+                  ? "Save changes"
+                  : saveButtonState === "saving"
+                    ? "Saving changes"
+                    : "All changes saved"
+              }
             >
-              {isSaving || isSavingManually ? (
+              {saveButtonState === "saving" ? (
                 <Loader2Icon className="size-3.5 animate-spin" />
+              ) : saveButtonState === "saved" ? (
+                <CheckIcon className="size-3.5" />
               ) : (
                 <SaveIcon className="size-3.5" />
               )}
-              Save
+              {saveButtonLabel}
             </Button>
           </div>
         </div>

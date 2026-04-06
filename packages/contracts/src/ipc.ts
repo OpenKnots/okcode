@@ -191,6 +191,7 @@ export interface PreviewTabState {
   canGoBack: boolean;
   canGoForward: boolean;
   devToolsOpen: boolean;
+  isPinned: boolean;
 }
 
 export interface PreviewTabsState {
@@ -252,6 +253,7 @@ export interface DesktopBridge {
     navigate: (input: { url: string }) => Promise<PreviewNavigateResult>;
     toggleDevTools: () => Promise<void>;
     setBounds: (bounds: DesktopPreviewBounds) => Promise<void>;
+    togglePinTab: (input: { tabId: PreviewTabId }) => Promise<PreviewTabsState>;
     closeAll: () => Promise<void>;
     getState: () => Promise<PreviewTabsState>;
     onState: (listener: (state: PreviewTabsState) => void) => () => void;

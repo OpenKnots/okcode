@@ -349,4 +349,107 @@ describe("DesktopPreviewController", () => {
     controller.toggleDevTools();
     expect(findTab(latestState!, tabId)?.devToolsOpen).toBe(false);
   });
+
+  it("pins and unpins a tab", async () => {
+    let latestState = null as PreviewTabsState | null;
+    const window = createWindow();
+    const controller = new DesktopPreviewController(window, (state) => {
+      latestState = state;
+    });
+
+    controller.setBounds({
+      x: 0,
+      y: 0,
+      width: 960,
+      height: 640,
+      visible: true,
+      viewportWidth: 1024,
+      viewportHeight: 768,
+    });
+
+    const { tabId } = await controller.createTab({ url: "http://localhost:3000/" });
+    expect(findTab(latestState!, tabId)?.isPinned).toBe(false);
+
+    // Pin the tab
+    controller.togglePinTab(tabId);
+    expect(findTab(latestState!, tabId)?.isPinned).toBe(true);
+
+    // Unpin the tab
+    controller.togglePinTab(tabId);
+    expect(findTab(latestState!, tabId)?.isPinned).toBe(false);
+  });
+
+  it("sorts pinned tabs before unpinned tabs", async () => {
+    let latestState = null as PreviewTabsState | null;
+    const window = createWindow();
+    const controller = new DesktopPreviewController(window, (state) => {
+      latestState = state;
+    });
+
+    controller.setBounds({
+      x: 0,
+      y: 0,
+      width: 960,
+      height: 640,
+      visible: true,
+      viewportWidth: 1024,
+      viewportHeight: 768,
+    });
+
+    const { tabId: tab1Id } = await controller.createTab({ url: "http://localhost:3000/" });
+    const { tabId: tab2Id } = await controller.createTab({ url: "http://localhost:4000/" });
+    const { tabId: tab3Id } = await controller.createTab({ url: "http://localhost:5000/" });
+
+    // Tab order should be: tab1, tab2, tab3
+    expect(latestState!.tabs.map((t) => t.tabId)).toEqual([tab1Id, tab2Id, tab3Id]);
+
+    // Pin tab3 — it should move to the front
+    controller.togglePinTab(tab3Id);
+    expect(latestState!.tabs[0]!.tabId).toBe(tab3Id);
+    expect(latestState!.tabs[0]!.isPinned).toBe(true);
+
+    // Pin tab1 — both pinned tabs should come first
+    controller.togglePinTab(tab1Id);
+    const pinnedTabs = latestState!.tabs.filter((t) => t.isPinned);
+    const unpinnedTabs = latestState!.tabs.filter((t) => !t.isPinned);
+    expect(pinnedTabs).toHaveLength(2);
+    expect(unpinnedTabs).toHaveLength(1);
+    expect(unpinnedTabs[0]!.tabId).toBe(tab2Id);
+  });
+
+  it("prevents closing a pinned tab", async () => {
+    let latestState = null as PreviewTabsState | null;
+    const window = createWindow();
+    const controller = new DesktopPreviewController(window, (state) => {
+      latestState = state;
+    });
+
+    controller.setBounds({
+      x: 0,
+      y: 0,
+      width: 960,
+      height: 640,
+      visible: true,
+      viewportWidth: 1024,
+      viewportHeight: 768,
+    });
+
+    const { tabId } = await controller.createTab({ url: "http://localhost:3000/" });
+
+    // Pin the tab
+    controller.togglePinTab(tabId);
+    expect(findTab(latestState!, tabId)?.isPinned).toBe(true);
+
+    // Attempting to close should have no effect
+    controller.closeTab(tabId);
+    expect(latestState!.tabs).toHaveLength(1);
+    expect(findTab(latestState!, tabId)).toBeTruthy();
+
+    // Unpin, then close should work
+    controller.togglePinTab(tabId);
+    expect(findTab(latestState!, tabId)?.isPinned).toBe(false);
+
+    controller.closeTab(tabId);
+    expect(latestState!.tabs).toHaveLength(0);
+  });
 });

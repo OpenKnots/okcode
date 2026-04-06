@@ -74,6 +74,7 @@ const PREVIEW_NAVIGATE_CHANNEL = "desktop:preview-navigate";
 const PREVIEW_TOGGLE_DEVTOOLS_CHANNEL = "desktop:preview-toggle-devtools";
 const PREVIEW_GET_STATE_CHANNEL = "desktop:preview-get-state";
 const PREVIEW_SET_BOUNDS_CHANNEL = "desktop:preview-set-bounds";
+const PREVIEW_TOGGLE_PIN_TAB_CHANNEL = "desktop:preview-toggle-pin-tab";
 const PREVIEW_CLOSE_ALL_CHANNEL = "desktop:preview-close-all";
 const PREVIEW_TABS_STATE_CHANNEL = "desktop:preview-tabs-state";
 const BASE_DIR = process.env.OKCODE_HOME?.trim() || Path.join(OS.homedir(), ".okcode");
@@ -1346,6 +1347,13 @@ function registerIpcHandlers(): void {
     const window = resolvePreviewWindow(event.sender);
     if (!window) return;
     getPreviewController(window).toggleDevTools();
+  });
+
+  ipcMain.removeHandler(PREVIEW_TOGGLE_PIN_TAB_CHANNEL);
+  ipcMain.handle(PREVIEW_TOGGLE_PIN_TAB_CHANNEL, async (event, input: { tabId?: PreviewTabId }) => {
+    const window = resolvePreviewWindow(event.sender);
+    if (!window || !input?.tabId) return createEmptyTabsState();
+    return getPreviewController(window).togglePinTab(input.tabId);
   });
 
   ipcMain.removeHandler(PREVIEW_GET_STATE_CHANNEL);

@@ -9,6 +9,8 @@ import {
   LoaderCircleIcon,
   MaximizeIcon,
   MonitorIcon,
+  PinIcon,
+  PinOffIcon,
   PlusIcon,
   RefreshCwIcon,
   RotateCcwIcon,
@@ -680,7 +682,8 @@ export function PreviewPanel({ projectId, threadId, onClose }: PreviewPanelProps
             key={tab.tabId}
             type="button"
             className={cn(
-              "group flex max-w-[180px] items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] transition-colors",
+              "group flex items-center gap-1.5 rounded-md py-1 text-[11px] transition-colors",
+              tab.isPinned ? "max-w-[40px] px-2" : "max-w-[180px] px-2.5",
               tab.tabId === tabsState.activeTabId
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:bg-background/50 hover:text-foreground",
@@ -688,23 +691,52 @@ export function PreviewPanel({ projectId, threadId, onClose }: PreviewPanelProps
             onClick={() => void previewBridge?.activateTab({ tabId: tab.tabId })}
             title={tab.url ?? tabDisplayTitle(tab)}
           >
-            {tab.status === "loading" ? (
+            {tab.isPinned ? (
+              <PinIcon className="size-3 shrink-0 rotate-[-45deg] text-blue-500" />
+            ) : tab.status === "loading" ? (
               <LoaderCircleIcon className="size-3 shrink-0 animate-spin" />
             ) : (
               <GlobeIcon className="size-3 shrink-0 opacity-50" />
             )}
-            <span className="truncate">{tabDisplayTitle(tab)}</span>
-            <button
-              type="button"
-              className="ml-auto shrink-0 rounded p-0.5 opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100"
-              onClick={(e) => {
-                e.stopPropagation();
-                void previewBridge?.closeTab({ tabId: tab.tabId });
-              }}
-              aria-label={`Close ${tabDisplayTitle(tab)}`}
-            >
-              <XIcon className="size-2.5" />
-            </button>
+            {!tab.isPinned && <span className="truncate">{tabDisplayTitle(tab)}</span>}
+            {tab.isPinned ? (
+              <button
+                type="button"
+                className="ml-auto shrink-0 rounded p-0.5 opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void previewBridge?.togglePinTab({ tabId: tab.tabId });
+                }}
+                aria-label={`Unpin ${tabDisplayTitle(tab)}`}
+              >
+                <PinOffIcon className="size-2.5" />
+              </button>
+            ) : (
+              <span className="ml-auto flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                <button
+                  type="button"
+                  className="rounded p-0.5 hover:bg-muted"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void previewBridge?.togglePinTab({ tabId: tab.tabId });
+                  }}
+                  aria-label={`Pin ${tabDisplayTitle(tab)}`}
+                >
+                  <PinIcon className="size-2.5" />
+                </button>
+                <button
+                  type="button"
+                  className="rounded p-0.5 hover:bg-muted"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void previewBridge?.closeTab({ tabId: tab.tabId });
+                  }}
+                  aria-label={`Close ${tabDisplayTitle(tab)}`}
+                >
+                  <XIcon className="size-2.5" />
+                </button>
+              </span>
+            )}
           </button>
         ))}
         <button

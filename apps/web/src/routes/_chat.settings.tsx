@@ -51,13 +51,16 @@ import {
 import {
   applyCustomTheme,
   clearFontOverride,
+  clearFontSizeOverride,
   clearRadiusOverride,
   clearStoredCustomTheme,
   getStoredCustomTheme,
   getStoredFontOverride,
+  getStoredFontSizeOverride,
   getStoredRadiusOverride,
   removeCustomTheme,
   setStoredFontOverride,
+  setStoredFontSizeOverride,
   setStoredRadiusOverride,
   type CustomThemeData,
 } from "../lib/customTheme";
@@ -351,6 +354,9 @@ function SettingsRouteView() {
   const [fontOverride, setFontOverrideState] = useState<string>(
     () => getStoredFontOverride() ?? "",
   );
+  const [fontSizeOverride, setFontSizeOverrideState] = useState<number | null>(() =>
+    getStoredFontSizeOverride(),
+  );
   const globalEnvironmentVariablesQuery = useQuery(globalEnvironmentVariablesQueryOptions());
   const activeProjectId = selectedProjectId ?? projects[0]?.id ?? null;
   const selectedProject = projects.find((project) => project.id === activeProjectId) ?? null;
@@ -462,6 +468,7 @@ function SettingsRouteView() {
       : []),
     ...(radiusOverride !== null ? ["Border radius"] : []),
     ...(fontOverride ? ["Font family"] : []),
+    ...(fontSizeOverride !== null ? ["Font size"] : []),
   ];
 
   const openKeybindingsFile = useCallback(() => {
@@ -610,6 +617,8 @@ function SettingsRouteView() {
     setRadiusOverrideState(null);
     clearFontOverride();
     setFontOverrideState("");
+    clearFontSizeOverride();
+    setFontSizeOverrideState(null);
   }
 
   return (

@@ -2,12 +2,13 @@ import { parsePatchFiles } from "@pierre/diffs";
 import { FileDiff, type FileDiffMetadata, Virtualizer } from "@pierre/diffs/react";
 import { useQuery } from "@tanstack/react-query";
 import { Columns2Icon, Rows3Icon, TextWrapIcon, XIcon } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { openInPreferredEditor } from "../editorPreferences";
 import { useDiffViewerStore } from "../diffViewerStore";
 import { useTheme } from "../hooks/useTheme";
 import { useTurnDiffSummaries } from "../hooks/useTurnDiffSummaries";
+import { buildAcceptedDiffFileKey, filterAcceptedDiffFiles } from "../lib/diffPanelAcceptance";
 import { checkpointDiffQueryOptions } from "../lib/providerReactQuery";
 import { buildPatchCacheKey, resolveDiffThemeName } from "../lib/diffRendering";
 import { cn } from "../lib/utils";
@@ -59,6 +60,7 @@ const DIFF_PANEL_UNSAFE_CSS = `
   background-color: color-mix(in srgb, var(--card) 94%, var(--foreground)) !important;
   border-block-color: var(--border) !important;
   color: var(--foreground) !important;
+  padding-right: 5.75rem !important;
 }
 
 [data-diffs-header] {
@@ -169,6 +171,7 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
   const [diffRenderMode, setDiffRenderMode] = useState<DiffRenderMode>("stacked");
   const [diffWordWrap, setDiffWordWrap] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<FileDiffCategory>("all");
+  const [acceptedFileKeys, setAcceptedFileKeys] = useState<Set<string>>(() => new Set());
   const patchViewportRef = useRef<HTMLDivElement>(null);
   const previousDiffOpenRef = useRef(false);
 
@@ -270,6 +273,11 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
     );
   }, [renderablePatch]);
 
+  const remainingFiles = useMemo(
+    () => filterAcceptedDiffFiles(renderableFiles, acceptedFileKeys),
+    [acceptedFileKeys, renderableFiles],
+  );
+
   const categoryCounts = useMemo(() => {
     const counts: Record<Exclude<FileDiffCategory, "all">, number> = {
       added: 0,
@@ -277,17 +285,17 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
       deleted: 0,
       renamed: 0,
     };
-    for (const fileDiff of renderableFiles) {
+    for (const fileDiff of remainingFiles) {
       const category = categorizeFileDiff(fileDiff);
       counts[category]++;
     }
-    return { all: renderableFiles.length, ...counts };
-  }, [renderableFiles]);
+    return { all: remainingFiles.length, ...counts };
+  }, [remainingFiles]);
 
   const filteredFiles = useMemo(() => {
-    if (selectedCategory === "all") return renderableFiles;
-    return renderableFiles.filter((fileDiff) => categorizeFileDiff(fileDiff) === selectedCategory);
-  }, [renderableFiles, selectedCategory]);
+    if (selectedCategory === "all") return remainingFiles;
+    return remainingFiles.filter((fileDiff) => categorizeFileDiff(fileDiff) === selectedCategory);
+  }, [remainingFiles, selectedCategory]);
 
   useEffect(() => {
     if (diffOpen && !previousDiffOpenRef.current) {
@@ -296,6 +304,10 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
     }
     previousDiffOpenRef.current = diffOpen;
   }, [diffOpen]);
+
+  useEffect(() => {
+    setAcceptedFileKeys(new Set());
+  }, [selectedPatch]);
 
   useEffect(() => {
     if (!selectedFilePath || !patchViewportRef.current) {
@@ -318,6 +330,38 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
     },
     [activeCwd],
   );
+
+  const acceptFile = useCallback((fileDiff: FileDiffMetadata) => {
+    const fileKey = buildAcceptedDiffFileKey(fileDiff);
+    startTransition(() => {
+      setAcceptedFileKeys((current) => {
+        if (current.has(fileKey)) {
+          return current;
+        }
+        const next = new Set(current);
+        next.add(fileKey);
+        return next;
+      });
+    });
+  }, []);
+
+  const acceptAllFiles = useCallback(() => {
+    if (remainingFiles.length === 0) {
+      return;
+    }
+    startTransition(() => {
+      setAcceptedFileKeys((current) => {
+        const next = new Set(current);
+        for (const fileDiff of remainingFiles) {
+          next.add(buildAcceptedDiffFileKey(fileDiff));
+        }
+        return next;
+      });
+    });
+  }, [remainingFiles]);
+
+  const allFilesAccepted = renderableFiles.length > 0 && remainingFiles.length === 0;
+  const noFilesInSelectedCategory = !allFilesAccepted && filteredFiles.length === 0;
 
   const headerRow = (
     <>
@@ -354,6 +398,15 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-1 [-webkit-app-region:no-drag]">
+        <Button
+          type="button"
+          size="xs"
+          variant="outline"
+          onClick={acceptAllFiles}
+          disabled={remainingFiles.length === 0}
+        >
+          Accept All
+        </Button>
         <ToggleGroup
           className="shrink-0"
           variant="outline"
@@ -432,48 +485,69 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
               </div>
             )
           ) : renderablePatch.kind === "files" ? (
-            <Virtualizer
-              className="diff-render-surface h-full min-h-0 overflow-auto px-2 pb-2"
-              config={{
-                overscrollSize: 600,
-                intersectionObserverMargin: 1200,
-              }}
-            >
-              {filteredFiles.map((fileDiff) => {
-                const filePath = resolveFileDiffPath(fileDiff);
-                const fileKey = buildFileDiffRenderKey(fileDiff);
-                const themedFileKey = `${fileKey}:${resolvedTheme}`;
-                return (
-                  <div
-                    key={themedFileKey}
-                    data-diff-file-path={filePath}
-                    className="diff-render-file mb-2 rounded-md first:mt-2 last:mb-0"
-                    onClickCapture={(event) => {
-                      const nativeEvent = event.nativeEvent as MouseEvent;
-                      const composedPath = nativeEvent.composedPath?.() ?? [];
-                      const clickedHeader = composedPath.some((node) => {
-                        if (!(node instanceof Element)) return false;
-                        return node.hasAttribute("data-title");
-                      });
-                      if (!clickedHeader) return;
-                      openDiffFileInEditor(filePath);
-                    }}
-                  >
-                    <FileDiff
-                      fileDiff={fileDiff}
-                      options={{
-                        diffStyle: diffRenderMode === "split" ? "split" : "unified",
-                        lineDiffType: "none",
-                        overflow: diffWordWrap ? "wrap" : "scroll",
-                        theme: resolveDiffThemeName(resolvedTheme),
-                        themeType: resolvedTheme as DiffThemeType,
-                        unsafeCSS: DIFF_PANEL_UNSAFE_CSS,
+            allFilesAccepted || noFilesInSelectedCategory ? (
+              <div className="flex h-full items-center justify-center px-3 py-2 text-xs text-muted-foreground/70">
+                <p>
+                  {allFilesAccepted
+                    ? "All file changes accepted."
+                    : `No remaining ${CATEGORY_LABELS[selectedCategory].toLowerCase()} changes.`}
+                </p>
+              </div>
+            ) : (
+              <Virtualizer
+                className="diff-render-surface h-full min-h-0 overflow-auto px-2 pb-2"
+                config={{
+                  overscrollSize: 600,
+                  intersectionObserverMargin: 1200,
+                }}
+              >
+                {filteredFiles.map((fileDiff) => {
+                  const filePath = resolveFileDiffPath(fileDiff);
+                  const fileKey = buildFileDiffRenderKey(fileDiff);
+                  const themedFileKey = `${fileKey}:${resolvedTheme}`;
+                  return (
+                    <div
+                      key={themedFileKey}
+                      data-diff-file-path={filePath}
+                      className="diff-render-file relative mb-2 rounded-md first:mt-2 last:mb-0"
+                      onClickCapture={(event) => {
+                        const nativeEvent = event.nativeEvent as MouseEvent;
+                        const composedPath = nativeEvent.composedPath?.() ?? [];
+                        const clickedHeader = composedPath.some((node) => {
+                          if (!(node instanceof Element)) return false;
+                          return node.hasAttribute("data-title");
+                        });
+                        if (!clickedHeader) return;
+                        openDiffFileInEditor(filePath);
                       }}
-                    />
-                  </div>
-                );
-              })}
-            </Virtualizer>
+                    >
+                      <div className="pointer-events-none absolute right-2 top-2 z-10">
+                        <Button
+                          type="button"
+                          size="xs"
+                          variant="secondary"
+                          className="pointer-events-auto"
+                          onClick={() => acceptFile(fileDiff)}
+                        >
+                          Accept
+                        </Button>
+                      </div>
+                      <FileDiff
+                        fileDiff={fileDiff}
+                        options={{
+                          diffStyle: diffRenderMode === "split" ? "split" : "unified",
+                          lineDiffType: "none",
+                          overflow: diffWordWrap ? "wrap" : "scroll",
+                          theme: resolveDiffThemeName(resolvedTheme),
+                          themeType: resolvedTheme as DiffThemeType,
+                          unsafeCSS: DIFF_PANEL_UNSAFE_CSS,
+                        }}
+                      />
+                    </div>
+                  );
+                })}
+              </Virtualizer>
+            )
           ) : (
             <div className="h-full overflow-auto p-2">
               <div className="space-y-2">

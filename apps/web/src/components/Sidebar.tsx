@@ -1,14 +1,19 @@
 import {
   ArrowLeftIcon,
   ArrowUpDownIcon,
+  CheckCircleIcon,
   ChevronRightIcon,
+  CircleDotIcon,
+  CloudUploadIcon,
   EyeIcon,
   EyeOffIcon,
-  ZapIcon,
+  ExternalLinkIcon,
   FolderIcon,
   GitBranchIcon,
   GitMergeIcon,
   GitPullRequestIcon,
+  LinkIcon,
+  UserIcon,
   XCircleIcon,
   PanelLeftCloseIcon,
   PlusIcon,
@@ -17,7 +22,6 @@ import {
   TerminalIcon,
   TriangleAlertIcon,
 } from "lucide-react";
-import { ThemeModeSwitcher } from "./ThemeModeSwitcher";
 import { OkCodeMark } from "./OkCodeMark";
 import { ConnectionIndicator } from "./ConnectionIndicator";
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
@@ -110,7 +114,6 @@ import {
   isActionableThreadStatus,
   resolveProjectStatusIndicator,
   resolveSidebarNewThreadEnvMode,
-  resolveThreadRowClassName,
   resolveThreadStatusPill,
   shouldClearThreadSelectionOnMouseDown,
   sortProjectsForSidebar,
@@ -350,7 +353,7 @@ function SortableProjectItem({
         transform: CSS.Translate.toString(transform),
         transition,
       }}
-      className={`group/menu-item relative rounded-md mt-1.5 first:mt-0 ${
+      className={`group/menu-item relative rounded-md mt-0.5 first:mt-0 ${
         isDragging ? "z-20 opacity-80" : ""
       } ${isOver && !isDragging ? "ring-1 ring-primary/40" : ""}`}
       data-sidebar="menu-item"
@@ -441,25 +444,41 @@ const MemoizedThreadRow = memo(
       selectThreadTerminalState(terminalStateByThreadId, thread.id).runningTerminalIds,
     );
 
+    // Derive a type-based icon for the thread row
+    const ThreadIcon = prStatus
+      ? prStatus.icon
+      : threadStatus?.label === "Completed"
+        ? CheckCircleIcon
+        : threadStatus?.label === "Error"
+          ? XCircleIcon
+          : threadStatus?.label === "Working" || threadStatus?.label === "Connecting"
+            ? CircleDotIcon
+            : threadStatus?.label === "Pending Approval" || threadStatus?.label === "Awaiting Input"
+              ? UserIcon
+              : threadStatus?.label === "Plan Ready"
+                ? LinkIcon
+                : CircleDotIcon;
+
+    const threadIconColor = prStatus
+      ? prStatus.colorClass
+      : threadStatus
+        ? threadStatus.colorClass
+        : "text-muted-foreground/50";
+
     return (
       <SidebarMenuSubItem key={thread.id} className="relative w-full" data-thread-item>
-        {/* Project color accent bar */}
-        <span
-          aria-hidden="true"
-          className="absolute bottom-1.5 left-0 top-1.5 w-[3px] rounded-full transition-opacity"
-          style={{
-            backgroundColor: pColor.dot,
-            opacity: isActive ? 1 : 0.35,
-          }}
-        />
         <SidebarMenuSubButton
           render={<div role="button" tabIndex={0} />}
           size="sm"
           isActive={isActive}
-          className={resolveThreadRowClassName({
-            isActive,
-            isSelected,
-          })}
+          className={cn(
+            "h-auto min-h-7 translate-x-0 items-center gap-2 rounded-md px-2 py-1 text-left",
+            isActive
+              ? "bg-accent/60 text-foreground"
+              : isSelected
+                ? "bg-accent/40 text-foreground"
+                : "text-muted-foreground hover:bg-accent/40 hover:text-foreground",
+          )}
           onClick={(event) => {
             handleThreadClick(event, thread.id, orderedProjectThreadIds);
           }}
@@ -493,38 +512,8 @@ const MemoizedThreadRow = memo(
             }
           }}
         >
+          <ThreadIcon className={cn("size-3.5 shrink-0", threadIconColor)} />
           <div className="flex min-w-0 flex-1 items-center gap-1.5 text-left">
-            {prStatus && (
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <button
-                      type="button"
-                      aria-label={prStatus.tooltip}
-                      className={`inline-flex items-center justify-center ${prStatus.colorClass} cursor-pointer rounded-sm outline-hidden focus-visible:ring-1 focus-visible:ring-ring`}
-                      onClick={(event) => {
-                        openPrLink(event, prStatus.url);
-                      }}
-                    >
-                      <prStatus.icon className="size-3" />
-                    </button>
-                  }
-                />
-                <TooltipPopup side="top">{prStatus.tooltip}</TooltipPopup>
-              </Tooltip>
-            )}
-            {threadStatus && (
-              <span
-                className={`inline-flex items-center gap-1 text-[10px] ${threadStatus.colorClass}`}
-              >
-                <span
-                  className={`h-1.5 w-1.5 rounded-full ${threadStatus.dotClass} ${
-                    threadStatus.pulse ? "animate-pulse" : ""
-                  }`}
-                />
-                <span className="hidden md:inline">{threadStatus.label}</span>
-              </span>
-            )}
             <EditableThreadTitle
               title={thread.title}
               isEditing={editingThreadId === thread.id}
@@ -544,27 +533,7 @@ const MemoizedThreadRow = memo(
               onCancel={cancelEditing}
             />
           </div>
-          <div className="ml-auto flex items-center gap-1.5">
-            {terminalStatus && (
-              <span
-                role="img"
-                aria-label={terminalStatus.label}
-                title={terminalStatus.label}
-                className={`inline-flex items-center justify-center ${terminalStatus.colorClass}`}
-              >
-                <TerminalIcon className={`size-3 ${terminalStatus.pulse ? "animate-pulse" : ""}`} />
-              </span>
-            )}
-            <span
-              className={`text-[10px] ${
-                isHighlighted
-                  ? "text-foreground/72 dark:text-foreground/82"
-                  : "text-muted-foreground/40"
-              }`}
-            >
-              {formatRelativeTimeFn(thread.updatedAt ?? thread.createdAt)}
-            </span>
-          </div>
+          <CloudUploadIcon className="size-3.5 shrink-0 text-muted-foreground/30" />
         </SidebarMenuSubButton>
       </SidebarMenuSubItem>
     );
@@ -1447,39 +1416,17 @@ export default function Sidebar() {
     const orderedProjectThreadIds = projectThreads.map((thread) => thread.id);
     const renderedThreads = pinnedCollapsedThread ? [pinnedCollapsedThread] : visibleThreads;
     const pColor = getProjectColor(project.id);
-    const isDark = resolvedTheme === "dark";
 
     return (
       <Collapsible className="group/collapsible" open={shouldShowThreadPanel}>
-        <div className="group/project-header relative flex items-center gap-1.5">
+        <div className="group/project-header relative flex items-center gap-1">
           <SidebarMenuButton
             ref={isManualProjectSorting ? dragHandleProps?.setActivatorNodeRef : undefined}
             size="sm"
-            className={`min-w-0 flex-1 gap-2 rounded-lg border border-primary/25 px-2.5 py-2.5 text-left ${appSettings.sidebarAccentBgColorOverride ? "" : ""} group-hover/project-header:text-sidebar-accent-foreground ${
-              isManualProjectSorting ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
-            }`}
-            style={{
-              backgroundColor: appSettings.sidebarAccentBgColorOverride
-                ? `color-mix(in srgb, ${appSettings.sidebarAccentBgColorOverride} 15%, transparent)`
-                : isDark
-                  ? pColor.bgDark
-                  : pColor.bg,
-            }}
-            onMouseEnter={(e) => {
-              const hoverBg = appSettings.sidebarAccentBgColorOverride
-                ? `color-mix(in srgb, ${appSettings.sidebarAccentBgColorOverride} 25%, transparent)`
-                : isDark
-                  ? pColor.bgDark.replace("0.12)", "0.20)")
-                  : pColor.bg.replace("0.08)", "0.14)");
-              e.currentTarget.style.backgroundColor = hoverBg;
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = appSettings.sidebarAccentBgColorOverride
-                ? `color-mix(in srgb, ${appSettings.sidebarAccentBgColorOverride} 15%, transparent)`
-                : isDark
-                  ? pColor.bgDark
-                  : pColor.bg;
-            }}
+            className={cn(
+              "min-w-0 flex-1 gap-0 rounded-md px-2 py-1.5 text-left hover:bg-transparent",
+              isManualProjectSorting ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
+            )}
             {...(isManualProjectSorting && dragHandleProps ? dragHandleProps.attributes : {})}
             {...(isManualProjectSorting && dragHandleProps ? dragHandleProps.listeners : {})}
             onPointerDownCapture={handleProjectTitlePointerDownCapture}
@@ -1493,35 +1440,12 @@ export default function Sidebar() {
               });
             }}
           >
-            {!project.expanded && projectStatus ? (
-              <span
-                aria-hidden="true"
-                title={projectStatus.label}
-                className={`-ml-0.5 relative inline-flex size-3.5 shrink-0 items-center justify-center ${projectStatus.colorClass}`}
-              >
-                <span className="absolute inset-0 flex items-center justify-center transition-opacity duration-150 group-hover/project-header:opacity-0">
-                  <span
-                    className={`size-[9px] rounded-full ${projectStatus.dotClass} ${
-                      projectStatus.pulse ? "animate-pulse" : ""
-                    }`}
-                  />
-                </span>
-                <ChevronRightIcon className="absolute inset-0 m-auto size-3.5 text-muted-foreground/70 opacity-0 transition-opacity duration-150 group-hover/project-header:opacity-100" />
-              </span>
-            ) : (
-              <ChevronRightIcon
-                className={`-ml-0.5 size-3.5 shrink-0 text-muted-foreground/70 transition-transform duration-150 ${
-                  project.expanded ? "rotate-90" : ""
-                }`}
-              />
-            )}
-            <ProjectFavicon cwd={project.cwd} />
             {editingProjectId === project.id ? (
               <input
                 ref={bindProjectInputRef}
                 type="text"
                 value={draftProjectTitle}
-                className="min-w-0 flex-1 rounded border border-primary/40 bg-background px-1 text-[13px] font-semibold tracking-[0.01em] outline-none focus:border-primary"
+                className="min-w-0 flex-1 rounded border border-primary/40 bg-background px-1 text-xs font-medium outline-none focus:border-primary"
                 onChange={(e) => setDraftProjectTitle(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
@@ -1538,18 +1462,7 @@ export default function Sidebar() {
             ) : (
               <span className="min-w-0 flex-1">
                 <span
-                  className="block truncate text-[13px] font-semibold tracking-[0.01em]"
-                  style={{
-                    color:
-                      appSettings.sidebarAccentProjectNames &&
-                      appSettings.sidebarAccentColorOverride
-                        ? appSettings.sidebarAccentColorOverride
-                        : appSettings.sidebarAccentProjectNames
-                          ? isDark
-                            ? pColor.textDark
-                            : pColor.text
-                          : undefined,
-                  }}
+                  className="block truncate text-xs font-medium text-muted-foreground/70"
                   onDoubleClick={(e) => {
                     e.stopPropagation();
                     startProjectEditing({
@@ -1560,42 +1473,13 @@ export default function Sidebar() {
                 >
                   {project.name}
                 </span>
-                {projectDisambiguationPaths.has(project.id) && (
-                  <span className="block truncate text-[10px] leading-tight text-muted-foreground/50">
-                    {projectDisambiguationPaths.get(project.id)}
-                  </span>
-                )}
               </span>
             )}
           </SidebarMenuButton>
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon-xs"
-                  aria-label={`Create new thread in ${project.name}`}
-                  data-testid="new-thread-button"
-                  className="hidden shrink-0 border-primary/25 bg-background/85 text-primary shadow-[0_10px_24px_-18px_color-mix(in_srgb,var(--primary)_70%,transparent)] transition-all duration-150 hover:border-primary/45 hover:bg-primary/10 hover:text-primary md:inline-flex"
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    void createNewThreadForProject(project.id);
-                  }}
-                >
-                  <PlusIcon className="size-3.5" />
-                </Button>
-              }
-            />
-            <TooltipPopup side="right">
-              {newThreadShortcutLabel ? `New thread (${newThreadShortcutLabel})` : "New thread"}
-            </TooltipPopup>
-          </Tooltip>
         </div>
 
         <CollapsibleContent>
-          <SidebarMenuSub className="relative mx-1.5 my-1 w-auto translate-x-0 gap-0.5 rounded-lg border border-border/40 bg-background/50 px-1 py-1 dark:border-border/30 dark:bg-background/30">
+          <SidebarMenuSub className="relative mx-0 my-0 w-auto translate-x-0 gap-0 border-none bg-transparent px-1 py-0">
             {renderedThreads.map((thread) => (
               <MemoizedThreadRow
                 key={thread.id}
@@ -1659,10 +1543,10 @@ export default function Sidebar() {
           </SidebarMenuSub>
 
           {project.expanded && !appSettings.sidebarHideFiles ? (
-            <div className="mx-1.5 mt-1 rounded-lg border border-border/40 bg-background/50 p-2 dark:border-border/30 dark:bg-background/30">
+            <div className="mx-1 mt-0.5 px-1">
               <button
                 type="button"
-                className="mb-1.5 flex w-full items-center gap-1.5 px-2 text-[10px] uppercase tracking-[0.14em] text-muted-foreground/58 hover:text-muted-foreground/80"
+                className="mb-1 flex w-full items-center gap-1.5 px-2 text-[10px] uppercase tracking-[0.14em] text-muted-foreground/50 hover:text-muted-foreground/70"
                 onClick={() =>
                   setFilesCollapsedByProject((current) => {
                     const next = new Set(current);
@@ -2299,9 +2183,9 @@ export default function Sidebar() {
               </SidebarMenu>
             </DndContext>
           ) : (
-            <SidebarMenu className="gap-2">
+            <SidebarMenu className="gap-0.5">
               {sortedProjects.map((project) => (
-                <SidebarMenuItem key={project.id} className="rounded-lg">
+                <SidebarMenuItem key={project.id} className="rounded-md">
                   {renderProjectItem(project, null)}
                 </SidebarMenuItem>
               ))}
@@ -2338,33 +2222,8 @@ export default function Sidebar() {
                   className="gap-2 px-2 py-1.5 text-muted-foreground/70 hover:bg-accent hover:text-foreground"
                   onClick={() => void navigate({ to: "/pr-review" })}
                 >
-                  <GitPullRequestIcon className="size-3.5" />
-                  <span className="text-xs">PR Review</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  size="sm"
-                  className="gap-2 px-2 py-1.5 text-muted-foreground/70 hover:bg-accent hover:text-foreground"
-                  onClick={() => void navigate({ to: "/merge-conflicts" })}
-                >
-                  <GitMergeIcon className="size-3.5" />
-                  <span className="text-xs">Merge Conflicts</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  size="sm"
-                  className="gap-2 px-2 py-1.5 text-muted-foreground/70 hover:bg-accent hover:text-foreground"
-                  onClick={() =>
-                    void navigate({
-                      to: "/skills",
-                      search: { create: undefined, name: undefined },
-                    })
-                  }
-                >
-                  <ZapIcon className="size-3.5" />
-                  <span className="text-xs">Skills</span>
+                  <ExternalLinkIcon className="size-3.5" />
+                  <span className="text-xs">Open Workspace</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
@@ -2376,9 +2235,6 @@ export default function Sidebar() {
                   <SettingsIcon className="size-3.5" />
                   <span className="text-xs">Settings</span>
                 </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <ThemeModeSwitcher />
               </SidebarMenuItem>
             </>
           )}

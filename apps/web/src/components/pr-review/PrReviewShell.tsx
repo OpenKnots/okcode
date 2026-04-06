@@ -52,6 +52,13 @@ import {
 
 const BOOL_SCHEMA = Schema.Boolean;
 
+function resolvePrReviewConfigPath(projectCwd: string, configPath: string): string {
+  if (/^(?:[A-Za-z]:[\\/]|\/)/.test(configPath)) {
+    return configPath;
+  }
+  return joinPath(projectCwd, configPath);
+}
+
 export function PrReviewShell({
   project,
   projects,
@@ -359,10 +366,12 @@ export function PrReviewShell({
     onOpenConflictDrawer: () => setConflictDrawerOpen(true),
     onOpenRules: () => {
       if (!configQuery.data) return;
-      void openPathInEditor(joinPath(project.cwd, configQuery.data.rules.relativePath));
+      void openPathInEditor(
+        resolvePrReviewConfigPath(project.cwd, configQuery.data.rules.relativePath),
+      );
     },
     onOpenWorkflow: (relativePath: string) => {
-      void openPathInEditor(joinPath(project.cwd, relativePath));
+      void openPathInEditor(resolvePrReviewConfigPath(project.cwd, relativePath));
     },
     onReplyToThread: async (threadId: string, body: string) => {
       await replyToThreadMutation.mutateAsync({ threadId, body });

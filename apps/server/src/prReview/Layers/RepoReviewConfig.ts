@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { promises as fsPromises } from "node:fs";
 
@@ -14,12 +15,29 @@ import type {
 } from "@okcode/contracts";
 import { Effect, Layer } from "effect";
 import YAML from "yaml";
+import { runProcess } from "../../processRunner";
+import {
+  encodePrReviewLocalCommandAction,
+  parseGitHubRepositoryNameWithOwnerFromRemoteUrl,
+} from "../localProfiles.ts";
 import { RepoReviewConfig, type RepoReviewConfigShape } from "../Services/RepoReviewConfig.ts";
 import { PrReviewConfigError } from "../Errors.ts";
 
 const REVIEW_RULES_RELATIVE_PATH = ".okcode/review-rules.md";
 const WORKFLOWS_RELATIVE_DIR = ".okcode/workflows";
 const SKILL_SETS_RELATIVE_DIR = ".okcode/skill-sets";
+const LOCAL_PROFILE_RELATIVE_DIR = "pr-review-profiles";
+
+type LocalProfileDefinition = {
+  id: string;
+  title: string;
+  body: string;
+  repositories: string[];
+  adapter: "openclawMaintainer";
+  maintainersRepo: string;
+  relativePath: string;
+  absolutePath: string;
+};
 
 const DEFAULT_BLOCKING_RULES: PrReviewRuleDefinition[] = [
   {
@@ -178,6 +196,7 @@ function normalizeRuleDefinitions(value: unknown): PrReviewRuleDefinition[] {
 
 function normalizeMentionGroups(value: unknown): PrReviewRules["mentionGroups"] {
   if (!Array.isArray(value)) return [];
+
   const groups: Array<PrReviewRules["mentionGroups"][number]> = [];
   for (const [index, entry] of value.entries()) {
     if (!entry || typeof entry !== "object") continue;
@@ -247,6 +266,76 @@ function normalizeWorkflowSteps(value: unknown): PrWorkflowStep[] {
       };
     })
     .filter((entry): entry is PrWorkflowStep => entry !== null);
+}
+
+function normalizeStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .map((entry) => (typeof entry === "string" ? entry.trim() : ""))
+    .filter((entry) => entry.length > 0);
+}
+
+function normalizeRepositoryMatcher(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function resolveOkcodeHome(): string {
+  const raw = process.env.OKCODE_HOME?.trim();
+  if (!raw) {
+    return path.join(os.homedir(), ".okcode");
+  }
+  if (raw === "~") {
+    return os.homedir();
+  }
+  if (raw.startsWith("~/") || raw.startsWith("~\\")) {
+    return path.join(os.homedir(), raw.slice(2));
+  }
+  return path.resolve(raw);
+}
+
+function resolveMaybeHomePath(input: string): string {
+  const trimmed = input.trim();
+  if (trimmed === "~") {
+    return os.homedir();
+  }
+  if (trimmed.startsWith("~/") || trimmed.startsWith("~\\")) {
+    return path.join(os.homedir(), trimmed.slice(2));
+  }
+  return path.resolve(trimmed);
+}
+
+function readTitleAndDescription(input: {
+  raw: string | null;
+  fallbackTitle: string;
+  fallbackDescription?: string | null;
+}): { title: string; description: string | null; body: string } {
+  if (!input.raw) {
+    return {
+      title: input.fallbackTitle,
+      description: input.fallbackDescription ?? null,
+      body: "",
+    };
+  }
+  try {
+    const { frontmatter, body } = splitFrontmatter(input.raw);
+    const title =
+      typeof frontmatter.title === "string" && frontmatter.title.trim().length > 0
+        ? frontmatter.title.trim()
+        : input.fallbackTitle;
+    const description =
+      typeof frontmatter.description === "string" && frontmatter.description.trim().length > 0
+        ? frontmatter.description.trim()
+        : (input.fallbackDescription ?? null);
+    return { title, description, body };
+  } catch {
+    return {
+      title: input.fallbackTitle,
+      description: input.fallbackDescription ?? null,
+      body: input.raw.trim(),
+    };
+  }
 }
 
 function parseRulesDocument(input: ParsedFrontmatter<PrReviewRules>): {
@@ -410,11 +499,89 @@ function parseSkillSetDocument(input: ParsedFrontmatter<PrSkillSetDefinition>): 
   }
 }
 
+function parseLocalProfileDocument(input: { absolutePath: string; raw: string }): {
+  profile: LocalProfileDefinition | null;
+  issues: PrReviewConfigIssue[];
+} {
+  const relativePath = path.join(LOCAL_PROFILE_RELATIVE_DIR, path.basename(input.absolutePath));
+  try {
+    const { frontmatter, body } = splitFrontmatter(input.raw);
+    const repositories = normalizeStringArray(frontmatter.repositories).map(
+      normalizeRepositoryMatcher,
+    );
+    const adapterRaw = typeof frontmatter.adapter === "string" ? frontmatter.adapter.trim() : "";
+    const maintainersRepoRaw =
+      typeof frontmatter.maintainersRepo === "string" ? frontmatter.maintainersRepo.trim() : "";
+    const id =
+      typeof frontmatter.id === "string" && frontmatter.id.trim().length > 0
+        ? frontmatter.id.trim()
+        : path.basename(input.absolutePath, path.extname(input.absolutePath));
+    const title =
+      typeof frontmatter.title === "string" && frontmatter.title.trim().length > 0
+        ? frontmatter.title.trim()
+        : id;
+
+    if (repositories.length === 0) {
+      return {
+        profile: null,
+        issues: [toIssue("warning", relativePath, "Profile is missing repositories[] matchers.")],
+      };
+    }
+    if (adapterRaw !== "openclawMaintainer") {
+      return {
+        profile: null,
+        issues: [
+          toIssue("warning", relativePath, `Unsupported adapter "${adapterRaw || "(missing)"}".`),
+        ],
+      };
+    }
+    if (maintainersRepoRaw.length === 0) {
+      return {
+        profile: null,
+        issues: [toIssue("warning", relativePath, "Profile is missing maintainersRepo.")],
+      };
+    }
+
+    return {
+      profile: {
+        id,
+        title,
+        body,
+        repositories,
+        adapter: "openclawMaintainer",
+        maintainersRepo: resolveMaybeHomePath(maintainersRepoRaw),
+        relativePath,
+        absolutePath: input.absolutePath,
+      },
+      issues: [],
+    };
+  } catch (error) {
+    return {
+      profile: null,
+      issues: [toIssue("error", relativePath, `Failed to parse frontmatter: ${String(error)}`)],
+    };
+  }
+}
+
 async function readMarkdownFile(
   cwd: string,
   relativePath: string,
 ): Promise<{ exists: boolean; raw: string | null; absolutePath: string }> {
   const absolutePath = path.join(cwd, relativePath);
+  try {
+    const raw = await fsPromises.readFile(absolutePath, "utf8");
+    return { exists: true, raw, absolutePath };
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return { exists: false, raw: null, absolutePath };
+    }
+    throw error;
+  }
+}
+
+async function readMarkdownFileAbsolute(
+  absolutePath: string,
+): Promise<{ exists: boolean; raw: string | null; absolutePath: string }> {
   try {
     const raw = await fsPromises.readFile(absolutePath, "utf8");
     return { exists: true, raw, absolutePath };
@@ -442,6 +609,292 @@ async function listMarkdownFiles(cwd: string, relativeDir: string): Promise<stri
   }
 }
 
+async function listMarkdownFilesAbsolute(absoluteDir: string): Promise<string[]> {
+  try {
+    const entries = await fsPromises.readdir(absoluteDir, { withFileTypes: true });
+    return entries
+      .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".md"))
+      .map((entry) => path.join(absoluteDir, entry.name))
+      .toSorted((a, b) => a.localeCompare(b));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return [];
+    }
+    throw error;
+  }
+}
+
+async function determineGitHubRepositoryNameWithOwner(cwd: string): Promise<string | null> {
+  const remote = await runProcess("git", ["remote", "get-url", "origin"], {
+    cwd,
+    timeoutMs: 5_000,
+    allowNonZeroExit: true,
+  });
+  const remoteUrl = remote.stdout.trim() || remote.stderr.trim();
+  return parseGitHubRepositoryNameWithOwnerFromRemoteUrl(remoteUrl);
+}
+
+async function buildOpenClawMaintainerConfig(input: {
+  profile: LocalProfileDefinition;
+  issues: PrReviewConfigIssue[];
+}): Promise<PrReviewConfig> {
+  const workflowPath = path.join(input.profile.maintainersRepo, ".agents/skills/PR_WORKFLOW.md");
+  const reviewSkillPath = path.join(
+    input.profile.maintainersRepo,
+    ".agents/skills/review-pr/SKILL.md",
+  );
+  const prepareSkillPath = path.join(
+    input.profile.maintainersRepo,
+    ".agents/skills/prepare-pr/SKILL.md",
+  );
+  const mergeSkillPath = path.join(
+    input.profile.maintainersRepo,
+    ".agents/skills/merge-pr/SKILL.md",
+  );
+
+  const workflowFile = await readMarkdownFileAbsolute(workflowPath);
+  const reviewSkillFile = await readMarkdownFileAbsolute(reviewSkillPath);
+  const prepareSkillFile = await readMarkdownFileAbsolute(prepareSkillPath);
+  const mergeSkillFile = await readMarkdownFileAbsolute(mergeSkillPath);
+
+  if (!workflowFile.exists) {
+    input.issues.push(
+      toIssue(
+        "warning",
+        input.profile.relativePath,
+        `Maintainer workflow file not found at ${workflowPath}. Falling back to a minimal local profile.`,
+      ),
+    );
+  }
+  for (const missing of [
+    { label: "review-pr skill", file: reviewSkillFile },
+    { label: "prepare-pr skill", file: prepareSkillFile },
+    { label: "merge-pr skill", file: mergeSkillFile },
+  ]) {
+    if (!missing.file.exists) {
+      input.issues.push(
+        toIssue(
+          "warning",
+          input.profile.relativePath,
+          `${missing.label} not found at ${missing.file.absolutePath}.`,
+        ),
+      );
+    }
+  }
+
+  const workflowDoc = readTitleAndDescription({
+    raw: workflowFile.raw,
+    fallbackTitle: "OpenClaw Maintainer PR Workflow",
+    fallbackDescription: "Private maintainer workflow loaded from a local OK Code profile.",
+  });
+  const reviewSkillDoc = readTitleAndDescription({
+    raw: reviewSkillFile.raw,
+    fallbackTitle: "review-pr",
+    fallbackDescription: "Run the read-only maintainer review workflow.",
+  });
+  const prepareSkillDoc = readTitleAndDescription({
+    raw: prepareSkillFile.raw,
+    fallbackTitle: "prepare-pr",
+    fallbackDescription: "Resolve findings, re-run gates, and push safely.",
+  });
+  const mergeSkillDoc = readTitleAndDescription({
+    raw: mergeSkillFile.raw,
+    fallbackTitle: "merge-pr",
+    fallbackDescription: "Verify readiness and perform the deterministic squash merge.",
+  });
+
+  const workflowId = `${input.profile.id}-workflow`;
+  const skillSets: PrSkillSetDefinition[] = [
+    {
+      id: "review-pr",
+      title: reviewSkillDoc.title,
+      description: reviewSkillDoc.description,
+      skills: ["review-pr"],
+      allowedTools: ["local-command"],
+      runPolicy: "script-first",
+      body: reviewSkillDoc.body,
+      relativePath: reviewSkillPath,
+    },
+    {
+      id: "prepare-pr",
+      title: prepareSkillDoc.title,
+      description: prepareSkillDoc.description,
+      skills: ["prepare-pr"],
+      allowedTools: ["local-command"],
+      runPolicy: "script-first",
+      body: prepareSkillDoc.body,
+      relativePath: prepareSkillPath,
+    },
+    {
+      id: "merge-pr",
+      title: mergeSkillDoc.title,
+      description: mergeSkillDoc.description,
+      skills: ["merge-pr"],
+      allowedTools: ["local-command"],
+      runPolicy: "script-first",
+      body: mergeSkillDoc.body,
+      relativePath: mergeSkillPath,
+    },
+  ];
+
+  const workflow: PrWorkflowDefinition = {
+    id: workflowId,
+    title: workflowDoc.title,
+    description: workflowDoc.description,
+    appliesTo: ["pull-request"],
+    blocking: true,
+    body:
+      input.profile.body.length > 0
+        ? input.profile.body
+        : workflowDoc.body || "Local private maintainer workflow.",
+    relativePath: workflowPath,
+    steps: [
+      {
+        id: "review-pr",
+        title: reviewSkillDoc.title,
+        kind: "skillSet",
+        blocking: true,
+        action: encodePrReviewLocalCommandAction({
+          kind: "localCommand",
+          cwd: input.profile.maintainersRepo,
+          args: ["scripts/pr-review", "{{prNumber}}"],
+          label: "review-pr",
+        }),
+        skillSet: "review-pr",
+        requiresConfirmation: true,
+        successMessage: "Review artifacts refreshed.",
+        failureMessage: "The review workflow did not complete successfully.",
+        description: reviewSkillDoc.description,
+      },
+      {
+        id: "prepare-pr",
+        title: prepareSkillDoc.title,
+        kind: "skillSet",
+        blocking: true,
+        action: encodePrReviewLocalCommandAction({
+          kind: "localCommand",
+          cwd: input.profile.maintainersRepo,
+          args: ["scripts/pr-prepare", "run", "{{prNumber}}"],
+          label: "prepare-pr",
+        }),
+        skillSet: "prepare-pr",
+        requiresConfirmation: true,
+        successMessage: "Preparation completed and push safety checks passed.",
+        failureMessage: "Preparation failed or left the PR not ready to merge.",
+        description: prepareSkillDoc.description,
+      },
+      {
+        id: "merge-pr",
+        title: mergeSkillDoc.title,
+        kind: "skillSet",
+        blocking: true,
+        action: encodePrReviewLocalCommandAction({
+          kind: "localCommand",
+          cwd: input.profile.maintainersRepo,
+          args: ["scripts/pr-merge", "run", "{{prNumber}}"],
+          label: "merge-pr",
+        }),
+        skillSet: "merge-pr",
+        requiresConfirmation: true,
+        successMessage: "Merge workflow completed.",
+        failureMessage: "Merge verification failed or GitHub rejected the merge.",
+        description: mergeSkillDoc.description,
+      },
+    ],
+  };
+
+  return {
+    source: "localProfile",
+    rules: {
+      version: "1",
+      title: input.profile.title,
+      mergePolicy: "maintainer-script-first",
+      conflictPolicy: "workflow-verification-before-merge",
+      requiredChecks: [],
+      requiredApprovals: 0,
+      blockingRules: [
+        {
+          id: "phase-order",
+          title: "Run review, prepare, and merge in order",
+          description: "The local maintainer flow expects review-pr, prepare-pr, then merge-pr.",
+        },
+        {
+          id: "artifact-handoff",
+          title: "Artifacts are mandatory",
+          description:
+            "review-pr and prepare-pr must generate the structured handoff artifacts before merge.",
+        },
+      ],
+      advisoryRules: [
+        {
+          id: "human-judgment",
+          title: "Maintainers provide judgment",
+          description:
+            "Use the local workflow to gather truth, but pause at each phase boundary for judgment.",
+        },
+      ],
+      mentionGroups: [],
+      body:
+        workflowDoc.body.length > 0
+          ? workflowDoc.body
+          : "Private maintainer workflow loaded from a local OK Code profile.",
+      relativePath: workflowPath,
+      defaultWorkflow: workflowId,
+    },
+    workflows: [workflow],
+    skillSets,
+    defaultWorkflowId: workflowId,
+    issues: input.issues,
+  } satisfies PrReviewConfig;
+}
+
+async function loadLocalProfileConfig(cwd: string): Promise<{
+  config: PrReviewConfig | null;
+  issues: PrReviewConfigIssue[];
+}> {
+  const repositoryNameWithOwner = await determineGitHubRepositoryNameWithOwner(cwd);
+  if (!repositoryNameWithOwner) {
+    return { config: null, issues: [] };
+  }
+
+  const normalizedRepository = normalizeRepositoryMatcher(repositoryNameWithOwner);
+  const profileDir = path.join(resolveOkcodeHome(), LOCAL_PROFILE_RELATIVE_DIR);
+  const profilePaths = await listMarkdownFilesAbsolute(profileDir);
+  if (profilePaths.length === 0) {
+    return { config: null, issues: [] };
+  }
+
+  const issues: PrReviewConfigIssue[] = [];
+  for (const profilePath of profilePaths) {
+    const profileFile = await readMarkdownFileAbsolute(profilePath);
+    if (!profileFile.exists || !profileFile.raw) {
+      continue;
+    }
+    const parsed = parseLocalProfileDocument({
+      absolutePath: profilePath,
+      raw: profileFile.raw,
+    });
+    issues.push(...parsed.issues);
+    if (!parsed.profile) {
+      continue;
+    }
+    if (!parsed.profile.repositories.includes(normalizedRepository)) {
+      continue;
+    }
+    if (parsed.profile.adapter === "openclawMaintainer") {
+      return {
+        config: await buildOpenClawMaintainerConfig({
+          profile: parsed.profile,
+          issues: [...issues],
+        }),
+        issues,
+      };
+    }
+  }
+
+  return { config: null, issues };
+}
+
 type CacheEntry = {
   config: PrReviewConfig;
   stale: boolean;
@@ -453,7 +906,21 @@ const makeRepoReviewConfig = Effect.sync(() => {
     string,
     Set<(payload: PrReviewRepoConfigUpdatedPayload) => void>
   >();
-  const watcherByCwd = new Map<string, fs.FSWatcher>();
+  const watcherByCwd = new Map<string, fs.FSWatcher[]>();
+
+  const emitChange = (cwd: string, relativePaths: string[]) => {
+    const cached = cache.get(cwd);
+    if (cached) {
+      cached.stale = true;
+    }
+    const payload: PrReviewRepoConfigUpdatedPayload = {
+      cwd,
+      relativePaths,
+    };
+    for (const listener of listenersByCwd.get(cwd) ?? []) {
+      listener(payload);
+    }
+  };
 
   const loadConfig = async (cwd: string): Promise<PrReviewConfig> => {
     const issues: PrReviewConfigIssue[] = [];
@@ -511,21 +978,35 @@ const makeRepoReviewConfig = Effect.sync(() => {
       issues.push(...parsed.issues);
     }
 
-    const defaultWorkflowId = workflows.some(
-      (workflow) => workflow.id === parsedRules.rules.defaultWorkflow,
-    )
-      ? parsedRules.rules.defaultWorkflow
-      : (workflows[0]?.id ?? DEFAULT_WORKFLOW.id);
+    if (rulesSource.exists || workflowPaths.length > 0 || skillSetPaths.length > 0) {
+      const defaultWorkflowId = workflows.some(
+        (workflow) => workflow.id === parsedRules.rules.defaultWorkflow,
+      )
+        ? parsedRules.rules.defaultWorkflow
+        : (workflows[0]?.id ?? DEFAULT_WORKFLOW.id);
+
+      return {
+        source: "repo",
+        rules: parsedRules.rules,
+        workflows,
+        skillSets,
+        defaultWorkflowId,
+        issues,
+      };
+    }
+
+    const localProfileResult = await loadLocalProfileConfig(cwd);
+    if (localProfileResult.config) {
+      return localProfileResult.config;
+    }
+    issues.push(...localProfileResult.issues);
 
     return {
-      source:
-        rulesSource.exists || workflowPaths.length > 0 || skillSetPaths.length > 0
-          ? "repo"
-          : "default",
+      source: "default",
       rules: parsedRules.rules,
       workflows,
       skillSets,
-      defaultWorkflowId,
+      defaultWorkflowId: workflows[0]?.id ?? DEFAULT_WORKFLOW.id,
       issues,
     };
   };
@@ -560,24 +1041,35 @@ const makeRepoReviewConfig = Effect.sync(() => {
           listeners.add(onChange);
 
           if (!watcherByCwd.has(cwd)) {
-            const watcher = fs.watch(cwd, { recursive: true }, (_eventType, filename) => {
-              const normalized = String(filename ?? "").replaceAll("\\", "/");
-              if (normalized.length === 0 || !normalized.startsWith(".okcode")) {
-                return;
-              }
-              const cached = cache.get(cwd);
-              if (cached) {
-                cached.stale = true;
-              }
-              const payload: PrReviewRepoConfigUpdatedPayload = {
-                cwd,
-                relativePaths: [normalized],
-              };
-              for (const listener of listenersByCwd.get(cwd) ?? []) {
-                listener(payload);
-              }
-            });
-            watcherByCwd.set(cwd, watcher);
+            const watchers: fs.FSWatcher[] = [];
+            watchers.push(
+              fs.watch(cwd, { recursive: true }, (_eventType, filename) => {
+                const normalized = String(filename ?? "").replaceAll("\\", "/");
+                if (normalized.length === 0 || !normalized.startsWith(".okcode")) {
+                  return;
+                }
+                emitChange(cwd, [normalized]);
+              }),
+            );
+
+            const okcodeHome = resolveOkcodeHome();
+            if (fs.existsSync(okcodeHome)) {
+              watchers.push(
+                fs.watch(okcodeHome, { recursive: true }, (_eventType, filename) => {
+                  const normalized = String(filename ?? "").replaceAll("\\", "/");
+                  if (
+                    normalized.length === 0 ||
+                    (!normalized.startsWith(`${LOCAL_PROFILE_RELATIVE_DIR}/`) &&
+                      normalized !== LOCAL_PROFILE_RELATIVE_DIR)
+                  ) {
+                    return;
+                  }
+                  emitChange(cwd, [normalized]);
+                }),
+              );
+            }
+
+            watcherByCwd.set(cwd, watchers);
           }
         },
         catch: (cause) =>

@@ -95,30 +95,25 @@ describe("buildHiddenProviderInput", () => {
     ).toBeUndefined();
   });
 
-  it("wraps the prompt enhancement as hidden interpretation guidance", () => {
-    const providerInput = buildHiddenProviderInput({
-      prompt: "Fix this \uFFFC button",
-      terminalContexts: [
-        {
-          id: "ctx-1",
-          threadId: ThreadId.makeUnsafe("thread-1"),
-          terminalId: "default",
-          terminalLabel: "Terminal 1",
-          lineStart: 4,
-          lineEnd: 6,
-          text: "bun lint\nerror: failed",
-          createdAt: "2026-03-17T12:52:29.000Z",
-        },
-      ],
-      promptEnhancement: "specificity",
-    });
-
-    expect(providerInput).toContain(
-      'Before responding, improve the user\'s request using the "Add specificity" enhancement mode',
-    );
-    expect(providerInput).toContain("Fix this @terminal-1:4-6 button");
-    expect(providerInput).toContain("<terminal_context>");
-    expect(providerInput).toContain("bun lint");
+  it("does not add hidden provider guidance for visible prompt enhancements", () => {
+    expect(
+      buildHiddenProviderInput({
+        prompt: "Fix this \uFFFC button",
+        terminalContexts: [
+          {
+            id: "ctx-1",
+            threadId: ThreadId.makeUnsafe("thread-1"),
+            terminalId: "default",
+            terminalLabel: "Terminal 1",
+            lineStart: 4,
+            lineEnd: 6,
+            text: "bun lint\nerror: failed",
+            createdAt: "2026-03-17T12:52:29.000Z",
+          },
+        ],
+        promptEnhancement: "specificity",
+      }),
+    ).toBeUndefined();
   });
 });
 

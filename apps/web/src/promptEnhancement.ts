@@ -96,29 +96,82 @@ export function getPromptEnhancementById(
   return PROMPT_ENHANCEMENT_BY_ID.get(id) ?? null;
 }
 
-export function buildEnhancedPromptInput(
+function ensureSentence(text: string): string {
+  const trimmed = text
+    .trim()
+    .replace(/\s+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n");
+  if (trimmed.length === 0) {
+    return "";
+  }
+  return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`;
+}
+
+export function enhancePrompt(
   prompt: string,
   enhancementId: PromptEnhancementId | null | undefined,
 ): string {
-  const trimmedPrompt = prompt.trim();
-  if (!enhancementId || trimmedPrompt.length === 0) {
-    return trimmedPrompt;
+  const normalizedPrompt = ensureSentence(prompt);
+  if (!enhancementId || normalizedPrompt.length === 0) {
+    return normalizedPrompt;
   }
 
-  const enhancement = getPromptEnhancementById(enhancementId);
-  if (!enhancement) {
-    return trimmedPrompt;
+  switch (enhancementId) {
+    case "specificity":
+      return [
+        normalizedPrompt,
+        "",
+        "Acceptance criteria:",
+        "- Implement the requested behavior in the relevant surface without widening scope.",
+        "- Make the user-visible outcome explicit and predictable.",
+        "- Preserve existing behavior everywhere else.",
+      ].join("\n");
+    case "clarity":
+      return [
+        "Goal:",
+        `- ${normalizedPrompt}`,
+        "",
+        "Definition of done:",
+        "- The request is implemented clearly and directly.",
+        "- The resulting behavior is easy to understand from both the UI and the code.",
+      ].join("\n");
+    case "constraints":
+      return [
+        normalizedPrompt,
+        "",
+        "Constraints:",
+        "- Keep the change focused on this request.",
+        "- Avoid unrelated refactors or behavior changes.",
+        "- Maintain compatibility with the existing flow unless the request explicitly says otherwise.",
+      ].join("\n");
+    case "examples":
+      return [
+        normalizedPrompt,
+        "",
+        "Examples and edge cases to consider:",
+        "- Account for the primary happy path.",
+        "- Consider before and after behavior where the change is user-visible.",
+        "- Handle the most likely edge cases that would make the request feel incomplete.",
+      ].join("\n");
+    case "testing":
+      return [
+        normalizedPrompt,
+        "",
+        "Validation:",
+        "- Verify the main happy path.",
+        "- Check the most relevant edge case or failure mode.",
+        "- Include or update tests when they add meaningful coverage.",
+      ].join("\n");
+    case "reasoning":
+      return [
+        normalizedPrompt,
+        "",
+        "Response expectations:",
+        "- Briefly explain the chosen approach.",
+        "- Call out important tradeoffs or risks if they matter.",
+        "- Keep the explanation proportional to the task.",
+      ].join("\n");
+    default:
+      return normalizedPrompt;
   }
-
-  return [
-    `Before responding, improve the user's request using the "${enhancement.label}" enhancement mode, then follow the improved request.`,
-    "",
-    "Use this guidance while refining the request internally:",
-    ...enhancement.guidance.map((item) => `- ${item}`),
-    "",
-    "Preserve the user's intent. Treat this as prompt improvement, not as a separate checklist or extra task to complete independently.",
-    "",
-    "User request:",
-    trimmedPrompt,
-  ].join("\n");
 }

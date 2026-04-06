@@ -26,6 +26,7 @@ async function mountPicker(props?: {
     persistedAttachments: [],
     terminalContexts: [],
     promptEnhancement: null,
+    promptEnhancementOriginalPrompt: null,
     provider: "claudeAgent",
     model: props?.model ?? "claude-opus-4-6",
     modelOptions: {

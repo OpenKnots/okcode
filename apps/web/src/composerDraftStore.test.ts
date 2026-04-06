@@ -197,16 +197,28 @@ describe("composerDraftStore prompt enhancements", () => {
   });
 
   it("tracks the selected enhancement in draft state", () => {
-    useComposerDraftStore.getState().setPromptEnhancement(threadId, "specificity");
+    useComposerDraftStore.getState().setPromptEnhancementState(threadId, {
+      promptEnhancement: "specificity",
+      originalPrompt: "Original prompt",
+    });
 
     expect(useComposerDraftStore.getState().draftsByThreadId[threadId]?.promptEnhancement).toBe(
       "specificity",
     );
+    expect(
+      useComposerDraftStore.getState().draftsByThreadId[threadId]?.promptEnhancementOriginalPrompt,
+    ).toBe("Original prompt");
   });
 
   it("removes enhancement-only drafts when cleared", () => {
-    useComposerDraftStore.getState().setPromptEnhancement(threadId, "reasoning");
-    useComposerDraftStore.getState().setPromptEnhancement(threadId, null);
+    useComposerDraftStore.getState().setPromptEnhancementState(threadId, {
+      promptEnhancement: "reasoning",
+      originalPrompt: "Original prompt",
+    });
+    useComposerDraftStore.getState().setPromptEnhancementState(threadId, {
+      promptEnhancement: null,
+      originalPrompt: null,
+    });
 
     expect(useComposerDraftStore.getState().draftsByThreadId[threadId]).toBeUndefined();
   });

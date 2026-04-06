@@ -23,6 +23,7 @@ async function mountPicker(props: {
     persistedAttachments: [],
     terminalContexts: [],
     promptEnhancement: null,
+    promptEnhancementOriginalPrompt: null,
     provider: "codex",
     model: null,
     modelOptions: {

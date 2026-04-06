@@ -198,6 +198,8 @@ import { ProviderHealthBanner } from "./chat/ProviderHealthBanner";
 import { CompanionConnectionBanner } from "./chat/CompanionConnectionBanner";
 import { MobileThreadAttentionBar } from "./chat/MobileThreadAttentionBar";
 import { ThreadErrorBanner } from "./chat/ThreadErrorBanner";
+import { ComposerQuickActions } from "./chat/ComposerQuickActions";
+import { AgentModeMenu } from "./chat/AgentModeMenu";
 import {
   buildAutoSelectedWorktreeBaseBranchToastCopy,
   buildHiddenProviderInput,
@@ -521,6 +523,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
     useState<Record<string, number>>({});
   const [expandedWorkGroups, setExpandedWorkGroups] = useState<Record<string, boolean>>({});
   const [planSidebarOpen, setPlanSidebarOpen] = useState(false);
+  const [agentMode, setAgentMode] = useState<string | null>(null);
   const [isComposerFooterCompact, setIsComposerFooterCompact] = useState(false);
   // Tracks whether the user explicitly dismissed the sidebar for the active turn.
   const planSidebarDismissedForTurnRef = useRef<string | null>(null);
@@ -5175,6 +5178,15 @@ export default function ChatView({ threadId }: ChatViewProps) {
                               : "gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:min-w-max sm:overflow-visible",
                           )}
                         >
+                          <AgentModeMenu
+                            activeMode={agentMode}
+                            onModeChange={(mode) => {
+                              setAgentMode(mode);
+                              if (mode === "plan") {
+                                handleInteractionModeChange("plan");
+                              }
+                            }}
+                          />
                           {/* Provider/model picker */}
                           <ProviderModelPicker
                             compact={isComposerFooterCompact}
@@ -5564,6 +5576,11 @@ export default function ChatView({ threadId }: ChatViewProps) {
                   </div>
                 </div>
               </form>
+              <ComposerQuickActions
+                visible={!composerSendState.hasSendableContent && phase !== "running"}
+                onPlanMode={() => handleInteractionModeChange("plan")}
+                onOpenEditor={toggleCodeViewer}
+              />
             </div>
 
             {isGitRepo && (

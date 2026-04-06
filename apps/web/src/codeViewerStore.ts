@@ -14,6 +14,9 @@ export interface CodeViewerTab {
   lastSaveError: string | null;
   mode: CodeViewerMode;
   hasExternalChange: boolean;
+  showDiffView: boolean;
+  showLineNumbers: boolean;
+  wordWrap: boolean;
 }
 
 export interface CodeViewerPendingContext {
@@ -44,6 +47,9 @@ interface CodeViewerState {
   completeTabSave: (tabId: string, contents: string) => void;
   failTabSave: (tabId: string, message: string) => void;
   markExternalChange: (tabId: string, hasExternalChange: boolean) => void;
+  setTabDiffView: (tabId: string, enabled: boolean) => void;
+  setTabLineNumbers: (tabId: string, enabled: boolean) => void;
+  setTabWordWrap: (tabId: string, enabled: boolean) => void;
   hasDirtyTabs: () => boolean;
 }
 
@@ -119,6 +125,9 @@ export const useCodeViewerStore = create<CodeViewerState>((set, get) => ({
         lastSaveError: null,
         mode: mode ?? defaultModeForPath(relativePath),
         hasExternalChange: false,
+        showDiffView: false,
+        showLineNumbers: true,
+        wordWrap: false,
       };
       return {
         isOpen: true,
@@ -251,6 +260,21 @@ export const useCodeViewerStore = create<CodeViewerState>((set, get) => ({
         ...tab,
         hasExternalChange,
       })),
+    })),
+
+  setTabDiffView: (tabId, enabled) =>
+    set((state) => ({
+      tabs: updateTab(state.tabs, tabId, (tab) => ({ ...tab, showDiffView: enabled })),
+    })),
+
+  setTabLineNumbers: (tabId, enabled) =>
+    set((state) => ({
+      tabs: updateTab(state.tabs, tabId, (tab) => ({ ...tab, showLineNumbers: enabled })),
+    })),
+
+  setTabWordWrap: (tabId, enabled) =>
+    set((state) => ({
+      tabs: updateTab(state.tabs, tabId, (tab) => ({ ...tab, wordWrap: enabled })),
     })),
 
   hasDirtyTabs: () => get().tabs.some((tab) => tab.isDirty),

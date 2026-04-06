@@ -27,9 +27,10 @@ const languageCompartment = new Compartment();
 const keymapCompartment = new Compartment();
 const editableCompartment = new Compartment();
 const updateListenerCompartment = new Compartment();
+const lineNumbersCompartment = new Compartment();
+const wordWrapCompartment = new Compartment();
 
 const baseExtensions: Extension[] = [
-  lineNumbers(),
   highlightActiveLine(),
   highlightSpecialChars(),
   syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
@@ -143,6 +144,8 @@ export const CodeMirrorViewer = memo(function CodeMirrorViewer(props: {
   onChange?: (contents: string) => void;
   onSave?: () => void;
   onAddContext?: (ctx: CodeContextSelection) => void;
+  showLineNumbers?: boolean;
+  wordWrap?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -173,6 +176,8 @@ export const CodeMirrorViewer = memo(function CodeMirrorViewer(props: {
       doc: props.contents,
       extensions: [
         ...baseExtensions,
+        lineNumbersCompartment.of(props.showLineNumbers !== false ? lineNumbers() : []),
+        wordWrapCompartment.of(props.wordWrap ? EditorView.lineWrapping : []),
         themeCompartment.of(getThemeExtension(props.resolvedTheme)),
         languageCompartment.of([]),
         keymapCompartment.of(editorKeymap),
@@ -280,6 +285,28 @@ export const CodeMirrorViewer = memo(function CodeMirrorViewer(props: {
       effects,
     });
   }, [props.filePath, props.onSave]);
+
+  // Update line numbers when showLineNumbers changes
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    view.dispatch({
+      effects: lineNumbersCompartment.reconfigure(
+        props.showLineNumbers !== false ? lineNumbers() : [],
+      ),
+    });
+  }, [props.showLineNumbers]);
+
+  // Update word wrap when wordWrap changes
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    view.dispatch({
+      effects: wordWrapCompartment.reconfigure(
+        props.wordWrap ? EditorView.lineWrapping : [],
+      ),
+    });
+  }, [props.wordWrap]);
 
   return <div ref={containerRef} className="h-full min-h-0 overflow-hidden" />;
 });

@@ -3,10 +3,14 @@ import {
   EyeIcon,
   EyeOffIcon,
   FileCodeIcon,
+  GitBranchIcon,
+  GlobeIcon,
   Loader2Icon,
   PencilIcon,
+  PlusIcon,
   RotateCcwIcon,
   SaveIcon,
+  TerminalSquareIcon,
   XIcon,
 } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -25,8 +29,13 @@ import { cn, isMacPlatform } from "~/lib/utils";
 import { isMarkdownPreviewFilePath } from "~/markdownPreview";
 import { readNativeApi } from "~/nativeApi";
 import { type CodeContextSelection, CodeMirrorViewer } from "./CodeMirrorViewer";
+import { VscodeEntryIcon } from "~/components/chat/VscodeEntryIcon";
 import { MarkdownPreview } from "./MarkdownPreview";
+import BreadcrumbBar from "./code-viewer/BreadcrumbBar";
+import { StatusIndicators } from "./code-viewer/StatusIndicators";
+import { TabContextMenu } from "./code-viewer/TabContextMenu";
 import { Button } from "./ui/button";
+import { Menu, MenuTrigger, MenuPopup, MenuItem } from "./ui/menu";
 import { toastManager } from "./ui/toast";
 
 const AUTOSAVE_DELAY_MS = 750;
@@ -69,9 +78,15 @@ async function confirmUnsavedChanges(message: string): Promise<boolean> {
 export function CodeViewerTabStrip(props: {
   tabs: CodeViewerTab[];
   activeTabId: string | null;
+  resolvedTheme: "light" | "dark";
   onSelectTab: (tabId: string) => void;
   onCloseTab: (tabId: string) => void | Promise<void>;
   onCloseAll: () => void | Promise<void>;
+  onSaveTab?: (tabId: string) => void;
+  onDiscardTab?: (tabId: string) => void;
+  onToggleDiffView?: (tabId: string, enabled: boolean) => void;
+  onToggleLineNumbers?: (tabId: string, enabled: boolean) => void;
+  onToggleWordWrap?: (tabId: string, enabled: boolean) => void;
 }) {
   return (
     <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto [-webkit-app-region:no-drag]">
@@ -87,6 +102,12 @@ export function CodeViewerTabStrip(props: {
                 : "border-transparent text-muted-foreground/70 hover:border-border/60 hover:text-foreground/80",
             )}
           >
+            <VscodeEntryIcon
+              pathValue={tab.relativePath}
+              kind="file"
+              theme={props.resolvedTheme}
+              className="size-3.5 shrink-0"
+            />
             <button
               type="button"
               className="min-w-0 flex-1 truncate text-left font-mono"
@@ -98,6 +119,14 @@ export function CodeViewerTabStrip(props: {
                 <span className="ml-1 text-amber-600 dark:text-amber-300">•</span>
               ) : null}
             </button>
+            <TabContextMenu
+              tab={tab}
+              onSave={() => props.onSaveTab?.(tab.tabId)}
+              onDiscard={() => props.onDiscardTab?.(tab.tabId)}
+              onToggleDiffView={(enabled) => props.onToggleDiffView?.(tab.tabId, enabled)}
+              onToggleLineNumbers={(enabled) => props.onToggleLineNumbers?.(tab.tabId, enabled)}
+              onToggleWordWrap={(enabled) => props.onToggleWordWrap?.(tab.tabId, enabled)}
+            />
             <button
               type="button"
               className="shrink-0 rounded-sm p-0.5 opacity-0 transition-opacity hover:bg-accent/80 group-hover:opacity-100"
@@ -112,6 +141,34 @@ export function CodeViewerTabStrip(props: {
           </div>
         );
       })}
+      {/* Add panel button */}
+      <Menu>
+        <MenuTrigger
+          render={
+            <button
+              type="button"
+              className="flex shrink-0 items-center justify-center rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-accent/60 hover:text-foreground"
+              aria-label="Add panel"
+            >
+              <PlusIcon className="size-3.5" />
+            </button>
+          }
+        />
+        <MenuPopup side="bottom" align="start">
+          <MenuItem onClick={() => {/* placeholder */}}>
+            <GitBranchIcon className="size-4 mr-2 text-muted-foreground" /> Changes
+          </MenuItem>
+          <MenuItem onClick={() => {/* placeholder */}}>
+            <TerminalSquareIcon className="size-4 mr-2 text-muted-foreground" /> Terminal
+          </MenuItem>
+          <MenuItem onClick={() => {/* placeholder */}}>
+            <GlobeIcon className="size-4 mr-2 text-muted-foreground" /> Browser
+          </MenuItem>
+          <MenuItem onClick={() => {/* placeholder */}}>
+            <FileCodeIcon className="size-4 mr-2 text-muted-foreground" /> File
+          </MenuItem>
+        </MenuPopup>
+      </Menu>
     </div>
   );
 }
@@ -473,6 +530,8 @@ export const CodeViewerFileContent = memo(function CodeViewerFileContent(
             editable={editable}
             filePath={props.relativePath}
             resolvedTheme={props.resolvedTheme}
+            showLineNumbers={tab?.showLineNumbers}
+            wordWrap={tab?.wordWrap}
             onAddContext={props.onAddContext}
             onChange={(contents) => {
               if (tab) {
@@ -494,6 +553,7 @@ export default function CodeViewerPanel() {
   const setActiveTab = useCodeViewerStore((state) => state.setActiveTab);
   const closeTab = useCodeViewerStore((state) => state.closeTab);
   const closeViewer = useCodeViewerStore((state) => state.close);
+  const openFile = useCodeViewerStore((state) => state.openFile);
   const setPendingContext = useCodeViewerStore((state) => state.setPendingContext);
   const { settings } = useAppSettings();
 
@@ -552,11 +612,18 @@ export default function CodeViewerPanel() {
         <CodeViewerTabStrip
           tabs={tabs}
           activeTabId={activeTabId}
+          resolvedTheme={resolvedTheme}
           onSelectTab={onSelectTab}
           onCloseTab={onCloseTab}
           onCloseAll={onCloseAll}
+          onSaveTab={() => {/* placeholder - save logic lives in CodeViewerFileContent */}}
+          onDiscardTab={() => {/* placeholder - discard logic lives in CodeViewerFileContent */}}
+          onToggleDiffView={(tabId, enabled) => useCodeViewerStore.getState().setTabDiffView(tabId, enabled)}
+          onToggleLineNumbers={(tabId, enabled) => useCodeViewerStore.getState().setTabLineNumbers(tabId, enabled)}
+          onToggleWordWrap={(tabId, enabled) => useCodeViewerStore.getState().setTabWordWrap(tabId, enabled)}
         />
         <div className="flex shrink-0 items-center gap-2 [-webkit-app-region:no-drag]">
+          <StatusIndicators />
           <span className="hidden text-[10px] text-muted-foreground/50 sm:inline">
             Select code + {modKey}L to add context
           </span>
@@ -571,6 +638,14 @@ export default function CodeViewerPanel() {
           </Button>
         </div>
       </div>
+      {activeTab && (
+        <BreadcrumbBar
+          cwd={activeTab.cwd}
+          relativePath={activeTab.relativePath}
+          resolvedTheme={resolvedTheme}
+          onNavigate={(cwd, relPath) => openFile(cwd, relPath)}
+        />
+      )}
       <div className="flex min-h-0 flex-1 justify-center overflow-y-auto">
         <div className="h-full w-full max-w-5xl">
           {!activeTab ? (

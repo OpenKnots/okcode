@@ -94,6 +94,7 @@ export function FileViewShell(props: { initialCwd: string; initialPath: string |
         <CodeViewerTabStrip
           tabs={tabs}
           activeTabId={activeTabId}
+          resolvedTheme={resolvedTheme}
           onSelectTab={onSelectTab}
           onCloseTab={onCloseTab}
           onCloseAll={onCloseAll}

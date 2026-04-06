@@ -22,6 +22,9 @@ import { useTheme } from "~/hooks/useTheme";
 import type { ClientMode } from "~/lib/clientMode";
 import type { PreviewDock } from "~/previewStateStore";
 import { HeaderPanelsMenu } from "./HeaderPanelsMenu";
+import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
+import { HeaderIconStrip } from "./HeaderIconStrip";
+import { NotificationPanel } from "./NotificationPanel";
 
 interface ChatHeaderProps {
   activeThreadId: ThreadId;
@@ -56,6 +59,10 @@ interface ChatHeaderProps {
   onToggleDiffViewer: () => void;
   onTogglePreview: () => void;
   onTogglePreviewLayout: () => void;
+  recentProjects?: Array<{ id: string; name: string }>;
+  onSelectProject?: (id: string) => void;
+  onOpenFolder?: () => void;
+  onSearch?: () => void;
 }
 
 export const ChatHeader = memo(function ChatHeader({
@@ -91,6 +98,10 @@ export const ChatHeader = memo(function ChatHeader({
   onToggleDiffViewer,
   onTogglePreview,
   onTogglePreviewLayout: _onTogglePreviewLayout,
+  recentProjects,
+  onSelectProject,
+  onOpenFolder,
+  onSearch,
 }: ChatHeaderProps) {
   const isMobileCompanion = clientMode === "mobile";
   const projectColor = useProjectColor(activeProjectId);
@@ -136,6 +147,17 @@ export const ChatHeader = memo(function ChatHeader({
       {/* Left: Identity — thread title + project context */}
       <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden sm:gap-3">
         <SidebarTrigger className="size-7 shrink-0" />
+        <WorkspaceSwitcher
+          activeProjectName={activeProjectName}
+          recentProjects={recentProjects ?? []}
+          onSelectProject={onSelectProject ?? (() => {})}
+          onOpenFolder={onOpenFolder ?? (() => {})}
+        />
+        <HeaderIconStrip
+          onSearch={onSearch ?? (() => {})}
+          onBrowser={onTogglePreview}
+          previewOpen={previewOpen}
+        />
         <EditableThreadTitle
           title={activeThreadTitle}
           isEditing={isEditingTitle}
@@ -218,6 +240,7 @@ export const ChatHeader = memo(function ChatHeader({
         {!isMobileCompanion && activeProjectName && (
           <GitActionsControl gitCwd={gitCwd} activeThreadId={activeThreadId} />
         )}
+        {!isMobileCompanion && <NotificationPanel />}
         {/* Overflow menu: all panel toggles consolidated */}
         {!isMobileCompanion && (
           <HeaderPanelsMenu

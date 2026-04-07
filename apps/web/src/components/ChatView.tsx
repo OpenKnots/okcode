@@ -119,6 +119,7 @@ import {
   LockOpenIcon,
   PaperclipIcon,
   PictureInPicture2Icon,
+  Undo2Icon,
   XIcon,
 } from "lucide-react";
 import { Button } from "./ui/button";
@@ -215,6 +216,7 @@ import {
   cloneComposerAttachmentForRetry,
   collectUserMessageBlobPreviewUrls,
   deriveComposerSendState,
+  findLatestRevertableUserMessageId,
   LAST_INVOKED_SCRIPT_BY_PROJECT_KEY,
   LastInvokedScriptByProjectSchema,
   PullRequestDialogState,
@@ -1219,6 +1221,10 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
 
     return byUserMessageId;
   }, [inferredCheckpointTurnCountByTurnId, timelineEntries, turnDiffSummaryByAssistantMessageId]);
+  const latestRevertableUserMessageId = useMemo(
+    () => findLatestRevertableUserMessageId(timelineEntries, revertTurnCountByUserMessageId),
+    [revertTurnCountByUserMessageId, timelineEntries],
+  );
 
   const completionSummary = useMemo(() => {
     if (!latestTurnSettled) return null;
@@ -5322,6 +5328,21 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
                           ref={composerFooterActionsRef}
                           className="flex shrink-0 items-center gap-2"
                         >
+                          {latestRevertableUserMessageId ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              type="button"
+                              className="rounded-full px-3 text-muted-foreground/75 hover:text-foreground/85"
+                              onClick={() => onRevertUserMessage(latestRevertableUserMessageId)}
+                              disabled={isRevertingCheckpoint || isWorking}
+                              title="Undo the latest revertable turn"
+                              aria-label="Undo the latest revertable turn"
+                            >
+                              <Undo2Icon className="size-3.5" />
+                              <span>Undo</span>
+                            </Button>
+                          ) : null}
                           {pendingUserInputs.length === 0 && (
                             <>
                               <PromptEnhancer

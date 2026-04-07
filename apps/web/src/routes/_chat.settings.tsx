@@ -402,8 +402,9 @@ function SettingsRouteView() {
   const [fontSizeOverride, setFontSizeOverrideState] = useState<number | null>(() =>
     getStoredFontSizeOverride(),
   );
-  const [openclawTestResult, setOpenclawTestResult] =
-    useState<TestOpenclawGatewayResult | null>(null);
+  const [openclawTestResult, setOpenclawTestResult] = useState<TestOpenclawGatewayResult | null>(
+    null,
+  );
   const [openclawTestLoading, setOpenclawTestLoading] = useState(false);
 
   const globalEnvironmentVariablesQuery = useQuery(globalEnvironmentVariablesQueryOptions());
@@ -2173,9 +2174,7 @@ function SettingsRouteView() {
                         <span
                           className={cn(
                             "text-xs font-semibold",
-                            openclawTestResult.success
-                              ? "text-emerald-500"
-                              : "text-red-500",
+                            openclawTestResult.success ? "text-emerald-500" : "text-red-500",
                           )}
                         >
                           {openclawTestResult.success
@@ -2203,9 +2202,7 @@ function SettingsRouteView() {
                               )}
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-baseline gap-2">
-                                  <span className="font-medium text-foreground">
-                                    {step.name}
-                                  </span>
+                                  <span className="font-medium text-foreground">{step.name}</span>
                                   <span className="tabular-nums text-muted-foreground text-[10px]">
                                     {step.durationMs}ms
                                   </span>
@@ -2250,9 +2247,7 @@ function SettingsRouteView() {
 
                       {/* Error summary */}
                       {openclawTestResult.error &&
-                        !openclawTestResult.steps.some(
-                          (s) => s.status === "fail",
-                        ) && (
+                        !openclawTestResult.steps.some((s) => s.status === "fail") && (
                           <div className="mt-2 text-xs text-red-500">
                             {openclawTestResult.error}
                           </div>

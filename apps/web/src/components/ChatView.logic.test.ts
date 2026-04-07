@@ -1,4 +1,4 @@
-import { ProjectId, ThreadId } from "@okcode/contracts";
+import { MessageId, ProjectId, ThreadId } from "@okcode/contracts";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -7,6 +7,7 @@ import {
   buildHiddenProviderInput,
   buildExpiredTerminalContextToastCopy,
   deriveComposerSendState,
+  findLatestRevertableUserMessageId,
 } from "./ChatView.logic";
 
 describe("deriveComposerSendState", () => {
@@ -171,5 +172,55 @@ describe("buildLocalDraftThread", () => {
     );
 
     expect(thread.title).toBe("New thread");
+  });
+});
+
+describe("findLatestRevertableUserMessageId", () => {
+  it("returns the latest user message with a revertable turn count", () => {
+    const target = findLatestRevertableUserMessageId(
+      [
+        {
+          kind: "message",
+          message: {
+            id: MessageId.makeUnsafe("message-1"),
+            role: "user",
+          },
+        },
+        {
+          kind: "message",
+          message: {
+            id: MessageId.makeUnsafe("message-2"),
+            role: "assistant",
+          },
+        },
+        {
+          kind: "message",
+          message: {
+            id: MessageId.makeUnsafe("message-3"),
+            role: "user",
+          },
+        },
+      ],
+      new Map([[MessageId.makeUnsafe("message-3"), 2]]),
+    );
+
+    expect(target).toBe(MessageId.makeUnsafe("message-3"));
+  });
+
+  it("returns null when no user message can be reverted", () => {
+    expect(
+      findLatestRevertableUserMessageId(
+        [
+          {
+            kind: "message",
+            message: {
+              id: MessageId.makeUnsafe("message-1"),
+              role: "assistant",
+            },
+          },
+        ],
+        new Map(),
+      ),
+    ).toBeNull();
   });
 });

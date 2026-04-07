@@ -432,9 +432,7 @@ export interface NativeApi {
       input: SaveProjectEnvironmentVariablesInput,
     ) => Promise<ProjectEnvironmentVariablesResult>;
     upsertKeybinding: (input: ServerUpsertKeybindingInput) => Promise<ServerUpsertKeybindingResult>;
-    testOpenclawGateway: (
-      input: TestOpenclawGatewayInput,
-    ) => Promise<TestOpenclawGatewayResult>;
+    testOpenclawGateway: (input: TestOpenclawGatewayInput) => Promise<TestOpenclawGatewayResult>;
   };
   orchestration: {
     getSnapshot: () => Promise<OrchestrationReadModel>;

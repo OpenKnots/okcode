@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type RightPanelTab = "files" | "editor" | "diffs";
+export type RightPanelTab = "workspace" | "diffs";
 
 interface RightPanelState {
   isOpen: boolean;
@@ -12,19 +12,30 @@ interface RightPanelState {
 
 const STORAGE_KEY = "okcode:right-panel-tab:v1";
 
-const VALID_TABS: readonly RightPanelTab[] = ["files", "editor", "diffs"];
+const VALID_TABS: readonly RightPanelTab[] = ["workspace", "diffs"];
+
+export function normalizeRightPanelTab(value: string | null | undefined): RightPanelTab | null {
+  if (value === "files" || value === "editor") {
+    return "workspace";
+  }
+  if ((VALID_TABS as readonly string[]).includes(value ?? "")) {
+    return value as RightPanelTab;
+  }
+  return null;
+}
 
 function readPersistedTab(): RightPanelTab {
-  if (typeof window === "undefined") return "files";
+  if (typeof window === "undefined") return "workspace";
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (raw && (VALID_TABS as readonly string[]).includes(raw)) {
-      return raw as RightPanelTab;
+    const normalized = normalizeRightPanelTab(raw);
+    if (normalized) {
+      return normalized;
     }
   } catch {
     // ignore storage errors
   }
-  return "files";
+  return "workspace";
 }
 
 function persistTab(tab: RightPanelTab): void {

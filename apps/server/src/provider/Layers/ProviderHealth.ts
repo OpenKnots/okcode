@@ -14,7 +14,18 @@ import type {
   ServerProviderStatus,
   ServerProviderStatusState,
 } from "@okcode/contracts";
-import { Array, Effect, Fiber, FileSystem, Layer, Option, Path, Result, Stream } from "effect";
+import {
+  Array,
+  Data,
+  Effect,
+  Fiber,
+  FileSystem,
+  Layer,
+  Option,
+  Path,
+  Result,
+  Stream,
+} from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
 import {
@@ -27,6 +38,10 @@ import { ProviderHealth, type ProviderHealthShape } from "../Services/ProviderHe
 const DEFAULT_TIMEOUT_MS = 4_000;
 const CODEX_PROVIDER = "codex" as const;
 const CLAUDE_AGENT_PROVIDER = "claudeAgent" as const;
+
+class OpenClawHealthProbeError extends Data.TaggedError("OpenClawHealthProbeError")<{
+  cause: unknown;
+}> {}
 
 // ── Pure helpers ────────────────────────────────────────────────────
 
@@ -630,7 +645,7 @@ const checkOpenClawProviderStatus: Effect.Effect<ServerProviderStatus, never, ne
           clearTimeout(timeout);
         }
       },
-      catch: (cause) => cause as Error,
+      catch: (cause) => new OpenClawHealthProbeError({ cause }),
     }).pipe(Effect.result);
 
     if (Result.isFailure(probeResult)) {

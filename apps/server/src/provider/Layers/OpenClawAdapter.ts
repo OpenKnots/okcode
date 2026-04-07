@@ -796,14 +796,26 @@ function makeOpenClawAdapter(options?: OpenClawAdapterLiveOptions) {
                   id: context.nextRpcId++,
                 }),
               ),
-            catch: (e) => e as Error,
+            catch: (cause) =>
+              new ProviderAdapterProcessError({
+                provider: PROVIDER,
+                threadId: context.threadId,
+                detail: "Failed to send session.stop during teardown.",
+                cause,
+              }),
           }).pipe(Effect.orElseSucceed(() => undefined));
         }
 
         // Close WebSocket.
         yield* Effect.try({
           try: () => context.ws.close(),
-          catch: (e) => e as Error,
+          catch: (cause) =>
+            new ProviderAdapterProcessError({
+              provider: PROVIDER,
+              threadId: context.threadId,
+              detail: "Failed to close websocket during teardown.",
+              cause,
+            }),
         }).pipe(Effect.orElseSucceed(() => undefined));
 
         // Interrupt stream fiber if active.

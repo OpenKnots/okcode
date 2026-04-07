@@ -426,8 +426,6 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
       ? (state.sizeByProjectId[activeProjectId] ?? PREVIEW_SPLIT_DEFAULT_SIZE_PX)
       : PREVIEW_SPLIT_DEFAULT_SIZE_PX,
   );
-  const previewStacked = previewDock === "top" || previewDock === "bottom";
-  const setPreviewDock = usePreviewStateStore((state) => state.setProjectDock);
   const togglePreviewLayout = usePreviewStateStore((state) => state.toggleProjectLayout);
   const setPreviewSize = usePreviewStateStore((state) => state.setProjectSize);
   const previewSplitRef = useRef<HTMLDivElement | null>(null);

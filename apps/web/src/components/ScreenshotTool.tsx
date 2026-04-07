@@ -3,6 +3,7 @@ import { toPng } from "html-to-image";
 import { CameraIcon, XIcon } from "lucide-react";
 
 import { useScreenshotStore } from "~/screenshotStore";
+import { readDesktopPreviewBridge } from "~/desktopPreview";
 import { toastManager } from "~/components/ui/toast";
 import { Button } from "~/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipPopup } from "~/components/ui/tooltip";
@@ -28,6 +29,27 @@ function normalizeRect(rect: SelectionRect) {
 
 // ── Capture Logic ───────────────────────────────────────────────────
 
+/**
+ * Find the browser preview surface element's bounds (if visible).
+ */
+function getPreviewSurfaceBounds(): { x: number; y: number; width: number; height: number } | null {
+  const el = document.querySelector("[data-preview-surface='true']");
+  if (!el) return null;
+  const rect = el.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return null;
+  return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+}
+
+/**
+ * Check whether two rectangles overlap.
+ */
+function rectsOverlap(
+  a: { x: number; y: number; width: number; height: number },
+  b: { x: number; y: number; width: number; height: number },
+): boolean {
+  return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+}
+
 async function captureRegion(rect: {
   x: number;
   y: number;
@@ -36,7 +58,7 @@ async function captureRegion(rect: {
 }): Promise<Blob> {
   const dpr = window.devicePixelRatio || 1;
 
-  // Capture the full page at device resolution
+  // Capture the full page at device resolution (DOM only — native BrowserView is excluded)
   const rootElement = document.documentElement;
   const dataUrl = await toPng(rootElement, {
     width: rootElement.scrollWidth,
@@ -68,6 +90,26 @@ async function captureRegion(rect: {
   if (!ctx) throw new Error("Failed to get canvas 2D context");
 
   ctx.drawImage(img, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+
+  // Composite the native browser preview if the selection overlaps it
+  const previewBridge = readDesktopPreviewBridge();
+  const surfaceBounds = getPreviewSurfaceBounds();
+  if (previewBridge && surfaceBounds && rectsOverlap(rect, surfaceBounds)) {
+    try {
+      const browserDataUrl = await previewBridge.captureActiveTab();
+      if (browserDataUrl) {
+        const browserImg = await loadImage(browserDataUrl);
+        // Position the browser image relative to the crop area
+        const drawX = (surfaceBounds.x - rect.x) * dpr;
+        const drawY = (surfaceBounds.y - rect.y) * dpr;
+        const drawW = surfaceBounds.width * dpr;
+        const drawH = surfaceBounds.height * dpr;
+        ctx.drawImage(browserImg, drawX, drawY, drawW, drawH);
+      }
+    } catch {
+      // If browser capture fails, the DOM-only screenshot is still valid
+    }
+  }
 
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(

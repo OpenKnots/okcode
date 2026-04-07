@@ -782,6 +782,7 @@ export function PreviewPanel({ projectId, threadId, onClose }: PreviewPanelProps
       >
         <div
           ref={surfaceRef}
+          data-preview-surface="true"
           className={cn(
             "relative overflow-hidden rounded-lg border border-border/70 bg-card/20",
             !effectiveDims && "min-h-0 flex-1",

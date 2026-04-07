@@ -36,7 +36,7 @@ export const DEFAULT_SIDEBAR_THREAD_SORT_ORDER: SidebarThreadSortOrder = "update
 export const PrReviewRequestChangesTone = Schema.Literals(["warning", "brand", "neutral"]);
 export type PrReviewRequestChangesTone = typeof PrReviewRequestChangesTone.Type;
 export const DEFAULT_PR_REVIEW_REQUEST_CHANGES_TONE: PrReviewRequestChangesTone = "warning";
-type CustomModelSettingsKey = "customCodexModels" | "customClaudeModels";
+type CustomModelSettingsKey = "customCodexModels" | "customClaudeModels" | "customOpenClawModels";
 export type ProviderCustomModelConfig = {
   provider: ProviderKind;
   settingsKey: CustomModelSettingsKey;
@@ -50,6 +50,7 @@ export type ProviderCustomModelConfig = {
 const BUILT_IN_MODEL_SLUGS_BY_PROVIDER: Record<ProviderKind, ReadonlySet<string>> = {
   codex: new Set(getModelOptions("codex").map((option) => option.slug)),
   claudeAgent: new Set(getModelOptions("claudeAgent").map((option) => option.slug)),
+  openclaw: new Set(getModelOptions("openclaw").map((option) => option.slug)),
 };
 
 const withDefaults =
@@ -101,6 +102,9 @@ export const AppSettingsSchema = Schema.Struct({
   codeViewerAutosave: Schema.Boolean.pipe(withDefaults(() => false)),
   customCodexModels: Schema.Array(Schema.String).pipe(withDefaults(() => [])),
   customClaudeModels: Schema.Array(Schema.String).pipe(withDefaults(() => [])),
+  customOpenClawModels: Schema.Array(Schema.String).pipe(withDefaults(() => [])),
+  openclawGatewayUrl: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
+  openclawPassword: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
   textGenerationModel: Schema.optional(TrimmedNonEmptyString),
 });
 export type AppSettings = typeof AppSettingsSchema.Type;
@@ -130,6 +134,15 @@ const PROVIDER_CUSTOM_MODEL_CONFIG: Record<ProviderKind, ProviderCustomModelConf
       "Save additional Anthropic / Claude model slugs for the picker and `/model` command.",
     placeholder: "your-anthropic-model-slug",
     example: "anthropic/claude-sonnet-5-0",
+  },
+  openclaw: {
+    provider: "openclaw",
+    settingsKey: "customOpenClawModels",
+    defaultSettingsKey: "customOpenClawModels",
+    title: "OpenClaw",
+    description: "Save additional OpenClaw model slugs for the picker and `/model` command.",
+    placeholder: "your-openclaw-model-slug",
+    example: "openclaw/my-custom-model",
   },
 };
 export const MODEL_PROVIDER_SETTINGS = Object.values(PROVIDER_CUSTOM_MODEL_CONFIG);
@@ -179,6 +192,7 @@ function normalizeAppSettings(settings: AppSettings): AppSettings {
     sidebarOpacity: clampOpacity(settings.sidebarOpacity),
     customCodexModels: normalizeCustomModelSlugs(settings.customCodexModels, "codex"),
     customClaudeModels: normalizeCustomModelSlugs(settings.customClaudeModels, "claudeAgent"),
+    customOpenClawModels: normalizeCustomModelSlugs(settings.customOpenClawModels, "openclaw"),
   };
 }
 
@@ -211,6 +225,7 @@ export function getCustomModelsByProvider(
   return {
     codex: getCustomModelsForProvider(settings, "codex"),
     claudeAgent: getCustomModelsForProvider(settings, "claudeAgent"),
+    openclaw: getCustomModelsForProvider(settings, "openclaw"),
   };
 }
 
@@ -276,11 +291,19 @@ export function getCustomModelOptionsByProvider(
   return {
     codex: getAppModelOptions("codex", customModelsByProvider.codex),
     claudeAgent: getAppModelOptions("claudeAgent", customModelsByProvider.claudeAgent),
+    openclaw: getAppModelOptions("openclaw", customModelsByProvider.openclaw),
   };
 }
 
 export function getProviderStartOptions(
-  settings: Pick<AppSettings, "claudeBinaryPath" | "codexBinaryPath" | "codexHomePath">,
+  settings: Pick<
+    AppSettings,
+    | "claudeBinaryPath"
+    | "codexBinaryPath"
+    | "codexHomePath"
+    | "openclawGatewayUrl"
+    | "openclawPassword"
+  >,
 ): ProviderStartOptions | undefined {
   const providerOptions: ProviderStartOptions = {
     ...(settings.codexBinaryPath || settings.codexHomePath
@@ -295,6 +318,14 @@ export function getProviderStartOptions(
       ? {
           claudeAgent: {
             binaryPath: settings.claudeBinaryPath,
+          },
+        }
+      : {}),
+    ...(settings.openclawGatewayUrl || settings.openclawPassword
+      ? {
+          openclaw: {
+            ...(settings.openclawGatewayUrl ? { gatewayUrl: settings.openclawGatewayUrl } : {}),
+            ...(settings.openclawPassword ? { password: settings.openclawPassword } : {}),
           },
         }
       : {}),

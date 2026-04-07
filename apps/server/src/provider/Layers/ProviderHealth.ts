@@ -589,14 +589,94 @@ export const checkClaudeProviderStatus: Effect.Effect<
   } satisfies ServerProviderStatus;
 });
 
+// ── OpenClaw health check ─────────────────────────────────────────
+
+const OPENCLAW_PROVIDER = "openclaw" as const;
+
+const checkOpenClawProviderStatus: Effect.Effect<ServerProviderStatus, never, never> = Effect.gen(
+  function* () {
+    const checkedAt = new Date().toISOString();
+    const gatewayUrl = process.env.OPENCLAW_GATEWAY_URL;
+
+    if (!gatewayUrl) {
+      return {
+        provider: OPENCLAW_PROVIDER,
+        status: "warning" as const,
+        available: false,
+        authStatus: "unknown" as const,
+        checkedAt,
+        message:
+          "OpenClaw gateway URL is not configured. Set OPENCLAW_GATEWAY_URL or configure in settings.",
+      } satisfies ServerProviderStatus;
+    }
+
+    // Derive HTTP health URL from the gateway URL (replace ws:// with http://).
+    const healthUrl = gatewayUrl
+      .replace(/^ws:\/\//, "http://")
+      .replace(/^wss:\/\//, "https://")
+      .replace(/\/$/, "")
+      .concat("/health");
+
+    const probeResult = yield* Effect.tryPromise({
+      try: async () => {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+        try {
+          const response = await fetch(healthUrl, {
+            signal: controller.signal,
+          });
+          return { ok: response.ok, status: response.status };
+        } finally {
+          clearTimeout(timeout);
+        }
+      },
+      catch: (cause) => cause as Error,
+    }).pipe(Effect.result);
+
+    if (Result.isFailure(probeResult)) {
+      return {
+        provider: OPENCLAW_PROVIDER,
+        status: "warning" as const,
+        available: false,
+        authStatus: "unknown" as const,
+        checkedAt,
+        message: `Cannot reach OpenClaw gateway at ${gatewayUrl}. Check the URL and ensure the gateway is running.`,
+      } satisfies ServerProviderStatus;
+    }
+
+    const probe = probeResult.success;
+    if (!probe.ok) {
+      return {
+        provider: OPENCLAW_PROVIDER,
+        status: "warning" as const,
+        available: false,
+        authStatus: "unknown" as const,
+        checkedAt,
+        message: `OpenClaw gateway at ${gatewayUrl} returned HTTP ${probe.status}.`,
+      } satisfies ServerProviderStatus;
+    }
+
+    return {
+      provider: OPENCLAW_PROVIDER,
+      status: "ready" as const,
+      available: true,
+      authStatus: "unknown" as const,
+      checkedAt,
+    } satisfies ServerProviderStatus;
+  },
+);
+
 // ── Layer ───────────────────────────────────────────────────────────
 
 export const ProviderHealthLive = Layer.effect(
   ProviderHealth,
   Effect.gen(function* () {
-    const statusesFiber = yield* Effect.all([checkCodexProviderStatus, checkClaudeProviderStatus], {
-      concurrency: "unbounded",
-    }).pipe(Effect.forkScoped);
+    const statusesFiber = yield* Effect.all(
+      [checkCodexProviderStatus, checkClaudeProviderStatus, checkOpenClawProviderStatus],
+      {
+        concurrency: "unbounded",
+      },
+    ).pipe(Effect.forkScoped);
 
     return {
       getStatuses: Fiber.join(statusesFiber),

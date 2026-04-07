@@ -5,6 +5,7 @@ export type ProviderSetupPhase = "install" | "authenticate" | "verify" | "ready"
 const PROVIDER_LABELS = {
   codex: "OpenAI (Codex CLI)",
   claudeAgent: "Anthropic (Claude Code)",
+  openclaw: "OpenClaw",
 } as const;
 
 export function getProviderLabel(provider: ServerProviderStatus["provider"]): string {

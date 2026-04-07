@@ -1,6 +1,7 @@
 import {
   CLAUDE_CODE_EFFORT_OPTIONS,
   CODEX_REASONING_EFFORT_OPTIONS,
+  OPENCLAW_REASONING_EFFORT_OPTIONS,
   DEFAULT_MODEL_BY_PROVIDER,
   DEFAULT_REASONING_EFFORT_BY_PROVIDER,
   MODEL_OPTIONS_BY_PROVIDER,
@@ -10,6 +11,7 @@ import {
   type ClaudeCodeEffort,
   type CodexModelOptions,
   type CodexReasoningEffort,
+  type OpenClawReasoningEffort,
   type ModelSlug,
   type ProviderReasoningEffort,
   type ProviderKind,
@@ -18,6 +20,7 @@ import {
 const MODEL_SLUG_SET_BY_PROVIDER: Record<ProviderKind, ReadonlySet<ModelSlug>> = {
   claudeAgent: new Set(MODEL_OPTIONS_BY_PROVIDER.claudeAgent.map((option) => option.slug)),
   codex: new Set(MODEL_OPTIONS_BY_PROVIDER.codex.map((option) => option.slug)),
+  openclaw: new Set<ModelSlug>(),
 };
 
 const CLAUDE_OPUS_4_6_MODEL = "claude-opus-4-6";
@@ -78,7 +81,9 @@ export function normalizeModelSlug(
   const providerNormalized =
     provider === "claudeAgent" && trimmed.toLowerCase().startsWith("anthropic/")
       ? trimmed.slice("anthropic/".length)
-      : trimmed;
+      : provider === "openclaw" && trimmed.toLowerCase().startsWith("openclaw/")
+        ? trimmed.slice("openclaw/".length)
+        : trimmed;
 
   const aliases = MODEL_SLUG_ALIASES_BY_PROVIDER[provider] as Record<string, ModelSlug>;
   const aliased = Object.prototype.hasOwnProperty.call(aliases, providerNormalized)
@@ -155,7 +160,12 @@ export function inferProviderForModel(
     return "codex";
   }
 
-  return typeof model === "string" && model.trim().startsWith("claude-") ? "claudeAgent" : fallback;
+  if (typeof model === "string") {
+    const trimmed = model.trim();
+    if (trimmed.startsWith("claude-")) return "claudeAgent";
+    if (trimmed.startsWith("openclaw/")) return "openclaw";
+  }
+  return fallback;
 }
 
 export function getReasoningEffortOptions(provider: "codex"): ReadonlyArray<CodexReasoningEffort>;
@@ -163,6 +173,9 @@ export function getReasoningEffortOptions(
   provider: "claudeAgent",
   model?: string | null | undefined,
 ): ReadonlyArray<ClaudeCodeEffort>;
+export function getReasoningEffortOptions(
+  provider: "openclaw",
+): ReadonlyArray<OpenClawReasoningEffort>;
 export function getReasoningEffortOptions(
   provider?: ProviderKind,
   model?: string | null | undefined,
@@ -185,6 +198,7 @@ export function getReasoningEffortOptions(
 
 export function getDefaultReasoningEffort(provider: "codex"): CodexReasoningEffort;
 export function getDefaultReasoningEffort(provider: "claudeAgent"): ClaudeCodeEffort;
+export function getDefaultReasoningEffort(provider: "openclaw"): OpenClawReasoningEffort;
 export function getDefaultReasoningEffort(provider?: ProviderKind): ProviderReasoningEffort;
 export function getDefaultReasoningEffort(
   provider: ProviderKind = "codex",
@@ -200,6 +214,10 @@ export function resolveReasoningEffortForProvider(
   provider: "claudeAgent",
   effort: string | null | undefined,
 ): ClaudeCodeEffort | null;
+export function resolveReasoningEffortForProvider(
+  provider: "openclaw",
+  effort: string | null | undefined,
+): OpenClawReasoningEffort | null;
 export function resolveReasoningEffortForProvider(
   provider: ProviderKind,
   effort: string | null | undefined,
@@ -288,4 +306,8 @@ export function applyClaudePromptEffortPrefix(
   return `Ultrathink:\n${trimmed}`;
 }
 
-export { CLAUDE_CODE_EFFORT_OPTIONS, CODEX_REASONING_EFFORT_OPTIONS };
+export {
+  CLAUDE_CODE_EFFORT_OPTIONS,
+  CODEX_REASONING_EFFORT_OPTIONS,
+  OPENCLAW_REASONING_EFFORT_OPTIONS,
+};

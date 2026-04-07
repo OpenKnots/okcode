@@ -29,6 +29,7 @@ export const PROVIDER_OPTIONS: Array<{
 }> = [
   { value: "codex", label: "Codex", available: true },
   { value: "claudeAgent", label: "Anthropic", available: true },
+  { value: "openclaw", label: "OpenClaw", available: true },
   { value: "cursor", label: "Cursor", available: false },
 ];
 

@@ -5676,11 +5676,11 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
       </div>
       {/* end horizontal flex container */}
 
-      {(() => {
-        if (!terminalState.terminalOpen || !activeProject) {
-          return null;
-        }
-        return (
+      {/* Terminal drawer – once mounted, stay mounted to avoid the
+          unmount/remount flicker when toggling visibility or switching threads.
+          We hide it with display:none when collapsed so the DOM is retained. */}
+      {activeProject && (
+        <div style={{ display: terminalState.terminalOpen ? undefined : "none" }}>
           <Suspense
             fallback={<TerminalDrawerLoadingFallback height={terminalState.terminalHeight} />}
           >
@@ -5709,8 +5709,8 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
               onPreviewUrl={onPreviewUrl}
             />
           </Suspense>
-        );
-      })()}
+        </div>
+      )}
 
       <Dialog
         open={pendingProjectScriptRun !== null}

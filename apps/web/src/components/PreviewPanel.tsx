@@ -198,33 +198,31 @@ export function PreviewPanel({ projectId, threadId, onClose }: PreviewPanelProps
     }
   }, [activeTab?.tabId, activeTab?.url]);
 
-  // Activate this thread's preview tabs when the threadId changes
-  useEffect(() => {
-    if (!previewBridge) return;
-    void previewBridge.activateThread({ threadId }).then((state) => {
-      setTabsState(state);
-    });
-  }, [previewBridge, threadId]);
-
-  // Subscribe to state changes
+  // Subscribe to state changes & activate thread in a single effect to avoid
+  // race conditions where the subscription effect resets state to EMPTY while
+  // the activation promise is still in-flight.
   useEffect(() => {
     if (!previewBridge) {
       setTabsState(EMPTY_TABS_STATE);
       return;
     }
 
+    let cancelled = false;
+
     const unsubscribe = previewBridge.onState((state) => {
-      setTabsState(state);
+      if (!cancelled) setTabsState(state);
     });
 
-    void previewBridge.getState().then((state) => {
-      setTabsState(state);
+    // Activate the thread and seed the initial state in one go.
+    void previewBridge.activateThread({ threadId }).then((state) => {
+      if (!cancelled) setTabsState(state);
     });
 
     return () => {
+      cancelled = true;
       unsubscribe();
     };
-  }, [previewBridge]);
+  }, [previewBridge, threadId]);
 
   // Bounds sync
   useLayoutEffect(() => {
@@ -785,23 +783,32 @@ export function PreviewPanel({ projectId, threadId, onClose }: PreviewPanelProps
         </button>
       </div>
 
-      {/* Status bar */}
-      {(inputError || (activeTab && activeTab.status !== "ready")) && (
-        <div className="flex items-start gap-2 border-b border-border/40 px-3 py-1.5 text-xs">
-          {activeTab?.status === "loading" ? (
-            <LoaderCircleIcon className="mt-0.5 size-3.5 shrink-0 animate-spin text-muted-foreground/70" />
-          ) : null}
-          <p
-            className={
-              activeTab?.error || inputError ? "text-amber-700" : "text-muted-foreground/70"
-            }
-          >
-            {inputError ??
-              activeTab?.error?.message ??
-              (activeTab?.status === "loading" ? `Loading ${activeTab.url ?? ""}...` : null)}
-          </p>
+      {/* Status bar – always mounted, animated in/out via CSS to avoid layout shift */}
+      <div
+        className={cn(
+          "grid transition-[grid-template-rows] duration-200 ease-out",
+          inputError || (activeTab && activeTab.status !== "ready")
+            ? "grid-rows-[1fr]"
+            : "grid-rows-[0fr]",
+        )}
+      >
+        <div className="overflow-hidden">
+          <div className="flex items-start gap-2 border-b border-border/40 px-3 py-1.5 text-xs">
+            {activeTab?.status === "loading" ? (
+              <LoaderCircleIcon className="mt-0.5 size-3.5 shrink-0 animate-spin text-muted-foreground/70" />
+            ) : null}
+            <p
+              className={
+                activeTab?.error || inputError ? "text-amber-700" : "text-muted-foreground/70"
+              }
+            >
+              {inputError ??
+                activeTab?.error?.message ??
+                (activeTab?.status === "loading" ? `Loading ${activeTab.url ?? ""}...` : null)}
+            </p>
+          </div>
         </div>
-      )}
+      </div>
 
       {/* Content area */}
       <div
@@ -829,13 +836,17 @@ export function PreviewPanel({ projectId, threadId, onClose }: PreviewPanelProps
               : undefined
           }
         >
-          {!showEmbeddedSurface ? (
-            <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground/70">
-              {tabsState.tabs.length === 0
-                ? "Enter a URL or click + to open a new tab."
-                : (activeTab?.error?.message ?? "Preview closed.")}
-            </div>
-          ) : null}
+          {/* Empty-state placeholder – fade in/out instead of mount/unmount to avoid flicker */}
+          <div
+            className={cn(
+              "pointer-events-none absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-muted-foreground/70 transition-opacity duration-200",
+              showEmbeddedSurface ? "opacity-0" : "opacity-100",
+            )}
+          >
+            {tabsState.tabs.length === 0
+              ? "Enter a URL or click + to open a new tab."
+              : (activeTab?.error?.message ?? "Preview closed.")}
+          </div>
 
           {/* Live dimensions badge */}
           {surfaceDims && presetId && (

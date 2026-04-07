@@ -1,4 +1,4 @@
-import { parsePatchFiles } from "@pierre/diffs";
+import { parsePatchFiles, setLanguageOverride, type SupportedLanguages } from "@pierre/diffs";
 import type { FileDiffMetadata } from "@pierre/diffs/react";
 import type {
   GitHubUserPreview,
@@ -12,6 +12,7 @@ import { CircleDotIcon, GitMergeIcon, GitPullRequestIcon, XCircleIcon } from "lu
 import { openInPreferredEditor } from "~/editorPreferences";
 import { buildPatchCacheKey } from "~/lib/diffRendering";
 import { ensureNativeApi } from "~/nativeApi";
+import { inferLanguageIdForPath } from "~/vscode-icons";
 
 export type PullRequestState = "open" | "closed" | "merged";
 export type InspectorTab = "threads" | "workflow" | "people";
@@ -165,6 +166,23 @@ export function resolveFileDiffPath(fileDiff: FileDiffMetadata): string {
 
 export function buildFileDiffRenderKey(fileDiff: FileDiffMetadata): string {
   return fileDiff.cacheKey ?? `${fileDiff.prevName ?? "none"}:${fileDiff.name}`;
+}
+
+export function resolveFileDiffLanguage(fileDiff: FileDiffMetadata): SupportedLanguages | null {
+  if (fileDiff.lang != null) {
+    return fileDiff.lang;
+  }
+  const path = resolveFileDiffPath(fileDiff);
+  const languageId = inferLanguageIdForPath(path);
+  return languageId ? (languageId as SupportedLanguages) : null;
+}
+
+export function withInferredFileDiffLanguage(fileDiff: FileDiffMetadata): FileDiffMetadata {
+  const lang = resolveFileDiffLanguage(fileDiff);
+  if (!lang) {
+    return fileDiff;
+  }
+  return setLanguageOverride(fileDiff, lang);
 }
 
 export function parseRenderablePatch(

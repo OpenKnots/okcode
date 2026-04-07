@@ -29,6 +29,7 @@ import {
   shortCommentPreview,
   summarizeFileDiffStats,
   threadTone,
+  withInferredFileDiffLanguage,
 } from "./pr-review-utils";
 import { RawPatchViewer } from "./RawPatchViewer";
 
@@ -101,6 +102,10 @@ export function PrWorkspace({
     fileViewMode === "single" && selectedFilePath
       ? patchFiles.filter((f) => resolveFileDiffPath(f) === selectedFilePath)
       : patchFiles;
+  const renderedFiles = useMemo(
+    () => visibleFiles.map(withInferredFileDiffLanguage),
+    [visibleFiles],
+  );
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-[radial-gradient(circle_at_top,_color-mix(in_srgb,var(--background)_86%,var(--foreground))_0%,transparent_54%)]">
@@ -200,7 +205,7 @@ export function PrWorkspace({
         <RawPatchViewer text={renderablePatch.text} reason={renderablePatch.reason} />
       ) : (
         <Virtualizer className="min-h-0 flex-1 overflow-auto px-3 pb-4 pt-3">
-          {visibleFiles.map((fileDiff) => {
+          {renderedFiles.map((fileDiff) => {
             const filePath = resolveFileDiffPath(fileDiff);
             const fileKey = `${buildFileDiffRenderKey(fileDiff)}:${resolvedTheme}`;
             const fileThreads = threadsByPath[filePath] ?? [];

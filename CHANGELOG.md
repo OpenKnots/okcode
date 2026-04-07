@@ -13,17 +13,25 @@ See [docs/releases/v0.16.1.md](docs/releases/v0.16.1.md) for full notes and [doc
 
 ### Added
 
-- Pr-review: add private maintainer profiles.
+- Add sidebar thread shortcuts and refresh toolchain deps.
 - Add pull request shortcut and header action.
 - Add per-file diff acceptance controls.
 - Add GitHub issue thread integration.
 - Add screenshot selection overlay and shortcut.
 - Add pinned preview tabs.
 - Add configurable code font size override.
+- Add architecture diagram generation skill.
 
 ### Changed
 
-- Drop mandatory rc release gate.
+- Format workflow files.
+- Prepare release notes for v0.16.1.
+- Build web bundle before CLI publish.
+- Format release workflow.
+- Skip TestFlight when iOS signing secrets are missing.
+- Align header content in Electron window.
+- Orchestration: include github ref in thread snapshots.
+- Orchestration: include github ref in thread snapshots.
 - Polish save button state styling.
 - Show saved confirmation on manual file saves.
 - Filter diffs by file change type.
@@ -31,10 +39,20 @@ See [docs/releases/v0.16.1.md](docs/releases/v0.16.1.md) for full notes and [doc
 - Simplify the sidebar workspace list.
 - Tighten outline button contrast.
 - Make prompt enhancements visible and reversible.
+- Merge pull request #296 from OpenKnots/copilot/fix-status-details-platform-error.
+- Merge pull request #294 from OpenKnots/copilot/remove-signing-requirement.
+- Make Windows signing optional in release workflow.
+- Merge pull request #293 from OpenKnots/fix/optional-ios-testflight.
 
 ### Fixed
 
-- Git: fix stale PR branch metadata.
+- Release: fix prep formatting and trim ci.
+- Web: fix formatting drift on main.
+- Handle missing workspace path in GitCore.statusDetails() without throwing PlatformError.
+
+### Removed
+
+- Drop: gates, fix: stale PRs, add: pr-review.
 
 ## [0.16.0] - 2026-04-05
 

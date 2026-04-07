@@ -14,6 +14,7 @@ import { Route as ChatIndexRouteImport } from './routes/_chat.index'
 import { Route as ChatSkillsRouteImport } from './routes/_chat.skills'
 import { Route as ChatSettingsRouteImport } from './routes/_chat.settings'
 import { Route as ChatPrReviewRouteImport } from './routes/_chat.pr-review'
+import { Route as ChatSmeChatRouteImport } from './routes/_chat.sme-chat'
 import { Route as ChatPluginsRouteImport } from './routes/_chat.plugins'
 import { Route as ChatMergeConflictsRouteImport } from './routes/_chat.merge-conflicts'
 import { Route as ChatFileViewRouteImport } from './routes/_chat.file-view'
@@ -41,6 +42,11 @@ const ChatSettingsRoute = ChatSettingsRouteImport.update({
 const ChatPrReviewRoute = ChatPrReviewRouteImport.update({
   id: '/pr-review',
   path: '/pr-review',
+  getParentRoute: () => ChatRoute,
+} as any)
+const ChatSmeChatRoute = ChatSmeChatRouteImport.update({
+  id: '/sme-chat',
+  path: '/sme-chat',
   getParentRoute: () => ChatRoute,
 } as any)
 const ChatPluginsRoute = ChatPluginsRouteImport.update({
@@ -73,6 +79,7 @@ export interface FileRoutesByFullPath {
   '/pr-review': typeof ChatPrReviewRoute
   '/settings': typeof ChatSettingsRoute
   '/skills': typeof ChatSkillsRoute
+  '/sme-chat': typeof ChatSmeChatRoute
 }
 export interface FileRoutesByTo {
   '/$threadId': typeof ChatThreadIdRoute
@@ -82,6 +89,7 @@ export interface FileRoutesByTo {
   '/pr-review': typeof ChatPrReviewRoute
   '/settings': typeof ChatSettingsRoute
   '/skills': typeof ChatSkillsRoute
+  '/sme-chat': typeof ChatSmeChatRoute
   '/': typeof ChatIndexRoute
 }
 export interface FileRoutesById {
@@ -94,6 +102,7 @@ export interface FileRoutesById {
   '/_chat/pr-review': typeof ChatPrReviewRoute
   '/_chat/settings': typeof ChatSettingsRoute
   '/_chat/skills': typeof ChatSkillsRoute
+  '/_chat/sme-chat': typeof ChatSmeChatRoute
   '/_chat/': typeof ChatIndexRoute
 }
 export interface FileRouteTypes {
@@ -107,6 +116,7 @@ export interface FileRouteTypes {
     | '/pr-review'
     | '/settings'
     | '/skills'
+    | '/sme-chat'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/$threadId'
@@ -116,6 +126,7 @@ export interface FileRouteTypes {
     | '/pr-review'
     | '/settings'
     | '/skills'
+    | '/sme-chat'
     | '/'
   id:
     | '__root__'
@@ -127,6 +138,7 @@ export interface FileRouteTypes {
     | '/_chat/pr-review'
     | '/_chat/settings'
     | '/_chat/skills'
+    | '/_chat/sme-chat'
     | '/_chat/'
   fileRoutesById: FileRoutesById
 }
@@ -171,6 +183,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatPrReviewRouteImport
       parentRoute: typeof ChatRoute
     }
+    '/_chat/sme-chat': {
+      id: '/_chat/sme-chat'
+      path: '/sme-chat'
+      fullPath: '/sme-chat'
+      preLoaderRoute: typeof ChatSmeChatRouteImport
+      parentRoute: typeof ChatRoute
+    }
     '/_chat/plugins': {
       id: '/_chat/plugins'
       path: '/plugins'
@@ -210,6 +229,7 @@ interface ChatRouteChildren {
   ChatPrReviewRoute: typeof ChatPrReviewRoute
   ChatSettingsRoute: typeof ChatSettingsRoute
   ChatSkillsRoute: typeof ChatSkillsRoute
+  ChatSmeChatRoute: typeof ChatSmeChatRoute
   ChatIndexRoute: typeof ChatIndexRoute
 }
 
@@ -221,6 +241,7 @@ const ChatRouteChildren: ChatRouteChildren = {
   ChatPrReviewRoute: ChatPrReviewRoute,
   ChatSettingsRoute: ChatSettingsRoute,
   ChatSkillsRoute: ChatSkillsRoute,
+  ChatSmeChatRoute: ChatSmeChatRoute,
   ChatIndexRoute: ChatIndexRoute,
 }
 

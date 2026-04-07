@@ -23,6 +23,7 @@ import {
   PROVIDER_SEND_TURN_MAX_IMAGE_BYTES,
   ProjectId,
   ThreadId,
+  SME_WS_CHANNELS,
   WS_CHANNELS,
   WS_METHODS,
   type WebSocketError,
@@ -94,6 +95,7 @@ import { GitHub } from "./github/Services/GitHub.ts";
 import { GitActionExecutionError } from "./git/Errors.ts";
 import { EnvironmentVariables } from "./persistence/Services/EnvironmentVariables.ts";
 import { SkillService } from "./skills/SkillService.ts";
+import { SmeChatService } from "./sme/Services/SmeChatService.ts";
 import { TokenManager } from "./tokenManager.ts";
 import { resolveRuntimeEnvironment, RuntimeEnv } from "./runtimeEnvironment.ts";
 import { version as serverVersion } from "../package.json" with { type: "json" };
@@ -154,9 +156,9 @@ function testOpenclawGateway(
               clearTimeout(timeout);
               socket.off("message", handler);
               const payload: { result?: unknown; error?: { code: number; message: string } } = {};
-            if ("result" in msg) payload.result = msg.result;
-            if (msg.error !== undefined) payload.error = msg.error;
-            resolve(payload);
+              if ("result" in msg) payload.result = msg.result;
+              if (msg.error !== undefined) payload.error = msg.error;
+              resolve(payload);
             }
           } catch {
             // Ignore non-JSON messages
@@ -320,9 +322,9 @@ function testOpenclawGateway(
         const sessionId = typeof result.sessionId === "string" ? result.sessionId : undefined;
         const version = typeof result.version === "string" ? result.version : undefined;
         serverInfo = {
-        ...(version !== undefined ? { version } : {}),
-        ...(sessionId !== undefined ? { sessionId } : {}),
-      };
+          ...(version !== undefined ? { version } : {}),
+          ...(sessionId !== undefined ? { sessionId } : {}),
+        };
         pushStep(
           "Session create",
           "pass",
@@ -553,6 +555,7 @@ export type ServerRuntimeServices =
   | TerminalManager
   | Keybindings
   | SkillService
+  | SmeChatService
   | Open
   | EnvironmentVariables;
 
@@ -1008,6 +1011,7 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
   const { openInEditor, openInFileManager, revealInFileManager } = yield* Open;
   const environmentVariables = yield* EnvironmentVariables;
   const skillService = yield* SkillService;
+  const smeChatService = yield* SmeChatService;
 
   const subscriptionsScope = yield* Scope.make("sequential");
   yield* Effect.addFinalizer(() => Scope.close(subscriptionsScope, Exit.void));
@@ -1844,6 +1848,54 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
       case WS_METHODS.skillSearch: {
         const body = stripRequestTag(request.body);
         return yield* skillService.search(body);
+      }
+
+      // ── SME Chat ────────────────────────────────────────────────────
+      case WS_METHODS.smeUploadDocument: {
+        const body = stripRequestTag(request.body);
+        return yield* smeChatService.uploadDocument(body);
+      }
+
+      case WS_METHODS.smeDeleteDocument: {
+        const body = stripRequestTag(request.body);
+        return yield* smeChatService.deleteDocument(body);
+      }
+
+      case WS_METHODS.smeListDocuments: {
+        const body = stripRequestTag(request.body);
+        return yield* smeChatService.listDocuments(body);
+      }
+
+      case WS_METHODS.smeCreateConversation: {
+        const body = stripRequestTag(request.body);
+        return yield* smeChatService.createConversation(body);
+      }
+
+      case WS_METHODS.smeDeleteConversation: {
+        const body = stripRequestTag(request.body);
+        return yield* smeChatService.deleteConversation(body);
+      }
+
+      case WS_METHODS.smeListConversations: {
+        const body = stripRequestTag(request.body);
+        return yield* smeChatService.listConversations(body);
+      }
+
+      case WS_METHODS.smeGetConversation: {
+        const body = stripRequestTag(request.body);
+        return yield* smeChatService.getConversation(body);
+      }
+
+      case WS_METHODS.smeSendMessage: {
+        const body = stripRequestTag(request.body);
+        return yield* smeChatService.sendMessage(body, (event) => {
+          void Effect.runPromise(pushBus.publishAll(SME_WS_CHANNELS.messageEvent, event));
+        });
+      }
+
+      case WS_METHODS.smeInterruptMessage: {
+        const body = stripRequestTag(request.body);
+        return yield* smeChatService.interruptMessage(body);
       }
 
       default: {

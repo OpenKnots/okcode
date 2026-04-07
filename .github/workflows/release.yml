@@ -10,6 +10,11 @@ on:
         description: "Release version (for example 1.2.3 or v1.2.3)"
         required: true
         type: string
+      publish_cli:
+        description: "Publish the okcodes CLI to npm after the desktop release finalizes"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -520,8 +525,9 @@ jobs:
 
   publish_cli:
     name: Publish CLI
-    needs: [preflight, desktop_build, ios_signing_preflight, ios_testflight]
-    if: ${{ always() && !cancelled() && needs.preflight.result == 'success' && needs.desktop_build.result == 'success' && needs.ios_signing_preflight.result == 'success' && (needs.ios_testflight.result == 'success' || needs.ios_testflight.result == 'skipped') }}
+    needs: [preflight, finalize]
+    if: ${{ !cancelled() && needs.finalize.result == 'success' && github.event_name == 'workflow_dispatch' && inputs.publish_cli }}
+    continue-on-error: true
     runs-on: ubuntu-24.04
     env:
       NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
@@ -529,10 +535,10 @@ jobs:
       OKCODE_BUILD_TIMESTAMP: ${{ needs.preflight.outputs.build_timestamp }}
       OKCODE_RELEASE_CHANNEL: ${{ needs.preflight.outputs.release_channel }}
     steps:
-      - name: Checkout
+      - name: Checkout finalized main
         uses: actions/checkout@v6
         with:
-          ref: ${{ needs.preflight.outputs.ref }}
+          ref: main
           fetch-depth: 0
 
       - name: Setup Bun
@@ -549,8 +555,29 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Align package versions to release version
-        run: node scripts/update-release-package-versions.ts "${{ needs.preflight.outputs.version }}"
+      - name: Assert package versions match stated release version
+        env:
+          RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const files = [
+            'apps/server/package.json',
+            'apps/desktop/package.json',
+            'apps/web/package.json',
+            'apps/mobile/package.json',
+            'packages/contracts/package.json',
+          ];
+          const expected = process.env.RELEASE_VERSION;
+          const mismatches = files.filter((file) => {
+            const version = JSON.parse(fs.readFileSync(file, 'utf8')).version;
+            return version !== expected;
+          });
+          if (mismatches.length > 0) {
+            console.error(`Package version mismatch for release ${expected}: ${mismatches.join(', ')}`);
+            process.exit(1);
+          }
+          NODE
 
       - name: Build CLI package
         run: bun run build --filter=@okcode/web --filter=okcodes
@@ -580,8 +607,8 @@ jobs:
 
   release:
     name: Publish GitHub Release
-    needs: [preflight, desktop_build, ios_signing_preflight, ios_testflight, publish_cli]
-    if: ${{ always() && !cancelled() && needs.preflight.result == 'success' && needs.desktop_build.result == 'success' && needs.ios_signing_preflight.result == 'success' && (needs.ios_testflight.result == 'success' || needs.ios_testflight.result == 'skipped') && needs.publish_cli.result == 'success' }}
+    needs: [preflight, desktop_build, ios_signing_preflight, ios_testflight]
+    if: ${{ always() && !cancelled() && needs.preflight.result == 'success' && needs.desktop_build.result == 'success' && needs.ios_signing_preflight.result == 'success' && (needs.ios_testflight.result == 'success' || needs.ios_testflight.result == 'skipped') }}
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout

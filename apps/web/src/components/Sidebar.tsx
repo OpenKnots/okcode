@@ -1343,13 +1343,6 @@ export default function Sidebar() {
                       ? { color: isDark ? pColor.textDark : pColor.text }
                       : undefined
                   }
-                  onDoubleClick={(e) => {
-                    e.stopPropagation();
-                    startProjectEditing({
-                      projectId: project.id,
-                      title: project.name,
-                    });
-                  }}
                 >
                   {project.name}
                 </span>

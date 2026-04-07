@@ -10,4 +10,12 @@ describe("Sidebar file tree shortcut", () => {
     expect(src).toContain('useRightPanelStore.getState().open("workspace")');
     expect(src).not.toContain("<WorkspaceFileTree");
   });
+
+  it("uses the project context menu for renaming instead of double click", () => {
+    const src = readFileSync(resolve(import.meta.dirname, "./Sidebar.tsx"), "utf8");
+
+    expect(src).toContain('{ id: "rename", label: "Rename project" }');
+    expect(src).toContain("onContextMenu={(event) => {");
+    expect(src).not.toContain("onDoubleClick={(e) => {");
+  });
 });

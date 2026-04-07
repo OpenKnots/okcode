@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import {
+  type BuildMetadata,
   type ProjectId,
   type ProviderKind,
   DEFAULT_GIT_TEXT_GENERATION_MODEL,
@@ -242,6 +243,32 @@ function getErrorMessage(error: unknown): string {
     return error;
   }
   return "Unknown error";
+}
+
+function BuildInfoBlock({ label, buildInfo }: { label: string; buildInfo: BuildMetadata }) {
+  return (
+    <dl className="min-w-0">
+      <dt className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{label}</dt>
+      <dd className="mt-1 space-y-1 text-[11px] leading-5 text-muted-foreground">
+        <div className="flex min-w-0 flex-wrap gap-x-1.5 gap-y-0.5 font-mono">
+          <span className="font-medium text-foreground">{buildInfo.version}</span>
+          <span aria-hidden="true">·</span>
+          <span>{buildInfo.surface}</span>
+          <span aria-hidden="true">·</span>
+          <span>
+            {buildInfo.platform}/{buildInfo.arch}
+          </span>
+        </div>
+        <div className="flex min-w-0 flex-wrap gap-x-1.5 gap-y-0.5 font-mono">
+          <span>{buildInfo.channel}</span>
+          <span aria-hidden="true">·</span>
+          <span className="break-words">{buildInfo.commitHash ?? "unknown"}</span>
+          <span aria-hidden="true">·</span>
+          <span className="break-words">{buildInfo.buildTimestamp}</span>
+        </div>
+      </dd>
+    </dl>
+  );
 }
 
 function BackgroundImageSettings({
@@ -2111,30 +2138,10 @@ function SettingsRouteView() {
                 title="Build"
                 description="Current app-shell and server build metadata."
                 control={
-                  <div className="space-y-2 text-left">
-                    <div className="space-y-0.5">
-                      <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                        App
-                      </div>
-                      <code className="block text-xs font-medium text-muted-foreground">
-                        {`${APP_BUILD_INFO.version} · ${APP_BUILD_INFO.surface} · ${APP_BUILD_INFO.platform}/${APP_BUILD_INFO.arch}`}
-                      </code>
-                      <code className="block text-[11px] text-muted-foreground">
-                        {`${APP_BUILD_INFO.channel} · ${APP_BUILD_INFO.commitHash ?? "unknown"} · ${APP_BUILD_INFO.buildTimestamp}`}
-                      </code>
-                    </div>
+                  <div className="grid w-full gap-3 text-left sm:max-w-xl sm:grid-cols-2 sm:gap-5">
+                    <BuildInfoBlock label="App" buildInfo={APP_BUILD_INFO} />
                     {serverConfigQuery.data?.buildInfo ? (
-                      <div className="space-y-0.5">
-                        <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                          Server
-                        </div>
-                        <code className="block text-xs font-medium text-muted-foreground">
-                          {`${serverConfigQuery.data.buildInfo.version} · ${serverConfigQuery.data.buildInfo.surface} · ${serverConfigQuery.data.buildInfo.platform}/${serverConfigQuery.data.buildInfo.arch}`}
-                        </code>
-                        <code className="block text-[11px] text-muted-foreground">
-                          {`${serverConfigQuery.data.buildInfo.channel} · ${serverConfigQuery.data.buildInfo.commitHash ?? "unknown"} · ${serverConfigQuery.data.buildInfo.buildTimestamp}`}
-                        </code>
-                      </div>
+                      <BuildInfoBlock label="Server" buildInfo={serverConfigQuery.data.buildInfo} />
                     ) : null}
                   </div>
                 }

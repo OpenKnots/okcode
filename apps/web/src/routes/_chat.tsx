@@ -255,7 +255,9 @@ function ChatRouteLayout() {
           <Sidebar
             side="left"
             collapsible="offcanvas"
-            className="border-r-2 border-border/60 bg-card/80 text-foreground backdrop-blur-sm shadow-[2px_0_12px_-4px_rgba(0,0,0,0.08)] dark:border-border/40 dark:bg-card/60 dark:shadow-[2px_0_16px_-4px_rgba(0,0,0,0.3)]"
+            // Keep the primary sidebar on a simpler paint path. The blur layer is
+            // visually nice, but it is also the most likely source of display-only shimmer.
+            className="border-r-2 border-border/60 bg-card/80 text-foreground shadow-[2px_0_12px_-4px_rgba(0,0,0,0.08)] dark:border-border/40 dark:bg-card/60 dark:shadow-[2px_0_16px_-4px_rgba(0,0,0,0.3)]"
             style={
               {
                 "--sidebar-background-opacity": settings.sidebarOpacity,

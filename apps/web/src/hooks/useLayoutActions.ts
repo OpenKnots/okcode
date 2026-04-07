@@ -137,21 +137,15 @@ export function useLayoutActions(): UseLayoutActionsResult {
       const diffViewerOpen = diffState.isOpen;
       const simulationOpen = useSimulationViewerStore.getState().isOpen;
       const previewState = usePreviewStateStore.getState();
-      const previewOpen = projectId
-        ? (previewState.openByProjectId[projectId] ?? false)
-        : false;
+      const previewOpen = projectId ? (previewState.openByProjectId[projectId] ?? false) : false;
 
       const terminalStoreState = useTerminalStateStore.getState();
       const threadTerminal = threadId
         ? selectThreadTerminalState(terminalStoreState.terminalStateByThreadId, threadId)
         : null;
 
-      const previewDock = projectId
-        ? (previewState.dockByProjectId[projectId] ?? null)
-        : null;
-      const previewSize = projectId
-        ? (previewState.sizeByProjectId[projectId] ?? null)
-        : null;
+      const previewDock = projectId ? (previewState.dockByProjectId[projectId] ?? null) : null;
+      const previewSize = projectId ? (previewState.sizeByProjectId[projectId] ?? null) : null;
 
       const now = Date.now();
       return {
@@ -159,7 +153,12 @@ export function useLayoutActions(): UseLayoutActionsResult {
         name: name.trim().slice(0, 128) || "Untitled Layout",
         createdAt: now,
         updatedAt: now,
-        activePanel: resolveActivePanel(codeViewerOpen, diffViewerOpen, previewOpen, simulationOpen),
+        activePanel: resolveActivePanel(
+          codeViewerOpen,
+          diffViewerOpen,
+          previewOpen,
+          simulationOpen,
+        ),
         terminalOpen: threadTerminal?.terminalOpen ?? false,
         terminalHeight: threadTerminal?.terminalHeight ?? null,
         sidebarWidths: readSidebarWidths(),

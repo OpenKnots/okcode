@@ -473,30 +473,33 @@ export const CodeViewerFileContent = memo(function CodeViewerFileContent(
                 Edit
               </Button>
             ) : null}
+            {tab?.isDirty ? (
+              <Button
+                type="button"
+                size="xs"
+                variant="outline"
+                onClick={handleDiscardChanges}
+                disabled={isSaving}
+              >
+                <RotateCcwIcon className="size-3.5" />
+                Discard
+              </Button>
+            ) : null}
             <Button
               type="button"
               size="xs"
               variant="outline"
-              onClick={handleDiscardChanges}
-              disabled={!tab?.isDirty || isSaving}
-            >
-              <RotateCcwIcon className="size-3.5" />
-              Discard
-            </Button>
-            <Button
-              type="button"
-              size="xs"
               onClick={handleSave}
               disabled={!editable || isSaving}
               aria-live="polite"
               className={cn(
-                "min-w-[7rem] justify-center overflow-hidden transition-[color,background-color,border-color,box-shadow] duration-200",
+                "justify-center overflow-hidden transition-[color,background-color,border-color,box-shadow] duration-200",
                 saveButtonState === "dirty" &&
-                  "border border-primary/25 bg-linear-to-b from-primary to-[hsl(223_82%_62%)] text-button-primary-foreground shadow-[0_14px_30px_-22px_color-mix(in_srgb,var(--primary)_65%,transparent)] hover:brightness-105",
+                  "border-primary/40 text-primary hover:bg-primary/10 dark:border-primary/30 dark:text-primary",
                 saveButtonState === "saved" &&
-                  "border border-emerald-500/20 bg-emerald-500/10 text-emerald-700 shadow-none hover:bg-emerald-500/10 dark:text-emerald-200",
+                  "border-emerald-500/30 text-emerald-600 hover:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400",
                 saveButtonState === "clean" &&
-                  "border border-border/80 bg-card text-muted-foreground shadow-none hover:border-border/80 hover:bg-card hover:text-muted-foreground",
+                  "text-muted-foreground",
               )}
               title={
                 saveButtonState === "dirty"

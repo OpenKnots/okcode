@@ -70,8 +70,8 @@ const POPUP_POSITIONER_SELECTOR = [
   '[data-slot="autocomplete-positioner"]',
   '[data-slot="toast-viewport"]:not(:empty)',
   '[data-slot="toast-viewport-anchored"]:not(:empty)',
-  '[data-slot="toast-positioner"]',
-  '[data-slot="toast-popup"]',
+  '[data-slot="toast-positioner"]:not(:empty)',
+  '[data-slot="toast-popup"]:not(:empty)',
 ].join(",");
 
 export function hasBlockingPreviewOverlay(root: ParentNode = document): boolean {

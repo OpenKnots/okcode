@@ -30,7 +30,16 @@ import {
   normalizeModelSlug,
   resolveModelSlugForProvider,
 } from "@okcode/shared/model";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  Suspense,
+  lazy,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDebouncedValue } from "@tanstack/react-pacer";
 import { useNavigate } from "@tanstack/react-router";
@@ -100,7 +109,6 @@ import { resolveShortcutCommand, shortcutLabelForCommand } from "../keybindings"
 import { buildChatShortcutGuides } from "~/lib/chatShortcutGuidance";
 import { dispatchGitPullRequestAction } from "~/lib/gitPullRequestAction";
 import PlanSidebar from "./PlanSidebar";
-import ThreadTerminalDrawer from "./ThreadTerminalDrawer";
 import {
   AtSignIcon,
   BotIcon,
@@ -228,6 +236,23 @@ import { useClientMode } from "~/hooks/useClientMode";
 import { useTransportState } from "~/hooks/useTransportState";
 import { hasCustomThreadTitle, normalizeThreadTitle } from "~/threadTitle";
 import { enhancePrompt, type PromptEnhancementId } from "../promptEnhancement";
+
+function preloadThreadTerminalDrawer() {
+  return import("./ThreadTerminalDrawer");
+}
+
+const ThreadTerminalDrawer = lazy(preloadThreadTerminalDrawer);
+
+function TerminalDrawerLoadingFallback(props: { height: number }) {
+  return (
+    <div
+      className="flex items-center justify-center border-t border-border/60 bg-background/95 text-muted-foreground/60"
+      style={{ height: `${props.height}px` }}
+    >
+      <span className="text-xs">Loading terminal...</span>
+    </div>
+  );
+}
 
 const ATTACHMENT_PREVIEW_HANDOFF_TTL_MS = 5000;
 const IMAGE_SIZE_LIMIT_LABEL = `${Math.round(PROVIDER_SEND_TURN_MAX_IMAGE_BYTES / (1024 * 1024))}MB`;
@@ -4846,6 +4871,7 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
           onDeleteProjectScript={deleteProjectScript}
           onImportProjectScripts={importProjectScripts}
           onToggleTerminal={toggleTerminalVisibility}
+          onPrefetchTerminal={preloadThreadTerminalDrawer}
           onToggleCodeViewer={toggleCodeViewer}
           onToggleDiffViewer={handleToggleDiffViewer}
           onTogglePreview={() => activeProjectId && togglePreviewOpen(activeProjectId)}
@@ -5761,30 +5787,34 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
           return null;
         }
         return (
-          <ThreadTerminalDrawer
-            key={activeThread.id}
-            threadId={activeThread.id}
-            cwd={gitCwd ?? activeProject.cwd}
-            runtimeEnv={threadTerminalRuntimeEnv}
-            height={terminalState.terminalHeight}
-            terminalIds={terminalState.terminalIds}
-            activeTerminalId={terminalState.activeTerminalId}
-            terminalGroups={terminalState.terminalGroups}
-            activeTerminalGroupId={terminalState.activeTerminalGroupId}
-            focusRequestId={terminalFocusRequestId}
-            onSplitTerminal={splitTerminal}
-            onNewTerminal={createNewTerminal}
-            splitShortcutLabel={splitTerminalShortcutLabel ?? undefined}
-            newShortcutLabel={newTerminalShortcutLabel ?? undefined}
-            closeShortcutLabel={closeTerminalShortcutLabel ?? undefined}
-            onActiveTerminalChange={activateTerminal}
-            onCloseTerminal={closeTerminal}
-            onCollapseTerminal={toggleTerminalVisibility}
-            onHeightChange={setTerminalHeight}
-            onAddTerminalContext={addTerminalContextToDraft}
-            onSendTerminalContext={sendSelectedTerminalContext}
-            onPreviewUrl={onPreviewUrl}
-          />
+          <Suspense
+            fallback={<TerminalDrawerLoadingFallback height={terminalState.terminalHeight} />}
+          >
+            <ThreadTerminalDrawer
+              key={activeThread.id}
+              threadId={activeThread.id}
+              cwd={gitCwd ?? activeProject.cwd}
+              runtimeEnv={threadTerminalRuntimeEnv}
+              height={terminalState.terminalHeight}
+              terminalIds={terminalState.terminalIds}
+              activeTerminalId={terminalState.activeTerminalId}
+              terminalGroups={terminalState.terminalGroups}
+              activeTerminalGroupId={terminalState.activeTerminalGroupId}
+              focusRequestId={terminalFocusRequestId}
+              onSplitTerminal={splitTerminal}
+              onNewTerminal={createNewTerminal}
+              splitShortcutLabel={splitTerminalShortcutLabel ?? undefined}
+              newShortcutLabel={newTerminalShortcutLabel ?? undefined}
+              closeShortcutLabel={closeTerminalShortcutLabel ?? undefined}
+              onActiveTerminalChange={activateTerminal}
+              onCloseTerminal={closeTerminal}
+              onCollapseTerminal={toggleTerminalVisibility}
+              onHeightChange={setTerminalHeight}
+              onAddTerminalContext={addTerminalContextToDraft}
+              onSendTerminalContext={sendSelectedTerminalContext}
+              onPreviewUrl={onPreviewUrl}
+            />
+          </Suspense>
         );
       })()}
 

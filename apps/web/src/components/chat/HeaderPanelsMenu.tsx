@@ -14,6 +14,11 @@ interface HeaderPanelsMenuProps {
   terminalAvailable: boolean;
   terminalOpen: boolean;
   terminalToggleShortcutLabel: string | null;
+  onPrefetchTerminal: () => void;
+  codeViewerOpen: boolean;
+  onToggleCodeViewer: () => void;
+  diffViewerOpen: boolean;
+  onToggleDiffViewer: () => void;
   previewAvailable: boolean;
   previewOpen: boolean;
   onToggleTerminal: () => void;
@@ -24,6 +29,11 @@ export const HeaderPanelsMenu = memo(function HeaderPanelsMenu({
   terminalAvailable,
   terminalOpen,
   terminalToggleShortcutLabel,
+  onPrefetchTerminal,
+  codeViewerOpen,
+  onToggleCodeViewer,
+  diffViewerOpen,
+  onToggleDiffViewer,
   previewAvailable,
   previewOpen,
   onToggleTerminal,
@@ -66,6 +76,8 @@ export const HeaderPanelsMenu = memo(function HeaderPanelsMenu({
               value="terminal"
               disabled={!terminalAvailable}
               onClick={onToggleTerminal}
+              onPointerEnter={onPrefetchTerminal}
+              onFocus={onPrefetchTerminal}
               aria-label="Toggle terminal"
             >
               <TerminalSquareIcon className="size-3.5" />

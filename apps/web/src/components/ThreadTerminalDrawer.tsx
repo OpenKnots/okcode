@@ -21,7 +21,8 @@ import {
 } from "react";
 import { Popover, PopoverPopup, PopoverTrigger } from "~/components/ui/popover";
 import { type TerminalContextSelection } from "~/lib/terminalContext";
-import { openInPreferredEditor } from "../editorPreferences";
+import { openFileReference } from "../fileOpen";
+import { useCodeViewerStore } from "../codeViewerStore";
 import {
   extractTerminalLinks,
   isTerminalLinkActivation,
@@ -244,11 +245,13 @@ function TerminalViewport({
   const onPreviewUrlRef = useRef(onPreviewUrl);
   const terminalLabelRef = useRef(terminalLabel);
   const hasHandledExitRef = useRef(false);
+  const openFileInViewer = useCodeViewerStore((state) => state.openFile);
   const selectionPointerRef = useRef<{ x: number; y: number } | null>(null);
   const selectionGestureActiveRef = useRef(false);
   const selectionActionRequestIdRef = useRef(0);
   const selectionActionOpenRef = useRef(false);
   const selectionActionTimerRef = useRef<number | null>(null);
+  const historyReplayFrameRef = useRef<number | null>(null);
   const [hoverLine, setHoverLine] = useState<{
     bufferLine: number;
     top: number;
@@ -467,7 +470,13 @@ function TerminalViewport({
               }
 
               const target = resolvePathLinkTarget(match.text, cwd);
-              void openInPreferredEditor(api, target).catch((error) => {
+              void openFileReference({
+                api,
+                cwd,
+                targetPath: target,
+                preferExternal: false,
+                openInViewer: openFileInViewer,
+              }).catch((error) => {
                 writeSystemMessage(
                   latestTerminal,
                   error instanceof Error ? error.message : "Unable to open path",
@@ -537,6 +546,20 @@ function TerminalViewport({
       attributeFilter: ["class", "style"],
     });
 
+    const scheduleHistoryReplay = (history: string) => {
+      if (history.length === 0 || historyReplayFrameRef.current !== null) {
+        return;
+      }
+
+      historyReplayFrameRef.current = window.requestAnimationFrame(() => {
+        historyReplayFrameRef.current = null;
+        if (disposed) return;
+        const activeTerminal = terminalRef.current;
+        if (!activeTerminal) return;
+        activeTerminal.write(history);
+      });
+    };
+
     const openTerminal = async () => {
       try {
         const activeTerminal = terminalRef.current;
@@ -553,9 +576,7 @@ function TerminalViewport({
         });
         if (disposed) return;
         activeTerminal.write("\u001bc");
-        if (snapshot.history.length > 0) {
-          activeTerminal.write(snapshot.history);
-        }
+        scheduleHistoryReplay(snapshot.history);
         if (autoFocus) {
           window.requestAnimationFrame(() => {
             activeTerminal.focus();
@@ -585,9 +606,7 @@ function TerminalViewport({
         hasHandledExitRef.current = false;
         clearSelectionAction();
         activeTerminal.write("\u001bc");
-        if (event.snapshot.history.length > 0) {
-          activeTerminal.write(event.snapshot.history);
-        }
+        scheduleHistoryReplay(event.snapshot.history);
         return;
       }
 
@@ -657,6 +676,9 @@ function TerminalViewport({
       terminalLinksDisposable.dispose();
       if (selectionActionTimerRef.current !== null) {
         window.clearTimeout(selectionActionTimerRef.current);
+      }
+      if (historyReplayFrameRef.current !== null) {
+        window.cancelAnimationFrame(historyReplayFrameRef.current);
       }
       window.removeEventListener("mouseup", handleMouseUp);
       mount.removeEventListener("pointerdown", handlePointerDown);

@@ -41,6 +41,10 @@ import { MergeConflictResolverLive } from "./prReview/Layers/MergeConflictResolv
 import { PrReviewLive } from "./prReview/Layers/PrReview";
 import { GitHubLive } from "./github/Layers/GitHub";
 import { PtyAdapter } from "./terminal/Services/PTY";
+import { SmeKnowledgeDocumentRepositoryLive } from "./persistence/Layers/SmeKnowledgeDocuments";
+import { SmeConversationRepositoryLive } from "./persistence/Layers/SmeConversations";
+import { SmeMessageRepositoryLive } from "./persistence/Layers/SmeMessages";
+import { SmeChatServiceLive } from "./sme/Layers/SmeChatServiceLive";
 
 type RuntimePtyAdapterLoader = {
   layer: Layer.Layer<PtyAdapter, never, FileSystem.FileSystem | Path.Path>;
@@ -160,6 +164,12 @@ export function makeServerRuntimeServicesLayer() {
 
   const githubLayer = GitHubLive.pipe(Layer.provideMerge(GitHubCliLive));
 
+  const smeChatLayer = SmeChatServiceLive.pipe(
+    Layer.provide(SmeKnowledgeDocumentRepositoryLive),
+    Layer.provide(SmeConversationRepositoryLive),
+    Layer.provide(SmeMessageRepositoryLive),
+  );
+
   return Layer.mergeAll(
     orchestrationReactorLayer,
     GitCoreLive,
@@ -169,5 +179,6 @@ export function makeServerRuntimeServicesLayer() {
     terminalLayer,
     KeybindingsLive,
     SkillServiceLive,
+    smeChatLayer,
   ).pipe(Layer.provideMerge(NodeServices.layer));
 }

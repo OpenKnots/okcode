@@ -42,3 +42,10 @@ export const ApprovalRequestId = makeEntityId("ApprovalRequestId");
 export type ApprovalRequestId = typeof ApprovalRequestId.Type;
 export const CheckpointRef = makeEntityId("CheckpointRef");
 export type CheckpointRef = typeof CheckpointRef.Type;
+
+export const SmeConversationId = makeEntityId("SmeConversationId");
+export type SmeConversationId = typeof SmeConversationId.Type;
+export const SmeDocumentId = makeEntityId("SmeDocumentId");
+export type SmeDocumentId = typeof SmeDocumentId.Type;
+export const SmeMessageId = makeEntityId("SmeMessageId");
+export type SmeMessageId = typeof SmeMessageId.Type;

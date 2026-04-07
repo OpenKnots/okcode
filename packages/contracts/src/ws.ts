@@ -86,6 +86,20 @@ import {
   SkillSearchInput,
   SkillUninstallInput,
 } from "./skill";
+import {
+  SME_WS_METHODS,
+  SME_WS_CHANNELS,
+  SmeUploadDocumentInput,
+  SmeDeleteDocumentInput,
+  SmeListDocumentsInput,
+  SmeCreateConversationInput,
+  SmeDeleteConversationInput,
+  SmeListConversationsInput,
+  SmeGetConversationInput,
+  SmeSendMessageInput,
+  SmeInterruptMessageInput,
+  SmeMessageEvent,
+} from "./sme";
 
 // ── WebSocket RPC Method Names ───────────────────────────────────────
 
@@ -182,6 +196,17 @@ export const WS_METHODS = {
 
   // Connection health
   serverPing: "server.ping",
+
+  // SME Chat methods
+  smeUploadDocument: SME_WS_METHODS.uploadDocument,
+  smeDeleteDocument: SME_WS_METHODS.deleteDocument,
+  smeListDocuments: SME_WS_METHODS.listDocuments,
+  smeCreateConversation: SME_WS_METHODS.createConversation,
+  smeDeleteConversation: SME_WS_METHODS.deleteConversation,
+  smeListConversations: SME_WS_METHODS.listConversations,
+  smeGetConversation: SME_WS_METHODS.getConversation,
+  smeSendMessage: SME_WS_METHODS.sendMessage,
+  smeInterruptMessage: SME_WS_METHODS.interruptMessage,
 } as const;
 
 // ── Push Event Channels ──────────────────────────────────────────────
@@ -194,6 +219,7 @@ export const WS_CHANNELS = {
   serverWelcome: "server.welcome",
   serverConfigUpdated: "server.configUpdated",
   projectFileTreeChanged: "project.fileTreeChanged",
+  smeMessageEvent: SME_WS_CHANNELS.messageEvent,
 } as const;
 
 // -- Tagged Union of all request body schemas ─────────────────────────
@@ -290,6 +316,17 @@ const WebSocketRequestBody = Schema.Union([
   tagRequestBody(WS_METHODS.skillImport, SkillImportInput),
   tagRequestBody(WS_METHODS.skillSearch, SkillSearchInput),
 
+  // SME Chat methods
+  tagRequestBody(WS_METHODS.smeUploadDocument, SmeUploadDocumentInput),
+  tagRequestBody(WS_METHODS.smeDeleteDocument, SmeDeleteDocumentInput),
+  tagRequestBody(WS_METHODS.smeListDocuments, SmeListDocumentsInput),
+  tagRequestBody(WS_METHODS.smeCreateConversation, SmeCreateConversationInput),
+  tagRequestBody(WS_METHODS.smeDeleteConversation, SmeDeleteConversationInput),
+  tagRequestBody(WS_METHODS.smeListConversations, SmeListConversationsInput),
+  tagRequestBody(WS_METHODS.smeGetConversation, SmeGetConversationInput),
+  tagRequestBody(WS_METHODS.smeSendMessage, SmeSendMessageInput),
+  tagRequestBody(WS_METHODS.smeInterruptMessage, SmeInterruptMessageInput),
+
   // Server meta
   tagRequestBody(WS_METHODS.serverGetConfig, Schema.Struct({})),
   tagRequestBody(WS_METHODS.serverCheckUpdate, Schema.Struct({})),
@@ -359,6 +396,7 @@ export interface WsPushPayloadByChannel {
   readonly [WS_CHANNELS.terminalEvent]: typeof TerminalEvent.Type;
   readonly [WS_CHANNELS.projectFileTreeChanged]: typeof ProjectFileTreeChangedPayload.Type;
   readonly [ORCHESTRATION_WS_CHANNELS.domainEvent]: OrchestrationEvent;
+  readonly [SME_WS_CHANNELS.messageEvent]: typeof SmeMessageEvent.Type;
 }
 
 export type WsPushChannel = keyof WsPushPayloadByChannel;
@@ -401,6 +439,10 @@ export const WsPushOrchestrationDomainEvent = makeWsPushSchema(
   ORCHESTRATION_WS_CHANNELS.domainEvent,
   OrchestrationEvent,
 );
+export const WsPushSmeMessageEvent = makeWsPushSchema(
+  SME_WS_CHANNELS.messageEvent,
+  SmeMessageEvent,
+);
 
 export const WsPushChannelSchema = Schema.Literals([
   WS_CHANNELS.gitActionProgress,
@@ -411,6 +453,7 @@ export const WsPushChannelSchema = Schema.Literals([
   WS_CHANNELS.terminalEvent,
   WS_CHANNELS.projectFileTreeChanged,
   ORCHESTRATION_WS_CHANNELS.domainEvent,
+  SME_WS_CHANNELS.messageEvent,
 ]);
 export type WsPushChannelSchema = typeof WsPushChannelSchema.Type;
 
@@ -423,6 +466,7 @@ export const WsPush = Schema.Union([
   WsPushTerminalEvent,
   WsPushProjectFileTreeChanged,
   WsPushOrchestrationDomainEvent,
+  WsPushSmeMessageEvent,
 ]);
 export type WsPush = typeof WsPush.Type;
 

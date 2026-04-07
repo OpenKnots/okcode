@@ -9,29 +9,29 @@
  * SidebarRail reads them from localStorage on mount).
  */
 
-import { useCallback } from "react";
-import { Schema } from "effect";
 import type { ProjectId, ThreadId } from "@okcode/contracts";
-import { getLocalStorageItem, setLocalStorageItem } from "./useLocalStorage";
+import { Schema } from "effect";
+import { useCallback } from "react";
 import { useCodeViewerStore } from "../codeViewerStore";
 import { useDiffViewerStore } from "../diffViewerStore";
-import { useSimulationViewerStore } from "../simulationViewerStore";
-import { usePreviewStateStore } from "../previewStateStore";
-import { selectThreadTerminalState, useTerminalStateStore } from "../terminalStateStore";
 import {
-  useLayoutStore,
   type LayoutPanel,
   type LayoutSidebarWidths,
   type SavedLayout,
+  useLayoutStore,
 } from "../layoutStore";
+import { usePreviewStateStore } from "../previewStateStore";
+import { useSimulationViewerStore } from "../simulationViewerStore";
+import { selectThreadTerminalState, useTerminalStateStore } from "../terminalStateStore";
+import { getLocalStorageItem, setLocalStorageItem } from "./useLocalStorage";
 
 // ─── Sidebar width localStorage keys ───────────────────────────────
 // These must match the storageKey values used by the <Sidebar> components
 // in _chat.tsx and _chat.$threadId.tsx.
 const SIDEBAR_WIDTH_KEYS = {
   threadSidebar: "chat_thread_sidebar_width",
-  codeViewer: "chat_code_viewer_sidebar_width",
-  diffViewer: "chat_diff_viewer_sidebar_width",
+  codeViewer: "chat_right_panel_sidebar_width",
+  diffViewer: "chat_right_panel_sidebar_width",
   simulation: "chat_simulation_sidebar_width",
 } as const satisfies Record<keyof LayoutSidebarWidths, string>;
 
@@ -202,7 +202,6 @@ export function useLayoutActions(): UseLayoutActionsResult {
         case "simulation":
           useSimulationViewerStore.getState().open();
           break;
-        case "none":
         default:
           break;
       }

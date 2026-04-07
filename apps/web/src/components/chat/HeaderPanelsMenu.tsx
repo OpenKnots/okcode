@@ -1,16 +1,19 @@
-import { memo, useMemo } from "react";
-import { FileCodeIcon, FileDiffIcon, MonitorIcon, TerminalSquareIcon } from "lucide-react";
+import {
+  FileCodeIcon,
+  FileDiffIcon,
+  FolderIcon,
+  MonitorIcon,
+  TerminalSquareIcon,
+} from "lucide-react";
+import { memo, useCallback, useMemo } from "react";
+import { type RightPanelTab, useRightPanelStore } from "~/rightPanelStore";
+import { Toggle, ToggleGroup, ToggleGroupSeparator } from "../ui/toggle-group";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
-import { ToggleGroup, Toggle, ToggleGroupSeparator } from "../ui/toggle-group";
 
 interface HeaderPanelsMenuProps {
   terminalAvailable: boolean;
   terminalOpen: boolean;
   terminalToggleShortcutLabel: string | null;
-  codeViewerOpen: boolean;
-  onToggleCodeViewer: () => void;
-  diffViewerOpen: boolean;
-  onToggleDiffViewer: () => void;
   previewAvailable: boolean;
   previewOpen: boolean;
   onToggleTerminal: () => void;
@@ -21,23 +24,38 @@ export const HeaderPanelsMenu = memo(function HeaderPanelsMenu({
   terminalAvailable,
   terminalOpen,
   terminalToggleShortcutLabel,
-  codeViewerOpen,
-  onToggleCodeViewer,
-  diffViewerOpen,
-  onToggleDiffViewer,
   previewAvailable,
   previewOpen,
   onToggleTerminal,
   onTogglePreview,
 }: HeaderPanelsMenuProps) {
+  const rightPanelOpen = useRightPanelStore((s) => s.isOpen);
+  const rightPanelTab = useRightPanelStore((s) => s.activeTab);
+  const openRightPanel = useRightPanelStore((s) => s.open);
+  const closeRightPanel = useRightPanelStore((s) => s.close);
+
+  const toggleRightPanelTab = useCallback(
+    (tab: RightPanelTab) => {
+      if (rightPanelOpen && rightPanelTab === tab) {
+        closeRightPanel();
+      } else {
+        openRightPanel(tab);
+      }
+    },
+    [rightPanelOpen, rightPanelTab, openRightPanel, closeRightPanel],
+  );
+
   const value = useMemo(() => {
     const v: string[] = [];
     if (terminalOpen) v.push("terminal");
-    if (codeViewerOpen) v.push("code-viewer");
-    if (diffViewerOpen) v.push("diff-viewer");
+    if (rightPanelOpen) {
+      if (rightPanelTab === "files") v.push("files");
+      if (rightPanelTab === "editor") v.push("code-viewer");
+      if (rightPanelTab === "diffs") v.push("diff-viewer");
+    }
     if (previewOpen) v.push("preview");
     return v;
-  }, [terminalOpen, codeViewerOpen, diffViewerOpen, previewOpen]);
+  }, [terminalOpen, rightPanelOpen, rightPanelTab, previewOpen]);
 
   return (
     <ToggleGroup value={value} variant="outline" size="xs" className="shrink-0">
@@ -55,7 +73,8 @@ export const HeaderPanelsMenu = memo(function HeaderPanelsMenu({
           }
         />
         <TooltipPopup side="bottom">
-          Terminal{terminalToggleShortcutLabel ? ` ${terminalToggleShortcutLabel}` : ""}
+          Terminal
+          {terminalToggleShortcutLabel ? ` ${terminalToggleShortcutLabel}` : ""}
         </TooltipPopup>
       </Tooltip>
       <ToggleGroupSeparator />
@@ -63,8 +82,23 @@ export const HeaderPanelsMenu = memo(function HeaderPanelsMenu({
         <TooltipTrigger
           render={
             <Toggle
+              value="files"
+              onClick={() => toggleRightPanelTab("files")}
+              aria-label="Toggle file tree"
+            >
+              <FolderIcon className="size-3.5" />
+            </Toggle>
+          }
+        />
+        <TooltipPopup side="bottom">Files</TooltipPopup>
+      </Tooltip>
+      <ToggleGroupSeparator />
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Toggle
               value="code-viewer"
-              onClick={onToggleCodeViewer}
+              onClick={() => toggleRightPanelTab("editor")}
               aria-label="Toggle code viewer"
             >
               <FileCodeIcon className="size-3.5" />
@@ -79,7 +113,7 @@ export const HeaderPanelsMenu = memo(function HeaderPanelsMenu({
           render={
             <Toggle
               value="diff-viewer"
-              onClick={onToggleDiffViewer}
+              onClick={() => toggleRightPanelTab("diffs")}
               aria-label="Toggle diffs viewer"
             >
               <FileDiffIcon className="size-3.5" />

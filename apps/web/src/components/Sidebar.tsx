@@ -130,7 +130,6 @@ const SIDEBAR_THREAD_SORT_LABELS: Record<SidebarThreadSortOrder, string> = {
   updated_at: "Last user message",
   created_at: "Created at",
 };
-
 interface PrStatusIndicator {
   label: "PR open" | "PR closed" | "PR merged";
   colorClass: string;
@@ -287,7 +286,6 @@ interface MemoizedThreadRowProps {
   thread: Thread;
   isActive: boolean;
   isSelected: boolean;
-  routeThreadId: ThreadIdType | null;
   prByThreadId: Map<ThreadIdType, ThreadPr>;
   orderedProjectThreadIds: ThreadIdType[];
   selectedThreadIds: ReadonlySet<ThreadIdType>;
@@ -1339,7 +1337,6 @@ export default function Sidebar() {
                 thread={thread}
                 isActive={routeThreadId === thread.id}
                 isSelected={selectedThreadIds.has(thread.id)}
-                routeThreadId={routeThreadId}
                 prByThreadId={prByThreadId}
                 orderedProjectThreadIds={orderedProjectThreadIds}
                 selectedThreadIds={selectedThreadIds}

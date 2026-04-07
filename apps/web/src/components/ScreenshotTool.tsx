@@ -84,8 +84,20 @@ async function captureRegion(rect: {
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.addEventListener("load", () => resolve(img), { once: true });
-    img.addEventListener("error", reject, { once: true });
+    const cleanup = () => {
+      img.removeEventListener("load", onLoad);
+      img.removeEventListener("error", onError);
+    };
+    const onLoad = () => {
+      cleanup();
+      resolve(img);
+    };
+    const onError = () => {
+      cleanup();
+      reject(new Error("Failed to load image"));
+    };
+    img.addEventListener("load", onLoad);
+    img.addEventListener("error", onError);
     img.src = src;
   });
 }

@@ -40,8 +40,6 @@ interface ChatHeaderProps {
   terminalAvailable: boolean;
   terminalOpen: boolean;
   terminalToggleShortcutLabel: string | null;
-  codeViewerOpen: boolean;
-  diffViewerOpen: boolean;
   previewAvailable: boolean;
   previewOpen: boolean;
   previewDock: PreviewDock;
@@ -56,8 +54,6 @@ interface ChatHeaderProps {
   onImportProjectScripts: (scripts: ProjectScriptDraft[]) => Promise<void>;
   onToggleTerminal: () => void;
   onPrefetchTerminal: () => void;
-  onToggleCodeViewer: () => void;
-  onToggleDiffViewer: () => void;
   onTogglePreview: () => void;
   onTogglePreviewLayout: () => void;
   onMinimize?: (() => void) | undefined;
@@ -78,8 +74,6 @@ export const ChatHeader = memo(function ChatHeader({
   terminalAvailable,
   terminalOpen,
   terminalToggleShortcutLabel,
-  codeViewerOpen,
-  diffViewerOpen,
   previewAvailable,
   previewOpen,
   previewDock: _previewDock,
@@ -93,8 +87,6 @@ export const ChatHeader = memo(function ChatHeader({
   onImportProjectScripts,
   onToggleTerminal,
   onPrefetchTerminal,
-  onToggleCodeViewer,
-  onToggleDiffViewer,
   onTogglePreview,
   onTogglePreviewLayout: _onTogglePreviewLayout,
   onMinimize,
@@ -258,10 +250,6 @@ export const ChatHeader = memo(function ChatHeader({
             terminalOpen={terminalOpen}
             terminalToggleShortcutLabel={terminalToggleShortcutLabel}
             onPrefetchTerminal={onPrefetchTerminal}
-            codeViewerOpen={codeViewerOpen}
-            onToggleCodeViewer={onToggleCodeViewer}
-            diffViewerOpen={diffViewerOpen}
-            onToggleDiffViewer={onToggleDiffViewer}
             previewAvailable={previewAvailable}
             previewOpen={previewOpen}
             onToggleTerminal={onToggleTerminal}

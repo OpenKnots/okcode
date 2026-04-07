@@ -345,7 +345,7 @@ const QUALITY_GATES: QualityGate[] = [
 function runQualityGates(rootDir: string): CheckResult[] {
   const results: CheckResult[] = [];
   for (const gate of QUALITY_GATES) {
-    const { ok, stdout } = run(gate.cmd, gate.args, { cwd: rootDir });
+    const { ok } = run(gate.cmd, gate.args, { cwd: rootDir });
     results.push({
       name: gate.name,
       passed: ok,

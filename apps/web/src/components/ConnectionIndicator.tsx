@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { WifiIcon, WifiOffIcon, RefreshCwIcon } from "lucide-react";
+import { RefreshCwIcon } from "lucide-react";
 
 import { useConnectionHealth } from "../hooks/useConnectionHealth";
 import { Tooltip, TooltipTrigger, TooltipPopup } from "./ui/tooltip";

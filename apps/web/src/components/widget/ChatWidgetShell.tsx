@@ -9,7 +9,6 @@ import ThreadSidebar from "../Sidebar";
 import { Sidebar, SidebarProvider, SidebarRail } from "../ui/sidebar";
 import { ChatWidgetBubble } from "./ChatWidgetBubble";
 import { ChatWidgetPanel } from "./ChatWidgetPanel";
-import type { ClientMode } from "~/lib/clientMode";
 
 const THREAD_SIDEBAR_WIDTH_STORAGE_KEY = "chat_thread_sidebar_width";
 const THREAD_SIDEBAR_MIN_WIDTH = 13 * 16;
@@ -20,7 +19,7 @@ const THREAD_MAIN_CONTENT_MIN_WIDTH = 40 * 16;
  * Renders either the minimized bubble or the expanded panel with the
  * full chat layout inside it.
  */
-export function ChatWidgetShell({ clientMode }: { clientMode: ClientMode }) {
+export function ChatWidgetShell() {
   const mode = useChatWidgetStore((s) => s.mode);
   const setLastThreadId = useChatWidgetStore((s) => s.setLastThreadId);
   const { settings } = useAppSettings();
@@ -40,7 +39,7 @@ export function ChatWidgetShell({ clientMode }: { clientMode: ClientMode }) {
   useEffect(() => {
     const expand = useChatWidgetStore.getState().expand;
 
-    const onNotificationTap = ((event: CustomEvent<{ threadId?: string }>) => {
+    const onNotificationTap = (() => {
       expand();
       // Navigation to the thread is handled by the notification system.
     }) as EventListener;

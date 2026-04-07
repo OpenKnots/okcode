@@ -561,7 +561,6 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
               interactionMode: row.interactionMode,
               branch: row.branch,
               worktreePath: row.worktreePath,
-              ...(githubRef ? { githubRef } : {}),
               latestTurn: latestTurnByThread.get(row.threadId) ?? null,
               createdAt: row.createdAt,
               updatedAt: row.updatedAt,
@@ -572,6 +571,10 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
               checkpoints: checkpointsByThread.get(row.threadId) ?? [],
               session: sessionsByThread.get(row.threadId) ?? null,
             };
+            if (githubRef) {
+              thread.githubRef = githubRef;
+            }
+            return thread;
           });
 
           const snapshot = {

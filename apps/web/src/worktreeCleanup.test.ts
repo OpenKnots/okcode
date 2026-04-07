@@ -2,7 +2,11 @@ import { ProjectId, ThreadId } from "@okcode/contracts";
 import { describe, expect, it } from "vitest";
 
 import { DEFAULT_INTERACTION_MODE, DEFAULT_RUNTIME_MODE, type Thread } from "./types";
-import { formatWorktreePathForDisplay, getOrphanedWorktreePathForThread } from "./worktreeCleanup";
+import {
+  formatBranchAge,
+  formatWorktreePathForDisplay,
+  getOrphanedWorktreePathForThread,
+} from "./worktreeCleanup";
 
 function makeThread(overrides: Partial<Thread> = {}): Thread {
   return {
@@ -73,6 +77,38 @@ describe("getOrphanedWorktreePathForThread", () => {
     ];
     const result = getOrphanedWorktreePathForThread(threads, ThreadId.makeUnsafe("thread-1"));
     expect(result).toBe("/tmp/repo/worktrees/feature-a");
+  });
+});
+
+describe("formatBranchAge", () => {
+  const now = new Date("2026-04-06T12:00:00.000Z");
+
+  it("returns 'just now' for timestamps less than a minute ago", () => {
+    expect(formatBranchAge("2026-04-06T11:59:30.000Z", now)).toBe("just now");
+  });
+
+  it("returns minutes for recent merges", () => {
+    expect(formatBranchAge("2026-04-06T11:45:00.000Z", now)).toBe("15m ago");
+  });
+
+  it("returns hours for same-day merges", () => {
+    expect(formatBranchAge("2026-04-06T05:00:00.000Z", now)).toBe("7h ago");
+  });
+
+  it("returns days for merges within a week", () => {
+    expect(formatBranchAge("2026-04-03T12:00:00.000Z", now)).toBe("3d ago");
+  });
+
+  it("returns weeks for merges within a month", () => {
+    expect(formatBranchAge("2026-03-16T12:00:00.000Z", now)).toBe("3w ago");
+  });
+
+  it("returns months for older merges", () => {
+    expect(formatBranchAge("2026-01-06T12:00:00.000Z", now)).toBe("3mo ago");
+  });
+
+  it("returns 'just now' for future timestamps", () => {
+    expect(formatBranchAge("2026-04-07T00:00:00.000Z", now)).toBe("just now");
   });
 });
 

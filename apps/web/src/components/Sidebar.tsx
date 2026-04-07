@@ -76,6 +76,7 @@ import { useTerminalStateStore } from "../terminalStateStore";
 import { useThreadSelectionStore } from "../threadSelectionStore";
 import type { Thread } from "../types";
 import { formatWorktreePathForDisplay, getOrphanedWorktreePathForThread } from "../worktreeCleanup";
+import { useWorktreeCleanupStore } from "../worktreeCleanupStore";
 import {
   getArm64IntelBuildWarningDescription,
   getDesktopUpdateActionError,
@@ -490,6 +491,7 @@ export default function Sidebar() {
   });
   const queryClient = useQueryClient();
   const removeWorktreeMutation = useMutation(gitRemoveWorktreeMutationOptions({ queryClient }));
+  const openWorktreeCleanupDialog = useWorktreeCleanupStore((s) => s.openDialog);
   const [addingProject, setAddingProject] = useState(false);
   const [newCwd, setNewCwd] = useState("");
   const [isPickingFolder, setIsPickingFolder] = useState(false);
@@ -2024,6 +2026,16 @@ export default function Sidebar() {
                 >
                   <ExternalLinkIcon className="size-3.5" />
                   <span className="text-xs">Open Workspace</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  size="sm"
+                  className="gap-2 px-2 py-1.5 text-muted-foreground/70 hover:bg-accent hover:text-foreground"
+                  onClick={() => openWorktreeCleanupDialog()}
+                >
+                  <GitMergeIcon className="size-3.5" />
+                  <span className="text-xs">Worktree cleanup</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>

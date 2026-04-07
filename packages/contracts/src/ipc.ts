@@ -12,14 +12,17 @@ import type {
   GitInitInput,
   GitListBranchesInput,
   GitListBranchesResult,
+  GitListMergedWorktreeCleanupCandidatesInput,
   GitListPullRequestsInput,
   GitListPullRequestsResult,
   GitPullInput,
   GitPullResult,
+  GitPruneWorktreesInput,
   GitRemoveWorktreeInput,
   GitResolvePullRequestResult,
   GitRunStackedActionInput,
   GitRunStackedActionResult,
+  GitWorktreeCleanupCandidate,
   GitStatusInput,
   GitStatusResult,
 } from "./git";
@@ -346,11 +349,15 @@ export interface NativeApi {
     listBranches: (input: GitListBranchesInput) => Promise<GitListBranchesResult>;
     createWorktree: (input: GitCreateWorktreeInput) => Promise<GitCreateWorktreeResult>;
     removeWorktree: (input: GitRemoveWorktreeInput) => Promise<void>;
+    pruneWorktrees: (input: GitPruneWorktreesInput) => Promise<void>;
     createBranch: (input: GitCreateBranchInput) => Promise<void>;
     checkout: (input: GitCheckoutInput) => Promise<void>;
     init: (input: GitInitInput) => Promise<void>;
     resolvePullRequest: (input: GitPullRequestRefInput) => Promise<GitResolvePullRequestResult>;
     listPullRequests: (input: GitListPullRequestsInput) => Promise<GitListPullRequestsResult>;
+    listMergedWorktreeCleanupCandidates: (
+      input: GitListMergedWorktreeCleanupCandidatesInput,
+    ) => Promise<ReadonlyArray<GitWorktreeCleanupCandidate>>;
     preparePullRequestThread: (
       input: GitPreparePullRequestThreadInput,
     ) => Promise<GitPreparePullRequestThreadResult>;

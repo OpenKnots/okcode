@@ -1,12 +1,13 @@
 import { useEffect, useRef } from "react";
-import { useQueries } from "@tanstack/react-query";
+import { useQueries, useQueryClient } from "@tanstack/react-query";
 import type { ThreadId } from "@okcode/contracts";
 
 import type { AppSettings } from "../appSettings";
-import { gitStatusQueryOptions } from "../lib/gitReactQuery";
+import { gitQueryKeys, gitStatusQueryOptions } from "../lib/gitReactQuery";
 import { readNativeApi } from "../nativeApi";
 import { newCommandId } from "../lib/utils";
 import { useStore } from "../store";
+import { formatWorktreePathForDisplay, getOrphanedWorktreePathForThread } from "../worktreeCleanup";
 import { toastManager } from "../components/ui/toast";
 
 /**
@@ -33,6 +34,7 @@ interface MergedThreadTimer {
 export function useAutoDeleteMergedThreads(settings: AppSettings) {
   const threads = useStore((store) => store.threads);
   const projects = useStore((store) => store.projects);
+  const queryClient = useQueryClient();
 
   // Track active timers per thread so we can cancel on setting change or
   // unmount, and avoid double-scheduling.
@@ -72,11 +74,14 @@ export function useAutoDeleteMergedThreads(settings: AppSettings) {
     for (let i = 0; i < threads.length; i++) {
       const thread = threads[i]!;
       const prState = statusQueries[i]?.data?.pr?.state;
+      const orphanedWorktreePath = getOrphanedWorktreePathForThread(threads, thread.id);
 
-      if (prState === "merged" && !timersRef.current.has(thread.id)) {
+      if (prState === "merged" && orphanedWorktreePath && !timersRef.current.has(thread.id)) {
         // PR just detected as merged – start countdown.
         const threadTitle = thread.title || `Thread ${thread.id.slice(0, 8)}`;
         const minutesLabel = delayMinutes === 1 ? "1 minute" : `${delayMinutes} minutes`;
+        const threadProject = projects.find((project) => project.id === thread.projectId) ?? null;
+        const displayWorktreePath = formatWorktreePathForDisplay(orphanedWorktreePath);
 
         const toastId = toastManager.add({
           type: "info",
@@ -101,20 +106,33 @@ export function useAutoDeleteMergedThreads(settings: AppSettings) {
         });
 
         const timeoutId = setTimeout(() => {
-          void deleteThreadById(thread.id);
-          timersRef.current.delete(thread.id);
-          toastManager.add({
-            type: "success",
-            title: "Merged thread deleted",
-            description: `"${threadTitle}" was auto-deleted after its PR was merged.`,
-          });
+          void (async () => {
+            try {
+              await deleteThreadById(thread.id);
+              if (threadProject && orphanedWorktreePath) {
+                await removeOrphanedWorktree({
+                  threadId: thread.id,
+                  projectCwd: threadProject.cwd,
+                  worktreePath: orphanedWorktreePath,
+                });
+              }
+              toastManager.add({
+                type: "success",
+                title: "Merged thread deleted",
+                description: `"${threadTitle}" was auto-deleted after its PR was merged.`,
+              });
+            } finally {
+              timersRef.current.delete(thread.id);
+              void queryClient.invalidateQueries({ queryKey: gitQueryKeys.all });
+            }
+          })();
         }, delayMs);
 
         timersRef.current.set(thread.id, { timeoutId, toastId });
       }
 
       // If a timer exists but the thread is gone (deleted externally), clean up.
-      if (prState !== "merged" && timersRef.current.has(thread.id)) {
+      if ((prState !== "merged" || !orphanedWorktreePath) && timersRef.current.has(thread.id)) {
         const timer = timersRef.current.get(thread.id)!;
         clearTimeout(timer.timeoutId);
         if (timer.toastId !== null) {
@@ -183,4 +201,34 @@ async function deleteThreadById(threadId: ThreadId): Promise<void> {
     commandId: newCommandId(),
     threadId,
   });
+}
+
+async function removeOrphanedWorktree(input: {
+  threadId: ThreadId;
+  projectCwd: string;
+  worktreePath: string;
+}): Promise<void> {
+  const api = readNativeApi();
+  if (!api) return;
+
+  try {
+    await api.git.removeWorktree({
+      cwd: input.projectCwd,
+      path: input.worktreePath,
+      force: true,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error removing worktree.";
+    console.error("Failed to remove orphaned worktree after merged-thread auto-delete", {
+      threadId: input.threadId,
+      projectCwd: input.projectCwd,
+      worktreePath: input.worktreePath,
+      error,
+    });
+    toastManager.add({
+      type: "error",
+      title: "Thread deleted, but worktree removal failed",
+      description: `Could not remove ${formatWorktreePathForDisplay(input.worktreePath)}. ${message}`,
+    });
+  }
 }

@@ -20,9 +20,11 @@ import {
   GitCreateWorktreeInput,
   GitInitInput,
   GitListBranchesInput,
+  GitListMergedWorktreeCleanupCandidatesInput,
   GitListPullRequestsInput,
   GitPullInput,
   GitPullRequestRefInput,
+  GitPruneWorktreesInput,
   GitRemoveWorktreeInput,
   GitRunStackedActionInput,
   GitStatusInput,
@@ -105,6 +107,7 @@ export const WS_METHODS = {
   gitListBranches: "git.listBranches",
   gitCreateWorktree: "git.createWorktree",
   gitRemoveWorktree: "git.removeWorktree",
+  gitPruneWorktrees: "git.pruneWorktrees",
   gitCreateBranch: "git.createBranch",
   gitCheckout: "git.checkout",
   gitInit: "git.init",
@@ -112,6 +115,7 @@ export const WS_METHODS = {
   gitResolvePullRequest: "git.resolvePullRequest",
   gitPreparePullRequestThread: "git.preparePullRequestThread",
   gitListPullRequests: "git.listPullRequests",
+  gitListMergedWorktreeCleanupCandidates: "git.listMergedWorktreeCleanupCandidates",
 
   // GitHub issue methods
   githubListIssues: "github.listIssues",
@@ -226,6 +230,7 @@ const WebSocketRequestBody = Schema.Union([
   tagRequestBody(WS_METHODS.gitListBranches, GitListBranchesInput),
   tagRequestBody(WS_METHODS.gitCreateWorktree, GitCreateWorktreeInput),
   tagRequestBody(WS_METHODS.gitRemoveWorktree, GitRemoveWorktreeInput),
+  tagRequestBody(WS_METHODS.gitPruneWorktrees, GitPruneWorktreesInput),
   tagRequestBody(WS_METHODS.gitCreateBranch, GitCreateBranchInput),
   tagRequestBody(WS_METHODS.gitCheckout, GitCheckoutInput),
   tagRequestBody(WS_METHODS.gitInit, GitInitInput),
@@ -233,6 +238,10 @@ const WebSocketRequestBody = Schema.Union([
   tagRequestBody(WS_METHODS.gitResolvePullRequest, GitPullRequestRefInput),
   tagRequestBody(WS_METHODS.gitPreparePullRequestThread, GitPreparePullRequestThreadInput),
   tagRequestBody(WS_METHODS.gitListPullRequests, GitListPullRequestsInput),
+  tagRequestBody(
+    WS_METHODS.gitListMergedWorktreeCleanupCandidates,
+    GitListMergedWorktreeCleanupCandidatesInput,
+  ),
 
   // GitHub issue methods
   tagRequestBody(WS_METHODS.githubListIssues, GitHubListIssuesInput),

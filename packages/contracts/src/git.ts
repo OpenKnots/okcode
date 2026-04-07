@@ -1,5 +1,5 @@
 import { Option, Schema } from "effect";
-import { NonNegativeInt, PositiveInt, TrimmedNonEmptyString } from "./baseSchemas";
+import { IsoDateTime, NonNegativeInt, PositiveInt, TrimmedNonEmptyString } from "./baseSchemas";
 import { DEFAULT_GIT_TEXT_GENERATION_MODEL } from "./model";
 
 const TrimmedNonEmptyStringSchema = TrimmedNonEmptyString;
@@ -267,6 +267,35 @@ export const GitListPullRequestsResult = Schema.Struct({
   pullRequests: Schema.Array(GitResolvedPullRequestWithLabels),
 });
 export type GitListPullRequestsResult = typeof GitListPullRequestsResult.Type;
+
+export const GitWorktreeCleanupCandidate = Schema.Struct({
+  path: TrimmedNonEmptyStringSchema,
+  branch: TrimmedNonEmptyStringSchema,
+  prNumber: PositiveInt,
+  prTitle: TrimmedNonEmptyStringSchema,
+  prUrl: Schema.String,
+  mergedAt: IsoDateTime,
+  pathExists: Schema.Boolean,
+  prunable: Schema.Boolean,
+});
+export type GitWorktreeCleanupCandidate = typeof GitWorktreeCleanupCandidate.Type;
+
+export const GitListMergedWorktreeCleanupCandidatesInput = Schema.Struct({
+  cwd: TrimmedNonEmptyStringSchema,
+});
+export type GitListMergedWorktreeCleanupCandidatesInput =
+  typeof GitListMergedWorktreeCleanupCandidatesInput.Type;
+
+export const GitListMergedWorktreeCleanupCandidatesResult = Schema.Array(
+  GitWorktreeCleanupCandidate,
+);
+export type GitListMergedWorktreeCleanupCandidatesResult =
+  typeof GitListMergedWorktreeCleanupCandidatesResult.Type;
+
+export const GitPruneWorktreesInput = Schema.Struct({
+  cwd: TrimmedNonEmptyStringSchema,
+});
+export type GitPruneWorktreesInput = typeof GitPruneWorktreesInput.Type;
 
 export const GitPreparePullRequestThreadResult = Schema.Struct({
   pullRequest: GitResolvedPullRequest,

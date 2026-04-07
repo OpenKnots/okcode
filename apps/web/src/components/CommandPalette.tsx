@@ -12,6 +12,7 @@ import {
   SettingsIcon,
   SunIcon,
   GitBranchIcon,
+  GitMergeIcon,
   SearchIcon,
   KeyboardIcon,
 } from "lucide-react";
@@ -22,6 +23,7 @@ import { useStore } from "~/store";
 import { useCommandPaletteStore } from "~/commandPaletteStore";
 import { useHandleNewThread } from "~/hooks/useHandleNewThread";
 import { useTheme } from "~/hooks/useTheme";
+import { useWorktreeCleanupStore } from "~/worktreeCleanupStore";
 import {
   CommandDialog,
   CommandDialogPopup,
@@ -141,6 +143,7 @@ function CommandsView() {
   const pushMruProject = useCommandPaletteStore((s) => s.pushMruProject);
   const pushMruThread = useCommandPaletteStore((s) => s.pushMruThread);
   const mruThreadIds = useCommandPaletteStore((s) => s.mruThreadIds);
+  const openWorktreeCleanupDialog = useWorktreeCleanupStore((s) => s.openDialog);
   const routeThreadId = useParams({
     strict: false,
     select: (params) => (params.threadId ? ThreadId.makeUnsafe(params.threadId) : null),
@@ -273,6 +276,19 @@ function CommandsView() {
       },
     });
 
+    cmds.push({
+      id: "action-cleanup-merged-worktrees",
+      label: "Review merged worktrees",
+      keywords: ["cleanup", "delete", "prune", "merged", "worktree", "git"],
+      icon: GitMergeIcon,
+      group: "Actions",
+      hidden: !currentProjectId,
+      onSelect: () => {
+        closePalette();
+        openWorktreeCleanupDialog();
+      },
+    });
+
     // ── Appearance ──
     cmds.push({
       id: "appearance-theme-light",
@@ -357,6 +373,7 @@ function CommandsView() {
     setTheme,
     pushMruProject,
     pushMruThread,
+    openWorktreeCleanupDialog,
   ]);
 
   // Filter commands by query

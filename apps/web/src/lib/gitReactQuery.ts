@@ -1,4 +1,4 @@
-import type { GitStackedAction } from "@okcode/contracts";
+import type { GitStackedAction, GitWorktreeCleanupCandidate } from "@okcode/contracts";
 import { mutationOptions, queryOptions, type QueryClient } from "@tanstack/react-query";
 import { ensureNativeApi } from "../nativeApi";
 
@@ -12,6 +12,8 @@ export const gitQueryKeys = {
   status: (cwd: string | null) => ["git", "status", cwd] as const,
   branches: (cwd: string | null) => ["git", "branches", cwd] as const,
   pullRequests: (cwd: string | null) => ["git", "pull-requests", cwd] as const,
+  mergedWorktreeCleanupCandidates: (cwd: string | null) =>
+    ["git", "merged-worktree-cleanup-candidates", cwd] as const,
 };
 
 export const gitMutationKeys = {
@@ -240,6 +242,36 @@ export function gitRemoveWorktreeMutationOptions(input: { queryClient: QueryClie
     onSettled: async () => {
       await invalidateGitQueries(input.queryClient);
     },
+  });
+}
+
+export function gitPruneWorktreesMutationOptions(input: { queryClient: QueryClient }) {
+  return mutationOptions({
+    mutationFn: async ({ cwd }: { cwd: string }) => {
+      const api = ensureNativeApi();
+      if (!cwd) throw new Error("Git worktree pruning is unavailable.");
+      return api.git.pruneWorktrees({ cwd });
+    },
+    mutationKey: ["git", "mutation", "prune-worktrees"] as const,
+    onSettled: async () => {
+      await invalidateGitQueries(input.queryClient);
+    },
+  });
+}
+
+export function gitMergedWorktreeCleanupCandidatesQueryOptions(cwd: string | null) {
+  return queryOptions({
+    queryKey: gitQueryKeys.mergedWorktreeCleanupCandidates(cwd),
+    queryFn: async (): Promise<ReadonlyArray<GitWorktreeCleanupCandidate>> => {
+      const api = ensureNativeApi();
+      if (!cwd) throw new Error("Merged worktree cleanup is unavailable.");
+      return api.git.listMergedWorktreeCleanupCandidates({ cwd });
+    },
+    enabled: cwd !== null,
+    staleTime: 15_000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    refetchInterval: 30_000,
   });
 }
 

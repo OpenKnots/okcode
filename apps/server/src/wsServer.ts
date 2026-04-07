@@ -69,6 +69,7 @@ import { clamp } from "effect/Number";
 import { Open, resolveAvailableEditors } from "./open";
 import { ServerConfig } from "./config";
 import { GitCore } from "./git/Services/GitCore.ts";
+import { collectMergedWorktreeCleanupCandidates } from "./git/worktreeCleanup.ts";
 import { tryHandleProjectFaviconRequest } from "./projectFaviconRoute";
 import {
   ATTACHMENTS_ROUTE_PREFIX,
@@ -1183,6 +1184,40 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
           .pipe(Effect.provideService(RuntimeEnv, gitEnv));
       }
 
+      case WS_METHODS.gitListMergedWorktreeCleanupCandidates: {
+        const body = stripRequestTag(request.body);
+        const snapshot = yield* projectionReadModelQuery.getSnapshot();
+        const gitEnv = yield* resolveRuntimeEnvironment({ cwd: body.cwd, readModel: snapshot });
+        const mergedPullRequests = yield* gitManager
+          .listPullRequests({
+            cwd: body.cwd,
+            state: "merged",
+            limit: 500,
+          })
+          .pipe(Effect.provideService(RuntimeEnv, gitEnv));
+        const worktreeList = yield* git
+          .execute({
+            operation: "GitCore.listMergedWorktreeCleanupCandidates.worktreeList",
+            cwd: body.cwd,
+            args: ["worktree", "list", "--porcelain"],
+            timeoutMs: 5_000,
+            allowNonZeroExit: true,
+          })
+          .pipe(Effect.provideService(RuntimeEnv, gitEnv));
+
+        return collectMergedWorktreeCleanupCandidates({
+          cwd: body.cwd,
+          worktreeListStdout: worktreeList.stdout,
+          mergedPullRequests: mergedPullRequests.pullRequests.map((pr) => ({
+            number: pr.number,
+            title: pr.title,
+            url: pr.url,
+            headBranch: pr.headBranch,
+            mergedAt: pr.updatedAt,
+          })),
+        });
+      }
+
       case WS_METHODS.prReviewGetConfig: {
         const body = stripRequestTag(request.body);
         yield* prReview
@@ -1339,6 +1374,20 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
         const snapshot = yield* projectionReadModelQuery.getSnapshot();
         const gitEnv = yield* resolveRuntimeEnvironment({ cwd: body.cwd, readModel: snapshot });
         return yield* git.removeWorktree(body).pipe(Effect.provideService(RuntimeEnv, gitEnv));
+      }
+
+      case WS_METHODS.gitPruneWorktrees: {
+        const body = stripRequestTag(request.body);
+        const snapshot = yield* projectionReadModelQuery.getSnapshot();
+        const gitEnv = yield* resolveRuntimeEnvironment({ cwd: body.cwd, readModel: snapshot });
+        return yield* git
+          .execute({
+            operation: "GitCore.pruneWorktrees",
+            cwd: body.cwd,
+            args: ["worktree", "prune", "--expire", "now"],
+            timeoutMs: 15_000,
+          })
+          .pipe(Effect.provideService(RuntimeEnv, gitEnv), Effect.asVoid);
       }
 
       case WS_METHODS.gitCreateBranch: {

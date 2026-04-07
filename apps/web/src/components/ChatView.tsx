@@ -423,10 +423,12 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
   const previewDock = usePreviewStateStore((state) =>
     activeProjectId ? (state.dockByProjectId[activeProjectId] ?? "top") : "top",
   );
+  const previewSizeDefault =
+    previewLayoutMode === "side" ? PREVIEW_SPLIT_SIDE_DEFAULT_SIZE_PX : PREVIEW_SPLIT_DEFAULT_SIZE_PX;
   const previewSize = usePreviewStateStore((state) =>
     activeProjectId
-      ? (state.sizeByProjectId[activeProjectId] ?? PREVIEW_SPLIT_DEFAULT_SIZE_PX)
-      : PREVIEW_SPLIT_DEFAULT_SIZE_PX,
+      ? (state.sizeByProjectId[activeProjectId] ?? previewSizeDefault)
+      : previewSizeDefault,
   );
   const togglePreviewLayout = usePreviewStateStore((state) => state.toggleProjectLayout);
   const setPreviewSize = usePreviewStateStore((state) => state.setProjectSize);

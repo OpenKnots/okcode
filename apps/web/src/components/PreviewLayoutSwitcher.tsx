@@ -6,6 +6,7 @@ import {
   PictureInPicture2Icon,
 } from "lucide-react";
 
+import { readDesktopPreviewBridge } from "~/desktopPreview";
 import { cn } from "~/lib/utils";
 import {
   type PreviewLayoutMode,
@@ -50,7 +51,16 @@ export function PreviewLayoutSwitcher({ projectId }: PreviewLayoutSwitcherProps)
               )}
               aria-label={label}
               aria-pressed={isActive}
-              onClick={() => setProjectLayoutMode(projectId, id)}
+              onClick={() => {
+                setProjectLayoutMode(projectId, id);
+                // Trigger Electron pop-out/pop-in when switching to/from popout mode.
+                const bridge = readDesktopPreviewBridge();
+                if (id === "popout") {
+                  void bridge?.popOut();
+                } else if (layoutMode === "popout") {
+                  void bridge?.popIn();
+                }
+              }}
             >
               <Icon className="size-3" />
             </TooltipTrigger>

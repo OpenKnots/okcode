@@ -1,4 +1,4 @@
-import { memo, Suspense, use, useEffect, useMemo, useState } from "react";
+import { memo, use, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { ChevronDownIcon, ChevronRightIcon } from "lucide-react";
 import { cn } from "~/lib/utils";
 import { VscodeEntryIcon } from "./VscodeEntryIcon";
@@ -199,6 +199,45 @@ function DiffLineRow(props: { line: DiffLine; html?: string }) {
   );
 }
 
+/** Shared diff-lines rendering used by both the main path and the error
+ *  boundary fallback, eliminating the previous triplication of JSX. */
+function DiffLinesContent(props: {
+  lines: Array<{ key: string; line: DiffLine; html?: string }>;
+  needsTruncation: boolean;
+  hiddenCount: number;
+  isExpanded: boolean;
+  onToggleExpanded: () => void;
+}) {
+  const { lines, needsTruncation, hiddenCount, isExpanded, onToggleExpanded } = props;
+  return (
+    <div className="border-t border-border/40">
+      {lines.map(({ key, line, html }) => (
+        <DiffLineRow key={key} line={line} html={html} />
+      ))}
+
+      {needsTruncation && (
+        <button
+          type="button"
+          className="flex w-full items-center justify-center gap-1 border-t border-border/40 bg-muted/20 py-1 text-[10px] text-muted-foreground/60 transition-colors hover:bg-muted/40 hover:text-muted-foreground/80"
+          onClick={onToggleExpanded}
+        >
+          {isExpanded ? (
+            <>
+              <ChevronDownIcon className="size-3 rotate-180" />
+              Show less
+            </>
+          ) : (
+            <>
+              <ChevronRightIcon className="size-3 rotate-90" />
+              Show {hiddenCount} more lines
+            </>
+          )}
+        </button>
+      )}
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /*  Component                                                          */
 /* ------------------------------------------------------------------ */
@@ -235,7 +274,10 @@ export const InlineDiffBlock = memo(function InlineDiffBlock(props: {
     needsTruncation && !isExpanded ? keyedLines.slice(0, MAX_VISIBLE_LINES) : keyedLines;
   const hiddenCount = allLines.length - visibleLines.length;
   const fileName = basename(diffData.filePath);
-  const highlightedLines = useMemo(() => {
+  // Compute highlighted lines eagerly and keep the previous result visible
+  // while a transition is in-flight, preventing the Suspense fallback flash.
+  const [, startTransition] = useTransition();
+  const computeHighlightedLines = useMemo(() => {
     return visibleLines.map(({ key, line }) => {
       const cacheScope = `chat-inline-diff:${line.kind}`;
       const cachedHighlightedHtml = getCachedHighlightedHtml(
@@ -267,6 +309,18 @@ export const InlineDiffBlock = memo(function InlineDiffBlock(props: {
       };
     });
   }, [highlighter, languageId, diffThemeName, visibleLines]);
+
+  // Use a deferred state so React keeps the old (plain) content visible while
+  // the highlighted version resolves, instead of showing a blank fallback.
+  const highlightedLinesRef = useRef(computeHighlightedLines);
+  const [highlightedLines, setHighlightedLines] = useState(computeHighlightedLines);
+  if (computeHighlightedLines !== highlightedLinesRef.current) {
+    highlightedLinesRef.current = computeHighlightedLines;
+    startTransition(() => {
+      setHighlightedLines(computeHighlightedLines);
+    });
+  }
+
   useEffect(() => {
     for (const { line, fullHtml } of highlightedLines) {
       const cacheScope = `chat-inline-diff:${line.kind}`;
@@ -297,91 +351,27 @@ export const InlineDiffBlock = memo(function InlineDiffBlock(props: {
         </span>
       </div>
 
-      {/* Diff lines */}
+      {/* Diff lines – single render path; useTransition keeps stale content
+          visible while highlighting resolves, so we no longer need duplicated
+          Suspense/ErrorBoundary fallbacks that cause a visual flash. */}
       <CodeHighlightErrorBoundary
         fallback={
-          <div className="border-t border-border/40">
-            {visibleLines.map(({ key, line }) => (
-              <DiffLineRow key={key} line={line} />
-            ))}
-
-            {needsTruncation && (
-              <button
-                type="button"
-                className="flex w-full items-center justify-center gap-1 border-t border-border/40 bg-muted/20 py-1 text-[10px] text-muted-foreground/60 transition-colors hover:bg-muted/40 hover:text-muted-foreground/80"
-                onClick={() => setIsExpanded((prev) => !prev)}
-              >
-                {isExpanded ? (
-                  <>
-                    <ChevronDownIcon className="size-3 rotate-180" />
-                    Show less
-                  </>
-                ) : (
-                  <>
-                    <ChevronRightIcon className="size-3 rotate-90" />
-                    Show {hiddenCount} more lines
-                  </>
-                )}
-              </button>
-            )}
-          </div>
+          <DiffLinesContent
+            lines={visibleLines}
+            needsTruncation={needsTruncation}
+            hiddenCount={hiddenCount}
+            isExpanded={isExpanded}
+            onToggleExpanded={() => setIsExpanded((prev) => !prev)}
+          />
         }
       >
-        <Suspense
-          fallback={
-            <div className="border-t border-border/40">
-              {visibleLines.map(({ key, line }) => (
-                <DiffLineRow key={key} line={line} />
-              ))}
-
-              {needsTruncation && (
-                <button
-                  type="button"
-                  className="flex w-full items-center justify-center gap-1 border-t border-border/40 bg-muted/20 py-1 text-[10px] text-muted-foreground/60 transition-colors hover:bg-muted/40 hover:text-muted-foreground/80"
-                  onClick={() => setIsExpanded((prev) => !prev)}
-                >
-                  {isExpanded ? (
-                    <>
-                      <ChevronDownIcon className="size-3 rotate-180" />
-                      Show less
-                    </>
-                  ) : (
-                    <>
-                      <ChevronRightIcon className="size-3 rotate-90" />
-                      Show {hiddenCount} more lines
-                    </>
-                  )}
-                </button>
-              )}
-            </div>
-          }
-        >
-          <div className="border-t border-border/40">
-            {highlightedLines.map(({ key, line, html }) => (
-              <DiffLineRow key={key} line={line} html={html} />
-            ))}
-
-            {needsTruncation && (
-              <button
-                type="button"
-                className="flex w-full items-center justify-center gap-1 border-t border-border/40 bg-muted/20 py-1 text-[10px] text-muted-foreground/60 transition-colors hover:bg-muted/40 hover:text-muted-foreground/80"
-                onClick={() => setIsExpanded((prev) => !prev)}
-              >
-                {isExpanded ? (
-                  <>
-                    <ChevronDownIcon className="size-3 rotate-180" />
-                    Show less
-                  </>
-                ) : (
-                  <>
-                    <ChevronRightIcon className="size-3 rotate-90" />
-                    Show {hiddenCount} more lines
-                  </>
-                )}
-              </button>
-            )}
-          </div>
-        </Suspense>
+        <DiffLinesContent
+          lines={highlightedLines}
+          needsTruncation={needsTruncation}
+          hiddenCount={hiddenCount}
+          isExpanded={isExpanded}
+          onToggleExpanded={() => setIsExpanded((prev) => !prev)}
+        />
       </CodeHighlightErrorBoundary>
     </div>
   );

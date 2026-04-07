@@ -1,9 +1,4 @@
-import {
-  MonitorIcon,
-  PanelLeftIcon,
-  PanelRightIcon,
-  TerminalSquareIcon,
-} from "lucide-react";
+import { MonitorIcon, PanelLeftIcon, PanelRightIcon, TerminalSquareIcon } from "lucide-react";
 import { memo, useCallback, useMemo } from "react";
 import { useRightPanelStore } from "~/rightPanelStore";
 import { useSidebar } from "../ui/sidebar";
@@ -58,11 +53,7 @@ export const HeaderPanelsMenu = memo(function HeaderPanelsMenu({
       <Tooltip>
         <TooltipTrigger
           render={
-            <Toggle
-              value="sidebar"
-              onClick={toggleSidebar}
-              aria-label="Toggle sidebar"
-            >
+            <Toggle value="sidebar" onClick={toggleSidebar} aria-label="Toggle sidebar">
               <PanelLeftIcon className="size-3.5" />
             </Toggle>
           }
@@ -109,11 +100,7 @@ export const HeaderPanelsMenu = memo(function HeaderPanelsMenu({
       <Tooltip>
         <TooltipTrigger
           render={
-            <Toggle
-              value="right-panel"
-              onClick={toggleRightPanel}
-              aria-label="Toggle right panel"
-            >
+            <Toggle value="right-panel" onClick={toggleRightPanel} aria-label="Toggle right panel">
               <PanelRightIcon className="size-3.5" />
             </Toggle>
           }

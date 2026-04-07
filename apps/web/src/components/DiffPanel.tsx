@@ -11,17 +11,16 @@ import {
 } from "lucide-react";
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { openInPreferredEditor } from "../editorPreferences";
 import { useDiffViewerStore } from "../diffViewerStore";
+import { openRelativeFileInViewer } from "../fileOpen";
+import { useFileViewNavigation } from "../hooks/useFileViewNavigation";
 import { useTheme } from "../hooks/useTheme";
 import { useTurnDiffSummaries } from "../hooks/useTurnDiffSummaries";
 import { buildAcceptedDiffFileKey, filterAcceptedDiffFiles } from "../lib/diffPanelAcceptance";
 import { checkpointDiffQueryOptions } from "../lib/providerReactQuery";
 import { buildPatchCacheKey, resolveDiffThemeName } from "../lib/diffRendering";
 import { cn } from "../lib/utils";
-import { readNativeApi } from "../nativeApi";
 import { useStore } from "../store";
-import { resolvePathLinkTarget } from "../terminal-links";
 import { DiffPanelLoadingState, DiffPanelShell, type DiffPanelMode } from "./DiffPanelShell";
 import { Button } from "./ui/button";
 import { Toggle, ToggleGroup } from "./ui/toggle-group";
@@ -165,6 +164,7 @@ interface DiffPanelProps {
 
 export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
   const { resolvedTheme } = useTheme();
+  const openFileInViewer = useFileViewNavigation();
   const [diffRenderMode, setDiffRenderMode] = useState<DiffRenderMode>("stacked");
   const [diffWordWrap, setDiffWordWrap] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<FileDiffCategory>("all");
@@ -334,16 +334,19 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
     });
   }, [selectedFilePath, renderableFiles]);
 
-  const openDiffFileInEditor = useCallback(
+  const openDiffFileInViewer = useCallback(
     (filePath: string) => {
-      const api = readNativeApi();
-      if (!api) return;
-      const targetPath = activeCwd ? resolvePathLinkTarget(filePath, activeCwd) : filePath;
-      void openInPreferredEditor(api, targetPath).catch((error) => {
-        console.warn("Failed to open diff file in editor.", error);
-      });
+      try {
+        openRelativeFileInViewer({
+          cwd: activeCwd,
+          relativePath: filePath,
+          openInViewer: openFileInViewer,
+        });
+      } catch (error) {
+        console.warn("Failed to open diff file in integrated viewer.", error);
+      }
     },
-    [activeCwd],
+    [activeCwd, openFileInViewer],
   );
 
   const acceptFile = useCallback((fileDiff: FileDiffMetadata) => {
@@ -580,12 +583,12 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
                             className="min-w-0 flex-1 truncate font-mono text-[11px] text-foreground/90 hover:text-foreground hover:underline hover:underline-offset-2"
                             onClick={(e) => {
                               e.stopPropagation();
-                              openDiffFileInEditor(filePath);
+                              openDiffFileInViewer(filePath);
                             }}
                             onKeyDown={(e) => {
                               if (e.key === "Enter") {
                                 e.stopPropagation();
-                                openDiffFileInEditor(filePath);
+                                openDiffFileInViewer(filePath);
                               }
                             }}
                           >

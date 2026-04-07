@@ -52,6 +52,19 @@ export function resolveCodeViewerRelativePath(
   return normalizedPath.slice(prefix.length);
 }
 
+export function openRelativeFileInViewer(props: {
+  cwd: string | undefined;
+  relativePath: string;
+  openInViewer: (cwd: string, relativePath: string) => void;
+}): void {
+  const { cwd, openInViewer, relativePath } = props;
+  if (!cwd) {
+    throw new Error("Unable to open this file inside OK Code.");
+  }
+
+  openInViewer(cwd, relativePath);
+}
+
 export async function openFileReference(props: {
   api: NativeApi;
   cwd: string | undefined;
@@ -67,9 +80,9 @@ export async function openFileReference(props: {
   }
 
   const relativePath = resolveCodeViewerRelativePath(targetPath, cwd);
-  if (!cwd || !relativePath) {
+  if (!relativePath) {
     throw new Error("Unable to open this file inside OK Code.");
   }
 
-  openInViewer(cwd, relativePath);
+  openRelativeFileInViewer({ cwd, relativePath, openInViewer });
 }

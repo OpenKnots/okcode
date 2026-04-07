@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   openFileReference,
+  openRelativeFileInViewer,
   resolveCodeViewerRelativePath,
   splitFileTargetPosition,
 } from "./fileOpen";
@@ -53,5 +54,29 @@ describe("openFileReference", () => {
     });
 
     expect(openInViewer).toHaveBeenCalledWith("/Users/julius/project", "src/main.ts");
+  });
+});
+
+describe("openRelativeFileInViewer", () => {
+  it("opens relative paths in the integrated code viewer", () => {
+    const openInViewer = vi.fn();
+
+    openRelativeFileInViewer({
+      cwd: "/Users/julius/project",
+      relativePath: "src/main.ts",
+      openInViewer,
+    });
+
+    expect(openInViewer).toHaveBeenCalledWith("/Users/julius/project", "src/main.ts");
+  });
+
+  it("rejects viewer opens when the workspace root is unavailable", () => {
+    expect(() =>
+      openRelativeFileInViewer({
+        cwd: undefined,
+        relativePath: "src/main.ts",
+        openInViewer: vi.fn(),
+      }),
+    ).toThrow("Unable to open this file inside OK Code.");
   });
 });

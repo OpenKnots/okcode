@@ -168,22 +168,6 @@ export const ChatHeader = memo(function ChatHeader({
           onCommit={() => void commitEditing()}
           onCancel={cancelEditing}
         />
-        {activeProjectName && (
-          <Badge
-            variant="outline"
-            className="hidden min-w-0 shrink truncate border-transparent sm:inline-flex"
-            style={
-              projectColor
-                ? {
-                    color: isDark ? projectColor.textDark : projectColor.text,
-                    backgroundColor: isDark ? projectColor.bgDark : projectColor.bg,
-                  }
-                : undefined
-            }
-          >
-            {activeProjectName}
-          </Badge>
-        )}
       </div>
 
       {/* Right: Actions — only primary actions visible, panels in overflow */}

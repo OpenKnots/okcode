@@ -97,7 +97,7 @@ import {
   resolveThreadStatusPill,
   shouldClearThreadSelectionOnMouseDown,
   sortProjectsForSidebar,
-  sortThreadsForSidebar,
+  sortThreadsByProjectIdForSidebar,
 } from "./Sidebar.logic";
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "./ui/alert";
 import { Button } from "./ui/button";
@@ -132,6 +132,8 @@ const SIDEBAR_THREAD_SORT_LABELS: Record<SidebarThreadSortOrder, string> = {
   updated_at: "Last user message",
   created_at: "Created at",
 };
+const EMPTY_THREADS: readonly Thread[] = [];
+const EMPTY_THREAD_IDS: readonly ThreadIdType[] = [];
 interface PrStatusIndicator {
   label: "PR open" | "PR closed" | "PR merged";
   colorClass: string;
@@ -539,10 +541,42 @@ export default function Sidebar() {
     setDraftProjectTitle,
     startProjectEditing,
   } = useProjectTitleEditor();
+  const projectById = useMemo(
+    () => new Map(projects.map((project) => [project.id, project] as const)),
+    [projects],
+  );
   const projectCwdById = useMemo(
     () => new Map(projects.map((project) => [project.id, project.cwd] as const)),
     [projects],
   );
+  const threadById = useMemo(
+    () => new Map(threads.map((thread) => [thread.id, thread] as const)),
+    [threads],
+  );
+  const sortedThreadsByProjectId = useMemo(
+    () => sortThreadsByProjectIdForSidebar(threads, appSettings.sidebarThreadSortOrder),
+    [appSettings.sidebarThreadSortOrder, threads],
+  );
+  const orderedThreadIdsByProjectId = useMemo(() => {
+    const orderedThreadIds = new Map<ProjectId, ThreadIdType[]>();
+    for (const [projectId, projectThreads] of sortedThreadsByProjectId) {
+      orderedThreadIds.set(
+        projectId,
+        projectThreads.map((thread) => thread.id),
+      );
+    }
+    return orderedThreadIds;
+  }, [sortedThreadsByProjectId]);
+  const latestThreadByProjectId = useMemo(() => {
+    const latestThreads = new Map<ProjectId, Thread>();
+    for (const [projectId, projectThreads] of sortedThreadsByProjectId) {
+      const latestThread = projectThreads[0];
+      if (latestThread) {
+        latestThreads.set(projectId, latestThread);
+      }
+    }
+    return latestThreads;
+  }, [sortedThreadsByProjectId]);
   const threadGitTargets = useMemo(
     () =>
       threads.map((thread) => ({
@@ -593,10 +627,7 @@ export default function Sidebar() {
 
   const focusMostRecentThreadForProject = useCallback(
     (projectId: ProjectId) => {
-      const latestThread = sortThreadsForSidebar(
-        threads.filter((thread) => thread.projectId === projectId),
-        appSettings.sidebarThreadSortOrder,
-      )[0];
+      const latestThread = latestThreadByProjectId.get(projectId);
       if (!latestThread) return;
 
       void navigate({
@@ -604,7 +635,7 @@ export default function Sidebar() {
         params: { threadId: latestThread.id },
       });
     },
-    [appSettings.sidebarThreadSortOrder, navigate, threads],
+    [latestThreadByProjectId, navigate],
   );
 
   const addProjectFromPath = useCallback(
@@ -751,9 +782,9 @@ export default function Sidebar() {
     ): Promise<void> => {
       const api = readNativeApi();
       if (!api) return;
-      const thread = threads.find((t) => t.id === threadId);
+      const thread = threadById.get(threadId);
       if (!thread) return;
-      const threadProject = projects.find((project) => project.id === thread.projectId);
+      const threadProject = projectById.get(thread.projectId);
       // When bulk-deleting, exclude the other threads being deleted so
       // getOrphanedWorktreePathForThread correctly detects that no surviving
       // threads will reference this worktree.
@@ -849,9 +880,10 @@ export default function Sidebar() {
       clearProjectDraftThreadById,
       clearTerminalState,
       navigate,
-      projects,
+      projectById,
       removeWorktreeMutation,
       routeThreadId,
+      threadById,
       threads,
     ],
   );
@@ -895,7 +927,7 @@ export default function Sidebar() {
     async (threadId: ThreadId, position: { x: number; y: number }) => {
       const api = readNativeApi();
       if (!api) return;
-      const thread = threads.find((t) => t.id === threadId);
+      const thread = threadById.get(threadId);
       if (!thread) return;
       const threadWorkspacePath =
         thread.worktreePath ?? projectCwdById.get(thread.projectId) ?? null;
@@ -960,7 +992,7 @@ export default function Sidebar() {
       markThreadUnread,
       projectCwdById,
       startEditing,
-      threads,
+      threadById,
     ],
   );
 
@@ -1067,7 +1099,7 @@ export default function Sidebar() {
       );
 
       if (clicked === "rename") {
-        const project = projects.find((entry) => entry.id === projectId);
+        const project = projectById.get(projectId);
         if (!project) return;
         startProjectEditing({
           projectId: project.id,
@@ -1078,10 +1110,10 @@ export default function Sidebar() {
 
       if (clicked !== "delete") return;
 
-      const project = projects.find((entry) => entry.id === projectId);
+      const project = projectById.get(projectId);
       if (!project) return;
 
-      const projectThreads = threads.filter((thread) => thread.projectId === projectId);
+      const projectThreads = sortedThreadsByProjectId.get(projectId) ?? EMPTY_THREADS;
       if (projectThreads.length > 0) {
         toastManager.add({
           type: "warning",
@@ -1119,9 +1151,9 @@ export default function Sidebar() {
       clearComposerDraftForThread,
       clearProjectDraftThreadId,
       getDraftThreadByProjectId,
-      projects,
+      projectById,
+      sortedThreadsByProjectId,
       startProjectEditing,
-      threads,
     ],
   );
 
@@ -1190,10 +1222,9 @@ export default function Sidebar() {
         if (!isActionableThreadStatus(status)) {
           return null;
         }
-        const project = projects.find((entry) => entry.id === thread.projectId);
         return {
           thread,
-          projectName: project?.name ?? "Unknown project",
+          projectName: projectById.get(thread.projectId)?.name ?? "Unknown project",
           status,
         };
       })
@@ -1217,17 +1248,14 @@ export default function Sidebar() {
           Date.parse(a.thread.updatedAt ?? a.thread.createdAt)
         );
       });
-  }, [projects, threads]);
+  }, [projectById, threads]);
   const isManualProjectSorting = appSettings.sidebarProjectSortOrder === "manual";
 
   function renderProjectItem(
     project: (typeof sortedProjects)[number],
     dragHandleProps: SortableProjectHandleProps | null,
   ) {
-    const projectThreads = sortThreadsForSidebar(
-      threads.filter((thread) => thread.projectId === project.id),
-      appSettings.sidebarThreadSortOrder,
-    );
+    const projectThreads = sortedThreadsByProjectId.get(project.id) ?? EMPTY_THREADS;
     const activeThreadId = routeThreadId ?? undefined;
     const isThreadListExpanded = expandedThreadListsByProject.has(project.id);
     const pinnedCollapsedThread =
@@ -1241,7 +1269,7 @@ export default function Sidebar() {
       isThreadListExpanded,
       previewLimit: THREAD_PREVIEW_LIMIT,
     });
-    const orderedProjectThreadIds = projectThreads.map((thread) => thread.id);
+    const orderedProjectThreadIds = orderedThreadIdsByProjectId.get(project.id) ?? EMPTY_THREAD_IDS;
     const renderedThreads = pinnedCollapsedThread ? [pinnedCollapsedThread] : visibleThreads;
     const pColor = getProjectColor(project.id);
     const isDark = resolvedTheme === "dark";
@@ -1414,9 +1442,9 @@ export default function Sidebar() {
         clearSelection();
       }
       // When expanding a project with exactly one thread, navigate directly to it.
-      const project = projects.find((p) => p.id === projectId);
+      const project = projectById.get(projectId);
       if (project && !project.expanded) {
-        const projectThreads = threads.filter((t) => t.projectId === projectId);
+        const projectThreads = sortedThreadsByProjectId.get(projectId) ?? EMPTY_THREADS;
         if (projectThreads.length === 1) {
           toggleProject(projectId);
           void navigate({
@@ -1428,7 +1456,14 @@ export default function Sidebar() {
       }
       toggleProject(projectId);
     },
-    [clearSelection, navigate, projects, selectedThreadIds.size, threads, toggleProject],
+    [
+      clearSelection,
+      navigate,
+      projectById,
+      selectedThreadIds.size,
+      sortedThreadsByProjectId,
+      toggleProject,
+    ],
   );
 
   const handleProjectTitleKeyDown = useCallback(
@@ -1439,9 +1474,9 @@ export default function Sidebar() {
         return;
       }
       // When expanding a project with exactly one thread, navigate directly to it.
-      const project = projects.find((p) => p.id === projectId);
+      const project = projectById.get(projectId);
       if (project && !project.expanded) {
-        const projectThreads = threads.filter((t) => t.projectId === projectId);
+        const projectThreads = sortedThreadsByProjectId.get(projectId) ?? EMPTY_THREADS;
         if (projectThreads.length === 1) {
           toggleProject(projectId);
           void navigate({
@@ -1453,7 +1488,7 @@ export default function Sidebar() {
       }
       toggleProject(projectId);
     },
-    [navigate, projects, threads, toggleProject],
+    [navigate, projectById, sortedThreadsByProjectId, toggleProject],
   );
 
   useEffect(() => {

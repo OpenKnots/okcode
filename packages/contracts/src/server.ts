@@ -134,3 +134,36 @@ export const ListTokensResult = Schema.Struct({
   tokens: Schema.Array(PairingTokenInfo),
 });
 export type ListTokensResult = typeof ListTokensResult.Type;
+
+// ── OpenClaw Gateway Test ───────────────────────────────────────────
+
+export const TestOpenclawGatewayInput = Schema.Struct({
+  gatewayUrl: Schema.String,
+  password: Schema.optional(Schema.String),
+});
+export type TestOpenclawGatewayInput = typeof TestOpenclawGatewayInput.Type;
+
+/** Individual step result in the gateway connection test. */
+export const TestOpenclawGatewayStep = Schema.Struct({
+  name: Schema.String,
+  status: Schema.Literals(["pass", "fail", "skip"]),
+  durationMs: Schema.Number,
+  detail: Schema.optional(Schema.String),
+});
+export type TestOpenclawGatewayStep = typeof TestOpenclawGatewayStep.Type;
+
+export const TestOpenclawGatewayResult = Schema.Struct({
+  success: Schema.Boolean,
+  steps: Schema.Array(TestOpenclawGatewayStep),
+  /** Total wall-clock time for the entire test sequence. */
+  totalDurationMs: Schema.Number,
+  /** Gateway-reported server info, if available. */
+  serverInfo: Schema.optional(
+    Schema.Struct({
+      version: Schema.optional(Schema.String),
+      sessionId: Schema.optional(Schema.String),
+    }),
+  ),
+  error: Schema.optional(Schema.String),
+});
+export type TestOpenclawGatewayResult = typeof TestOpenclawGatewayResult.Type;

@@ -799,7 +799,7 @@ function makeOpenClawAdapter(options?: OpenClawAdapterLiveOptions) {
             catch: (cause) =>
               new ProviderAdapterProcessError({
                 provider: PROVIDER,
-                threadId: context.threadId,
+                threadId: context.session.threadId,
                 detail: "Failed to send session.stop during teardown.",
                 cause,
               }),
@@ -812,7 +812,7 @@ function makeOpenClawAdapter(options?: OpenClawAdapterLiveOptions) {
           catch: (cause) =>
             new ProviderAdapterProcessError({
               provider: PROVIDER,
-              threadId: context.threadId,
+              threadId: context.session.threadId,
               detail: "Failed to close websocket during teardown.",
               cause,
             }),

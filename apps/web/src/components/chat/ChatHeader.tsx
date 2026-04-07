@@ -5,7 +5,7 @@ import {
   type ResolvedKeybindingsConfig,
 } from "@okcode/contracts";
 import { useQuery } from "@tanstack/react-query";
-import { ExternalLinkIcon, GitPullRequestIcon } from "lucide-react";
+import { ChevronDownIcon, ExternalLinkIcon, GitPullRequestIcon } from "lucide-react";
 import { memo, useCallback, useEffect } from "react";
 import type { ProjectScriptDraft } from "~/projectScriptDefaults";
 import GitActionsControl from "../GitActionsControl";
@@ -59,6 +59,7 @@ interface ChatHeaderProps {
   onToggleDiffViewer: () => void;
   onTogglePreview: () => void;
   onTogglePreviewLayout: () => void;
+  onMinimize?: (() => void) | undefined;
 }
 
 export const ChatHeader = memo(function ChatHeader({
@@ -94,6 +95,7 @@ export const ChatHeader = memo(function ChatHeader({
   onToggleDiffViewer,
   onTogglePreview,
   onTogglePreviewLayout: _onTogglePreviewLayout,
+  onMinimize,
 }: ChatHeaderProps) {
   const isMobileCompanion = clientMode === "mobile";
   const projectColor = useProjectColor(activeProjectId);
@@ -141,6 +143,18 @@ export const ChatHeader = memo(function ChatHeader({
       {/* Left: Identity — thread title + project context */}
       <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden sm:gap-3">
         <SidebarTrigger className="size-7 shrink-0" />
+        {onMinimize && (
+          <Button
+            type="button"
+            size="xs"
+            variant="ghost"
+            aria-label="Minimize chat"
+            className="size-7 shrink-0"
+            onClick={onMinimize}
+          >
+            <ChevronDownIcon className="size-4" />
+          </Button>
+        )}
         <EditableThreadTitle
           title={activeThreadTitle}
           isEditing={isEditingTitle}

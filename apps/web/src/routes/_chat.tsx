@@ -21,6 +21,8 @@ import { useAppSettings } from "~/appSettings";
 import { Sidebar, SidebarProvider, SidebarRail } from "~/components/ui/sidebar";
 import { useAutoDeleteMergedThreads } from "~/hooks/useAutoDeleteMergedThreads";
 import { useClientMode } from "~/hooks/useClientMode";
+import { isMobileShell } from "../env";
+import { ChatWidgetShell } from "../components/widget/ChatWidgetShell";
 
 const EMPTY_KEYBINDINGS: ResolvedKeybindingsConfig = [];
 const THREAD_SIDEBAR_WIDTH_STORAGE_KEY = "chat_thread_sidebar_width";
@@ -237,6 +239,23 @@ function ChatRouteLayout() {
 
   // Auto-delete threads whose PR has been merged (when enabled in settings).
   useAutoDeleteMergedThreads(settings);
+
+  // When running inside the mobile Capacitor shell, use the chat widget layout
+  // instead of the standard sidebar + outlet pattern.
+  if (isMobileShell) {
+    return (
+      <div className="relative isolate min-h-dvh">
+        <ChatBackgroundLayer
+          backgroundImageOpacity={settings.backgroundImageOpacity}
+          backgroundImageUrl={settings.backgroundImageUrl}
+        />
+        <div className="relative z-10 min-h-dvh">
+          <ChatRouteGlobalShortcuts />
+          <ChatWidgetShell clientMode={clientMode} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative isolate min-h-dvh">

@@ -6,6 +6,10 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { buildChatShortcutGuides } from "~/lib/chatShortcutGuidance";
 import { I18nProvider } from "~/i18n/I18nProvider";
 
+vi.mock("~/hooks/useFileViewNavigation", () => ({
+  useFileViewNavigation: () => () => {},
+}));
+
 function matchMedia() {
   return {
     matches: false,
@@ -263,6 +267,7 @@ describe("MessagesTimeline", () => {
 
     expect(markup).toContain("Open diff");
     expect(markup).toContain("Changed files (1)");
+    expect(markup).toContain("Copy response");
   });
 
   it("renders an open diff action when a turn diff exists but the file summary is empty", async () => {

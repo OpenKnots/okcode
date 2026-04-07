@@ -168,6 +168,30 @@ export function deriveComposerSendState(options: {
   };
 }
 
+export function findLatestRevertableUserMessageId(
+  timelineEntries: ReadonlyArray<{
+    kind: string;
+    message?: {
+      id: MessageId;
+      role?: string;
+    };
+  }>,
+  revertTurnCountByUserMessageId: ReadonlyMap<MessageId, number>,
+): MessageId | null {
+  for (let index = timelineEntries.length - 1; index >= 0; index -= 1) {
+    const entry = timelineEntries[index];
+    if (!entry || entry.kind !== "message" || entry.message?.role !== "user") {
+      continue;
+    }
+
+    if (revertTurnCountByUserMessageId.has(entry.message.id)) {
+      return entry.message.id;
+    }
+  }
+
+  return null;
+}
+
 export function buildHiddenProviderInput(options: {
   prompt: string;
   terminalContexts: ReadonlyArray<TerminalContextDraft>;

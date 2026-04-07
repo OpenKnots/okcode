@@ -153,7 +153,7 @@ export function useAutoDeleteMergedThreads(settings: AppSettings) {
         timersRef.current.delete(threadId);
       }
     }
-  }, [enabled, delayMinutes, threads, statusQueries]);
+  }, [enabled, delayMinutes, projects, queryClient, statusQueries, threads]);
 
   // Cleanup all timers on unmount.
   useEffect(() => {

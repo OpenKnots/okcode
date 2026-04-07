@@ -265,7 +265,7 @@ export const ChatHeader = memo(function ChatHeader({
             previewAvailable={previewAvailable}
             previewOpen={previewOpen}
             onToggleTerminal={onToggleTerminal}
-            onTogglePreview={onTogglePreview}
+            onTogglePreview={onTogglePreview ?? (() => {})}
           />
         )}
       </div>

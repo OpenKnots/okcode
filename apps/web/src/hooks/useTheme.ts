@@ -44,6 +44,13 @@ const FONT_FAMILY_STORAGE_KEY = "okcode:font-family";
 const MEDIA_QUERY = "(prefers-color-scheme: dark)";
 export const DEFAULT_COLOR_THEME: ColorTheme = "carbon";
 
+const SERVER_SNAPSHOT: ThemeSnapshot = {
+  theme: "system",
+  systemDark: false,
+  colorTheme: DEFAULT_COLOR_THEME,
+  fontFamily: "inter",
+};
+
 let listeners: Array<() => void> = [];
 let lastSnapshot: ThemeSnapshot | null = null;
 let lastDesktopTheme: Theme | null = null;
@@ -209,6 +216,10 @@ function getSnapshot(): ThemeSnapshot {
   return lastSnapshot;
 }
 
+function getServerSnapshot(): ThemeSnapshot {
+  return SERVER_SNAPSHOT;
+}
+
 function subscribe(listener: () => void): () => void {
   listeners.push(listener);
 
@@ -241,7 +252,7 @@ function subscribe(listener: () => void): () => void {
 }
 
 export function useTheme() {
-  const snapshot = useSyncExternalStore(subscribe, getSnapshot);
+  const snapshot = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const theme = snapshot.theme;
   const colorTheme = snapshot.colorTheme;
   const fontFamily = snapshot.fontFamily;

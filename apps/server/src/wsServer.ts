@@ -1197,6 +1197,7 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
           .pipe(Effect.provideService(RuntimeEnv, gitEnv));
         const worktreeList = yield* git
           .execute({
+            operation: "GitCore.listMergedWorktreeCleanupCandidates.worktreeList",
             cwd: body.cwd,
             args: ["worktree", "list", "--porcelain"],
             timeoutMs: 5_000,
@@ -1381,6 +1382,7 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
         const gitEnv = yield* resolveRuntimeEnvironment({ cwd: body.cwd, readModel: snapshot });
         return yield* git
           .execute({
+            operation: "GitCore.pruneWorktrees",
             cwd: body.cwd,
             args: ["worktree", "prune", "--expire", "now"],
             timeoutMs: 15_000,

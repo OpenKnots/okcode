@@ -1973,14 +1973,7 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
             allowNonZeroExit: true,
             timeoutMs: 15_000,
           },
-        ).pipe(
-          Effect.catchAll((error) =>
-            Effect.logWarning("GitCore.removeWorktree: worktree prune failed", {
-              cwd: input.cwd,
-              error: error instanceof Error ? error.message : String(error),
-            }).pipe(Effect.asVoid),
-          ),
-        );
+        ).pipe(Effect.catch(() => Effect.void));
       });
 
     const renameBranch: GitCoreShape["renameBranch"] = (input) =>

@@ -95,6 +95,7 @@ import { OkCodeMark } from "./OkCodeMark";
 import {
   getVisibleThreadsForProject,
   isActionableThreadStatus,
+  resolveProjectNameTone,
   resolveSidebarNewThreadEnvMode,
   resolveThreadStatusPill,
   shouldClearThreadSelectionOnMouseDown,
@@ -556,6 +557,7 @@ export default function Sidebar() {
     () => new Map(threads.map((thread) => [thread.id, thread] as const)),
     [threads],
   );
+  const activeProjectId = routeThreadId ? (threadById.get(routeThreadId)?.projectId ?? null) : null;
   const sortedThreadsByProjectId = useMemo(
     () => sortThreadsByProjectIdForSidebar(threads, appSettings.sidebarThreadSortOrder),
     [appSettings.sidebarThreadSortOrder, threads],
@@ -1258,6 +1260,7 @@ export default function Sidebar() {
   function renderProjectItem(
     project: (typeof sortedProjects)[number],
     dragHandleProps: SortableProjectHandleProps | null,
+    visualIndex: number,
   ) {
     const projectThreads = sortedThreadsByProjectId.get(project.id) ?? EMPTY_THREADS;
     const activeThreadId = routeThreadId ?? undefined;
@@ -1277,6 +1280,10 @@ export default function Sidebar() {
     const renderedThreads = pinnedCollapsedThread ? [pinnedCollapsedThread] : visibleThreads;
     const pColor = getProjectColor(project.id);
     const isDark = resolvedTheme === "dark";
+    const projectNameTone = resolveProjectNameTone({
+      isSelectedProject: activeProjectId === project.id,
+      visualIndex,
+    });
 
     return (
       <Collapsible className="group/collapsible" open={shouldShowThreadPanel}>
@@ -1326,8 +1333,16 @@ export default function Sidebar() {
             ) : (
               <span className="min-w-0 flex-1">
                 <span
-                  className="block truncate text-xs font-semibold"
-                  style={{ color: isDark ? pColor.textDark : pColor.text }}
+                  className={cn(
+                    "block truncate text-xs font-semibold",
+                    projectNameTone === "mutedStrong" && "text-muted-foreground/72",
+                    projectNameTone === "mutedSoft" && "text-muted-foreground/48",
+                  )}
+                  style={
+                    projectNameTone === "project"
+                      ? { color: isDark ? pColor.textDark : pColor.text }
+                      : undefined
+                  }
                   onDoubleClick={(e) => {
                     e.stopPropagation();
                     startProjectEditing({
@@ -2020,9 +2035,9 @@ export default function Sidebar() {
                   items={sortedProjects.map((project) => project.id)}
                   strategy={verticalListSortingStrategy}
                 >
-                  {sortedProjects.map((project) => (
+                  {sortedProjects.map((project, index) => (
                     <SortableProjectItem key={project.id} projectId={project.id}>
-                      {(dragHandleProps) => renderProjectItem(project, dragHandleProps)}
+                      {(dragHandleProps) => renderProjectItem(project, dragHandleProps, index)}
                     </SortableProjectItem>
                   ))}
                 </SortableContext>
@@ -2030,9 +2045,9 @@ export default function Sidebar() {
             </DndContext>
           ) : (
             <SidebarMenu className="gap-0.5">
-              {sortedProjects.map((project) => (
+              {sortedProjects.map((project, index) => (
                 <SidebarMenuItem key={project.id} className="rounded-md">
-                  {renderProjectItem(project, null)}
+                  {renderProjectItem(project, null, index)}
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>

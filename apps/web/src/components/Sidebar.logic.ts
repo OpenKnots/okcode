@@ -113,6 +113,17 @@ export function resolveThreadRowClassName(input: {
   return cn(baseClassName, "text-muted-foreground hover:bg-accent hover:text-foreground");
 }
 
+export function resolveProjectNameTone(input: {
+  isSelectedProject: boolean;
+  visualIndex: number;
+}): "project" | "mutedStrong" | "mutedSoft" {
+  if (input.isSelectedProject) {
+    return "project";
+  }
+
+  return input.visualIndex % 2 === 0 ? "mutedStrong" : "mutedSoft";
+}
+
 export function resolveThreadStatusPill(input: {
   thread: ThreadStatusInput;
   hasPendingApprovals: boolean;

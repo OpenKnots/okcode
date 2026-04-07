@@ -6,6 +6,7 @@ import {
   getProjectSortTimestamp,
   hasUnseenCompletion,
   resolveProjectStatusIndicator,
+  resolveProjectNameTone,
   resolveSidebarNewThreadEnvMode,
   resolveThreadRowClassName,
   resolveThreadStatusPill,
@@ -312,6 +313,22 @@ describe("resolveThreadRowClassName", () => {
     const className = resolveThreadRowClassName({ isActive: true, isSelected: false });
     expect(className).toContain("bg-accent/85");
     expect(className).toContain("hover:bg-accent");
+  });
+});
+
+describe("resolveProjectNameTone", () => {
+  it("keeps the selected project name on its assigned project color", () => {
+    expect(resolveProjectNameTone({ isSelectedProject: true, visualIndex: 3 })).toBe("project");
+  });
+
+  it("starts inactive project names on the stronger muted grey", () => {
+    expect(resolveProjectNameTone({ isSelectedProject: false, visualIndex: 0 })).toBe(
+      "mutedStrong",
+    );
+  });
+
+  it("alternates inactive project names to a softer muted grey on the next row", () => {
+    expect(resolveProjectNameTone({ isSelectedProject: false, visualIndex: 1 })).toBe("mutedSoft");
   });
 });
 

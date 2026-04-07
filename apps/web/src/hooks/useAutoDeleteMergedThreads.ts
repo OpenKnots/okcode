@@ -81,7 +81,6 @@ export function useAutoDeleteMergedThreads(settings: AppSettings) {
         const threadTitle = thread.title || `Thread ${thread.id.slice(0, 8)}`;
         const minutesLabel = delayMinutes === 1 ? "1 minute" : `${delayMinutes} minutes`;
         const threadProject = projects.find((project) => project.id === thread.projectId) ?? null;
-        const displayWorktreePath = formatWorktreePathForDisplay(orphanedWorktreePath);
 
         const toastId = toastManager.add({
           type: "info",
@@ -120,6 +119,13 @@ export function useAutoDeleteMergedThreads(settings: AppSettings) {
                 type: "success",
                 title: "Merged thread deleted",
                 description: `"${threadTitle}" was auto-deleted after its PR was merged.`,
+              });
+            } catch (error) {
+              toastManager.add({
+                type: "error",
+                title: "Auto-delete failed",
+                description:
+                  error instanceof Error ? error.message : "Could not delete the merged thread.",
               });
             } finally {
               timersRef.current.delete(thread.id);

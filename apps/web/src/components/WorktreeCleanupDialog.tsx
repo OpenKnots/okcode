@@ -4,6 +4,7 @@ import { GitMergeIcon, LoaderCircleIcon, Trash2Icon } from "lucide-react";
 import { useMemo } from "react";
 
 import { useStore } from "~/store";
+import { useHandleNewThread } from "~/hooks/useHandleNewThread";
 import {
   gitMergedWorktreeCleanupCandidatesQueryOptions,
   gitPruneWorktreesMutationOptions,
@@ -37,16 +38,16 @@ function resolveWorktreeUsageCount(
 export function WorktreeCleanupDialog() {
   const open = useWorktreeCleanupStore((state) => state.open);
   const closeDialog = useWorktreeCleanupStore((state) => state.closeDialog);
+  const { activeThread } = useHandleNewThread();
   const threads = useStore((state) => state.threads);
   const projects = useStore((state) => state.projects);
   const queryClient = useQueryClient();
   const activeProject = useMemo(() => {
-    const firstThread = threads[0];
-    if (firstThread) {
-      return projects.find((project) => project.id === firstThread.projectId) ?? projects[0] ?? null;
+    if (activeThread) {
+      return projects.find((project) => project.id === activeThread.projectId) ?? projects[0] ?? null;
     }
     return projects[0] ?? null;
-  }, [projects, threads]);
+  }, [activeThread, projects]);
   const cwd = activeProject?.cwd ?? null;
   const threadWorktreePaths = useMemo(
     () => threads.map((thread) => thread.worktreePath),
@@ -133,7 +134,7 @@ export function WorktreeCleanupDialog() {
                   const usageCount = resolveWorktreeUsageCount(candidate, threadWorktreePaths);
                   const displayPath = formatWorktreePathForDisplay(candidate.path);
                   const canDelete = usageCount === 0;
-                  const actionLabel = candidate.pathExists ? "Delete worktree" : "Prune record";
+                  const actionLabel = candidate.pathExists ? "Delete worktree" : "Prune stale records";
 
                   return (
                     <Card

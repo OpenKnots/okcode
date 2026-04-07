@@ -1385,7 +1385,7 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
             args: ["worktree", "prune", "--expire", "now"],
             timeoutMs: 15_000,
           })
-          .pipe(Effect.provideService(RuntimeEnv, gitEnv));
+          .pipe(Effect.provideService(RuntimeEnv, gitEnv), Effect.asVoid);
       }
 
       case WS_METHODS.gitCreateBranch: {

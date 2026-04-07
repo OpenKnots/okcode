@@ -1,4 +1,6 @@
-import type { Thread } from "./types";
+import type { GitWorktreeCleanupCandidate, ThreadId } from "@okcode/contracts";
+
+import type { Project, Thread } from "./types";
 
 function normalizeWorktreePath(path: string | null): string | null {
   const trimmed = path?.trim();
@@ -30,6 +32,44 @@ export function getOrphanedWorktreePathForThread(
   });
 
   return isShared ? null : targetWorktreePath;
+}
+
+export function resolveWorktreeCleanupProjectCwd(input: {
+  activeThreadId: ThreadId | null | undefined;
+  projects: readonly Pick<Project, "id" | "cwd">[];
+  threads: readonly Pick<Thread, "id" | "projectId">[];
+}): string | null {
+  if (input.activeThreadId) {
+    const activeThread = input.threads.find((thread) => thread.id === input.activeThreadId);
+    if (activeThread) {
+      const activeProject = input.projects.find((project) => project.id === activeThread.projectId);
+      if (activeProject) {
+        return activeProject.cwd;
+      }
+    }
+  }
+
+  return input.projects[0]?.cwd ?? null;
+}
+
+export interface WorktreeCleanupCandidateState {
+  readonly candidate: GitWorktreeCleanupCandidate;
+  readonly usageCount: number;
+  readonly canDelete: boolean;
+}
+
+export function buildWorktreeCleanupCandidateStates(input: {
+  candidates: readonly GitWorktreeCleanupCandidate[];
+  threadWorktreePaths: readonly (string | null)[];
+}): WorktreeCleanupCandidateState[] {
+  return input.candidates.map((candidate) => {
+    const usageCount = input.threadWorktreePaths.filter((path) => path === candidate.path).length;
+    return {
+      candidate,
+      usageCount,
+      canDelete: usageCount === 0,
+    };
+  });
 }
 
 /**

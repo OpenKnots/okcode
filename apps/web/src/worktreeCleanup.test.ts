@@ -3,9 +3,11 @@ import { describe, expect, it } from "vitest";
 
 import { DEFAULT_INTERACTION_MODE, DEFAULT_RUNTIME_MODE, type Thread } from "./types";
 import {
+  buildWorktreeCleanupCandidateStates,
   formatBranchAge,
   formatWorktreePathForDisplay,
   getOrphanedWorktreePathForThread,
+  resolveWorktreeCleanupProjectCwd,
 } from "./worktreeCleanup";
 
 function makeThread(overrides: Partial<Thread> = {}): Thread {
@@ -77,6 +79,111 @@ describe("getOrphanedWorktreePathForThread", () => {
     ];
     const result = getOrphanedWorktreePathForThread(threads, ThreadId.makeUnsafe("thread-1"));
     expect(result).toBe("/tmp/repo/worktrees/feature-a");
+  });
+});
+
+describe("resolveWorktreeCleanupProjectCwd", () => {
+  const projectA = {
+    id: ProjectId.makeUnsafe("project-a"),
+    cwd: "/repo-a",
+  };
+  const projectB = {
+    id: ProjectId.makeUnsafe("project-b"),
+    cwd: "/repo-b",
+  };
+
+  it("prefers the active thread's project cwd", () => {
+    const result = resolveWorktreeCleanupProjectCwd({
+      activeThreadId: ThreadId.makeUnsafe("thread-2"),
+      projects: [projectA, projectB],
+      threads: [
+        { id: ThreadId.makeUnsafe("thread-1"), projectId: projectA.id },
+        { id: ThreadId.makeUnsafe("thread-2"), projectId: projectB.id },
+      ],
+    });
+
+    expect(result).toBe("/repo-b");
+  });
+
+  it("falls back to the first project when there is no active thread", () => {
+    const result = resolveWorktreeCleanupProjectCwd({
+      activeThreadId: null,
+      projects: [projectA, projectB],
+      threads: [],
+    });
+
+    expect(result).toBe("/repo-a");
+  });
+
+  it("returns null when there are no projects", () => {
+    const result = resolveWorktreeCleanupProjectCwd({
+      activeThreadId: null,
+      projects: [],
+      threads: [],
+    });
+
+    expect(result).toBeNull();
+  });
+});
+
+describe("buildWorktreeCleanupCandidateStates", () => {
+  it("marks candidates linked to threads as unavailable for deletion", () => {
+    const states = buildWorktreeCleanupCandidateStates({
+      candidates: [
+        {
+          path: "/repo/worktrees/feature-a",
+          branch: "feature-a",
+          prNumber: 12,
+          prTitle: "Feature A",
+          prUrl: "https://example.com/pr/12",
+          mergedAt: "2026-04-06T12:00:00.000Z",
+          pathExists: true,
+          prunable: false,
+        },
+        {
+          path: "/repo/worktrees/feature-b",
+          branch: "feature-b",
+          prNumber: 13,
+          prTitle: "Feature B",
+          prUrl: "https://example.com/pr/13",
+          mergedAt: "2026-04-06T12:00:00.000Z",
+          pathExists: false,
+          prunable: true,
+        },
+      ],
+      threadWorktreePaths: ["/repo/worktrees/feature-a", null],
+    });
+
+    expect(states).toEqual([
+      {
+        candidate: {
+          path: "/repo/worktrees/feature-a",
+          branch: "feature-a",
+          prNumber: 12,
+          prTitle: "Feature A",
+          prUrl: "https://example.com/pr/12",
+          mergedAt: "2026-04-06T12:00:00.000Z",
+          pathExists: true,
+          prunable: false,
+        },
+        usageCount: 1,
+        canDelete: false,
+      },
+      {
+        candidate: {
+          path: "/repo/worktrees/feature-b",
+          branch: "feature-b",
+          prNumber: 13,
+          prTitle: "Feature B",
+          prUrl: "https://example.com/pr/13",
+          mergedAt: "2026-04-06T12:00:00.000Z",
+          pathExists: false,
+          prunable: true,
+        },
+        usageCount: 0,
+        canDelete: true,
+      },
+    ]);
   });
 });
 

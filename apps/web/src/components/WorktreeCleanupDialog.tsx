@@ -1,20 +1,21 @@
-import type { GitWorktreeCleanupCandidate } from "@okcode/contracts";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { GitMergeIcon, LoaderCircleIcon, Trash2Icon } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
+import { useCurrentWorktreeCleanupCandidates } from "~/hooks/useCurrentWorktreeCleanupCandidates";
+import { gitRemoveWorktreeMutationOptions } from "~/lib/gitReactQuery";
+import { readNativeApi } from "~/nativeApi";
 import { useStore } from "~/store";
-import { useHandleNewThread } from "~/hooks/useHandleNewThread";
 import {
-  gitMergedWorktreeCleanupCandidatesQueryOptions,
-  gitPruneWorktreesMutationOptions,
-  gitRemoveWorktreeMutationOptions,
-} from "~/lib/gitReactQuery";
-import { formatBranchAge, formatWorktreePathForDisplay } from "~/worktreeCleanup";
+  buildWorktreeCleanupCandidateStates,
+  formatBranchAge,
+  formatWorktreePathForDisplay,
+  type WorktreeCleanupCandidateState,
+} from "~/worktreeCleanup";
 import { useWorktreeCleanupStore } from "~/worktreeCleanupStore";
-import { toastManager } from "./ui/toast";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
+import { Card, CardContent } from "./ui/card";
 import {
   Dialog,
   DialogDescription,
@@ -24,100 +25,160 @@ import {
   DialogPopup,
   DialogTitle,
 } from "./ui/dialog";
-import { Separator } from "./ui/separator";
 import { ScrollArea } from "./ui/scroll-area";
-import { Card, CardContent } from "./ui/card";
-
-function resolveWorktreeUsageCount(
-  candidate: GitWorktreeCleanupCandidate,
-  threadWorktreePaths: readonly (string | null)[],
-): number {
-  return threadWorktreePaths.filter((path) => path === candidate.path).length;
-}
+import { Separator } from "./ui/separator";
+import { toastManager } from "./ui/toast";
 
 export function WorktreeCleanupDialog() {
   const open = useWorktreeCleanupStore((state) => state.open);
   const closeDialog = useWorktreeCleanupStore((state) => state.closeDialog);
-  const { activeThread } = useHandleNewThread();
   const threads = useStore((state) => state.threads);
-  const projects = useStore((state) => state.projects);
   const queryClient = useQueryClient();
-  const activeProject = useMemo(() => {
-    if (activeThread) {
-      return (
-        projects.find((project) => project.id === activeThread.projectId) ?? projects[0] ?? null
-      );
-    }
-    return projects[0] ?? null;
-  }, [activeThread, projects]);
-  const cwd = activeProject?.cwd ?? null;
+  const [isDeletingAll, setIsDeletingAll] = useState(false);
+  const { candidates, candidatesQuery, cwd } = useCurrentWorktreeCleanupCandidates();
   const threadWorktreePaths = useMemo(
     () => threads.map((thread) => thread.worktreePath),
     [threads],
   );
 
-  const candidatesQuery = useQuery(gitMergedWorktreeCleanupCandidatesQueryOptions(cwd));
   const removeWorktreeMutation = useMutation(gitRemoveWorktreeMutationOptions({ queryClient }));
-  const pruneWorktreesMutation = useMutation(gitPruneWorktreesMutationOptions({ queryClient }));
-
-  const candidates = Array.isArray(candidatesQuery.data) ? candidatesQuery.data : [];
-  const hasCandidates = candidates.length > 0;
-  const isBusy = removeWorktreeMutation.isPending || pruneWorktreesMutation.isPending;
-
-  const staleCandidates = useMemo(
+  const candidateStates = useMemo(
     () =>
-      candidates.filter(
-        (c) => !c.pathExists && resolveWorktreeUsageCount(c, threadWorktreePaths) === 0,
-      ),
+      buildWorktreeCleanupCandidateStates({
+        candidates,
+        threadWorktreePaths,
+      }),
     [candidates, threadWorktreePaths],
   );
-  const hasStaleCandidates = staleCandidates.length > 0;
+  const actionableCandidateStates = useMemo(
+    () => candidateStates.filter((state) => state.canDelete),
+    [candidateStates],
+  );
+  const onDiskCandidateCount = actionableCandidateStates.filter(
+    (state) => state.candidate.pathExists,
+  ).length;
+  const staleCandidateCount = actionableCandidateStates.length - onDiskCandidateCount;
+  const hasCandidates = candidateStates.length > 0;
+  const isBusy = isDeletingAll || removeWorktreeMutation.isPending;
 
   const handleClose = () => {
     closeDialog();
   };
 
-  const handlePruneAllStale = async () => {
-    if (!cwd || !hasStaleCandidates) return;
+  const handleRemoveCandidate = async (candidateState: WorktreeCleanupCandidateState) => {
+    if (!cwd || !candidateState.canDelete) return;
+
     try {
-      await pruneWorktreesMutation.mutateAsync({ cwd });
-      toastManager.add({
-        type: "success",
-        title: "Stale records pruned",
-        description: `Pruned ${staleCandidates.length} stale worktree record${staleCandidates.length === 1 ? "" : "s"}.`,
+      await removeWorktreeMutation.mutateAsync({
+        cwd,
+        path: candidateState.candidate.path,
+        force: true,
       });
     } catch (error) {
       toastManager.add({
         type: "error",
-        title: "Could not prune stale records",
+        title: candidateState.candidate.pathExists
+          ? "Could not delete worktree"
+          : "Could not remove stale record",
         description: error instanceof Error ? error.message : "Unknown error.",
       });
     }
   };
 
-  const handleRemoveCandidate = async (candidate: GitWorktreeCleanupCandidate) => {
-    if (!cwd) return;
-    const usageCount = resolveWorktreeUsageCount(candidate, threadWorktreePaths);
-    if (usageCount > 0) return;
+  const handleDeleteAll = async () => {
+    if (!cwd || actionableCandidateStates.length === 0) return;
 
+    const skippedCount = candidateStates.length - actionableCandidateStates.length;
+    const summaryLines = ["Delete all available cleanup candidates?"];
+    const effects: string[] = [];
+    if (onDiskCandidateCount > 0) {
+      effects.push(
+        `delete ${onDiskCandidateCount} worktree${onDiskCandidateCount === 1 ? "" : "s"} on disk`,
+      );
+    }
+    if (staleCandidateCount > 0) {
+      effects.push(
+        `remove ${staleCandidateCount} stale Git record${staleCandidateCount === 1 ? "" : "s"}`,
+      );
+    }
+    if (effects.length > 0) {
+      summaryLines.push(`${effects.join(" and ")}.`);
+    }
+    if (skippedCount > 0) {
+      summaryLines.push(
+        `Skip ${skippedCount} candidate${skippedCount === 1 ? "" : "s"} still linked to thread${skippedCount === 1 ? "" : "s"}.`,
+      );
+    }
+    summaryLines.push("This cannot be undone.");
+
+    const api = readNativeApi();
+    const confirmMessage = summaryLines.join("\n");
+    const confirmed = api
+      ? await api.dialogs.confirm(confirmMessage)
+      : window.confirm(confirmMessage);
+    if (!confirmed) {
+      return;
+    }
+
+    setIsDeletingAll(true);
+    let deletedOnDiskCount = 0;
+    let deletedStaleCount = 0;
     try {
-      if (candidate.pathExists) {
+      for (const candidateState of actionableCandidateStates) {
         await removeWorktreeMutation.mutateAsync({
           cwd,
-          path: candidate.path,
+          path: candidateState.candidate.path,
           force: true,
         });
-      } else {
-        await pruneWorktreesMutation.mutateAsync({ cwd });
+        if (candidateState.candidate.pathExists) {
+          deletedOnDiskCount += 1;
+        } else {
+          deletedStaleCount += 1;
+        }
       }
+
+      const completedParts: string[] = [];
+      if (deletedOnDiskCount > 0) {
+        completedParts.push(
+          `Deleted ${deletedOnDiskCount} worktree${deletedOnDiskCount === 1 ? "" : "s"}`,
+        );
+      }
+      if (deletedStaleCount > 0) {
+        completedParts.push(
+          `removed ${deletedStaleCount} stale Git record${deletedStaleCount === 1 ? "" : "s"}`,
+        );
+      }
+      if (skippedCount > 0) {
+        completedParts.push(
+          `skipped ${skippedCount} candidate${skippedCount === 1 ? "" : "s"} still linked to thread${skippedCount === 1 ? "" : "s"}`,
+        );
+      }
+
+      toastManager.add({
+        type: "success",
+        title: "Cleanup complete",
+        description: `${completedParts.join("; ")}.`,
+      });
     } catch (error) {
+      const completedParts: string[] = [];
+      if (deletedOnDiskCount > 0) {
+        completedParts.push(
+          `Deleted ${deletedOnDiskCount} worktree${deletedOnDiskCount === 1 ? "" : "s"}`,
+        );
+      }
+      if (deletedStaleCount > 0) {
+        completedParts.push(
+          `removed ${deletedStaleCount} stale Git record${deletedStaleCount === 1 ? "" : "s"}`,
+        );
+      }
+
       toastManager.add({
         type: "error",
-        title: candidate.pathExists
-          ? "Could not delete worktree"
-          : "Could not prune worktree record",
-        description: error instanceof Error ? error.message : "Unknown error.",
+        title: "Cleanup stopped before finishing",
+        description: `${completedParts.length > 0 ? `${completedParts.join("; ")} before the failure. ` : ""}${error instanceof Error ? error.message : "Unknown error."}`,
       });
+    } finally {
+      setIsDeletingAll(false);
     }
   };
 
@@ -128,7 +189,7 @@ export function WorktreeCleanupDialog() {
           <DialogTitle>Merged worktree cleanup</DialogTitle>
           <DialogDescription>
             Review worktrees whose pull requests are already merged. Delete the worktree if it is
-            still on disk, or prune the stale Git record if it is already missing.
+            still on disk, or remove the stale Git record if it is already missing.
           </DialogDescription>
         </DialogHeader>
         <DialogPanel className="px-4 pb-4 sm:px-6">
@@ -161,13 +222,12 @@ export function WorktreeCleanupDialog() {
           ) : (
             <ScrollArea className="max-h-[60vh] pr-1" scrollbarGutter>
               <div className="space-y-3">
-                {candidates.map((candidate, index) => {
-                  const usageCount = resolveWorktreeUsageCount(candidate, threadWorktreePaths);
+                {candidateStates.map((candidateState, index) => {
+                  const { candidate, canDelete, usageCount } = candidateState;
                   const displayPath = formatWorktreePathForDisplay(candidate.path);
-                  const canDelete = usageCount === 0;
                   const actionLabel = candidate.pathExists
                     ? "Delete worktree"
-                    : "Prune stale records";
+                    : "Delete stale record";
 
                   return (
                     <Card
@@ -233,7 +293,7 @@ export function WorktreeCleanupDialog() {
                               variant="destructive-outline"
                               size="sm"
                               disabled={!canDelete || isBusy}
-                              onClick={() => void handleRemoveCandidate(candidate)}
+                              onClick={() => void handleRemoveCandidate(candidateState)}
                             >
                               {isBusy ? (
                                 <LoaderCircleIcon className="size-3.5 animate-spin" />
@@ -244,7 +304,9 @@ export function WorktreeCleanupDialog() {
                             </Button>
                           </div>
                         </div>
-                        {index < candidates.length - 1 ? <Separator className="mt-4" /> : null}
+                        {index < candidateStates.length - 1 ? (
+                          <Separator className="mt-4" />
+                        ) : null}
                       </CardContent>
                     </Card>
                   );
@@ -256,22 +318,22 @@ export function WorktreeCleanupDialog() {
         <DialogFooter variant="bare">
           <div className="flex w-full items-center justify-between gap-3">
             <div className="text-xs text-muted-foreground">
-              {candidates.length} candidate{candidates.length === 1 ? "" : "s"} found
+              {candidateStates.length} candidate{candidateStates.length === 1 ? "" : "s"} found
             </div>
             <div className="flex items-center gap-2">
-              {hasStaleCandidates ? (
+              {actionableCandidateStates.length > 0 ? (
                 <Button
                   variant="destructive-outline"
                   size="sm"
                   disabled={isBusy}
-                  onClick={() => void handlePruneAllStale()}
+                  onClick={() => void handleDeleteAll()}
                 >
-                  {pruneWorktreesMutation.isPending ? (
+                  {isDeletingAll ? (
                     <LoaderCircleIcon className="size-3.5 animate-spin" />
                   ) : (
                     <Trash2Icon className="size-3.5" />
                   )}
-                  Prune all stale ({staleCandidates.length})
+                  Delete all ({actionableCandidateStates.length})
                 </Button>
               ) : null}
               <Button variant="outline" size="sm" onClick={handleClose}>

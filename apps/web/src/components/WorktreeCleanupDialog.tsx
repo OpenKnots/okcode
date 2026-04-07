@@ -60,7 +60,7 @@ export function WorktreeCleanupDialog() {
   const removeWorktreeMutation = useMutation(gitRemoveWorktreeMutationOptions({ queryClient }));
   const pruneWorktreesMutation = useMutation(gitPruneWorktreesMutationOptions({ queryClient }));
 
-  const candidates = candidatesQuery.data ?? [];
+  const candidates = Array.isArray(candidatesQuery.data) ? candidatesQuery.data : [];
   const hasCandidates = candidates.length > 0;
   const isBusy = removeWorktreeMutation.isPending || pruneWorktreesMutation.isPending;
 

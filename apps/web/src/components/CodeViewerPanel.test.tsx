@@ -230,6 +230,7 @@ describe("CodeViewerFileContent", () => {
       data: {
         relativePath: "photo.heic",
         contents: "",
+        hasTextContents: false,
         truncated: false,
         sizeBytes: 32,
         previewDataUrl: "data:image/heic;base64,AAAA",
@@ -281,6 +282,7 @@ describe("CodeViewerFileContent", () => {
       data: {
         relativePath: "icon.svg",
         contents: "<svg />",
+        hasTextContents: true,
         truncated: false,
         sizeBytes: 7,
         previewDataUrl: "data:image/svg+xml;base64,PHN2ZyAvPg==",

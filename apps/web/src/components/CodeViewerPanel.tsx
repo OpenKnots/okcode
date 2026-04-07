@@ -34,13 +34,21 @@ const AUTOSAVE_DELAY_MS = 750;
 const MANUAL_SAVE_SUCCESS_FLASH_MS = 2200;
 
 function hasTextContentsFromQuery(
-  data: { contents?: string | null } | undefined,
+  data: { contents?: string | null; hasTextContents?: boolean } | undefined,
 ): data is { contents: string } {
+  if (data?.hasTextContents === false) {
+    return false;
+  }
   return typeof data?.contents === "string";
 }
 
 function hasPreviewFromQuery(
-  data: { previewDataUrl?: string | null; previewMimeType?: string | null } | undefined,
+  data:
+    | {
+        previewDataUrl?: string | null | undefined;
+        previewMimeType?: string | null | undefined;
+      }
+    | undefined,
 ): data is { previewDataUrl: string; previewMimeType: string } {
   return typeof data?.previewDataUrl === "string" && typeof data?.previewMimeType === "string";
 }
@@ -446,7 +454,7 @@ export const CodeViewerFileContent = memo(function CodeViewerFileContent(
     );
   }
 
-  if (!hasTextContents && !hasImage) {
+  if (!hasTextContents && preview === null) {
     return (
       <div className="flex flex-1 items-center justify-center px-5 text-center text-xs text-muted-foreground/70">
         No content available.

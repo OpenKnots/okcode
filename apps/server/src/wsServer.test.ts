@@ -54,6 +54,7 @@ import type { GitCoreShape } from "./git/Services/GitCore.ts";
 import { GitCore } from "./git/Services/GitCore.ts";
 import { GitActionExecutionError, GitCommandError } from "./git/Errors.ts";
 import { MigrationError } from "@effect/sql-sqlite-bun/SqliteMigrator";
+import { serverBuildInfo } from "./buildInfo";
 
 const asEventId = (value: string): EventId => EventId.makeUnsafe(value);
 const asProviderItemId = (value: string): ProviderItemId => ProviderItemId.makeUnsafe(value);
@@ -80,6 +81,11 @@ const defaultProviderStatuses: ReadonlyArray<ServerProviderStatus> = [
 const defaultProviderHealthService: ProviderHealthShape = {
   getStatuses: Effect.succeed(defaultProviderStatuses),
 };
+
+const expectedServerBuildInfo = expect.objectContaining({
+  surface: "server",
+  version: serverBuildInfo.version,
+});
 
 class MockTerminalManager implements TerminalManagerShape {
   private readonly sessions = new Map<string, TerminalSessionSnapshot>();
@@ -873,10 +879,7 @@ describe("WebSocket Server", () => {
       issues: [],
       providers: defaultProviderStatuses,
       availableEditors: expect.any(Array),
-      buildInfo: expect.objectContaining({
-        surface: "server",
-        version: "0.16.0",
-      }),
+      buildInfo: expectedServerBuildInfo,
     });
     expectAvailableEditors((response.result as { availableEditors: unknown }).availableEditors);
   });
@@ -903,10 +906,7 @@ describe("WebSocket Server", () => {
       issues: [],
       providers: defaultProviderStatuses,
       availableEditors: expect.any(Array),
-      buildInfo: expect.objectContaining({
-        surface: "server",
-        version: "0.16.0",
-      }),
+      buildInfo: expectedServerBuildInfo,
     });
     expectAvailableEditors((response.result as { availableEditors: unknown }).availableEditors);
 
@@ -944,10 +944,7 @@ describe("WebSocket Server", () => {
       ],
       providers: defaultProviderStatuses,
       availableEditors: expect.any(Array),
-      buildInfo: expect.objectContaining({
-        surface: "server",
-        version: "0.16.0",
-      }),
+      buildInfo: expectedServerBuildInfo,
     });
     expectAvailableEditors((response.result as { availableEditors: unknown }).availableEditors);
     expect(fs.readFileSync(keybindingsPath, "utf8")).toBe("{ not-json");
@@ -1164,10 +1161,7 @@ describe("WebSocket Server", () => {
       issues: [],
       providers: defaultProviderStatuses,
       availableEditors: expect.any(Array),
-      buildInfo: expect.objectContaining({
-        surface: "server",
-        version: "0.16.0",
-      }),
+      buildInfo: expectedServerBuildInfo,
     });
     expectAvailableEditors((response.result as { availableEditors: unknown }).availableEditors);
   });
@@ -1217,10 +1211,7 @@ describe("WebSocket Server", () => {
       issues: [],
       providers: defaultProviderStatuses,
       availableEditors: expect.any(Array),
-      buildInfo: expect.objectContaining({
-        surface: "server",
-        version: "0.16.0",
-      }),
+      buildInfo: expectedServerBuildInfo,
     });
     expectAvailableEditors(
       (configResponse.result as { availableEditors: unknown }).availableEditors,

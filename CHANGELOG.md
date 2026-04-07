@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-04-07
+
+See [docs/releases/v0.17.0.md](docs/releases/v0.17.0.md) for full notes and [docs/releases/v0.17.0/assets.md](docs/releases/v0.17.0/assets.md) for release asset inventory.
+
+### Added
+
+- Add stale worktree pruning controls in the sidebar.
+- Add merged worktree cleanup flow and cleanup dialog.
+- Add floating chat widget shell for the mobile layout.
+- Add cached syntax highlighting for chat diffs.
+- Add copy buttons to assistant responses.
+- Add collapsible diff file headers.
+- Add PR review workspace helper scripts.
+- Add persistent saved layout preferences.
+
+### Changed
+
+- Unify the right panel into tabbed Files, Editor, and Diffs views.
+- Open terminal file links directly in the code viewer.
+- Show an open-diff action when file summaries are unavailable.
+- Import package scripts when creating projects.
+- Improve sidebar thread shortcuts, header spacing, controls, and project-header contrast.
+- Remove sidebar blur and side-panel hint text from code viewers.
+- Tighten preview blocking so empty toast overlays do not hide the browser preview.
+- Shorten chat shortcut guide titles.
+- Add PR request-changes tone setting support.
+- Prevent the review pane from scrolling independently.
+- Streamline thread UI and desktop build packaging.
+
+### Fixed
+
+- Fix theme hydration and terminal and file navigation stability.
+- Fix desktop release packaging regressions before ship.
+
 ## [0.16.1] - 2026-04-06
 
 See [docs/releases/v0.16.1.md](docs/releases/v0.16.1.md) for full notes and [docs/releases/v0.16.1/assets.md](docs/releases/v0.16.1/assets.md) for release asset inventory.
@@ -517,3 +551,4 @@ First public version tag. See [docs/releases/v0.0.1.md](docs/releases/v0.0.1.md)
 [0.14.0]: https://github.com/OpenKnots/okcode/releases/tag/v0.14.0
 [0.13.0]: https://github.com/OpenKnots/okcode/releases/tag/v0.13.0
 [0.16.1]: https://github.com/OpenKnots/okcode/releases/tag/v0.16.1
+[0.17.0]: https://github.com/OpenKnots/okcode/releases/tag/v0.17.0

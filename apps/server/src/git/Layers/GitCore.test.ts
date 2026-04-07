@@ -1190,6 +1190,33 @@ it.layer(TestLayer)("git integration", (it) => {
         expect(existsSync(wtPath)).toBe(false);
       }),
     );
+
+    it.effect("removeGitWorktree force removes a missing worktree record", () =>
+      Effect.gen(function* () {
+        const tmp = yield* makeTmpDir();
+        yield* initRepoWithCommit(tmp);
+
+        const wtPath = path.join(tmp, "wt-missing-dir");
+        const currentBranch = (yield* (yield* GitCore).listBranches({ cwd: tmp })).branches.find(
+          (b) => b.current,
+        )!.name;
+
+        yield* (yield* GitCore).createWorktree({
+          cwd: tmp,
+          branch: currentBranch,
+          newBranch: "wt-missing",
+          path: wtPath,
+        });
+        expect(existsSync(wtPath)).toBe(true);
+
+        fs.rmSync(wtPath, { recursive: true, force: true });
+
+        yield* (yield* GitCore).removeWorktree({ cwd: tmp, path: wtPath, force: true });
+
+        const worktreeList = yield* git(tmp, ["worktree", "list", "--porcelain"]);
+        expect(worktreeList).not.toContain(wtPath);
+      }),
+    );
   });
 
   // ── Full flow: local branch checkout ──

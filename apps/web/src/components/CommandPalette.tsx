@@ -22,6 +22,7 @@ import { cn } from "~/lib/utils";
 import { useStore } from "~/store";
 import { useCommandPaletteStore } from "~/commandPaletteStore";
 import { useHandleNewThread } from "~/hooks/useHandleNewThread";
+import { useCurrentWorktreeCleanupCandidates } from "~/hooks/useCurrentWorktreeCleanupCandidates";
 import { useTheme } from "~/hooks/useTheme";
 import { useWorktreeCleanupStore } from "~/worktreeCleanupStore";
 import {
@@ -144,6 +145,7 @@ function CommandsView() {
   const pushMruThread = useCommandPaletteStore((s) => s.pushMruThread);
   const mruThreadIds = useCommandPaletteStore((s) => s.mruThreadIds);
   const openWorktreeCleanupDialog = useWorktreeCleanupStore((s) => s.openDialog);
+  const { hasCandidates: hasWorktreeCleanupCandidates } = useCurrentWorktreeCleanupCandidates();
   const routeThreadId = useParams({
     strict: false,
     select: (params) => (params.threadId ? ThreadId.makeUnsafe(params.threadId) : null),
@@ -282,7 +284,7 @@ function CommandsView() {
       keywords: ["cleanup", "delete", "prune", "merged", "worktree", "git"],
       icon: GitMergeIcon,
       group: "Actions",
-      hidden: !currentProjectId,
+      hidden: !currentProjectId || !hasWorktreeCleanupCandidates,
       onSelect: () => {
         closePalette();
         openWorktreeCleanupDialog();
@@ -374,6 +376,7 @@ function CommandsView() {
     pushMruProject,
     pushMruThread,
     openWorktreeCleanupDialog,
+    hasWorktreeCleanupCandidates,
   ]);
 
   // Filter commands by query

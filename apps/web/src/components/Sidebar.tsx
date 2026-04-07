@@ -50,6 +50,7 @@ import { CloneRepositoryDialog } from "~/components/CloneRepositoryDialog";
 import { EditableThreadTitle } from "~/components/EditableThreadTitle";
 import { useClientMode } from "~/hooks/useClientMode";
 import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
+import { useCurrentWorktreeCleanupCandidates } from "~/hooks/useCurrentWorktreeCleanupCandidates";
 import { useProjectTitleEditor } from "~/hooks/useProjectTitleEditor";
 import { useTheme } from "~/hooks/useTheme";
 import { useThreadTitleEditor } from "~/hooks/useThreadTitleEditor";
@@ -290,7 +291,7 @@ interface MemoizedThreadRowProps {
   isActive: boolean;
   isSelected: boolean;
   prByThreadId: Map<ThreadIdType, ThreadPr>;
-  orderedProjectThreadIds: ThreadIdType[];
+  orderedProjectThreadIds: readonly ThreadIdType[];
   selectedThreadIds: ReadonlySet<ThreadIdType>;
   editingThreadId: ThreadIdType | null;
   editingThreadTitle: string;
@@ -489,6 +490,7 @@ export default function Sidebar() {
     ...serverConfigQueryOptions(),
     select: (config) => config.keybindings,
   });
+  const { hasCandidates: hasWorktreeCleanupCandidates } = useCurrentWorktreeCleanupCandidates();
   const queryClient = useQueryClient();
   const removeWorktreeMutation = useMutation(gitRemoveWorktreeMutationOptions({ queryClient }));
   const openWorktreeCleanupDialog = useWorktreeCleanupStore((s) => s.openDialog);
@@ -2060,16 +2062,18 @@ export default function Sidebar() {
                   <span className="text-xs">Open Workspace</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  size="sm"
-                  className="gap-2 px-2 py-1.5 text-muted-foreground/70 hover:bg-accent hover:text-foreground"
-                  onClick={() => openWorktreeCleanupDialog()}
-                >
-                  <GitMergeIcon className="size-3.5" />
-                  <span className="text-xs">Worktree cleanup</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              {hasWorktreeCleanupCandidates ? (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    size="sm"
+                    className="gap-2 px-2 py-1.5 text-muted-foreground/70 hover:bg-accent hover:text-foreground"
+                    onClick={() => openWorktreeCleanupDialog()}
+                  >
+                    <GitMergeIcon className="size-3.5" />
+                    <span className="text-xs">Worktree cleanup</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ) : null}
               <SidebarMenuItem>
                 <SidebarMenuButton
                   size="sm"

@@ -204,10 +204,8 @@ import {
   renderProviderTraitsMenuContent,
   renderProviderTraitsPicker,
 } from "./chat/composerProviderRegistry";
-import { ProviderHealthBanner } from "./chat/ProviderHealthBanner";
-import { CompanionConnectionBanner } from "./chat/CompanionConnectionBanner";
 import { MobileThreadAttentionBar } from "./chat/MobileThreadAttentionBar";
-import { ThreadErrorBanner } from "./chat/ThreadErrorBanner";
+import { ErrorNotificationBar } from "./chat/ErrorNotificationBar";
 import {
   buildAutoSelectedWorktreeBaseBranchToastCopy,
   buildHiddenProviderInput,
@@ -4743,17 +4741,14 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
         />
       </header>
 
-      {/* Error banner */}
-      {isMobileCompanion ? (
-        <div className="mx-auto flex w-full max-w-7xl px-3 pt-3 sm:px-5">
-          <CompanionConnectionBanner state={transportState} />
-        </div>
-      ) : null}
-      <ProviderHealthBanner status={activeProviderStatus} />
-      <ThreadErrorBanner
-        error={activeThread.error}
+      {/* Unified error notification bar */}
+      <ErrorNotificationBar
+        threadError={activeThread.error}
         showAuthFailuresAsErrors={settings.showAuthFailuresAsErrors}
-        onDismiss={() => setThreadError(activeThread.id, null)}
+        onDismissThreadError={() => setThreadError(activeThread.id, null)}
+        providerStatus={activeProviderStatus}
+        transportState={transportState}
+        isMobileCompanion={isMobileCompanion}
       />
       {/* Main content area with optional plan sidebar */}
       <div className="flex min-h-0 min-w-0 flex-1">

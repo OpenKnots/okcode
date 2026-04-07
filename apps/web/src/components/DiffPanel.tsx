@@ -319,9 +319,7 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
     if (!selectedFilePath || !patchViewportRef.current) {
       return;
     }
-    const selectedFile = renderableFiles.find(
-      (f) => resolveFileDiffPath(f) === selectedFilePath,
-    );
+    const selectedFile = renderableFiles.find((f) => resolveFileDiffPath(f) === selectedFilePath);
     if (selectedFile) {
       const key = buildFileDiffRenderKey(selectedFile);
       setCollapsedFileKeys((current) => {
@@ -546,9 +544,7 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
                   const filePath = resolveFileDiffPath(fileDiff);
                   const fileKey = buildFileDiffRenderKey(fileDiff);
                   const themedFileKey = `${fileKey}:${resolvedTheme}`;
-                  const isAccepted = acceptedFileKeys.has(
-                    buildAcceptedDiffFileKey(fileDiff),
-                  );
+                  const isAccepted = acceptedFileKeys.has(buildAcceptedDiffFileKey(fileDiff));
                   const isCollapsed = collapsedFileKeys.has(fileKey);
                   const changeType = categorizeFileDiff(fileDiff);
                   return (
@@ -642,8 +638,7 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
                           <FileDiff
                             fileDiff={fileDiff}
                             options={{
-                              diffStyle:
-                                diffRenderMode === "split" ? "split" : "unified",
+                              diffStyle: diffRenderMode === "split" ? "split" : "unified",
                               lineDiffType: "none",
                               overflow: diffWordWrap ? "wrap" : "scroll",
                               theme: resolveDiffThemeName(resolvedTheme),

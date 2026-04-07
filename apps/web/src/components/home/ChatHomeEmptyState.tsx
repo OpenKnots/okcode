@@ -7,6 +7,7 @@ import { useAppSettings } from "../../appSettings";
 import { APP_DISPLAY_NAME } from "../../branding";
 import { isElectron } from "../../env";
 import { useHandleNewThread } from "../../hooks/useHandleNewThread";
+import { resolveImportedProjectScripts } from "../../lib/projectImport";
 import { serverConfigQueryOptions } from "../../lib/serverReactQuery";
 import { newCommandId, newProjectId } from "../../lib/utils";
 import { readNativeApi } from "../../nativeApi";
@@ -105,6 +106,8 @@ export function ChatHomeEmptyState() {
     const title = pickedPath.split(/[/\\]/).findLast((segment) => segment.length > 0) ?? pickedPath;
     try {
       const projectId = newProjectId();
+      const { scripts: projectScripts, warning: packageScriptWarning } =
+        await resolveImportedProjectScripts(api, pickedPath);
       await api.orchestration.dispatchCommand({
         type: "project.create",
         commandId: newCommandId(),
@@ -112,8 +115,16 @@ export function ChatHomeEmptyState() {
         title,
         workspaceRoot: pickedPath,
         defaultModel: DEFAULT_MODEL_BY_PROVIDER.codex,
+        ...(projectScripts ? { scripts: projectScripts } : {}),
         createdAt: new Date().toISOString(),
       });
+      if (packageScriptWarning) {
+        toastManager.add({
+          type: "warning",
+          title: "Project actions need a package manager choice",
+          description: packageScriptWarning,
+        });
+      }
       await handleNewThread(projectId, {
         envMode: appSettings.defaultThreadEnvMode,
       }).catch(() => undefined);
@@ -146,6 +157,8 @@ export function ChatHomeEmptyState() {
 
       const projectId = newProjectId();
       try {
+        const { scripts: projectScripts, warning: packageScriptWarning } =
+          await resolveImportedProjectScripts(api, result.path);
         await api.orchestration.dispatchCommand({
           type: "project.create",
           commandId: newCommandId(),
@@ -153,8 +166,16 @@ export function ChatHomeEmptyState() {
           title: result.repoName,
           workspaceRoot: result.path,
           defaultModel: DEFAULT_MODEL_BY_PROVIDER.codex,
+          ...(projectScripts ? { scripts: projectScripts } : {}),
           createdAt: new Date().toISOString(),
         });
+        if (packageScriptWarning) {
+          toastManager.add({
+            type: "warning",
+            title: "Project actions need a package manager choice",
+            description: packageScriptWarning,
+          });
+        }
         await handleNewThread(projectId, {
           envMode: appSettings.defaultThreadEnvMode,
         }).catch(() => undefined);

@@ -84,8 +84,6 @@ export function FileViewShell(props: { initialCwd: string; initialPath: string |
     [setPendingContext],
   );
 
-
-
   return (
     <div className="flex h-full w-full flex-col">
       {/* Tab bar */}

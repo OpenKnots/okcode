@@ -563,7 +563,6 @@ export const MessagesTimeline = memo(function MessagesTimeline({
                   const turnSummary = turnDiffSummaryByAssistantMessageId.get(row.message.id);
                   if (!turnSummary) return null;
                   const checkpointFiles = turnSummary.files;
-                  if (checkpointFiles.length === 0) return null;
                   const summaryStat = summarizeTurnDiffStats(checkpointFiles);
                   const changedFileCountLabel = String(checkpointFiles.length);
                   const allDirectoriesExpanded =
@@ -573,31 +572,46 @@ export const MessagesTimeline = memo(function MessagesTimeline({
                   return (
                     <div className="mt-2 rounded-lg border border-border/80 bg-card/45 p-2.5">
                       <div className="flex items-center justify-between gap-2">
-                        <button
-                          type="button"
-                          className="group flex items-center gap-1.5 text-[10px] uppercase tracking-[0.12em] text-muted-foreground/65 hover:text-muted-foreground/90 transition-colors duration-150"
-                          onClick={() => onToggleFileSection(turnSummary.turnId)}
-                        >
-                          <ChevronRightIcon
-                            aria-hidden="true"
-                            className={cn(
-                              "size-3 shrink-0 transition-transform duration-150",
-                              !isFileSectionCollapsed && "rotate-90",
+                        {checkpointFiles.length > 0 ? (
+                          <button
+                            type="button"
+                            className="group flex items-center gap-1.5 text-[10px] uppercase tracking-[0.12em] text-muted-foreground/65 transition-colors duration-150 hover:text-muted-foreground/90"
+                            onClick={() => onToggleFileSection(turnSummary.turnId)}
+                          >
+                            <ChevronRightIcon
+                              aria-hidden="true"
+                              className={cn(
+                                "size-3 shrink-0 transition-transform duration-150",
+                                !isFileSectionCollapsed && "rotate-90",
+                              )}
+                            />
+                            <span>Changed files ({changedFileCountLabel})</span>
+                            {hasNonZeroStat(summaryStat) && (
+                              <>
+                                <span className="mx-1">•</span>
+                                <DiffStatLabel
+                                  additions={summaryStat.additions}
+                                  deletions={summaryStat.deletions}
+                                />
+                              </>
                             )}
-                          />
-                          <span>Changed files ({changedFileCountLabel})</span>
-                          {hasNonZeroStat(summaryStat) && (
-                            <>
-                              <span className="mx-1">•</span>
-                              <DiffStatLabel
-                                additions={summaryStat.additions}
-                                deletions={summaryStat.deletions}
-                              />
-                            </>
-                          )}
-                        </button>
+                          </button>
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.12em] text-muted-foreground/65">
+                            <EyeIcon className="size-3 shrink-0" />
+                            <span>Diff available</span>
+                          </div>
+                        )}
                         <div className="flex items-center gap-1.5">
-                          {!isFileSectionCollapsed && (
+                          <Button
+                            type="button"
+                            size="xs"
+                            variant="outline"
+                            onClick={() => onOpenTurnDiff(turnSummary.turnId)}
+                          >
+                            Open diff
+                          </Button>
+                          {checkpointFiles.length > 0 && !isFileSectionCollapsed && (
                             <Button
                               type="button"
                               size="xs"
@@ -609,7 +623,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
                           )}
                         </div>
                       </div>
-                      {!isFileSectionCollapsed && (
+                      {checkpointFiles.length > 0 && !isFileSectionCollapsed && (
                         <div className="mt-1.5">
                           <ChangedFilesTree
                             key={`changed-files-tree:${turnSummary.turnId}`}
@@ -621,6 +635,11 @@ export const MessagesTimeline = memo(function MessagesTimeline({
                             onOpenTurnDiff={onOpenTurnDiff}
                           />
                         </div>
+                      )}
+                      {checkpointFiles.length === 0 && (
+                        <p className="mt-1.5 text-xs text-muted-foreground/75">
+                          Open the diff to inspect changes when the file summary is unavailable.
+                        </p>
                       )}
                     </div>
                   );

@@ -1,4 +1,4 @@
-import { MessageId } from "@okcode/contracts";
+import { MessageId, TurnId } from "@okcode/contracts";
 import type { ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeAll, describe, expect, it, vi } from "vitest";
@@ -200,5 +200,131 @@ describe("MessagesTimeline", () => {
     expect(markup).toContain("Hotkey tip");
     expect(markup).toContain("Manage hotkeys");
     expect(markup).toContain("No shortcut assigned");
+  });
+
+  it("renders an open diff action when a turn diff summary has files", async () => {
+    const { MessagesTimeline } = await import("./MessagesTimeline");
+    const assistantMessageId = MessageId.makeUnsafe("assistant-1");
+    const markup = renderWithI18n(
+      <MessagesTimeline
+        threadId={"thread-1" as never}
+        hasMessages
+        isWorking={false}
+        activeTurnInProgress={false}
+        activeTurnStartedAt={null}
+        scrollContainer={null}
+        timelineEntries={[
+          {
+            id: "entry-1",
+            kind: "message",
+            createdAt: "2026-03-17T19:12:28.000Z",
+            message: {
+              id: assistantMessageId,
+              role: "assistant",
+              text: "Updated the repo.",
+              createdAt: "2026-03-17T19:12:28.000Z",
+              completedAt: "2026-03-17T19:12:30.000Z",
+              streaming: false,
+            },
+          },
+        ]}
+        completionDividerBeforeEntryId={null}
+        completionSummary={null}
+        turnDiffSummaryByAssistantMessageId={
+          new Map([
+            [
+              assistantMessageId,
+              {
+                turnId: TurnId.makeUnsafe("turn-1"),
+                completedAt: "2026-03-17T19:12:30.000Z",
+                files: [{ path: "src/index.ts", additions: 1, deletions: 0 }],
+              },
+            ],
+          ])
+        }
+        nowIso="2026-03-17T19:12:30.000Z"
+        expandedWorkGroups={{}}
+        onToggleWorkGroup={() => {}}
+        revertTurnCountByUserMessageId={new Map()}
+        onRevertUserMessage={() => {}}
+        isRevertingCheckpoint={false}
+        onImageExpand={() => {}}
+        markdownCwd={undefined}
+        resolvedTheme="light"
+        showReasoningContent={false}
+        timestampFormat="locale"
+        workspaceRoot={undefined}
+        onRemoveQueuedMessage={() => {}}
+        shortcutGuides={EMPTY_SHORTCUT_GUIDES}
+        onOpenSettings={() => {}}
+        onOpenTurnDiff={() => {}}
+      />,
+    );
+
+    expect(markup).toContain("Open diff");
+    expect(markup).toContain("Changed files (1)");
+  });
+
+  it("renders an open diff action when a turn diff exists but the file summary is empty", async () => {
+    const { MessagesTimeline } = await import("./MessagesTimeline");
+    const assistantMessageId = MessageId.makeUnsafe("assistant-2");
+    const markup = renderWithI18n(
+      <MessagesTimeline
+        threadId={"thread-1" as never}
+        hasMessages
+        isWorking={false}
+        activeTurnInProgress={false}
+        activeTurnStartedAt={null}
+        scrollContainer={null}
+        timelineEntries={[
+          {
+            id: "entry-1",
+            kind: "message",
+            createdAt: "2026-03-17T19:12:28.000Z",
+            message: {
+              id: assistantMessageId,
+              role: "assistant",
+              text: "Updated the repo.",
+              createdAt: "2026-03-17T19:12:28.000Z",
+              completedAt: "2026-03-17T19:12:30.000Z",
+              streaming: false,
+            },
+          },
+        ]}
+        completionDividerBeforeEntryId={null}
+        completionSummary={null}
+        turnDiffSummaryByAssistantMessageId={
+          new Map([
+            [
+              assistantMessageId,
+              {
+                turnId: TurnId.makeUnsafe("turn-2"),
+                completedAt: "2026-03-17T19:12:30.000Z",
+                files: [],
+              },
+            ],
+          ])
+        }
+        nowIso="2026-03-17T19:12:30.000Z"
+        expandedWorkGroups={{}}
+        onToggleWorkGroup={() => {}}
+        revertTurnCountByUserMessageId={new Map()}
+        onRevertUserMessage={() => {}}
+        isRevertingCheckpoint={false}
+        onImageExpand={() => {}}
+        markdownCwd={undefined}
+        resolvedTheme="light"
+        showReasoningContent={false}
+        timestampFormat="locale"
+        workspaceRoot={undefined}
+        onRemoveQueuedMessage={() => {}}
+        shortcutGuides={EMPTY_SHORTCUT_GUIDES}
+        onOpenSettings={() => {}}
+        onOpenTurnDiff={() => {}}
+      />,
+    );
+
+    expect(markup).toContain("Open diff");
+    expect(markup).toContain("Diff available");
   });
 });

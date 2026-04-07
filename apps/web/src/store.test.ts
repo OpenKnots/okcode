@@ -133,7 +133,7 @@ describe("store pure functions", () => {
     expect(parsed.projectOrderCwds).toEqual(["/tmp/b", "/tmp/a"]);
   });
 
-  it("treats legacy expanded project data as hints without collapsing unseen projects", () => {
+  it("treats legacy expanded project data as hints and defaults unseen projects to collapsed", () => {
     const parsed = parsePersistedProjectUiState(
       JSON.stringify({
         expandedProjectCwds: ["/tmp/a"],
@@ -151,7 +151,7 @@ describe("store pure functions", () => {
         existingExpanded: undefined,
         persistedExpanded: parsed.projectExpansionByCwd.get("/tmp/missing"),
       }),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("markThreadUnread moves lastVisitedAt before completion for a completed thread", () => {

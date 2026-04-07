@@ -76,6 +76,7 @@ export function projectSearchEntriesQueryOptions(input: {
 const EMPTY_READ_FILE_RESULT: ProjectReadFileResult = {
   relativePath: "" as ProjectReadFileResult["relativePath"],
   contents: "",
+  hasTextContents: false,
   sizeBytes: 0,
   truncated: false,
 };

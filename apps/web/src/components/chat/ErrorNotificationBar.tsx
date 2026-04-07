@@ -118,7 +118,7 @@ export const ErrorNotificationBar = memo(function ErrorNotificationBar({
           technicalDetails: presentation.technicalDetails,
           severity: "error",
           dismissible: !!onDismissThreadError,
-          onDismiss: onDismissThreadError,
+          ...(onDismissThreadError ? { onDismiss: onDismissThreadError } : {}),
         });
       }
     }
@@ -167,15 +167,12 @@ export const ErrorNotificationBar = memo(function ErrorNotificationBar({
 
   const visibleNotifications = notifications.filter((n) => !dismissedIds.has(n.id));
 
-  const handleDismiss = useCallback(
-    (notif: NotificationItem) => {
-      if (notif.onDismiss) {
-        notif.onDismiss();
-      }
-      setDismissedIds((prev) => new Set(prev).add(notif.id));
-    },
-    [],
-  );
+  const handleDismiss = useCallback((notif: NotificationItem) => {
+    if (notif.onDismiss) {
+      notif.onDismiss();
+    }
+    setDismissedIds((prev) => new Set(prev).add(notif.id));
+  }, []);
 
   const handleDismissAll = useCallback(() => {
     for (const notif of visibleNotifications) {
@@ -207,14 +204,11 @@ export const ErrorNotificationBar = memo(function ErrorNotificationBar({
   } as const;
 
   // Find the highest severity across all notifications
-  const highestSeverity = visibleNotifications.reduce<"error" | "warning" | "info">(
-    (acc, n) => {
-      if (acc === "error" || n.severity === "error") return "error";
-      if (acc === "warning" || n.severity === "warning") return "warning";
-      return "info";
-    },
-    "info",
-  );
+  const highestSeverity = visibleNotifications.reduce<"error" | "warning" | "info">((acc, n) => {
+    if (acc === "error" || n.severity === "error") return "error";
+    if (acc === "warning" || n.severity === "warning") return "warning";
+    return "info";
+  }, "info");
 
   return (
     <div className="mx-auto w-full max-w-7xl px-3 pt-2 sm:px-5">
@@ -290,13 +284,8 @@ export const ErrorNotificationBar = memo(function ErrorNotificationBar({
             {visibleNotifications.map((notif) => {
               const Icon = notif.icon;
               return (
-                <div
-                  key={notif.id}
-                  className="flex items-start gap-2 py-1.5 text-xs"
-                >
-                  <Icon
-                    className={cn("mt-0.5 size-3 shrink-0", severityColor[notif.severity])}
-                  />
+                <div key={notif.id} className="flex items-start gap-2 py-1.5 text-xs">
+                  <Icon className={cn("mt-0.5 size-3 shrink-0", severityColor[notif.severity])} />
                   <div className="min-w-0 flex-1">
                     <p className="font-medium text-foreground/90">{notif.title}</p>
                     <p className="text-muted-foreground">{notif.description}</p>

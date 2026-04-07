@@ -419,15 +419,13 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
   const togglePreviewOpen = usePreviewStateStore((state) => state.toggleProjectOpen);
   const setPreviewOpen = usePreviewStateStore((state) => state.setProjectOpen);
   const previewDock = usePreviewStateStore((state) =>
-    activeProjectId ? (state.dockByProjectId[activeProjectId] ?? "right") : "right",
+    activeProjectId ? (state.dockByProjectId[activeProjectId] ?? "top") : "top",
   );
   const previewSize = usePreviewStateStore((state) =>
     activeProjectId
       ? (state.sizeByProjectId[activeProjectId] ?? PREVIEW_SPLIT_DEFAULT_SIZE_PX)
       : PREVIEW_SPLIT_DEFAULT_SIZE_PX,
   );
-  const previewStacked = previewDock === "top" || previewDock === "bottom";
-  const setPreviewDock = usePreviewStateStore((state) => state.setProjectDock);
   const togglePreviewLayout = usePreviewStateStore((state) => state.toggleProjectLayout);
   const setPreviewSize = usePreviewStateStore((state) => state.setProjectSize);
   const previewSplitRef = useRef<HTMLDivElement | null>(null);
@@ -4615,10 +4613,10 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
         startSize: previewSize,
       };
       event.currentTarget.setPointerCapture(event.pointerId);
-      document.body.style.cursor = previewStacked ? "row-resize" : "col-resize";
+      document.body.style.cursor = "row-resize";
       document.body.style.userSelect = "none";
     },
-    [activeProject, previewOpen, previewSize, previewStacked],
+    [activeProject, previewOpen, previewSize],
   );
 
   const handlePreviewResizePointerMove = useCallback(
@@ -4633,15 +4631,10 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
         return;
       }
 
-      const nextSizeUnclamped = previewStacked
-        ? previewDock === "top"
-          ? resizeState.startSize + (event.clientY - resizeState.startY)
-          : resizeState.startSize + (resizeState.startY - event.clientY)
-        : previewDock === "left"
-          ? resizeState.startSize + (event.clientX - resizeState.startX)
-          : resizeState.startSize + (resizeState.startX - event.clientX);
+      // Browser is always docked at the top — resize vertically only.
+      const nextSizeUnclamped = resizeState.startSize + (event.clientY - resizeState.startY);
       const containerRect = container.getBoundingClientRect();
-      const containerMainAxisSize = previewStacked ? containerRect.height : containerRect.width;
+      const containerMainAxisSize = containerRect.height;
       const maxSize = Math.max(
         PREVIEW_SPLIT_MIN_SIZE_PX,
         containerMainAxisSize - PREVIEW_CHAT_MIN_SIZE_PX,
@@ -4652,7 +4645,7 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
       );
       if (activeProjectId) setPreviewSize(activeProjectId, nextSize);
     },
-    [activeProjectId, previewDock, previewStacked, setPreviewSize],
+    [activeProjectId, setPreviewSize],
   );
 
   const handlePreviewResizePointerEnd = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
@@ -4669,58 +4662,8 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
     document.body.style.removeProperty("user-select");
   }, []);
 
-  useEffect(() => {
-    if (!activeProject) {
-      return;
-    }
-
-    const onWindowKeyDown = (event: KeyboardEvent) => {
-      if (!event.metaKey && !event.ctrlKey) {
-        return;
-      }
-      if (event.altKey || event.shiftKey) {
-        return;
-      }
-
-      let targetDock: "left" | "right" | "top" | "bottom" | null = null;
-      switch (event.key) {
-        case "ArrowLeft":
-          targetDock = "left";
-          break;
-        case "ArrowRight":
-          targetDock = "right";
-          break;
-        case "ArrowUp":
-          targetDock = "top";
-          break;
-        case "ArrowDown":
-          targetDock = "bottom";
-          break;
-        default:
-          break;
-      }
-
-      if (!targetDock) {
-        return;
-      }
-
-      event.preventDefault();
-      if (!activeProjectId) return;
-
-      if (previewOpen && previewDock === targetDock) {
-        setPreviewOpen(activeProjectId, false);
-        return;
-      }
-
-      setPreviewOpen(activeProjectId, true);
-      setPreviewDock(activeProjectId, targetDock);
-    };
-
-    window.addEventListener("keydown", onWindowKeyDown);
-    return () => {
-      window.removeEventListener("keydown", onWindowKeyDown);
-    };
-  }, [activeProject, activeProjectId, previewDock, previewOpen, setPreviewDock, setPreviewOpen]);
+  // Browser position movement via Cmd+Arrow keys has been removed.
+  // The browser always opens above the chat (top dock) for a stable, predictable layout.
 
   // Empty state: no active thread
   if (!activeThread) {
@@ -4796,16 +4739,15 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
           ref={previewSplitRef}
           className={cn(
             "flex min-h-0 min-w-0 flex-1",
-            previewOpen && activeProject && previewStacked ? "flex-col" : "flex-row",
+            previewOpen && activeProject ? "flex-col" : "flex-row",
           )}
         >
-          {previewOpen && activeProject && (previewDock === "left" || previewDock === "top") ? (
+          {/* Browser always renders above the chat (top dock) */}
+          {previewOpen && activeProject ? (
             <>
               <div
                 className="min-h-0 min-w-0 flex-none overflow-hidden bg-background"
-                style={
-                  previewStacked ? { height: `${previewSize}px` } : { width: `${previewSize}px` }
-                }
+                style={{ height: `${previewSize}px` }}
               >
                 <PreviewPanel
                   key={previewPanelKey ?? undefined}
@@ -4815,19 +4757,14 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
                 />
               </div>
               <div
-                className={cn(
-                  "relative z-10 shrink-0 bg-transparent touch-none select-none after:absolute after:bg-border/35 after:transition-colors hover:after:bg-border/55",
-                  previewStacked
-                    ? "h-4 cursor-row-resize after:inset-x-0 after:top-1/2 after:h-px after:-translate-y-1/2"
-                    : "w-4 cursor-col-resize after:inset-y-0 after:left-1/2 after:w-px after:-translate-x-1/2",
-                )}
+                className="relative z-10 shrink-0 bg-transparent touch-none select-none after:absolute after:bg-border/35 after:transition-colors hover:after:bg-border/55 h-4 cursor-row-resize after:inset-x-0 after:top-1/2 after:h-px after:-translate-y-1/2"
                 onPointerDown={handlePreviewResizePointerDown}
                 onPointerMove={handlePreviewResizePointerMove}
                 onPointerUp={handlePreviewResizePointerEnd}
                 onPointerCancel={handlePreviewResizePointerEnd}
                 role="separator"
                 aria-label="Resize preview panel"
-                aria-orientation={previewStacked ? "horizontal" : "vertical"}
+                aria-orientation="horizontal"
               />
             </>
           ) : null}
@@ -5615,38 +5552,7 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
           </div>
           {/* end chat column */}
 
-          {previewOpen && activeProject && (previewDock === "right" || previewDock === "bottom") ? (
-            <>
-              <div
-                className={cn(
-                  "relative z-10 shrink-0 bg-transparent touch-none select-none after:absolute after:bg-border/35 after:transition-colors hover:after:bg-border/55",
-                  previewStacked
-                    ? "h-4 cursor-row-resize after:inset-x-0 after:top-1/2 after:h-px after:-translate-y-1/2"
-                    : "w-4 cursor-col-resize after:inset-y-0 after:left-1/2 after:w-px after:-translate-x-1/2",
-                )}
-                onPointerDown={handlePreviewResizePointerDown}
-                onPointerMove={handlePreviewResizePointerMove}
-                onPointerUp={handlePreviewResizePointerEnd}
-                onPointerCancel={handlePreviewResizePointerEnd}
-                role="separator"
-                aria-label="Resize preview panel"
-                aria-orientation={previewStacked ? "horizontal" : "vertical"}
-              />
-              <div
-                className="min-h-0 min-w-0 flex-none overflow-hidden bg-background"
-                style={
-                  previewStacked ? { height: `${previewSize}px` } : { width: `${previewSize}px` }
-                }
-              >
-                <PreviewPanel
-                  key={previewPanelKey ?? undefined}
-                  projectId={activeProject!.id}
-                  threadId={threadId}
-                  onClose={() => setPreviewOpen(activeProject!.id, false)}
-                />
-              </div>
-            </>
-          ) : null}
+          {/* Right/bottom/left dock positions removed — browser is always above the chat */}
         </div>
 
         {/* Plan sidebar */}

@@ -76,6 +76,7 @@ const PREVIEW_GET_STATE_CHANNEL = "desktop:preview-get-state";
 const PREVIEW_SET_BOUNDS_CHANNEL = "desktop:preview-set-bounds";
 const PREVIEW_TOGGLE_PIN_TAB_CHANNEL = "desktop:preview-toggle-pin-tab";
 const PREVIEW_CLOSE_ALL_CHANNEL = "desktop:preview-close-all";
+const PREVIEW_CAPTURE_ACTIVE_TAB_CHANNEL = "desktop:preview-capture-active-tab";
 const PREVIEW_TABS_STATE_CHANNEL = "desktop:preview-tabs-state";
 const BASE_DIR = process.env.OKCODE_HOME?.trim() || Path.join(OS.homedir(), ".okcode");
 const STATE_DIR = Path.join(BASE_DIR, "userdata");
@@ -1377,6 +1378,13 @@ function registerIpcHandlers(): void {
     const window = resolvePreviewWindow(event.sender);
     if (!window) return;
     getPreviewController(window).closeAll();
+  });
+
+  ipcMain.removeHandler(PREVIEW_CAPTURE_ACTIVE_TAB_CHANNEL);
+  ipcMain.handle(PREVIEW_CAPTURE_ACTIVE_TAB_CHANNEL, async (event) => {
+    const window = resolvePreviewWindow(event.sender);
+    if (!window) return null;
+    return getPreviewController(window).captureActiveTab();
   });
 }
 

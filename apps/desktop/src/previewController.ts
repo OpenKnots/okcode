@@ -266,6 +266,19 @@ export class DesktopPreviewController {
     view.webContents.toggleDevTools();
   }
 
+  /** Capture the active tab's visible content as a PNG data URL. */
+  async captureActiveTab(): Promise<string | null> {
+    const view = this.getActiveView();
+    if (!view || view.webContents.isDestroyed()) return null;
+    try {
+      const image = await view.webContents.capturePage();
+      if (image.isEmpty()) return null;
+      return image.toDataURL();
+    } catch {
+      return null;
+    }
+  }
+
   /** Close all tabs for the active thread only. */
   closeAll(): void {
     const threadSet = this.threadTabs.get(this.activeThreadId ?? "");

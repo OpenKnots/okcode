@@ -267,6 +267,8 @@ export interface DesktopBridge {
     togglePinTab: (input: { tabId: PreviewTabId }) => Promise<PreviewTabsState>;
     closeAll: () => Promise<void>;
     getState: () => Promise<PreviewTabsState>;
+    /** Capture the active tab as a PNG data URL. Returns null if no active tab. */
+    captureActiveTab: () => Promise<string | null>;
     onState: (listener: (state: PreviewTabsState) => void) => () => void;
   };
 }

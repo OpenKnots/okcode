@@ -230,7 +230,9 @@ export const usePreviewStateStore = create<PreviewStateStore>((set, get) => ({
     get().setProjectOpen(projectId, !(get().openByProjectId[projectId] ?? false));
   },
 
-  setProjectDock: (projectId, dock) => {
+  setProjectDock: (projectId, _dock) => {
+    // Browser is locked to "top" position for a stable, predictable layout.
+    const dock: PreviewDock = "top";
     set((state) => {
       const nextDockByProjectId = {
         ...state.dockByProjectId,
@@ -244,18 +246,8 @@ export const usePreviewStateStore = create<PreviewStateStore>((set, get) => ({
     });
   },
 
-  toggleProjectLayout: (projectId) => {
-    const current = get().dockByProjectId[projectId] ?? "right";
-    get().setProjectDock(
-      projectId,
-      current === "left"
-        ? "top"
-        : current === "right"
-          ? "bottom"
-          : current === "top"
-            ? "left"
-            : "right",
-    );
+  toggleProjectLayout: (_projectId) => {
+    // No-op: browser is locked to "top" position.
   },
 
   setProjectSize: (projectId, size) => {

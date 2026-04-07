@@ -58,6 +58,7 @@ export function ProjectSubpageShell({
         ) : (
           <div className="drag-region flex h-[52px] shrink-0 items-center border-b border-border px-5">
             <div className="flex items-center gap-2">
+              <SidebarTrigger className="size-7 shrink-0" />
               <Icon className="size-3.5 text-muted-foreground/70" />
               <span className="text-xs font-medium tracking-wide text-muted-foreground/70">
                 {title}

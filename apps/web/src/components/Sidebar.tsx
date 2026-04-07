@@ -19,7 +19,6 @@ import {
   PlusIcon,
   RocketIcon,
   SettingsIcon,
-  TerminalIcon,
   TriangleAlertIcon,
 } from "lucide-react";
 import { OkCodeMark } from "./OkCodeMark";
@@ -1476,6 +1475,28 @@ export default function Sidebar() {
               </span>
             )}
           </SidebarMenuButton>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <button
+                  type="button"
+                  aria-label="New thread"
+                  data-testid="new-thread-button"
+                  className="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground/60 transition-colors hover:bg-accent hover:text-foreground"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    void createNewThreadForProject(project.id);
+                  }}
+                >
+                  <PlusIcon className="size-3.5" />
+                </button>
+              }
+            />
+            <TooltipPopup side="right">
+              {newThreadShortcutLabel ? `New thread (${newThreadShortcutLabel})` : "New thread"}
+            </TooltipPopup>
+          </Tooltip>
         </div>
 
         <CollapsibleContent>

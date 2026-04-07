@@ -542,6 +542,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
         row.message.role === "assistant" &&
         (() => {
           const messageText = row.message.text || (row.message.streaming ? "" : "(empty response)");
+          const copyText = row.message.text.trim().length > 0 ? row.message.text : null;
           return (
             <>
               {row.showCompletionDivider && (
@@ -554,106 +555,115 @@ export const MessagesTimeline = memo(function MessagesTimeline({
                 </div>
               )}
               <div className="min-w-0 px-1 py-0.5">
-                <ChatMarkdown
-                  text={messageText}
-                  cwd={markdownCwd}
-                  isStreaming={Boolean(row.message.streaming)}
-                />
-                {(() => {
-                  const turnSummary = turnDiffSummaryByAssistantMessageId.get(row.message.id);
-                  if (!turnSummary) return null;
-                  const checkpointFiles = turnSummary.files;
-                  const summaryStat = summarizeTurnDiffStats(checkpointFiles);
-                  const changedFileCountLabel = String(checkpointFiles.length);
-                  const allDirectoriesExpanded =
-                    allDirectoriesExpandedByTurnId[turnSummary.turnId] ?? true;
-                  const isFileSectionCollapsed =
-                    collapsedFileSectionsByTurnId[turnSummary.turnId] ?? false;
-                  return (
-                    <div className="mt-2 rounded-lg border border-border/80 bg-card/45 p-2.5">
-                      <div className="flex items-center justify-between gap-2">
-                        {checkpointFiles.length > 0 ? (
-                          <button
-                            type="button"
-                            className="group flex items-center gap-1.5 text-[10px] uppercase tracking-[0.12em] text-muted-foreground/65 transition-colors duration-150 hover:text-muted-foreground/90"
-                            onClick={() => onToggleFileSection(turnSummary.turnId)}
-                          >
-                            <ChevronRightIcon
-                              aria-hidden="true"
-                              className={cn(
-                                "size-3 shrink-0 transition-transform duration-150",
-                                !isFileSectionCollapsed && "rotate-90",
-                              )}
-                            />
-                            <span>Changed files ({changedFileCountLabel})</span>
-                            {hasNonZeroStat(summaryStat) && (
-                              <>
-                                <span className="mx-1">•</span>
-                                <DiffStatLabel
-                                  additions={summaryStat.additions}
-                                  deletions={summaryStat.deletions}
+                <div className="flex items-start gap-2">
+                  <div className="min-w-0 flex-1">
+                    <ChatMarkdown
+                      text={messageText}
+                      cwd={markdownCwd}
+                      isStreaming={Boolean(row.message.streaming)}
+                    />
+                    {(() => {
+                      const turnSummary = turnDiffSummaryByAssistantMessageId.get(row.message.id);
+                      if (!turnSummary) return null;
+                      const checkpointFiles = turnSummary.files;
+                      const summaryStat = summarizeTurnDiffStats(checkpointFiles);
+                      const changedFileCountLabel = String(checkpointFiles.length);
+                      const allDirectoriesExpanded =
+                        allDirectoriesExpandedByTurnId[turnSummary.turnId] ?? true;
+                      const isFileSectionCollapsed =
+                        collapsedFileSectionsByTurnId[turnSummary.turnId] ?? false;
+                      return (
+                        <div className="mt-2 rounded-lg border border-border/80 bg-card/45 p-2.5">
+                          <div className="flex items-center justify-between gap-2">
+                            {checkpointFiles.length > 0 ? (
+                              <button
+                                type="button"
+                                className="group flex items-center gap-1.5 text-[10px] uppercase tracking-[0.12em] text-muted-foreground/65 transition-colors duration-150 hover:text-muted-foreground/90"
+                                onClick={() => onToggleFileSection(turnSummary.turnId)}
+                              >
+                                <ChevronRightIcon
+                                  aria-hidden="true"
+                                  className={cn(
+                                    "size-3 shrink-0 transition-transform duration-150",
+                                    !isFileSectionCollapsed && "rotate-90",
+                                  )}
                                 />
-                              </>
+                                <span>Changed files ({changedFileCountLabel})</span>
+                                {hasNonZeroStat(summaryStat) && (
+                                  <>
+                                    <span className="mx-1">•</span>
+                                    <DiffStatLabel
+                                      additions={summaryStat.additions}
+                                      deletions={summaryStat.deletions}
+                                    />
+                                  </>
+                                )}
+                              </button>
+                            ) : (
+                              <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.12em] text-muted-foreground/65">
+                                <EyeIcon className="size-3 shrink-0" />
+                                <span>Diff available</span>
+                              </div>
                             )}
-                          </button>
-                        ) : (
-                          <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.12em] text-muted-foreground/65">
-                            <EyeIcon className="size-3 shrink-0" />
-                            <span>Diff available</span>
+                            <div className="flex items-center gap-1.5">
+                              <Button
+                                type="button"
+                                size="xs"
+                                variant="outline"
+                                onClick={() => onOpenTurnDiff(turnSummary.turnId)}
+                              >
+                                Open diff
+                              </Button>
+                              {checkpointFiles.length > 0 && !isFileSectionCollapsed && (
+                                <Button
+                                  type="button"
+                                  size="xs"
+                                  variant="outline"
+                                  onClick={() => onToggleAllDirectories(turnSummary.turnId)}
+                                >
+                                  {allDirectoriesExpanded ? "Collapse all" : "Expand all"}
+                                </Button>
+                              )}
+                            </div>
                           </div>
-                        )}
-                        <div className="flex items-center gap-1.5">
-                          <Button
-                            type="button"
-                            size="xs"
-                            variant="outline"
-                            onClick={() => onOpenTurnDiff(turnSummary.turnId)}
-                          >
-                            Open diff
-                          </Button>
                           {checkpointFiles.length > 0 && !isFileSectionCollapsed && (
-                            <Button
-                              type="button"
-                              size="xs"
-                              variant="outline"
-                              onClick={() => onToggleAllDirectories(turnSummary.turnId)}
-                            >
-                              {allDirectoriesExpanded ? "Collapse all" : "Expand all"}
-                            </Button>
+                            <div className="mt-1.5">
+                              <ChangedFilesTree
+                                key={`changed-files-tree:${turnSummary.turnId}`}
+                                turnId={turnSummary.turnId}
+                                files={checkpointFiles}
+                                allDirectoriesExpanded={allDirectoriesExpanded}
+                                resolvedTheme={resolvedTheme}
+                                cwd={markdownCwd}
+                                onOpenTurnDiff={onOpenTurnDiff}
+                              />
+                            </div>
+                          )}
+                          {checkpointFiles.length === 0 && (
+                            <p className="mt-1.5 text-xs text-muted-foreground/75">
+                              Open the diff to inspect changes when the file summary is unavailable.
+                            </p>
                           )}
                         </div>
-                      </div>
-                      {checkpointFiles.length > 0 && !isFileSectionCollapsed && (
-                        <div className="mt-1.5">
-                          <ChangedFilesTree
-                            key={`changed-files-tree:${turnSummary.turnId}`}
-                            turnId={turnSummary.turnId}
-                            files={checkpointFiles}
-                            allDirectoriesExpanded={allDirectoriesExpanded}
-                            resolvedTheme={resolvedTheme}
-                            cwd={markdownCwd}
-                            onOpenTurnDiff={onOpenTurnDiff}
-                          />
-                        </div>
+                      );
+                    })()}
+                    <p className="mt-1.5 text-[10px] text-muted-foreground/30">
+                      {formatMessageMeta(
+                        row.message.createdAt,
+                        row.message.streaming
+                          ? formatElapsed(row.durationStart, nowIso)
+                          : formatElapsed(row.durationStart, row.message.completedAt),
+                        timestampFormat,
+                        resolvedLocale,
                       )}
-                      {checkpointFiles.length === 0 && (
-                        <p className="mt-1.5 text-xs text-muted-foreground/75">
-                          Open the diff to inspect changes when the file summary is unavailable.
-                        </p>
-                      )}
+                    </p>
+                  </div>
+                  {copyText && (
+                    <div className="flex shrink-0 items-start pt-0.5">
+                      <MessageCopyButton text={copyText} label="response" />
                     </div>
-                  );
-                })()}
-                <p className="mt-1.5 text-[10px] text-muted-foreground/30">
-                  {formatMessageMeta(
-                    row.message.createdAt,
-                    row.message.streaming
-                      ? formatElapsed(row.durationStart, nowIso)
-                      : formatElapsed(row.durationStart, row.message.completedAt),
-                    timestampFormat,
-                    resolvedLocale,
                   )}
-                </p>
+                </div>
               </div>
             </>
           );

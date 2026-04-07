@@ -106,12 +106,19 @@ function resolveLanguageFallbackDefinition(
   pathValue: string,
   theme: "light" | "dark",
 ): string | null {
-  const basename = basenameOfPath(pathValue).toLowerCase();
+  const languageId = inferLanguageIdForPath(pathValue);
+  if (!languageId) return null;
+
   const languageIds = theme === "light" ? lightLanguageIds : darkLanguageIds;
+  return languageIds[languageId] ?? darkLanguageIds[languageId] ?? null;
+}
+
+export function inferLanguageIdForPath(pathValue: string): string | null {
+  const basename = basenameOfPath(pathValue).toLowerCase();
 
   const fromBasenameLanguage = languageIdByFileName[basename];
   if (fromBasenameLanguage) {
-    return languageIds[fromBasenameLanguage] ?? darkLanguageIds[fromBasenameLanguage] ?? null;
+    return fromBasenameLanguage;
   }
 
   for (const candidate of extensionCandidates(basename)) {
@@ -119,8 +126,7 @@ function resolveLanguageFallbackDefinition(
       localLanguageIdByExtensionOverrides[
         candidate as keyof typeof localLanguageIdByExtensionOverrides
       ] ?? languageIdByExtension[candidate];
-    if (!languageId) continue;
-    return languageIds[languageId] ?? darkLanguageIds[languageId] ?? null;
+    if (languageId) return languageId;
   }
 
   return null;

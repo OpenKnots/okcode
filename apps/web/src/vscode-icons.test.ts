@@ -1,6 +1,6 @@
 import { assert, describe, it } from "vitest";
 
-import { getVscodeIconUrlForEntry } from "./vscode-icons";
+import { getVscodeIconUrlForEntry, inferLanguageIdForPath } from "./vscode-icons";
 
 describe("getVscodeIconUrlForEntry", () => {
   it("uses exact filename matches from the vscode-icons manifest", () => {
@@ -48,5 +48,12 @@ describe("getVscodeIconUrlForEntry", () => {
 
     assert.isTrue(fileUrl.endsWith("/default_file.svg"));
     assert.isTrue(folderUrl.endsWith("/default_folder.svg"));
+  });
+
+  it("infers language ids for syntax highlighting from file paths", () => {
+    assert.strictEqual(inferLanguageIdForPath("checkbox.tsx"), "typescriptreact");
+    assert.strictEqual(inferLanguageIdForPath("Dockerfile"), "dockerfile");
+    assert.strictEqual(inferLanguageIdForPath(".github/workflows/ci.yml"), "yaml");
+    assert.strictEqual(inferLanguageIdForPath("README.md"), "markdown");
   });
 });

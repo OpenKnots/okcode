@@ -25,6 +25,11 @@ import { resolvePathLinkTarget } from "../terminal-links";
 import { DiffPanelLoadingState, DiffPanelShell, type DiffPanelMode } from "./DiffPanelShell";
 import { Button } from "./ui/button";
 import { Toggle, ToggleGroup } from "./ui/toggle-group";
+import {
+  buildFileDiffRenderKey,
+  resolveFileDiffPath,
+  withInferredFileDiffLanguage,
+} from "./pr-review/pr-review-utils";
 
 type DiffRenderMode = "stacked" | "split";
 type DiffThemeType = "light" | "dark";
@@ -125,18 +130,6 @@ function getRenderablePatch(
       reason: "Failed to parse patch. Showing raw patch.",
     };
   }
-}
-
-function resolveFileDiffPath(fileDiff: FileDiffMetadata): string {
-  const raw = fileDiff.name ?? fileDiff.prevName ?? "";
-  if (raw.startsWith("a/") || raw.startsWith("b/")) {
-    return raw.slice(2);
-  }
-  return raw;
-}
-
-function buildFileDiffRenderKey(fileDiff: FileDiffMetadata): string {
-  return fileDiff.cacheKey ?? `${fileDiff.prevName ?? "none"}:${fileDiff.name}`;
 }
 
 type FileDiffCategory = "all" | "added" | "modified" | "deleted" | "renamed";
@@ -301,6 +294,10 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
     if (selectedCategory === "all") return renderableFiles;
     return renderableFiles.filter((fileDiff) => categorizeFileDiff(fileDiff) === selectedCategory);
   }, [renderableFiles, selectedCategory]);
+  const renderedFiles = useMemo(
+    () => filteredFiles.map(withInferredFileDiffLanguage),
+    [filteredFiles],
+  );
 
   useEffect(() => {
     if (diffOpen && !previousDiffOpenRef.current) {
@@ -540,7 +537,7 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
                   intersectionObserverMargin: 1200,
                 }}
               >
-                {filteredFiles.map((fileDiff) => {
+                {renderedFiles.map((fileDiff) => {
                   const filePath = resolveFileDiffPath(fileDiff);
                   const fileKey = buildFileDiffRenderKey(fileDiff);
                   const themedFileKey = `${fileKey}:${resolvedTheme}`;

@@ -8,6 +8,7 @@ import { CommandPalette } from "../components/CommandPalette";
 import { ScreenshotTool, ScreenshotButton } from "../components/ScreenshotTool";
 import { WorktreeCleanupDialog } from "../components/WorktreeCleanupDialog";
 import { useHandleNewThread } from "../hooks/useHandleNewThread";
+import { readDesktopBridge } from "../lib/runtimeBridge";
 import { isTerminalFocused } from "../lib/terminalFocus";
 import { isMacPlatform } from "../lib/utils";
 import { serverConfigQueryOptions } from "../lib/serverReactQuery";
@@ -19,7 +20,7 @@ import { useScreenshotStore } from "../screenshotStore";
 import { useStore } from "../store";
 import { resolveSidebarNewThreadEnvMode } from "~/components/Sidebar.logic";
 import { useAppSettings } from "~/appSettings";
-import { Sidebar, SidebarProvider, SidebarRail } from "~/components/ui/sidebar";
+import { Sidebar, SidebarProvider, SidebarRail, useSidebar } from "~/components/ui/sidebar";
 import { useAutoDeleteMergedThreads } from "~/hooks/useAutoDeleteMergedThreads";
 import { useClientMode } from "~/hooks/useClientMode";
 import { isMobileShell } from "../env";
@@ -215,6 +216,40 @@ function ChatRouteGlobalShortcuts() {
   return null;
 }
 
+function ChatDesktopWindowButtonsSync() {
+  const { open } = useSidebar();
+
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !isMacPlatform(navigator.platform)) {
+      return;
+    }
+
+    const bridge = readDesktopBridge();
+    if (!bridge || typeof bridge.setWindowButtonVisibility !== "function") {
+      return;
+    }
+
+    void bridge.setWindowButtonVisibility(open);
+  }, [open]);
+
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !isMacPlatform(navigator.platform)) {
+      return;
+    }
+
+    const bridge = readDesktopBridge();
+    if (!bridge || typeof bridge.setWindowButtonVisibility !== "function") {
+      return;
+    }
+
+    return () => {
+      void bridge.setWindowButtonVisibility(true);
+    };
+  }, []);
+
+  return null;
+}
+
 function ChatRouteLayout() {
   const navigate = useNavigate();
   const { settings } = useAppSettings();
@@ -266,6 +301,7 @@ function ChatRouteLayout() {
       />
       <div className="relative z-10 min-h-dvh">
         <SidebarProvider defaultOpen={clientMode !== "mobile"}>
+          <ChatDesktopWindowButtonsSync />
           <ChatRouteGlobalShortcuts />
           <CommandPalette />
           <WorktreeCleanupDialog />

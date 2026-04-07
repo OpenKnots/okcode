@@ -216,7 +216,7 @@ export function ChatHomeEmptyState() {
       )}
 
       {isElectron && (
-        <div className="drag-region flex h-[52px] shrink-0 items-center justify-between gap-3 border-b border-border px-4 pl-[90px] sm:px-5 sm:pl-[90px]">
+        <div className="drag-region flex h-[52px] shrink-0 items-center justify-between gap-3 border-b border-border px-4 sm:px-5">
           <div className="flex min-w-0 items-center gap-2">
             <SidebarTrigger className="size-7 shrink-0" />
             <span className="truncate text-xs font-medium tracking-[0.14em] text-muted-foreground/70 uppercase">

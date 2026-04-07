@@ -345,6 +345,7 @@ function SettingsRouteView() {
   const [openInstallProviders, setOpenInstallProviders] = useState<Record<ProviderKind, boolean>>({
     codex: Boolean(settings.codexBinaryPath || settings.codexHomePath),
     claudeAgent: Boolean(settings.claudeBinaryPath),
+    openclaw: Boolean(settings.openclawGatewayUrl || settings.openclawPassword),
   });
   const [selectedCustomModelProvider, setSelectedCustomModelProvider] =
     useState<ProviderKind>("codex");
@@ -353,6 +354,7 @@ function SettingsRouteView() {
   >({
     codex: "",
     claudeAgent: "",
+    openclaw: "",
   });
   const [customModelErrorByProvider, setCustomModelErrorByProvider] = useState<
     Partial<Record<ProviderKind, string | null>>
@@ -430,6 +432,9 @@ function SettingsRouteView() {
     settings.claudeBinaryPath !== defaults.claudeBinaryPath ||
     settings.codexBinaryPath !== defaults.codexBinaryPath ||
     settings.codexHomePath !== defaults.codexHomePath;
+  const isOpenClawSettingsDirty =
+    settings.openclawGatewayUrl !== defaults.openclawGatewayUrl ||
+    settings.openclawPassword !== defaults.openclawPassword;
   const changedSettingLabels = [
     ...(theme !== "system" ? ["Theme"] : []),
     ...(colorTheme !== DEFAULT_COLOR_THEME ? ["Color theme"] : []),
@@ -472,10 +477,13 @@ function SettingsRouteView() {
       ? ["Rebase before commit"]
       : []),
     ...(isGitTextGenerationModelDirty ? ["Git writing model"] : []),
-    ...(settings.customCodexModels.length > 0 || settings.customClaudeModels.length > 0
+    ...(settings.customCodexModels.length > 0 ||
+    settings.customClaudeModels.length > 0 ||
+    settings.customOpenClawModels.length > 0
       ? ["Custom models"]
       : []),
     ...(isInstallSettingsDirty ? ["Provider installs"] : []),
+    ...(isOpenClawSettingsDirty ? ["OpenClaw gateway"] : []),
     ...(settings.backgroundImageUrl !== defaults.backgroundImageUrl ? ["Background image"] : []),
     ...(settings.backgroundImageOpacity !== defaults.backgroundImageOpacity
       ? ["Background opacity"]
@@ -616,11 +624,13 @@ function SettingsRouteView() {
     setOpenInstallProviders({
       codex: false,
       claudeAgent: false,
+      openclaw: false,
     });
     setSelectedCustomModelProvider("codex");
     setCustomModelInputByProvider({
       codex: "",
       claudeAgent: "",
+      openclaw: "",
     });
     setCustomModelErrorByProvider({});
 
@@ -1892,6 +1902,7 @@ function SettingsRouteView() {
                         setOpenInstallProviders({
                           codex: false,
                           claudeAgent: false,
+                          openclaw: false,
                         });
                       }}
                     />
@@ -2012,6 +2023,60 @@ function SettingsRouteView() {
                       );
                     })}
                   </div>
+                </div>
+              </SettingsRow>
+
+              <SettingsRow
+                title="OpenClaw gateway"
+                description="Connect to an OpenClaw gateway for remote agent sessions."
+                resetAction={
+                  settings.openclawGatewayUrl !== defaults.openclawGatewayUrl ||
+                  settings.openclawPassword !== defaults.openclawPassword ? (
+                    <SettingResetButton
+                      label="OpenClaw gateway"
+                      onClick={() =>
+                        updateSettings({
+                          openclawGatewayUrl: defaults.openclawGatewayUrl,
+                          openclawPassword: defaults.openclawPassword,
+                        })
+                      }
+                    />
+                  ) : null
+                }
+              >
+                <div className="mt-4 space-y-3">
+                  <label htmlFor="openclaw-gateway-url" className="block">
+                    <span className="block text-xs font-medium text-foreground">Gateway URL</span>
+                    <Input
+                      id="openclaw-gateway-url"
+                      className="mt-1"
+                      value={settings.openclawGatewayUrl}
+                      onChange={(event) =>
+                        updateSettings({ openclawGatewayUrl: event.target.value })
+                      }
+                      placeholder="ws://localhost:8080"
+                      spellCheck={false}
+                    />
+                    <span className="mt-1 block text-xs text-muted-foreground">
+                      WebSocket URL of the OpenClaw gateway. Leave blank when not using OpenClaw.
+                    </span>
+                  </label>
+                  <label htmlFor="openclaw-password" className="block">
+                    <span className="block text-xs font-medium text-foreground">Password</span>
+                    <Input
+                      id="openclaw-password"
+                      className="mt-1"
+                      type="password"
+                      value={settings.openclawPassword}
+                      onChange={(event) => updateSettings({ openclawPassword: event.target.value })}
+                      placeholder="Shared secret"
+                      spellCheck={false}
+                      autoComplete="off"
+                    />
+                    <span className="mt-1 block text-xs text-muted-foreground">
+                      Shared secret used to authenticate with the gateway.
+                    </span>
+                  </label>
                 </div>
               </SettingsRow>
 

@@ -1,5 +1,9 @@
-import { describe, expect, it } from "vitest";
-import { resolveCodeViewerRelativePath, splitFileTargetPosition } from "./fileOpen";
+import { describe, expect, it, vi } from "vitest";
+import {
+  openFileReference,
+  resolveCodeViewerRelativePath,
+  splitFileTargetPosition,
+} from "./fileOpen";
 
 describe("splitFileTargetPosition", () => {
   it("extracts line and column suffixes", () => {
@@ -33,5 +37,21 @@ describe("resolveCodeViewerRelativePath", () => {
     expect(
       resolveCodeViewerRelativePath("/Users/julius/other/file.ts:1", "/Users/julius/project"),
     ).toBeNull();
+  });
+});
+
+describe("openFileReference", () => {
+  it("opens files in the code viewer when external editors are not preferred", async () => {
+    const openInViewer = vi.fn();
+
+    await openFileReference({
+      api: {} as never,
+      cwd: "/Users/julius/project",
+      targetPath: "/Users/julius/project/src/main.ts:12:4",
+      preferExternal: false,
+      openInViewer,
+    });
+
+    expect(openInViewer).toHaveBeenCalledWith("/Users/julius/project", "src/main.ts");
   });
 });

@@ -101,6 +101,7 @@ function FilePreviewSurface(props: { dataUrl: string; mimeType: string; relative
           <iframe
             src={props.dataUrl}
             title={props.relativePath}
+            sandbox="allow-downloads allow-scripts"
             className="h-full min-h-[480px] w-full rounded-md border border-border bg-background"
           />
         ) : (

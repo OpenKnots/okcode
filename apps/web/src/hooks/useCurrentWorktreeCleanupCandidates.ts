@@ -26,7 +26,10 @@ export function useCurrentWorktreeCleanupCandidates() {
   );
 
   const candidatesQuery = useQuery(gitMergedWorktreeCleanupCandidatesQueryOptions(cwd));
-  const candidates = Array.isArray(candidatesQuery.data) ? candidatesQuery.data : [];
+  const candidates = useMemo(
+    () => (Array.isArray(candidatesQuery.data) ? candidatesQuery.data : []),
+    [candidatesQuery.data],
+  );
 
   return {
     cwd,

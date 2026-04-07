@@ -1,4 +1,4 @@
-import { FolderIcon } from "lucide-react";
+import { ChevronDownIcon, FolderIcon } from "lucide-react";
 import { memo, type ReactNode, useEffect, useRef, useState } from "react";
 import { cn } from "~/lib/utils";
 
@@ -52,33 +52,48 @@ export const WorkspacePanel = memo(function WorkspacePanel(props: {
     };
   }, []);
 
+  const [treeCollapsed, setTreeCollapsed] = useState(false);
+
   return (
     <div ref={containerRef} className="flex h-full min-h-0 flex-col bg-background">
       <div className={cn("flex min-h-0 flex-1", layoutMode === "split" ? "flex-row" : "flex-col")}>
         {props.cwd ? (
           <section
             className={cn(
-              "flex min-h-0 shrink-0 overflow-hidden bg-card/35",
-              layoutMode === "split"
-                ? "w-[clamp(15rem,32%,19rem)] border-r border-border/60"
-                : "h-[clamp(14rem,34vh,20rem)] border-b border-border/60",
+              "flex shrink-0 overflow-hidden bg-card/35",
+              treeCollapsed
+                ? "min-h-0 h-auto"
+                : layoutMode === "split"
+                  ? "min-h-0 w-[clamp(15rem,32%,19rem)] border-r border-border/60"
+                  : "min-h-0 h-[clamp(14rem,34vh,20rem)] border-b border-border/60",
+              treeCollapsed && "border-b border-border/60",
             )}
           >
             <div className="flex min-h-0 flex-1 flex-col">
-              <div className="border-b border-border/60 px-3 py-2">
-                <div className="flex items-center gap-2">
-                  <FolderIcon className="size-3.5 shrink-0 text-muted-foreground/70" />
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground/55">
-                      Workspace
-                    </p>
-                    <p className="truncate font-mono text-[11px] text-foreground/85">
-                      {workspaceLabel}
-                    </p>
-                  </div>
+              <button
+                type="button"
+                onClick={() => setTreeCollapsed((prev) => !prev)}
+                className="flex w-full items-center border-b border-border/60 px-3 py-2 text-left hover:bg-accent/40 transition-colors"
+              >
+                <ChevronDownIcon
+                  className={cn(
+                    "size-3 shrink-0 text-muted-foreground/60 transition-transform mr-1.5",
+                    treeCollapsed && "-rotate-90",
+                  )}
+                />
+                <FolderIcon className="size-3.5 shrink-0 text-muted-foreground/70" />
+                <div className="min-w-0 ml-2">
+                  <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground/55">
+                    Workspace
+                  </p>
+                  <p className="truncate font-mono text-[11px] text-foreground/85">
+                    {workspaceLabel}
+                  </p>
                 </div>
-              </div>
-              <div className="min-h-0 flex-1 overflow-y-auto py-2">{props.tree}</div>
+              </button>
+              {!treeCollapsed && (
+                <div className="min-h-0 flex-1 overflow-y-auto py-2">{props.tree}</div>
+              )}
             </div>
           </section>
         ) : null}

@@ -70,7 +70,13 @@ const POPUP_POSITIONER_SELECTOR = [
   '[data-slot="autocomplete-positioner"]',
   '[data-slot="toast-viewport"]:not(:empty)',
   '[data-slot="toast-viewport-anchored"]:not(:empty)',
+  '[data-slot="toast-positioner"]',
+  '[data-slot="toast-popup"]',
 ].join(",");
+
+export function hasBlockingPreviewOverlay(root: ParentNode = document): boolean {
+  return root.querySelector(POPUP_POSITIONER_SELECTOR) !== null;
+}
 
 const PRESET_ICONS: Record<BrowserPresetId, typeof SmartphoneIcon> = {
   mobile: SmartphoneIcon,
@@ -230,7 +236,7 @@ export function PreviewPanel({ projectId, threadId, onClose }: PreviewPanelProps
       const rect = element.getBoundingClientRect();
       // Hide the native BrowserView when any popup/dropdown is open so it
       // doesn't render on top of menus (native overlays ignore CSS z-index).
-      const hasOpenPopup = document.querySelector(POPUP_POSITIONER_SELECTOR) !== null;
+      const hasOpenPopup = hasBlockingPreviewOverlay();
       const visible =
         tabsState.tabs.length > 0 &&
         document.visibilityState === "visible" &&

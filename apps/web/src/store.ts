@@ -24,6 +24,12 @@ export interface AppState {
   threadsHydrated: boolean;
 }
 
+interface PersistedRendererState {
+  expandedProjectCwds?: string[];
+  projectExpansionByCwd?: Record<string, boolean>;
+  projectOrderCwds?: string[];
+}
+
 const PERSISTED_STATE_KEY = "okcode:renderer-state:v8";
 const LEGACY_PERSISTED_STATE_KEYS = [
   "okcode:renderer-state:v7",
@@ -42,34 +48,72 @@ const initialState: AppState = {
   threads: [],
   threadsHydrated: false,
 };
-const persistedExpandedProjectCwds = new Set<string>();
+const persistedProjectExpansionByCwd = new Map<string, boolean>();
 const persistedProjectOrderCwds: string[] = [];
 
 // ── Persist helpers ──────────────────────────────────────────────────
+
+export function parsePersistedProjectUiState(raw: string | null): {
+  projectExpansionByCwd: Map<string, boolean>;
+  projectOrderCwds: string[];
+} {
+  const projectExpansionByCwd = new Map<string, boolean>();
+  const projectOrderCwds: string[] = [];
+
+  if (!raw) {
+    return { projectExpansionByCwd, projectOrderCwds };
+  }
+
+  const parsed = JSON.parse(raw) as PersistedRendererState;
+  if (parsed.projectExpansionByCwd && typeof parsed.projectExpansionByCwd === "object") {
+    for (const [cwd, expanded] of Object.entries(parsed.projectExpansionByCwd)) {
+      if (cwd.length > 0 && typeof expanded === "boolean") {
+        projectExpansionByCwd.set(cwd, expanded);
+      }
+    }
+  } else {
+    for (const cwd of parsed.expandedProjectCwds ?? []) {
+      if (typeof cwd === "string" && cwd.length > 0) {
+        projectExpansionByCwd.set(cwd, true);
+      }
+    }
+  }
+
+  for (const cwd of parsed.projectOrderCwds ?? []) {
+    if (typeof cwd === "string" && cwd.length > 0 && !projectOrderCwds.includes(cwd)) {
+      projectOrderCwds.push(cwd);
+    }
+  }
+
+  return { projectExpansionByCwd, projectOrderCwds };
+}
+
+export function resolveProjectExpandedState(input: {
+  existingExpanded: boolean | undefined;
+  persistedExpanded: boolean | undefined;
+}): boolean {
+  return input.existingExpanded ?? input.persistedExpanded ?? true;
+}
 
 function readPersistedState(): AppState {
   if (typeof window === "undefined") return initialState;
   try {
     const raw = window.localStorage.getItem(PERSISTED_STATE_KEY);
-    if (!raw) return initialState;
-    const parsed = JSON.parse(raw) as {
-      expandedProjectCwds?: string[];
-      projectOrderCwds?: string[];
-    };
-    persistedExpandedProjectCwds.clear();
+    const parsed = parsePersistedProjectUiState(raw);
+
+    persistedProjectExpansionByCwd.clear();
     persistedProjectOrderCwds.length = 0;
-    for (const cwd of parsed.expandedProjectCwds ?? []) {
-      if (typeof cwd === "string" && cwd.length > 0) {
-        persistedExpandedProjectCwds.add(cwd);
-      }
+    for (const [cwd, expanded] of parsed.projectExpansionByCwd) {
+      persistedProjectExpansionByCwd.set(cwd, expanded);
     }
-    for (const cwd of parsed.projectOrderCwds ?? []) {
-      if (typeof cwd === "string" && cwd.length > 0 && !persistedProjectOrderCwds.includes(cwd)) {
-        persistedProjectOrderCwds.push(cwd);
-      }
+    for (const cwd of parsed.projectOrderCwds) {
+      persistedProjectOrderCwds.push(cwd);
     }
+
     return { ...initialState };
   } catch {
+    persistedProjectExpansionByCwd.clear();
+    persistedProjectOrderCwds.length = 0;
     return initialState;
   }
 }
@@ -82,6 +126,9 @@ function persistState(state: AppState): void {
     window.localStorage.setItem(
       PERSISTED_STATE_KEY,
       JSON.stringify({
+        projectExpansionByCwd: Object.fromEntries(
+          state.projects.map((project) => [project.cwd, project.expanded] as const),
+        ),
         expandedProjectCwds: state.projects
           .filter((project) => project.expanded)
           .map((project) => project.cwd),
@@ -141,11 +188,10 @@ function mapProjectsFromReadModel(
       model:
         existing?.model ??
         resolveModelSlug(project.defaultModel ?? DEFAULT_MODEL_BY_PROVIDER.codex),
-      expanded:
-        existing?.expanded ??
-        (persistedExpandedProjectCwds.size > 0
-          ? persistedExpandedProjectCwds.has(project.workspaceRoot)
-          : true),
+      expanded: resolveProjectExpandedState({
+        existingExpanded: existing?.expanded,
+        persistedExpanded: persistedProjectExpansionByCwd.get(project.workspaceRoot),
+      }),
       createdAt: project.createdAt,
       updatedAt: project.updatedAt,
       scripts: project.scripts.map((script) => ({ ...script })),

@@ -16,6 +16,7 @@ type SidebarProject = {
   updatedAt?: string | undefined;
 };
 type SidebarThreadSortInput = Pick<Thread, "createdAt" | "updatedAt" | "messages">;
+type SidebarProjectThread = Pick<Thread, "projectId">;
 
 export interface ThreadStatusPill {
   label:
@@ -253,6 +254,23 @@ export function getVisibleThreadsForProject(input: {
   };
 }
 
+export function groupThreadsByProjectId<TThread extends SidebarProjectThread>(
+  threads: readonly TThread[],
+): Map<TThread["projectId"], TThread[]> {
+  const threadsByProjectId = new Map<TThread["projectId"], TThread[]>();
+
+  for (const thread of threads) {
+    const existing = threadsByProjectId.get(thread.projectId);
+    if (existing) {
+      existing.push(thread);
+      continue;
+    }
+    threadsByProjectId.set(thread.projectId, [thread]);
+  }
+
+  return threadsByProjectId;
+}
+
 function toSortableTimestamp(iso: string | undefined): number | null {
   if (!iso) return null;
   const ms = Date.parse(iso);
@@ -300,6 +318,22 @@ export function sortThreadsForSidebar<
     if (byTimestamp !== 0) return byTimestamp;
     return right.id.localeCompare(left.id);
   });
+}
+
+export function sortThreadsByProjectIdForSidebar<
+  TThread extends SidebarProjectThread &
+    Pick<Thread, "id" | "createdAt" | "updatedAt" | "messages">,
+>(
+  threads: readonly TThread[],
+  sortOrder: SidebarThreadSortOrder,
+): Map<TThread["projectId"], TThread[]> {
+  const sortedThreadsByProjectId = new Map<TThread["projectId"], TThread[]>();
+
+  for (const [projectId, projectThreads] of groupThreadsByProjectId(threads)) {
+    sortedThreadsByProjectId.set(projectId, sortThreadsForSidebar(projectThreads, sortOrder));
+  }
+
+  return sortedThreadsByProjectId;
 }
 
 export function getProjectSortTimestamp(
@@ -398,12 +432,7 @@ export function sortProjectsForSidebar<TProject extends SidebarProject, TThread 
     return [...projects];
   }
 
-  const threadsByProjectId = new Map<string, TThread[]>();
-  for (const thread of threads) {
-    const existing = threadsByProjectId.get(thread.projectId) ?? [];
-    existing.push(thread);
-    threadsByProjectId.set(thread.projectId, existing);
-  }
+  const threadsByProjectId = groupThreadsByProjectId(threads);
 
   return [...projects].toSorted((left, right) => {
     const rightTimestamp = getProjectSortTimestamp(

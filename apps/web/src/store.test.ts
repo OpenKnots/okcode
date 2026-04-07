@@ -7,7 +7,14 @@ import {
 } from "@okcode/contracts";
 import { describe, expect, it } from "vitest";
 
-import { markThreadUnread, reorderProjects, syncServerReadModel, type AppState } from "./store";
+import {
+  markThreadUnread,
+  parsePersistedProjectUiState,
+  reorderProjects,
+  resolveProjectExpandedState,
+  syncServerReadModel,
+  type AppState,
+} from "./store";
 import { DEFAULT_INTERACTION_MODE, DEFAULT_RUNTIME_MODE, type Thread } from "./types";
 
 function makeThread(overrides: Partial<Thread> = {}): Thread {
@@ -110,6 +117,43 @@ function makeReadModelProject(
 }
 
 describe("store pure functions", () => {
+  it("parses explicit project expansion state from persisted sidebar data", () => {
+    const parsed = parsePersistedProjectUiState(
+      JSON.stringify({
+        projectExpansionByCwd: {
+          "/tmp/a": false,
+          "/tmp/b": true,
+        },
+        projectOrderCwds: ["/tmp/b", "/tmp/a"],
+      }),
+    );
+
+    expect(parsed.projectExpansionByCwd.get("/tmp/a")).toBe(false);
+    expect(parsed.projectExpansionByCwd.get("/tmp/b")).toBe(true);
+    expect(parsed.projectOrderCwds).toEqual(["/tmp/b", "/tmp/a"]);
+  });
+
+  it("treats legacy expanded project data as hints without collapsing unseen projects", () => {
+    const parsed = parsePersistedProjectUiState(
+      JSON.stringify({
+        expandedProjectCwds: ["/tmp/a"],
+      }),
+    );
+
+    expect(
+      resolveProjectExpandedState({
+        existingExpanded: undefined,
+        persistedExpanded: parsed.projectExpansionByCwd.get("/tmp/a"),
+      }),
+    ).toBe(true);
+    expect(
+      resolveProjectExpandedState({
+        existingExpanded: undefined,
+        persistedExpanded: parsed.projectExpansionByCwd.get("/tmp/missing"),
+      }),
+    ).toBe(true);
+  });
+
   it("markThreadUnread moves lastVisitedAt before completion for a completed thread", () => {
     const latestTurnCompletedAt = "2026-02-25T12:30:00.000Z";
     const initialState = makeState(

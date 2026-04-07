@@ -304,9 +304,7 @@ export function WorktreeCleanupDialog() {
                             </Button>
                           </div>
                         </div>
-                        {index < candidateStates.length - 1 ? (
-                          <Separator className="mt-4" />
-                        ) : null}
+                        {index < candidateStates.length - 1 ? <Separator className="mt-4" /> : null}
                       </CardContent>
                     </Card>
                   );

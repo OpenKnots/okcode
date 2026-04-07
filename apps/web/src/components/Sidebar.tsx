@@ -291,7 +291,7 @@ interface MemoizedThreadRowProps {
   isActive: boolean;
   isSelected: boolean;
   prByThreadId: Map<ThreadIdType, ThreadPr>;
-  orderedProjectThreadIds: ThreadIdType[];
+  orderedProjectThreadIds: readonly ThreadIdType[];
   selectedThreadIds: ReadonlySet<ThreadIdType>;
   editingThreadId: ThreadIdType | null;
   editingThreadTitle: string;

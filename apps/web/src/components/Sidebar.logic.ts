@@ -10,7 +10,7 @@ import {
 export const THREAD_SELECTION_SAFE_SELECTOR = "[data-thread-item], [data-thread-selection-safe]";
 export type SidebarNewThreadEnvMode = "local" | "worktree";
 type SidebarProject = {
-  id: string;
+  id: Thread["projectId"];
   name: string;
   createdAt?: string | undefined;
   updatedAt?: string | undefined;

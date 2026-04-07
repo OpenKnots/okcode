@@ -33,6 +33,9 @@ export const DEFAULT_SIDEBAR_PROJECT_SORT_ORDER: SidebarProjectSortOrder = "upda
 export const SidebarThreadSortOrder = Schema.Literals(["updated_at", "created_at"]);
 export type SidebarThreadSortOrder = typeof SidebarThreadSortOrder.Type;
 export const DEFAULT_SIDEBAR_THREAD_SORT_ORDER: SidebarThreadSortOrder = "updated_at";
+export const PrReviewRequestChangesTone = Schema.Literals(["warning", "brand", "neutral"]);
+export type PrReviewRequestChangesTone = typeof PrReviewRequestChangesTone.Type;
+export const DEFAULT_PR_REVIEW_REQUEST_CHANGES_TONE: PrReviewRequestChangesTone = "warning";
 type CustomModelSettingsKey = "customCodexModels" | "customClaudeModels";
 export type ProviderCustomModelConfig = {
   provider: ProviderKind;
@@ -90,6 +93,9 @@ export const AppSettingsSchema = Schema.Struct({
   sidebarAccentProjectNames: Schema.Boolean.pipe(withDefaults(() => true)),
   sidebarAccentColorOverride: Schema.optional(Schema.String.check(Schema.isMaxLength(64))),
   sidebarAccentBgColorOverride: Schema.optional(Schema.String.check(Schema.isMaxLength(64))),
+  prReviewRequestChangesTone: PrReviewRequestChangesTone.pipe(
+    withDefaults(() => DEFAULT_PR_REVIEW_REQUEST_CHANGES_TONE),
+  ),
   showReasoningContent: Schema.Boolean.pipe(withDefaults(() => false)),
   showStitchBorder: Schema.Boolean.pipe(withDefaults(() => true)),
   codeViewerAutosave: Schema.Boolean.pipe(withDefaults(() => false)),

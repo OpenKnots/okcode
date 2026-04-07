@@ -16,11 +16,13 @@ import {
 } from "@okcode/contracts";
 import { getModelOptions, normalizeModelSlug } from "@okcode/shared/model";
 import {
+  DEFAULT_PR_REVIEW_REQUEST_CHANGES_TONE,
   getAppModelOptions,
   getCustomModelsForProvider,
   MAX_CUSTOM_MODEL_LENGTH,
   MODEL_PROVIDER_SETTINGS,
   patchCustomModels,
+  PrReviewRequestChangesTone,
   useAppSettings,
 } from "../appSettings";
 import { APP_BUILD_INFO } from "../branding";
@@ -93,6 +95,15 @@ const TIMESTAMP_FORMAT_LABELS = {
   "12-hour": "12-hour",
   "24-hour": "24-hour",
 } as const;
+
+const PR_REVIEW_REQUEST_CHANGES_TONE_OPTIONS: ReadonlyArray<{
+  value: PrReviewRequestChangesTone;
+  label: string;
+}> = [
+  { value: "warning", label: "Warning" },
+  { value: "neutral", label: "Neutral" },
+  { value: "brand", label: "Brand" },
+];
 
 type InstallBinarySettingsKey = "claudeBinaryPath" | "codexBinaryPath";
 type InstallProviderSettings = {
@@ -423,6 +434,9 @@ function SettingsRouteView() {
     ...(theme !== "system" ? ["Theme"] : []),
     ...(colorTheme !== DEFAULT_COLOR_THEME ? ["Color theme"] : []),
     ...(fontFamily !== "inter" ? ["Font"] : []),
+    ...(settings.prReviewRequestChangesTone !== DEFAULT_PR_REVIEW_REQUEST_CHANGES_TONE
+      ? ["PR request changes button"]
+      : []),
     ...(settings.timestampFormat !== defaults.timestampFormat ? ["Time format"] : []),
     ...(settings.showStitchBorder !== defaults.showStitchBorder ? ["Stitch border"] : []),
     ...(settings.enableAssistantStreaming !== defaults.enableAssistantStreaming
@@ -1085,6 +1099,54 @@ function SettingsRouteView() {
                       aria-label="Accent background color value"
                     />
                   </div>
+                }
+              />
+
+              <SettingsRow
+                title="PR request changes button"
+                description="Choose how prominent the Request changes action looks in pull request review."
+                resetAction={
+                  settings.prReviewRequestChangesTone !== DEFAULT_PR_REVIEW_REQUEST_CHANGES_TONE ? (
+                    <SettingResetButton
+                      label="PR request changes button"
+                      onClick={() =>
+                        updateSettings({
+                          prReviewRequestChangesTone: DEFAULT_PR_REVIEW_REQUEST_CHANGES_TONE,
+                        })
+                      }
+                    />
+                  ) : null
+                }
+                control={
+                  <Select
+                    value={settings.prReviewRequestChangesTone}
+                    onValueChange={(value) => {
+                      if (value !== "warning" && value !== "neutral" && value !== "brand") {
+                        return;
+                      }
+                      updateSettings({
+                        prReviewRequestChangesTone: value,
+                      });
+                    }}
+                  >
+                    <SelectTrigger
+                      className="w-full sm:w-40"
+                      aria-label="PR request changes button"
+                    >
+                      <SelectValue>
+                        {PR_REVIEW_REQUEST_CHANGES_TONE_OPTIONS.find(
+                          (option) => option.value === settings.prReviewRequestChangesTone,
+                        )?.label ?? "Warning"}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectPopup align="end" alignItemWithTrigger={false}>
+                      {PR_REVIEW_REQUEST_CHANGES_TONE_OPTIONS.map((option) => (
+                        <SelectItem hideIndicator key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectPopup>
+                  </Select>
                 }
               />
 

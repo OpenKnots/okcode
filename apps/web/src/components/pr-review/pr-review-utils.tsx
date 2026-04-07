@@ -15,6 +15,7 @@ import { ensureNativeApi } from "~/nativeApi";
 
 export type PullRequestState = "open" | "closed" | "merged";
 export type InspectorTab = "threads" | "workflow" | "people";
+export type RequestChangesButtonVariant = "default" | "destructive-outline" | "outline";
 
 export type RenderablePatch =
   | { kind: "files"; files: FileDiffMetadata[] }
@@ -119,6 +120,20 @@ export function threadTone(state: PrReviewThread["state"]) {
       return "border-border bg-muted/45 text-muted-foreground";
     default:
       return "border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300";
+  }
+}
+
+export function resolveRequestChangesButtonVariant(
+  tone: "warning" | "brand" | "neutral",
+): RequestChangesButtonVariant {
+  switch (tone) {
+    case "brand":
+      return "default";
+    case "neutral":
+      return "outline";
+    case "warning":
+    default:
+      return "destructive-outline";
   }
 }
 

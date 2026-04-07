@@ -12,6 +12,7 @@ import {
   SparklesIcon,
 } from "lucide-react";
 
+import { useAppSettings } from "~/appSettings";
 import { useLocalStorage } from "~/hooks/useLocalStorage";
 import { useMediaQuery } from "~/hooks/useMediaQuery";
 import { gitListPullRequestsQueryOptions } from "~/lib/gitReactQuery";
@@ -46,8 +47,9 @@ import {
   type PullRequestState,
   REVIEWED_FILES_SCHEMA,
   TEXT_DRAFT_SCHEMA,
-  requiredChecksState,
   openPathInEditor,
+  requiredChecksState,
+  resolveRequestChangesButtonVariant,
 } from "./pr-review-utils";
 
 const BOOL_SCHEMA = Schema.Boolean;
@@ -71,6 +73,7 @@ export function PrReviewShell({
   onProjectChange: (projectId: string) => void;
 }) {
   const queryClient = useQueryClient();
+  const { settings } = useAppSettings();
   const isInspectorSheet = useMediaQuery("max-xl");
   const isWideScreen = useMediaQuery("min-2xl");
   const [pullRequestState, setPullRequestState] = useState<PullRequestState>("open");
@@ -577,7 +580,7 @@ export function PrReviewShell({
                     void submitReviewMutation.mutateAsync("REQUEST_CHANGES");
                   }}
                   size="sm"
-                  variant="default"
+                  variant={resolveRequestChangesButtonVariant(settings.prReviewRequestChangesTone)}
                 >
                   <AlertTriangleIcon className="size-3.5" />
                   Request changes

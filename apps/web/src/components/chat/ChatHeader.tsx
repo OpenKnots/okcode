@@ -22,7 +22,6 @@ import ProjectScriptsControl, { type NewProjectScriptInput } from "../ProjectScr
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Kbd } from "../ui/kbd";
-import { SidebarTrigger } from "../ui/sidebar";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { HeaderPanelsMenu } from "./HeaderPanelsMenu";
 
@@ -136,7 +135,6 @@ export const ChatHeader = memo(function ChatHeader({
     <div className="flex min-w-0 flex-1 items-center gap-2">
       {/* Left: Identity — thread title + project context */}
       <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden sm:gap-3">
-        <SidebarTrigger className="size-7 shrink-0" />
         {onMinimize && (
           <Button
             type="button"

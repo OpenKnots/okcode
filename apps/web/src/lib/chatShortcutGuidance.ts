@@ -17,31 +17,31 @@ export const CHAT_SHORTCUT_GUIDE_DEFINITIONS = [
   {
     id: "new-thread",
     command: "chat.new",
-    title: "Start a new thread",
+    title: "New thread",
     description: "Open a fresh conversation without leaving the current project.",
   },
   {
     id: "new-local-thread",
     command: "chat.newLocal",
-    title: "Start a local thread",
+    title: "Local thread",
     description: "Create a thread in a local or worktree-backed environment.",
   },
   {
     id: "toggle-terminal",
     command: "terminal.toggle",
-    title: "Open the terminal",
+    title: "Terminal",
     description: "Keep the shell one shortcut away while you chat.",
   },
   {
     id: "favorite-editor",
     command: "editor.openFavorite",
-    title: "Open your favorite editor",
+    title: "Favorite editor",
     description: "Jump straight to the editor you last used on this project.",
   },
   {
     id: "pull-request",
     command: "git.pullRequest",
-    title: "Open or create a pull request",
+    title: "Pull request",
     description: "Jump to the current PR or start the PR flow for the active branch.",
   },
 ] as const satisfies readonly ChatShortcutGuideDefinition[];

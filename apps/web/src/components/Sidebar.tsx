@@ -1854,17 +1854,17 @@ export default function Sidebar() {
                   render={
                     <button
                       type="button"
-                      aria-label="Open file tree"
+                      aria-label="Open workspace"
                       className="inline-flex size-5 cursor-pointer items-center justify-center rounded-md text-muted-foreground/60 transition-colors hover:bg-accent hover:text-foreground"
                       onClick={() => {
-                        useRightPanelStore.getState().open("files");
+                        useRightPanelStore.getState().open("workspace");
                       }}
                     />
                   }
                 >
                   <FolderIcon className="size-3.5" />
                 </TooltipTrigger>
-                <TooltipPopup side="top">Open file tree</TooltipPopup>
+                <TooltipPopup side="top">Open workspace</TooltipPopup>
               </Tooltip>
               <ProjectSortMenu
                 projectSortOrder={appSettings.sidebarProjectSortOrder}

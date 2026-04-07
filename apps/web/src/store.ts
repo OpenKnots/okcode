@@ -92,7 +92,7 @@ export function resolveProjectExpandedState(input: {
   existingExpanded: boolean | undefined;
   persistedExpanded: boolean | undefined;
 }): boolean {
-  return input.existingExpanded ?? input.persistedExpanded ?? true;
+  return input.existingExpanded ?? input.persistedExpanded ?? false;
 }
 
 function readPersistedState(): AppState {
@@ -431,6 +431,16 @@ export function setProjectExpanded(
   return changed ? { ...state, projects } : state;
 }
 
+export function setAllProjectsExpanded(state: AppState, expanded: boolean): AppState {
+  let changed = false;
+  const projects = state.projects.map((p) => {
+    if (p.expanded === expanded) return p;
+    changed = true;
+    return { ...p, expanded };
+  });
+  return changed ? { ...state, projects } : state;
+}
+
 export function reorderProjects(
   state: AppState,
   draggedProjectId: Project["id"],
@@ -495,6 +505,7 @@ interface AppStore extends AppState {
   markThreadUnread: (threadId: ThreadId) => void;
   toggleProject: (projectId: Project["id"]) => void;
   setProjectExpanded: (projectId: Project["id"], expanded: boolean) => void;
+  setAllProjectsExpanded: (expanded: boolean) => void;
   reorderProjects: (draggedProjectId: Project["id"], targetProjectId: Project["id"]) => void;
   setError: (threadId: ThreadId, error: string | null) => void;
   setThreadBranch: (threadId: ThreadId, branch: string | null, worktreePath: string | null) => void;
@@ -510,6 +521,7 @@ export const useStore = create<AppStore>((set) => ({
   toggleProject: (projectId) => set((state) => toggleProject(state, projectId)),
   setProjectExpanded: (projectId, expanded) =>
     set((state) => setProjectExpanded(state, projectId, expanded)),
+  setAllProjectsExpanded: (expanded) => set((state) => setAllProjectsExpanded(state, expanded)),
   reorderProjects: (draggedProjectId, targetProjectId) =>
     set((state) => reorderProjects(state, draggedProjectId, targetProjectId)),
   setError: (threadId, error) => set((state) => setError(state, threadId, error)),

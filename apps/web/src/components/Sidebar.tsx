@@ -29,6 +29,8 @@ import {
   ArrowLeftIcon,
   ArrowUpDownIcon,
   CheckCircleIcon,
+  ChevronsDownUpIcon,
+  ChevronsUpDownIcon,
   CircleDotIcon,
   CloudUploadIcon,
   ExternalLinkIcon,
@@ -462,6 +464,7 @@ export default function Sidebar() {
   const threads = useStore((store) => store.threads);
   const markThreadUnread = useStore((store) => store.markThreadUnread);
   const toggleProject = useStore((store) => store.toggleProject);
+  const setAllProjectsExpanded = useStore((store) => store.setAllProjectsExpanded);
   const reorderProjects = useStore((store) => store.reorderProjects);
   const clearComposerDraftForThread = useComposerDraftStore((store) => store.clearDraftThread);
   const getDraftThreadByProjectId = useComposerDraftStore(
@@ -1250,6 +1253,7 @@ export default function Sidebar() {
       });
   }, [projectById, threads]);
   const isManualProjectSorting = appSettings.sidebarProjectSortOrder === "manual";
+  const allProjectsExpanded = projects.length > 0 && projects.every((p) => p.expanded);
 
   function renderProjectItem(
     project: (typeof sortedProjects)[number],
@@ -1849,6 +1853,31 @@ export default function Sidebar() {
               Projects
             </span>
             <div className="flex items-center gap-1">
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <button
+                      type="button"
+                      aria-label={
+                        allProjectsExpanded ? "Collapse all projects" : "Expand all projects"
+                      }
+                      className="inline-flex size-5 cursor-pointer items-center justify-center rounded-md text-muted-foreground/60 transition-colors hover:bg-accent hover:text-foreground"
+                      onClick={() => {
+                        setAllProjectsExpanded(!allProjectsExpanded);
+                      }}
+                    />
+                  }
+                >
+                  {allProjectsExpanded ? (
+                    <ChevronsDownUpIcon className="size-3.5" />
+                  ) : (
+                    <ChevronsUpDownIcon className="size-3.5" />
+                  )}
+                </TooltipTrigger>
+                <TooltipPopup side="top">
+                  {allProjectsExpanded ? "Collapse all projects" : "Expand all projects"}
+                </TooltipPopup>
+              </Tooltip>
               <Tooltip>
                 <TooltipTrigger
                   render={

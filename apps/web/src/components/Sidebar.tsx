@@ -1,92 +1,113 @@
 import {
+  type CollisionDetection,
+  closestCorners,
+  DndContext,
+  type DragCancelEvent,
+  type DragEndEvent,
+  type DragStartEvent,
+  PointerSensor,
+  pointerWithin,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import { restrictToFirstScrollableAncestor, restrictToVerticalAxis } from "@dnd-kit/modifiers";
+import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import type { ThreadId as ThreadIdType } from "@okcode/contracts";
+import {
+  DEFAULT_MODEL_BY_PROVIDER,
+  type DesktopUpdateState,
+  type GitStatusResult,
+  type ProjectId,
+  type ResolvedKeybindingsConfig,
+  ThreadId,
+} from "@okcode/contracts";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useLocation, useNavigate, useParams } from "@tanstack/react-router";
+import { isNonEmpty as isNonEmptyString } from "effect/String";
+import {
   ArrowLeftIcon,
   ArrowUpDownIcon,
   CheckCircleIcon,
-  ChevronRightIcon,
   CircleDotIcon,
   CloudUploadIcon,
-  EyeIcon,
-  EyeOffIcon,
   ExternalLinkIcon,
   FolderIcon,
   GitBranchIcon,
   GitMergeIcon,
   GitPullRequestIcon,
   LinkIcon,
-  UserIcon,
-  XCircleIcon,
   PanelLeftCloseIcon,
   PlusIcon,
   RocketIcon,
   SettingsIcon,
   TriangleAlertIcon,
+  UserIcon,
+  XCircleIcon,
 } from "lucide-react";
-import { OkCodeMark } from "./OkCodeMark";
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
-import {
-  DndContext,
-  type DragCancelEvent,
-  type CollisionDetection,
-  PointerSensor,
-  type DragStartEvent,
-  closestCorners,
-  pointerWithin,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from "@dnd-kit/core";
-import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { restrictToFirstScrollableAncestor, restrictToVerticalAxis } from "@dnd-kit/modifiers";
-import { CSS } from "@dnd-kit/utilities";
-import {
-  DEFAULT_MODEL_BY_PROVIDER,
-  type DesktopUpdateState,
-  ProjectId,
-  ThreadId,
-  type GitStatusResult,
-  type ResolvedKeybindingsConfig,
-} from "@okcode/contracts";
-import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useLocation, useNavigate, useParams } from "@tanstack/react-router";
+import { type MouseEvent, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CloneRepositoryDialog } from "~/components/CloneRepositoryDialog";
+import { EditableThreadTitle } from "~/components/EditableThreadTitle";
+import { useClientMode } from "~/hooks/useClientMode";
+import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
+import { useProjectTitleEditor } from "~/hooks/useProjectTitleEditor";
+import { useTheme } from "~/hooks/useTheme";
+import { useThreadTitleEditor } from "~/hooks/useThreadTitleEditor";
+import { resolveImportedProjectScripts } from "~/lib/projectImport";
+import { getProjectColor } from "~/projectColors";
+import { useRightPanelStore } from "~/rightPanelStore";
 import {
   type SidebarProjectSortOrder,
   type SidebarThreadSortOrder,
   useAppSettings,
 } from "../appSettings";
-import { isElectron } from "../env";
 import { APP_BASE_NAME, APP_VERSION } from "../branding";
-import { cn, isLinuxPlatform, isMacPlatform, newCommandId, newProjectId } from "../lib/utils";
-import { useStore } from "../store";
-import { shortcutLabelForCommand } from "../keybindings";
-import { derivePendingApprovals, derivePendingUserInputs } from "../session-logic";
-import { gitRemoveWorktreeMutationOptions, gitStatusQueryOptions } from "../lib/gitReactQuery";
-import { serverConfigQueryOptions, serverUpdateQueryOptions } from "../lib/serverReactQuery";
-import { readNativeApi } from "../nativeApi";
-import { resolveServerHttpOrigin } from "../lib/runtimeBridge";
 import { useComposerDraftStore } from "../composerDraftStore";
+import { isElectron } from "../env";
 import { useHandleNewThread } from "../hooks/useHandleNewThread";
+import { shortcutLabelForCommand } from "../keybindings";
+import { gitRemoveWorktreeMutationOptions, gitStatusQueryOptions } from "../lib/gitReactQuery";
+import { resolveServerHttpOrigin } from "../lib/runtimeBridge";
+import { serverConfigQueryOptions, serverUpdateQueryOptions } from "../lib/serverReactQuery";
+import { cn, isLinuxPlatform, isMacPlatform, newCommandId, newProjectId } from "../lib/utils";
+import { readNativeApi } from "../nativeApi";
+import { derivePendingApprovals, derivePendingUserInputs } from "../session-logic";
+import { useStore } from "../store";
 import {
   selectThreadTerminalState,
   type ThreadTerminalState,
   useTerminalStateStore,
 } from "../terminalStateStore";
-import { toastManager } from "./ui/toast";
+import { useThreadSelectionStore } from "../threadSelectionStore";
+import type { Thread } from "../types";
+import { formatWorktreePathForDisplay, getOrphanedWorktreePathForThread } from "../worktreeCleanup";
 import {
   getArm64IntelBuildWarningDescription,
   getDesktopUpdateActionError,
   getDesktopUpdateButtonTooltip,
   isDesktopUpdateButtonDisabled,
   resolveDesktopUpdateButtonAction,
-  shouldShowArm64IntelBuildWarning,
   shouldHighlightDesktopUpdateError,
+  shouldShowArm64IntelBuildWarning,
   shouldShowDesktopUpdateButton,
   shouldToastDesktopUpdateActionResult,
 } from "./desktopUpdate.logic";
+import { OkCodeMark } from "./OkCodeMark";
+import {
+  computeProjectDisambiguationPaths,
+  getVisibleThreadsForProject,
+  isActionableThreadStatus,
+  resolveProjectStatusIndicator,
+  resolveSidebarNewThreadEnvMode,
+  resolveThreadStatusPill,
+  shouldClearThreadSelectionOnMouseDown,
+  sortProjectsForSidebar,
+  sortThreadsForSidebar,
+} from "./Sidebar.logic";
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "./ui/alert";
 import { Button } from "./ui/button";
 import { Collapsible, CollapsibleContent } from "./ui/collapsible";
 import { Menu, MenuGroup, MenuPopup, MenuRadioGroup, MenuRadioItem, MenuTrigger } from "./ui/menu";
-import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
 import {
   SidebarContent,
   SidebarFooter,
@@ -102,32 +123,8 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "./ui/sidebar";
-import { useThreadSelectionStore } from "../threadSelectionStore";
-import { formatWorktreePathForDisplay, getOrphanedWorktreePathForThread } from "../worktreeCleanup";
-import { isNonEmpty as isNonEmptyString } from "effect/String";
-import { useTheme } from "~/hooks/useTheme";
-import {
-  computeProjectDisambiguationPaths,
-  getVisibleThreadsForProject,
-  isActionableThreadStatus,
-  resolveProjectStatusIndicator,
-  resolveSidebarNewThreadEnvMode,
-  resolveThreadStatusPill,
-  shouldClearThreadSelectionOnMouseDown,
-  sortProjectsForSidebar,
-  sortThreadsForSidebar,
-} from "./Sidebar.logic";
-import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
-import { WorkspaceFileTree } from "~/components/WorkspaceFileTree";
-import { EditableThreadTitle } from "~/components/EditableThreadTitle";
-import { useProjectTitleEditor } from "~/hooks/useProjectTitleEditor";
-import { useThreadTitleEditor } from "~/hooks/useThreadTitleEditor";
-import { resolveImportedProjectScripts } from "~/lib/projectImport";
-import { useClientMode } from "~/hooks/useClientMode";
-import { CloneRepositoryDialog } from "~/components/CloneRepositoryDialog";
-import { getProjectColor } from "~/projectColors";
-import type { Thread } from "../types";
-import type { ThreadId as ThreadIdType } from "@okcode/contracts";
+import { toastManager } from "./ui/toast";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
 
 const EMPTY_KEYBINDINGS: ResolvedKeybindingsConfig = [];
 const THREAD_PREVIEW_LIMIT = 10;
@@ -604,9 +601,6 @@ export default function Sidebar() {
   const [expandedThreadListsByProject, setExpandedThreadListsByProject] = useState<
     ReadonlySet<ProjectId>
   >(() => new Set());
-  const [filesCollapsedByProject, setFilesCollapsedByProject] = useState<ReadonlySet<ProjectId>>(
-    () => new Set(),
-  );
   const dragInProgressRef = useRef(false);
   const suppressProjectClickAfterDragRef = useRef(false);
   const [desktopUpdateState, setDesktopUpdateState] = useState<DesktopUpdateState | null>(null);
@@ -986,7 +980,9 @@ export default function Sidebar() {
     ],
   );
 
-  const { copyToClipboard: copyThreadIdToClipboard } = useCopyToClipboard<{ threadId: ThreadId }>({
+  const { copyToClipboard: copyThreadIdToClipboard } = useCopyToClipboard<{
+    threadId: ThreadId;
+  }>({
     onCopy: (ctx) => {
       toastManager.add({
         type: "success",
@@ -1002,7 +998,9 @@ export default function Sidebar() {
       });
     },
   });
-  const { copyToClipboard: copyPathToClipboard } = useCopyToClipboard<{ path: string }>({
+  const { copyToClipboard: copyPathToClipboard } = useCopyToClipboard<{
+    path: string;
+  }>({
     onCopy: () => {
       toastManager.add({
         type: "success",
@@ -1373,7 +1371,6 @@ export default function Sidebar() {
     const activeProjectThread = activeThreadId
       ? (projectThreads.find((thread) => thread.id === activeThreadId) ?? null)
       : null;
-    const activeWorkspaceCwd = activeProjectThread?.worktreePath ?? project.cwd;
     const isThreadListExpanded = expandedThreadListsByProject.has(project.id);
     const pinnedCollapsedThread =
       !project.expanded && activeThreadId
@@ -1541,41 +1538,6 @@ export default function Sidebar() {
               </SidebarMenuSubItem>
             )}
           </SidebarMenuSub>
-
-          {project.expanded && !appSettings.sidebarHideFiles ? (
-            <div className="mx-1 mt-0.5 px-1">
-              <button
-                type="button"
-                className="mb-1 flex w-full items-center gap-1.5 px-2 text-[10px] uppercase tracking-[0.14em] text-muted-foreground/50 hover:text-muted-foreground/70"
-                onClick={() =>
-                  setFilesCollapsedByProject((current) => {
-                    const next = new Set(current);
-                    if (next.has(project.id)) {
-                      next.delete(project.id);
-                    } else {
-                      next.add(project.id);
-                    }
-                    return next;
-                  })
-                }
-              >
-                <ChevronRightIcon
-                  className={cn(
-                    "size-3 shrink-0 transition-transform",
-                    !filesCollapsedByProject.has(project.id) && "rotate-90",
-                  )}
-                />
-                <FolderIcon className="size-3 shrink-0" />
-                <span>Files</span>
-              </button>
-              <WorkspaceFileTree
-                key={project.id}
-                cwd={activeWorkspaceCwd}
-                resolvedTheme={resolvedTheme}
-                className={cn(filesCollapsedByProject.has(project.id) && "hidden")}
-              />
-            </div>
-          ) : null}
         </CollapsibleContent>
       </Collapsible>
     );
@@ -2004,29 +1966,17 @@ export default function Sidebar() {
                   render={
                     <button
                       type="button"
-                      aria-label={appSettings.sidebarHideFiles ? "Show files" : "Hide files"}
-                      aria-pressed={appSettings.sidebarHideFiles}
-                      className={cn(
-                        "inline-flex size-5 cursor-pointer items-center justify-center rounded-md transition-colors hover:bg-accent hover:text-foreground",
-                        appSettings.sidebarHideFiles
-                          ? "text-muted-foreground/40"
-                          : "text-muted-foreground/60",
-                      )}
-                      onClick={() =>
-                        updateSettings({ sidebarHideFiles: !appSettings.sidebarHideFiles })
-                      }
+                      aria-label="Open file tree"
+                      className="inline-flex size-5 cursor-pointer items-center justify-center rounded-md text-muted-foreground/60 transition-colors hover:bg-accent hover:text-foreground"
+                      onClick={() => {
+                        useRightPanelStore.getState().open("files");
+                      }}
                     />
                   }
                 >
-                  {appSettings.sidebarHideFiles ? (
-                    <EyeOffIcon className="size-3.5" />
-                  ) : (
-                    <EyeIcon className="size-3.5" />
-                  )}
+                  <FolderIcon className="size-3.5" />
                 </TooltipTrigger>
-                <TooltipPopup side="top">
-                  {appSettings.sidebarHideFiles ? "Show files" : "Hide files"}
-                </TooltipPopup>
+                <TooltipPopup side="top">Open file tree</TooltipPopup>
               </Tooltip>
               <ProjectSortMenu
                 projectSortOrder={appSettings.sidebarProjectSortOrder}

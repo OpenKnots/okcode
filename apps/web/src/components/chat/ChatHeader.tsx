@@ -1,29 +1,29 @@
-import {
-  type ProjectId,
-  type ProjectScript,
-  type ThreadId,
-  type ResolvedKeybindingsConfig,
+import type {
+  ProjectId,
+  ProjectScript,
+  ResolvedKeybindingsConfig,
+  ThreadId,
 } from "@okcode/contracts";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDownIcon, ExternalLinkIcon, GitPullRequestIcon } from "lucide-react";
 import { memo, useCallback, useEffect } from "react";
+import { useTheme } from "~/hooks/useTheme";
+import { useThreadTitleEditor } from "~/hooks/useThreadTitleEditor";
+import { shortcutLabelsForCommand } from "~/keybindings";
+import type { ClientMode } from "~/lib/clientMode";
+import { gitStatusQueryOptions } from "~/lib/gitReactQuery";
+import { ensureNativeApi } from "~/nativeApi";
+import type { PreviewDock } from "~/previewStateStore";
+import { useProjectColor } from "~/projectColors";
 import type { ProjectScriptDraft } from "~/projectScriptDefaults";
-import GitActionsControl from "../GitActionsControl";
 import { EditableThreadTitle } from "../EditableThreadTitle";
+import GitActionsControl from "../GitActionsControl";
+import ProjectScriptsControl, { type NewProjectScriptInput } from "../ProjectScriptsControl";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Kbd } from "../ui/kbd";
-import ProjectScriptsControl, { type NewProjectScriptInput } from "../ProjectScriptsControl";
 import { SidebarTrigger } from "../ui/sidebar";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
-import { useThreadTitleEditor } from "~/hooks/useThreadTitleEditor";
-import { gitStatusQueryOptions } from "~/lib/gitReactQuery";
-import { shortcutLabelsForCommand } from "~/keybindings";
-import { ensureNativeApi } from "~/nativeApi";
-import { useProjectColor } from "~/projectColors";
-import { useTheme } from "~/hooks/useTheme";
-import type { ClientMode } from "~/lib/clientMode";
-import type { PreviewDock } from "~/previewStateStore";
 import { HeaderPanelsMenu } from "./HeaderPanelsMenu";
 
 interface ChatHeaderProps {
@@ -55,10 +55,10 @@ interface ChatHeaderProps {
   onDeleteProjectScript: (scriptId: string) => Promise<void>;
   onImportProjectScripts: (scripts: ProjectScriptDraft[]) => Promise<void>;
   onToggleTerminal: () => void;
-  onToggleCodeViewer: () => void;
-  onToggleDiffViewer: () => void;
-  onTogglePreview: () => void;
-  onTogglePreviewLayout: () => void;
+  onToggleCodeViewer?: () => void;
+  onToggleDiffViewer?: () => void;
+  onTogglePreview?: () => void;
+  onTogglePreviewLayout?: () => void;
   onMinimize?: (() => void) | undefined;
 }
 
@@ -77,8 +77,8 @@ export const ChatHeader = memo(function ChatHeader({
   terminalAvailable,
   terminalOpen,
   terminalToggleShortcutLabel,
-  codeViewerOpen,
-  diffViewerOpen,
+  codeViewerOpen: _codeViewerOpen,
+  diffViewerOpen: _diffViewerOpen,
   previewAvailable,
   previewOpen,
   previewDock: _previewDock,
@@ -91,8 +91,8 @@ export const ChatHeader = memo(function ChatHeader({
   onDeleteProjectScript,
   onImportProjectScripts,
   onToggleTerminal,
-  onToggleCodeViewer,
-  onToggleDiffViewer,
+  onToggleCodeViewer: _onToggleCodeViewer,
+  onToggleDiffViewer: _onToggleDiffViewer,
   onTogglePreview,
   onTogglePreviewLayout: _onTogglePreviewLayout,
   onMinimize,
@@ -255,10 +255,6 @@ export const ChatHeader = memo(function ChatHeader({
             terminalAvailable={terminalAvailable}
             terminalOpen={terminalOpen}
             terminalToggleShortcutLabel={terminalToggleShortcutLabel}
-            codeViewerOpen={codeViewerOpen}
-            onToggleCodeViewer={onToggleCodeViewer}
-            diffViewerOpen={diffViewerOpen}
-            onToggleDiffViewer={onToggleDiffViewer}
             previewAvailable={previewAvailable}
             previewOpen={previewOpen}
             onToggleTerminal={onToggleTerminal}

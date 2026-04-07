@@ -975,7 +975,14 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
                 }),
             ),
           );
-        yield* fileSystem.writeFileString(target.absolutePath, body.contents).pipe(
+        const writeEffect =
+          body.encoding === "base64"
+            ? fileSystem.writeFile(
+                target.absolutePath,
+                new Uint8Array(Buffer.from(body.contents, "base64")),
+              )
+            : fileSystem.writeFileString(target.absolutePath, body.contents);
+        yield* writeEffect.pipe(
           Effect.mapError(
             (cause) =>
               new RouteRequestError({

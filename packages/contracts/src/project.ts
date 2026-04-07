@@ -60,6 +60,8 @@ export const ProjectWriteFileInput = Schema.Struct({
   cwd: TrimmedNonEmptyString,
   relativePath: TrimmedNonEmptyString.check(Schema.isMaxLength(PROJECT_WRITE_FILE_PATH_MAX_LENGTH)),
   contents: Schema.String,
+  /** When set to "base64", `contents` is decoded from base64 before writing as binary. */
+  encoding: Schema.optional(Schema.Literal("base64")),
 });
 export type ProjectWriteFileInput = typeof ProjectWriteFileInput.Type;
 

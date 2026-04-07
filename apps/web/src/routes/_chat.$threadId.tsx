@@ -22,6 +22,8 @@ import { useStore } from "../store";
 import { Sheet, SheetPopup } from "../components/ui/sheet";
 import { Sidebar, SidebarInset, SidebarProvider, SidebarRail } from "~/components/ui/sidebar";
 import { Loader2Icon } from "lucide-react";
+import { isMobileShell } from "../env";
+import { useChatWidgetStore } from "../chatWidgetStore";
 
 const CodeViewerPanel = lazy(() => import("../components/CodeViewerPanel"));
 const DiffPanel = lazy(() => import("../components/DiffPanel"));
@@ -289,6 +291,8 @@ function ChatThreadRouteView() {
   const routeThreadExists = threadExists || draftThreadExists;
   const clientMode = useClientMode();
   const shouldUseCodeViewerSheet = clientMode === "mobile";
+  const widgetMinimize = useChatWidgetStore((s) => s.minimize);
+  const onMinimize = isMobileShell ? widgetMinimize : undefined;
 
   // Code viewer state from Zustand store
   const codeViewerOpen = useCodeViewerStore((state) => state.isOpen);
@@ -422,7 +426,7 @@ function ChatThreadRouteView() {
     return (
       <>
         <SidebarInset className="relative h-dvh min-h-0 overflow-hidden overscroll-y-none bg-background text-foreground">
-          <ChatView key={threadId} threadId={threadId} />
+          <ChatView key={threadId} threadId={threadId} onMinimize={onMinimize} />
         </SidebarInset>
         <CodeViewerInlineSidebar
           codeViewerOpen={codeViewerOpen}
@@ -442,7 +446,7 @@ function ChatThreadRouteView() {
   return (
     <>
       <SidebarInset className="relative h-dvh min-h-0 overflow-hidden overscroll-y-none bg-background text-foreground">
-        <ChatView key={threadId} threadId={threadId} />
+        <ChatView key={threadId} threadId={threadId} onMinimize={onMinimize} />
       </SidebarInset>
       <CodeViewerSheet codeViewerOpen={codeViewerOpen} onCloseCodeViewer={closeCodeViewer}>
         {shouldRenderCodeViewerContent ? <LazyCodeViewerPanel /> : null}

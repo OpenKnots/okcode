@@ -365,6 +365,7 @@ const INTERACTION_MODE_CYCLE: readonly ProviderInteractionMode[] = ["chat", "cod
 
 interface ChatViewProps {
   threadId: ThreadId;
+  onMinimize?: (() => void) | undefined;
 }
 
 interface RunProjectScriptOptions {
@@ -375,7 +376,7 @@ interface RunProjectScriptOptions {
   rememberAsLastInvoked?: boolean;
 }
 
-export default function ChatView({ threadId }: ChatViewProps) {
+export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
   const clientMode = useClientMode();
   const transportState = useTransportState();
   const threads = useStore((store) => store.threads);
@@ -4849,6 +4850,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
           onToggleDiffViewer={handleToggleDiffViewer}
           onTogglePreview={() => activeProjectId && togglePreviewOpen(activeProjectId)}
           onTogglePreviewLayout={() => activeProjectId && togglePreviewLayout(activeProjectId)}
+          onMinimize={onMinimize}
         />
       </header>
 

@@ -112,7 +112,7 @@ const OPENCLAW_TEST_RPC_TIMEOUT_MS = 10_000;
 
 function testOpenclawGateway(
   input: TestOpenclawGatewayInput,
-): Effect.Effect<TestOpenclawGatewayResult> {
+): Effect.Effect<TestOpenclawGatewayResult, unknown> {
   return Effect.gen(function* () {
     const overallStart = Date.now();
     const steps: TestOpenclawGatewayStep[] = [];
@@ -153,7 +153,10 @@ function testOpenclawGateway(
             if (msg.id === id) {
               clearTimeout(timeout);
               socket.off("message", handler);
-              resolve({ result: msg.result, error: msg.error });
+              const payload: { result?: unknown; error?: { code: number; message: string } } = {};
+            if ("result" in msg) payload.result = msg.result;
+            if (msg.error !== undefined) payload.error = msg.error;
+            resolve(payload);
             }
           } catch {
             // Ignore non-JSON messages
@@ -316,7 +319,10 @@ function testOpenclawGateway(
         const result = (response.result ?? {}) as Record<string, unknown>;
         const sessionId = typeof result.sessionId === "string" ? result.sessionId : undefined;
         const version = typeof result.version === "string" ? result.version : undefined;
-        serverInfo = { version, sessionId };
+        serverInfo = {
+        ...(version !== undefined ? { version } : {}),
+        ...(sessionId !== undefined ? { sessionId } : {}),
+      };
         pushStep(
           "Session create",
           "pass",

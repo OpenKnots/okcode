@@ -1,7 +1,14 @@
 import { parsePatchFiles } from "@pierre/diffs";
 import { FileDiff, type FileDiffMetadata, Virtualizer } from "@pierre/diffs/react";
 import { useQuery } from "@tanstack/react-query";
-import { Columns2Icon, Rows3Icon, TextWrapIcon, XIcon } from "lucide-react";
+import {
+  CheckIcon,
+  ChevronRightIcon,
+  Columns2Icon,
+  Rows3Icon,
+  TextWrapIcon,
+  XIcon,
+} from "lucide-react";
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { openInPreferredEditor } from "../editorPreferences";
@@ -57,10 +64,7 @@ const DIFF_PANEL_UNSAFE_CSS = `
 }
 
 [data-file-info] {
-  background-color: color-mix(in srgb, var(--card) 94%, var(--foreground)) !important;
-  border-block-color: var(--border) !important;
-  color: var(--foreground) !important;
-  padding-right: 5.75rem !important;
+  display: none !important;
 }
 
 [data-diffs-header] {
@@ -172,6 +176,7 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
   const [diffWordWrap, setDiffWordWrap] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<FileDiffCategory>("all");
   const [acceptedFileKeys, setAcceptedFileKeys] = useState<Set<string>>(() => new Set());
+  const [collapsedFileKeys, setCollapsedFileKeys] = useState<Set<string>>(() => new Set());
   const patchViewportRef = useRef<HTMLDivElement>(null);
   const previousDiffOpenRef = useRef(false);
 
@@ -285,17 +290,17 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
       deleted: 0,
       renamed: 0,
     };
-    for (const fileDiff of remainingFiles) {
+    for (const fileDiff of renderableFiles) {
       const category = categorizeFileDiff(fileDiff);
       counts[category]++;
     }
-    return { all: remainingFiles.length, ...counts };
-  }, [remainingFiles]);
+    return { all: renderableFiles.length, ...counts };
+  }, [renderableFiles]);
 
   const filteredFiles = useMemo(() => {
-    if (selectedCategory === "all") return remainingFiles;
-    return remainingFiles.filter((fileDiff) => categorizeFileDiff(fileDiff) === selectedCategory);
-  }, [remainingFiles, selectedCategory]);
+    if (selectedCategory === "all") return renderableFiles;
+    return renderableFiles.filter((fileDiff) => categorizeFileDiff(fileDiff) === selectedCategory);
+  }, [renderableFiles, selectedCategory]);
 
   useEffect(() => {
     if (diffOpen && !previousDiffOpenRef.current) {
@@ -307,16 +312,31 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
 
   useEffect(() => {
     setAcceptedFileKeys(new Set());
+    setCollapsedFileKeys(new Set());
   }, [selectedPatch]);
 
   useEffect(() => {
     if (!selectedFilePath || !patchViewportRef.current) {
       return;
     }
-    const target = Array.from(
-      patchViewportRef.current.querySelectorAll<HTMLElement>("[data-diff-file-path]"),
-    ).find((element) => element.dataset.diffFilePath === selectedFilePath);
-    target?.scrollIntoView({ block: "nearest" });
+    const selectedFile = renderableFiles.find(
+      (f) => resolveFileDiffPath(f) === selectedFilePath,
+    );
+    if (selectedFile) {
+      const key = buildFileDiffRenderKey(selectedFile);
+      setCollapsedFileKeys((current) => {
+        if (!current.has(key)) return current;
+        const next = new Set(current);
+        next.delete(key);
+        return next;
+      });
+    }
+    requestAnimationFrame(() => {
+      const target = Array.from(
+        patchViewportRef.current?.querySelectorAll<HTMLElement>("[data-diff-file-path]") ?? [],
+      ).find((element) => element.dataset.diffFilePath === selectedFilePath);
+      target?.scrollIntoView({ block: "nearest" });
+    });
   }, [selectedFilePath, renderableFiles]);
 
   const openDiffFileInEditor = useCallback(
@@ -333,6 +353,7 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
 
   const acceptFile = useCallback((fileDiff: FileDiffMetadata) => {
     const fileKey = buildAcceptedDiffFileKey(fileDiff);
+    const renderKey = buildFileDiffRenderKey(fileDiff);
     startTransition(() => {
       setAcceptedFileKeys((current) => {
         if (current.has(fileKey)) {
@@ -340,6 +361,12 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
         }
         const next = new Set(current);
         next.add(fileKey);
+        return next;
+      });
+      setCollapsedFileKeys((current) => {
+        if (current.has(renderKey)) return current;
+        const next = new Set(current);
+        next.add(renderKey);
         return next;
       });
     });
@@ -357,11 +384,29 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
         }
         return next;
       });
+      setCollapsedFileKeys((current) => {
+        const next = new Set(current);
+        for (const fileDiff of remainingFiles) {
+          next.add(buildFileDiffRenderKey(fileDiff));
+        }
+        return next;
+      });
     });
   }, [remainingFiles]);
 
-  const allFilesAccepted = renderableFiles.length > 0 && remainingFiles.length === 0;
-  const noFilesInSelectedCategory = !allFilesAccepted && filteredFiles.length === 0;
+  const toggleFileCollapse = useCallback((fileKey: string) => {
+    setCollapsedFileKeys((current) => {
+      const next = new Set(current);
+      if (next.has(fileKey)) {
+        next.delete(fileKey);
+      } else {
+        next.add(fileKey);
+      }
+      return next;
+    });
+  }, []);
+
+  const noFilesInSelectedCategory = filteredFiles.length === 0;
 
   const headerRow = (
     <>
@@ -485,13 +530,9 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
               </div>
             )
           ) : renderablePatch.kind === "files" ? (
-            allFilesAccepted || noFilesInSelectedCategory ? (
+            noFilesInSelectedCategory ? (
               <div className="flex h-full items-center justify-center px-3 py-2 text-xs text-muted-foreground/70">
-                <p>
-                  {allFilesAccepted
-                    ? "All file changes accepted."
-                    : `No remaining ${CATEGORY_LABELS[selectedCategory].toLowerCase()} changes.`}
-                </p>
+                <p>{`No ${CATEGORY_LABELS[selectedCategory].toLowerCase()} changes.`}</p>
               </div>
             ) : (
               <Virtualizer
@@ -505,44 +546,113 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
                   const filePath = resolveFileDiffPath(fileDiff);
                   const fileKey = buildFileDiffRenderKey(fileDiff);
                   const themedFileKey = `${fileKey}:${resolvedTheme}`;
+                  const isAccepted = acceptedFileKeys.has(
+                    buildAcceptedDiffFileKey(fileDiff),
+                  );
+                  const isCollapsed = collapsedFileKeys.has(fileKey);
+                  const changeType = categorizeFileDiff(fileDiff);
                   return (
                     <div
                       key={themedFileKey}
                       data-diff-file-path={filePath}
-                      className="diff-render-file relative mb-2 rounded-md first:mt-2 last:mb-0"
-                      onClickCapture={(event) => {
-                        const nativeEvent = event.nativeEvent as MouseEvent;
-                        const composedPath = nativeEvent.composedPath?.() ?? [];
-                        const clickedHeader = composedPath.some((node) => {
-                          if (!(node instanceof Element)) return false;
-                          return node.hasAttribute("data-title");
-                        });
-                        if (!clickedHeader) return;
-                        openDiffFileInEditor(filePath);
-                      }}
+                      className="diff-render-file mb-2 first:mt-2 last:mb-0"
                     >
-                      <div className="pointer-events-none absolute right-2 top-2 z-10">
-                        <Button
+                      <div
+                        className={cn(
+                          "overflow-hidden rounded-md border transition-colors duration-150",
+                          isAccepted ? "border-border/40" : "border-border/70",
+                        )}
+                      >
+                        <button
                           type="button"
-                          size="xs"
-                          variant="secondary"
-                          className="pointer-events-auto"
-                          onClick={() => acceptFile(fileDiff)}
+                          onClick={() => toggleFileCollapse(fileKey)}
+                          className={cn(
+                            "flex w-full items-center gap-2 px-3 py-2 text-left",
+                            "bg-[color-mix(in_srgb,var(--card)_94%,var(--foreground))]",
+                            "hover:bg-[color-mix(in_srgb,var(--card)_90%,var(--foreground))]",
+                            "transition-colors duration-150",
+                            !isCollapsed && "border-b border-border/50",
+                            isAccepted && "opacity-60 hover:opacity-80",
+                          )}
                         >
-                          Accept
-                        </Button>
+                          <ChevronRightIcon
+                            className={cn(
+                              "size-3.5 shrink-0 text-muted-foreground/70 transition-transform duration-200",
+                              !isCollapsed && "rotate-90",
+                            )}
+                          />
+                          <span
+                            role="link"
+                            tabIndex={0}
+                            className="min-w-0 flex-1 truncate font-mono text-[11px] text-foreground/90 hover:text-foreground hover:underline hover:underline-offset-2"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openDiffFileInEditor(filePath);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.stopPropagation();
+                                openDiffFileInEditor(filePath);
+                              }
+                            }}
+                          >
+                            {filePath}
+                          </span>
+                          <span
+                            className={cn(
+                              "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium leading-none",
+                              changeType === "added" &&
+                                "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+                              changeType === "deleted" &&
+                                "bg-red-500/15 text-red-600 dark:text-red-400",
+                              changeType === "renamed" &&
+                                "bg-blue-500/15 text-blue-600 dark:text-blue-400",
+                              changeType === "modified" &&
+                                "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+                            )}
+                          >
+                            {changeType === "added"
+                              ? "A"
+                              : changeType === "deleted"
+                                ? "D"
+                                : changeType === "renamed"
+                                  ? "R"
+                                  : "M"}
+                          </span>
+                          {isAccepted ? (
+                            <span className="flex shrink-0 items-center gap-1 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium leading-none text-emerald-600 dark:text-emerald-400">
+                              <CheckIcon className="size-3" />
+                              Accepted
+                            </span>
+                          ) : (
+                            <Button
+                              type="button"
+                              size="xs"
+                              variant="secondary"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                acceptFile(fileDiff);
+                              }}
+                            >
+                              Accept
+                            </Button>
+                          )}
+                        </button>
+                        {!isCollapsed && (
+                          <FileDiff
+                            fileDiff={fileDiff}
+                            options={{
+                              diffStyle:
+                                diffRenderMode === "split" ? "split" : "unified",
+                              lineDiffType: "none",
+                              overflow: diffWordWrap ? "wrap" : "scroll",
+                              theme: resolveDiffThemeName(resolvedTheme),
+                              themeType: resolvedTheme as DiffThemeType,
+                              unsafeCSS: DIFF_PANEL_UNSAFE_CSS,
+                            }}
+                          />
+                        )}
                       </div>
-                      <FileDiff
-                        fileDiff={fileDiff}
-                        options={{
-                          diffStyle: diffRenderMode === "split" ? "split" : "unified",
-                          lineDiffType: "none",
-                          overflow: diffWordWrap ? "wrap" : "scroll",
-                          theme: resolveDiffThemeName(resolvedTheme),
-                          themeType: resolvedTheme as DiffThemeType,
-                          unsafeCSS: DIFF_PANEL_UNSAFE_CSS,
-                        }}
-                      />
                     </div>
                   );
                 })}

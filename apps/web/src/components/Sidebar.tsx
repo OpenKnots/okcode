@@ -1415,10 +1415,14 @@ export default function Sidebar() {
     const orderedProjectThreadIds = projectThreads.map((thread) => thread.id);
     const renderedThreads = pinnedCollapsedThread ? [pinnedCollapsedThread] : visibleThreads;
     const pColor = getProjectColor(project.id);
+    const isDark = resolvedTheme === "dark";
 
     return (
       <Collapsible className="group/collapsible" open={shouldShowThreadPanel}>
-        <div className="group/project-header relative flex items-center gap-1">
+        <div
+          className="group/project-header relative flex items-center gap-1 rounded-md"
+          style={{ backgroundColor: isDark ? pColor.bgDark : pColor.bg }}
+        >
           <SidebarMenuButton
             ref={isManualProjectSorting ? dragHandleProps?.setActivatorNodeRef : undefined}
             size="sm"
@@ -1461,7 +1465,8 @@ export default function Sidebar() {
             ) : (
               <span className="min-w-0 flex-1">
                 <span
-                  className="block truncate text-xs font-medium text-muted-foreground/70"
+                  className="block truncate text-xs font-semibold"
+                  style={{ color: isDark ? pColor.textDark : pColor.text }}
                   onDoubleClick={(e) => {
                     e.stopPropagation();
                     startProjectEditing({

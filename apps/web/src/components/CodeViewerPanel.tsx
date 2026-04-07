@@ -39,6 +39,12 @@ function hasTextContentsFromQuery(
   return typeof data?.contents === "string";
 }
 
+function hasPreviewFromQuery(
+  data: { previewDataUrl?: string | null; previewMimeType?: string | null } | undefined,
+): data is { previewDataUrl: string; previewMimeType: string } {
+  return typeof data?.previewDataUrl === "string" && typeof data?.previewMimeType === "string";
+}
+
 function isEnvFile(filePath: string): boolean {
   const basename = filePath.split("/").pop() ?? filePath;
   return /^\.env(\..*)?$/.test(basename);
@@ -46,18 +52,68 @@ function isEnvFile(filePath: string): boolean {
 
 function isEditableTextFile(input: {
   hasContents: boolean;
-  hasImage: boolean;
+  previewOnly: boolean;
   truncated: boolean;
   envFile: boolean;
   envValuesRevealed: boolean;
 }): boolean {
-  if (!input.hasContents || input.hasImage || input.truncated) {
+  if (!input.hasContents || input.previewOnly || input.truncated) {
     return false;
   }
   if (input.envFile && !input.envValuesRevealed) {
     return false;
   }
   return true;
+}
+
+function FilePreviewSurface(props: { dataUrl: string; mimeType: string; relativePath: string }) {
+  const isImage = props.mimeType.startsWith("image/");
+  const isAudio = props.mimeType.startsWith("audio/");
+  const isVideo = props.mimeType.startsWith("video/");
+  const isPdf = props.mimeType === "application/pdf";
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="border-b border-border px-3 py-2 text-[11px] text-muted-foreground">
+        Previewing <span className="font-mono">{props.mimeType}</span>
+      </div>
+      <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto p-4">
+        {isImage ? (
+          <img
+            src={props.dataUrl}
+            alt={props.relativePath}
+            className="max-h-full max-w-full object-contain"
+            draggable={false}
+          />
+        ) : isVideo ? (
+          <video src={props.dataUrl} controls className="max-h-full max-w-full" />
+        ) : isAudio ? (
+          <audio src={props.dataUrl} controls className="w-full max-w-xl" />
+        ) : isPdf ? (
+          <iframe
+            src={props.dataUrl}
+            title={props.relativePath}
+            className="h-full min-h-[480px] w-full rounded-md border border-border bg-background"
+          />
+        ) : (
+          <object
+            data={props.dataUrl}
+            type={props.mimeType}
+            className="h-full min-h-[480px] w-full rounded-md border border-border bg-background"
+          >
+            <div className="flex h-full min-h-[240px] w-full flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border px-6 py-8 text-center">
+              <p className="text-sm text-foreground">
+                Inline preview is unavailable for this file.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                MIME type: <span className="font-mono">{props.mimeType}</span>
+              </p>
+            </div>
+          </object>
+        )}
+      </div>
+    </div>
+  );
 }
 
 async function confirmUnsavedChanges(message: string): Promise<boolean> {
@@ -160,12 +216,15 @@ export const CodeViewerFileContent = memo(function CodeViewerFileContent(
     }),
   );
   const fileContents = hasTextContentsFromQuery(query.data) ? query.data.contents : "";
+  const preview = hasPreviewFromQuery(query.data)
+    ? { dataUrl: query.data.previewDataUrl, mimeType: query.data.previewMimeType }
+    : null;
 
   const hasTextContents = hasTextContentsFromQuery(query.data);
-  const hasImage = Boolean(query.data?.imageDataUrl);
+  const previewOnly = preview !== null && !hasTextContents;
   const editable = isEditableTextFile({
     hasContents: hasTextContents,
-    hasImage,
+    previewOnly,
     truncated: Boolean(query.data?.truncated),
     envFile,
     envValuesRevealed,
@@ -174,6 +233,8 @@ export const CodeViewerFileContent = memo(function CodeViewerFileContent(
   const mode: CodeViewerMode =
     tab?.mode ?? (isMarkdownPreviewFilePath(props.relativePath) ? "view" : "edit");
   const showMarkdownPreview = isMarkdownPreviewFilePath(props.relativePath) && mode === "view";
+  const showFilePreview =
+    !showMarkdownPreview && preview !== null && (!hasTextContents || mode === "view");
   const isSaving = Boolean(tab?.isSaving);
 
   const performSave = useCallback(
@@ -346,6 +407,12 @@ export const CodeViewerFileContent = memo(function CodeViewerFileContent(
     }
   }, [setTabMode, tab]);
 
+  const handlePreview = useCallback(() => {
+    if (tab) {
+      setTabMode(tab.tabId, "view");
+    }
+  }, [setTabMode, tab]);
+
   const handleSave = useCallback(() => {
     void performSave("manual");
   }, [performSave]);
@@ -387,21 +454,13 @@ export const CodeViewerFileContent = memo(function CodeViewerFileContent(
     );
   }
 
-  if (hasImage && query.data?.imageDataUrl) {
+  if (previewOnly && preview) {
     return (
-      <div className="flex min-h-0 flex-1 flex-col">
-        <div className="border-b border-border px-3 py-2 text-[11px] text-muted-foreground">
-          Images are view-only in the code preview.
-        </div>
-        <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto p-4">
-          <img
-            src={query.data.imageDataUrl}
-            alt={props.relativePath}
-            className="max-h-full max-w-full object-contain"
-            draggable={false}
-          />
-        </div>
-      </div>
+      <FilePreviewSurface
+        dataUrl={preview.dataUrl}
+        mimeType={preview.mimeType}
+        relativePath={props.relativePath}
+      />
     );
   }
 
@@ -461,7 +520,7 @@ export const CodeViewerFileContent = memo(function CodeViewerFileContent(
             ) : null}
           </div>
           <div className="flex items-center gap-2">
-            {showMarkdownPreview ? (
+            {showMarkdownPreview || (showFilePreview && preview && hasTextContents) ? (
               <Button
                 type="button"
                 size="xs"
@@ -471,6 +530,11 @@ export const CodeViewerFileContent = memo(function CodeViewerFileContent(
               >
                 <PencilIcon className="size-3.5" />
                 Edit
+              </Button>
+            ) : preview && hasTextContents ? (
+              <Button type="button" size="xs" variant="outline" onClick={handlePreview}>
+                <EyeIcon className="size-3.5" />
+                Preview
               </Button>
             ) : null}
             {tab?.isDirty ? (
@@ -530,6 +594,12 @@ export const CodeViewerFileContent = memo(function CodeViewerFileContent(
       >
         {showMarkdownPreview ? (
           <MarkdownPreview contents={fileContents} />
+        ) : showFilePreview && preview ? (
+          <FilePreviewSurface
+            dataUrl={preview.dataUrl}
+            mimeType={preview.mimeType}
+            relativePath={props.relativePath}
+          />
         ) : (
           <CodeMirrorViewer
             contents={draftContents}

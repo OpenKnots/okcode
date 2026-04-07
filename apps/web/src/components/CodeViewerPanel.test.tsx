@@ -203,4 +203,105 @@ describe("CodeViewerFileContent", () => {
     expect(markup).toContain("Reveal values to edit this file.");
     expect(markup).toContain('data-editable="false"');
   });
+
+  it("renders inline previews for binary files", async () => {
+    const tabId = makeCodeViewerTabId("/repo", "photo.heic");
+    useCodeViewerStore.setState({
+      isOpen: true,
+      activeTabId: tabId,
+      pendingContext: null,
+      tabs: [
+        {
+          tabId,
+          cwd: "/repo",
+          relativePath: "photo.heic",
+          label: "photo.heic",
+          savedContents: null,
+          draftContents: null,
+          isDirty: false,
+          isSaving: false,
+          lastSaveError: null,
+          mode: "view",
+          hasExternalChange: false,
+        },
+      ],
+    });
+    useQueryMock.mockReturnValue({
+      data: {
+        relativePath: "photo.heic",
+        contents: "",
+        truncated: false,
+        sizeBytes: 32,
+        previewDataUrl: "data:image/heic;base64,AAAA",
+        previewMimeType: "image/heic",
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as never);
+
+    const { CodeViewerFileContent } = await import("./CodeViewerPanel");
+    const markup = renderToStaticMarkup(
+      <CodeViewerFileContent
+        cwd="/repo"
+        relativePath="photo.heic"
+        resolvedTheme="light"
+        onAddContext={() => {}}
+      />,
+    );
+
+    expect(markup).toContain("Previewing");
+    expect(markup).toContain("image/heic");
+    expect(markup).toContain("<img");
+  });
+
+  it("renders preview toggle for previewable text files", async () => {
+    const tabId = makeCodeViewerTabId("/repo", "icon.svg");
+    useCodeViewerStore.setState({
+      isOpen: true,
+      activeTabId: tabId,
+      pendingContext: null,
+      tabs: [
+        {
+          tabId,
+          cwd: "/repo",
+          relativePath: "icon.svg",
+          label: "icon.svg",
+          savedContents: "<svg />",
+          draftContents: "<svg />",
+          isDirty: false,
+          isSaving: false,
+          lastSaveError: null,
+          mode: "edit",
+          hasExternalChange: false,
+        },
+      ],
+    });
+    useQueryMock.mockReturnValue({
+      data: {
+        relativePath: "icon.svg",
+        contents: "<svg />",
+        truncated: false,
+        sizeBytes: 7,
+        previewDataUrl: "data:image/svg+xml;base64,PHN2ZyAvPg==",
+        previewMimeType: "image/svg+xml",
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as never);
+
+    const { CodeViewerFileContent } = await import("./CodeViewerPanel");
+    const markup = renderToStaticMarkup(
+      <CodeViewerFileContent
+        cwd="/repo"
+        relativePath="icon.svg"
+        resolvedTheme="light"
+        onAddContext={() => {}}
+      />,
+    );
+
+    expect(markup).toContain("Preview");
+    expect(markup).toContain('data-testid="mock-editor"');
+  });
 });

@@ -77,6 +77,7 @@ export type ProjectReadFileInput = typeof ProjectReadFileInput.Type;
 export const ProjectReadFileResult = Schema.Struct({
   relativePath: TrimmedNonEmptyString,
   contents: Schema.String,
+  hasTextContents: Schema.Boolean,
   sizeBytes: Schema.Number,
   truncated: Schema.Boolean,
   /** Base64 data URL for previewable files (e.g. "data:image/png;base64,...") */

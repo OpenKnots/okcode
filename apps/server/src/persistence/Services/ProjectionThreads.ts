@@ -14,7 +14,6 @@ import {
   ThreadId,
   TurnId,
 } from "@okcode/contracts";
-import type { GitHubRef } from "@okcode/contracts";
 import { Option, Schema, ServiceMap } from "effect";
 import type { Effect } from "effect";
 

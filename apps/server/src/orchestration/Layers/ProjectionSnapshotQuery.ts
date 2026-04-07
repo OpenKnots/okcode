@@ -552,26 +552,29 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
             } catch {
               // Ignore invalid JSON — treat as no ref
             }
-            return {
-              id: row.threadId,
-              projectId: row.projectId,
-              title: row.title,
-              model: row.model,
-              runtimeMode: row.runtimeMode,
-              interactionMode: row.interactionMode,
-              branch: row.branch,
-              worktreePath: row.worktreePath,
-              ...(githubRef ? { githubRef } : {}),
-              latestTurn: latestTurnByThread.get(row.threadId) ?? null,
-              createdAt: row.createdAt,
-              updatedAt: row.updatedAt,
-              deletedAt: row.deletedAt,
-              messages: messagesByThread.get(row.threadId) ?? [],
-              proposedPlans: proposedPlansByThread.get(row.threadId) ?? [],
-              activities: activitiesByThread.get(row.threadId) ?? [],
-              checkpoints: checkpointsByThread.get(row.threadId) ?? [],
-              session: sessionsByThread.get(row.threadId) ?? null,
-            };
+            const thread = Object.assign(
+              {
+                id: row.threadId,
+                projectId: row.projectId,
+                title: row.title,
+                model: row.model,
+                runtimeMode: row.runtimeMode,
+                interactionMode: row.interactionMode,
+                branch: row.branch,
+                worktreePath: row.worktreePath,
+                latestTurn: latestTurnByThread.get(row.threadId) ?? null,
+                createdAt: row.createdAt,
+                updatedAt: row.updatedAt,
+                deletedAt: row.deletedAt,
+                messages: messagesByThread.get(row.threadId) ?? [],
+                proposedPlans: proposedPlansByThread.get(row.threadId) ?? [],
+                activities: activitiesByThread.get(row.threadId) ?? [],
+                checkpoints: checkpointsByThread.get(row.threadId) ?? [],
+                session: sessionsByThread.get(row.threadId) ?? null,
+              },
+              githubRef ? { githubRef } : {},
+            ) as OrchestrationThread;
+            return thread;
           });
 
           const snapshot = {

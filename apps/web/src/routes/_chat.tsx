@@ -251,7 +251,7 @@ function ChatRouteLayout() {
         />
         <div className="relative z-10 min-h-dvh">
           <ChatRouteGlobalShortcuts />
-          <ChatWidgetShell clientMode={clientMode} />
+          <ChatWidgetShell />
         </div>
       </div>
     );

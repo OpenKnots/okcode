@@ -67,17 +67,12 @@ import { isElectron } from "../env";
 import { useHandleNewThread } from "../hooks/useHandleNewThread";
 import { shortcutLabelForCommand } from "../keybindings";
 import { gitRemoveWorktreeMutationOptions, gitStatusQueryOptions } from "../lib/gitReactQuery";
-import { resolveServerHttpOrigin } from "../lib/runtimeBridge";
 import { serverConfigQueryOptions, serverUpdateQueryOptions } from "../lib/serverReactQuery";
 import { cn, isLinuxPlatform, isMacPlatform, newCommandId, newProjectId } from "../lib/utils";
 import { readNativeApi } from "../nativeApi";
 import { derivePendingApprovals, derivePendingUserInputs } from "../session-logic";
 import { useStore } from "../store";
-import {
-  selectThreadTerminalState,
-  type ThreadTerminalState,
-  useTerminalStateStore,
-} from "../terminalStateStore";
+import { useTerminalStateStore } from "../terminalStateStore";
 import { useThreadSelectionStore } from "../threadSelectionStore";
 import type { Thread } from "../types";
 import { formatWorktreePathForDisplay, getOrphanedWorktreePathForThread } from "../worktreeCleanup";
@@ -94,10 +89,8 @@ import {
 } from "./desktopUpdate.logic";
 import { OkCodeMark } from "./OkCodeMark";
 import {
-  computeProjectDisambiguationPaths,
   getVisibleThreadsForProject,
   isActionableThreadStatus,
-  resolveProjectStatusIndicator,
   resolveSidebarNewThreadEnvMode,
   resolveThreadStatusPill,
   shouldClearThreadSelectionOnMouseDown,
@@ -137,23 +130,6 @@ const SIDEBAR_THREAD_SORT_LABELS: Record<SidebarThreadSortOrder, string> = {
   updated_at: "Last user message",
   created_at: "Created at",
 };
-const loadedProjectFaviconSrcs = new Set<string>();
-
-function formatRelativeTime(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const minutes = Math.floor(diff / 60_000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
-}
-
-interface TerminalStatusIndicator {
-  label: "Terminal process running";
-  colorClass: string;
-  pulse: boolean;
-}
 
 interface PrStatusIndicator {
   label: "PR open" | "PR closed" | "PR merged";
@@ -164,19 +140,6 @@ interface PrStatusIndicator {
 }
 
 type ThreadPr = GitStatusResult["pr"];
-
-function terminalStatusFromRunningIds(
-  runningTerminalIds: string[],
-): TerminalStatusIndicator | null {
-  if (runningTerminalIds.length === 0) {
-    return null;
-  }
-  return {
-    label: "Terminal process running",
-    colorClass: "text-teal-600 dark:text-teal-300/90",
-    pulse: true,
-  };
-}
 
 function prStatusIndicator(pr: ThreadPr): PrStatusIndicator | null {
   if (!pr) return null;
@@ -209,40 +172,6 @@ function prStatusIndicator(pr: ThreadPr): PrStatusIndicator | null {
     };
   }
   return null;
-}
-
-/**
- * Derives the server's HTTP origin (scheme + host + port) from the same
- * sources WsTransport uses, converting ws(s) to http(s).
- */
-function getServerHttpOrigin(): string {
-  return resolveServerHttpOrigin();
-}
-
-const serverHttpOrigin = getServerHttpOrigin();
-
-function ProjectFavicon({ cwd }: { cwd: string }) {
-  const src = `${serverHttpOrigin}/api/project-favicon?cwd=${encodeURIComponent(cwd)}`;
-  const [status, setStatus] = useState<"loading" | "loaded" | "error">(() =>
-    loadedProjectFaviconSrcs.has(src) ? "loaded" : "loading",
-  );
-
-  if (status === "error") {
-    return <FolderIcon className="size-3.5 shrink-0 text-muted-foreground/50" />;
-  }
-
-  return (
-    <img
-      src={src}
-      alt=""
-      className={`size-3.5 shrink-0 rounded-sm object-contain ${status === "loading" ? "hidden" : ""}`}
-      onLoad={() => {
-        loadedProjectFaviconSrcs.add(src);
-        setStatus("loaded");
-      }}
-      onError={() => setStatus("error")}
-    />
-  );
 }
 
 type SortableProjectHandleProps = Pick<
@@ -354,23 +283,12 @@ function SortableProjectItem({
   );
 }
 
-function useMinuteTick(): number {
-  const [tick, setTick] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 60_000);
-    return () => clearInterval(id);
-  }, []);
-  return tick;
-}
-
 interface MemoizedThreadRowProps {
   thread: Thread;
   isActive: boolean;
   isSelected: boolean;
   routeThreadId: ThreadIdType | null;
-  pColor: ReturnType<typeof getProjectColor>;
   prByThreadId: Map<ThreadIdType, ThreadPr>;
-  terminalStateByThreadId: Record<ThreadIdType, ThreadTerminalState>;
   orderedProjectThreadIds: ThreadIdType[];
   selectedThreadIds: ReadonlySet<ThreadIdType>;
   editingThreadId: ThreadIdType | null;
@@ -393,8 +311,6 @@ interface MemoizedThreadRowProps {
     position: { x: number; y: number },
   ) => Promise<void>;
   handleMultiSelectContextMenu: (position: { x: number; y: number }) => Promise<void>;
-  openPrLink: (event: React.MouseEvent<HTMLElement>, prUrl: string) => void;
-  formatRelativeTimeFn: (iso: string) => string;
 }
 
 const MemoizedThreadRow = memo(
@@ -402,9 +318,7 @@ const MemoizedThreadRow = memo(
     thread,
     isActive,
     isSelected,
-    pColor,
     prByThreadId,
-    terminalStateByThreadId,
     orderedProjectThreadIds,
     selectedThreadIds,
     editingThreadId,
@@ -420,19 +334,13 @@ const MemoizedThreadRow = memo(
     handleThreadClick,
     handleThreadContextMenu,
     handleMultiSelectContextMenu,
-    openPrLink,
-    formatRelativeTimeFn,
   }: MemoizedThreadRowProps) {
-    const isHighlighted = isActive || isSelected;
     const threadStatus = resolveThreadStatusPill({
       thread,
       hasPendingApprovals: derivePendingApprovals(thread.activities).length > 0,
       hasPendingUserInput: derivePendingUserInputs(thread.activities).length > 0,
     });
     const prStatus = prStatusIndicator(prByThreadId.get(thread.id) ?? null);
-    const terminalStatus = terminalStatusFromRunningIds(
-      selectThreadTerminalState(terminalStateByThreadId, thread.id).runningTerminalIds,
-    );
 
     // Derive a type-based icon for the thread row
     const ThreadIcon = prStatus
@@ -537,16 +445,9 @@ const MemoizedThreadRow = memo(
     if ((prev.editingThreadId === prev.thread.id) !== (next.editingThreadId === next.thread.id))
       return false;
     if (prev.editingThreadTitle !== next.editingThreadTitle) return false;
-    // Check terminal state for this specific thread
-    const prevTerminal = selectThreadTerminalState(prev.terminalStateByThreadId, prev.thread.id);
-    const nextTerminal = selectThreadTerminalState(next.terminalStateByThreadId, next.thread.id);
-    if (prevTerminal.runningTerminalIds.length !== nextTerminal.runningTerminalIds.length)
-      return false;
     // Check PR status for this specific thread
     if (prev.prByThreadId.get(prev.thread.id) !== next.prByThreadId.get(next.thread.id))
       return false;
-    // Check if formatRelativeTimeFn changed (tied to minuteTick)
-    if (prev.formatRelativeTimeFn !== next.formatRelativeTimeFn) return false;
     // Check thread activities (for status pill)
     if (prev.thread.activities !== next.thread.activities) return false;
     return true;
@@ -564,7 +465,6 @@ export default function Sidebar() {
   const getDraftThreadByProjectId = useComposerDraftStore(
     (store) => store.getDraftThreadByProjectId,
   );
-  const terminalStateByThreadId = useTerminalStateStore((state) => state.terminalStateByThreadId);
   const clearTerminalState = useTerminalStateStore((state) => state.clearTerminalState);
   const clearProjectDraftThreadId = useComposerDraftStore(
     (store) => store.clearProjectDraftThreadId,
@@ -637,10 +537,6 @@ export default function Sidebar() {
     setDraftProjectTitle,
     startProjectEditing,
   } = useProjectTitleEditor();
-  const projectDisambiguationPaths = useMemo(
-    () => computeProjectDisambiguationPaths(projects),
-    [projects],
-  );
   const projectCwdById = useMemo(
     () => new Map(projects.map((project) => [project.id, project.cwd] as const)),
     [projects],
@@ -692,28 +588,6 @@ export default function Sidebar() {
     }
     return map;
   }, [threadGitStatusCwds, threadGitStatusQueries, threadGitTargets]);
-
-  const openPrLink = useCallback((event: React.MouseEvent<HTMLElement>, prUrl: string) => {
-    event.preventDefault();
-    event.stopPropagation();
-
-    const api = readNativeApi();
-    if (!api) {
-      toastManager.add({
-        type: "error",
-        title: "Link opening is unavailable.",
-      });
-      return;
-    }
-
-    void api.shell.openExternal(prUrl).catch((error) => {
-      toastManager.add({
-        type: "error",
-        title: "Unable to open PR link",
-        description: error instanceof Error ? error.message : "An error occurred.",
-      });
-    });
-  }, []);
 
   const focusMostRecentThreadForProject = useCallback(
     (projectId: ProjectId) => {
@@ -1343,12 +1217,6 @@ export default function Sidebar() {
       });
   }, [projects, threads]);
   const isManualProjectSorting = appSettings.sidebarProjectSortOrder === "manual";
-  const minuteTick = useMinuteTick();
-  const memoizedFormatRelativeTime = useCallback(
-    (iso: string) => formatRelativeTime(iso),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [minuteTick],
-  );
 
   function renderProjectItem(
     project: (typeof sortedProjects)[number],
@@ -1358,19 +1226,7 @@ export default function Sidebar() {
       threads.filter((thread) => thread.projectId === project.id),
       appSettings.sidebarThreadSortOrder,
     );
-    const projectStatus = resolveProjectStatusIndicator(
-      projectThreads.map((thread) =>
-        resolveThreadStatusPill({
-          thread,
-          hasPendingApprovals: derivePendingApprovals(thread.activities).length > 0,
-          hasPendingUserInput: derivePendingUserInputs(thread.activities).length > 0,
-        }),
-      ),
-    );
     const activeThreadId = routeThreadId ?? undefined;
-    const activeProjectThread = activeThreadId
-      ? (projectThreads.find((thread) => thread.id === activeThreadId) ?? null)
-      : null;
     const isThreadListExpanded = expandedThreadListsByProject.has(project.id);
     const pinnedCollapsedThread =
       !project.expanded && activeThreadId
@@ -1484,9 +1340,7 @@ export default function Sidebar() {
                 isActive={routeThreadId === thread.id}
                 isSelected={selectedThreadIds.has(thread.id)}
                 routeThreadId={routeThreadId}
-                pColor={pColor}
                 prByThreadId={prByThreadId}
-                terminalStateByThreadId={terminalStateByThreadId}
                 orderedProjectThreadIds={orderedProjectThreadIds}
                 selectedThreadIds={selectedThreadIds}
                 editingThreadId={editingThreadId}
@@ -1502,8 +1356,6 @@ export default function Sidebar() {
                 handleThreadClick={handleThreadClick}
                 handleThreadContextMenu={handleThreadContextMenu}
                 handleMultiSelectContextMenu={handleMultiSelectContextMenu}
-                openPrLink={openPrLink}
-                formatRelativeTimeFn={memoizedFormatRelativeTime}
               />
             ))}
 

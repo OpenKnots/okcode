@@ -787,19 +787,12 @@ it.layer(GitManagerTestLayer)("GitManager", (it) => {
       Effect.gen(function* () {
         const repoDir = yield* makeTempDir("okcode-git-manager-");
         yield* initRepo(repoDir);
-        const remoteDir = yield* createBareRemote();
-        yield* runGit(repoDir, ["remote", "add", "origin", remoteDir]);
-        yield* runGit(repoDir, ["push", "-u", "origin", "main"]);
         yield* runGit(repoDir, ["checkout", "-b", "feature/rebase-before-commit"]);
-
-        const updaterDir = yield* makeTempDir("okcode-git-manager-updater-");
-        yield* runGit(updaterDir, ["clone", "--branch", "main", remoteDir, "."]);
-        yield* runGit(updaterDir, ["config", "user.email", "test@example.com"]);
-        yield* runGit(updaterDir, ["config", "user.name", "Test User"]);
-        fs.writeFileSync(path.join(updaterDir, "base.txt"), "remote main update\n");
-        yield* runGit(updaterDir, ["add", "base.txt"]);
-        yield* runGit(updaterDir, ["commit", "-m", "Remote main update"]);
-        yield* runGit(updaterDir, ["push", "origin", "main"]);
+        yield* runGit(repoDir, ["checkout", "main"]);
+        fs.writeFileSync(path.join(repoDir, "base.txt"), "local main update\n");
+        yield* runGit(repoDir, ["add", "base.txt"]);
+        yield* runGit(repoDir, ["commit", "-m", "Local main update"]);
+        yield* runGit(repoDir, ["checkout", "feature/rebase-before-commit"]);
 
         fs.writeFileSync(path.join(repoDir, "README.md"), "hello\nrebased feature work\n");
 
@@ -812,15 +805,14 @@ it.layer(GitManagerTestLayer)("GitManager", (it) => {
         });
 
         expect(result.commit.status).toBe("created");
-
-        const remoteMainSha = yield* runGit(repoDir, ["rev-parse", "origin/main"]).pipe(
+        const mainSha = yield* runGit(repoDir, ["rev-parse", "main"]).pipe(
           Effect.map((gitResult) => gitResult.stdout.trim()),
         );
-        const mergeBase = yield* runGit(repoDir, ["merge-base", "HEAD", "origin/main"]).pipe(
+        const mergeBase = yield* runGit(repoDir, ["merge-base", "HEAD", "main"]).pipe(
           Effect.map((gitResult) => gitResult.stdout.trim()),
         );
 
-        expect(mergeBase).toBe(remoteMainSha);
+        expect(mergeBase).toBe(mainSha);
       }),
     30_000,
   );

@@ -8,7 +8,7 @@ export const githubQueryKeys = {
 };
 
 export function invalidateGithubIssueQueries(queryClient: QueryClient, cwd: string) {
-  return Promise.all([queryClient.invalidateQueries({ queryKey: githubQueryKeys.issues(cwd) })]);
+  return queryClient.invalidateQueries({ queryKey: githubQueryKeys.issues(cwd) });
 }
 
 export function githubListIssuesQueryOptions(input: {

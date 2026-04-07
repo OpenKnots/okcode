@@ -15,10 +15,6 @@ interface HeaderPanelsMenuProps {
   terminalOpen: boolean;
   terminalToggleShortcutLabel: string | null;
   onPrefetchTerminal: () => void;
-  codeViewerOpen: boolean;
-  onToggleCodeViewer: () => void;
-  diffViewerOpen: boolean;
-  onToggleDiffViewer: () => void;
   previewAvailable: boolean;
   previewOpen: boolean;
   onToggleTerminal: () => void;
@@ -30,10 +26,6 @@ export const HeaderPanelsMenu = memo(function HeaderPanelsMenu({
   terminalOpen,
   terminalToggleShortcutLabel,
   onPrefetchTerminal,
-  codeViewerOpen,
-  onToggleCodeViewer,
-  diffViewerOpen,
-  onToggleDiffViewer,
   previewAvailable,
   previewOpen,
   onToggleTerminal,

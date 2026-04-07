@@ -9,7 +9,6 @@ import ThreadSidebar from "../Sidebar";
 import { Sidebar, SidebarProvider, SidebarRail } from "../ui/sidebar";
 import { ChatWidgetBubble } from "./ChatWidgetBubble";
 import { ChatWidgetPanel } from "./ChatWidgetPanel";
-
 const THREAD_SIDEBAR_WIDTH_STORAGE_KEY = "chat_thread_sidebar_width";
 const THREAD_SIDEBAR_MIN_WIDTH = 13 * 16;
 const THREAD_MAIN_CONTENT_MIN_WIDTH = 40 * 16;
@@ -39,7 +38,7 @@ export function ChatWidgetShell() {
   useEffect(() => {
     const expand = useChatWidgetStore.getState().expand;
 
-    const onNotificationTap = (() => {
+    const onNotificationTap = ((_event: CustomEvent<{ threadId?: string }>) => {
       expand();
       // Navigation to the thread is handled by the notification system.
     }) as EventListener;

@@ -81,6 +81,15 @@ const ProjectionLatestTurnDbRowSchema = Schema.Struct({
 });
 const ProjectionStateDbRowSchema = ProjectionState;
 
+function parseGithubRef(serialized: string | null): OrchestrationThread["githubRef"] | undefined {
+  if (!serialized) return undefined;
+  try {
+    return JSON.parse(serialized) as OrchestrationThread["githubRef"];
+  } catch {
+    return undefined;
+  }
+}
+
 const REQUIRED_SNAPSHOT_PROJECTORS = [
   ORCHESTRATION_PROJECTOR_NAMES.projects,
   ORCHESTRATION_PROJECTOR_NAMES.threads,
@@ -543,39 +552,30 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
             deletedAt: row.deletedAt,
           }));
 
-          const threads: Array<OrchestrationThread> = threadRows.map((row) => {
-            let githubRef: OrchestrationThread["githubRef"];
-            try {
-              if (row.githubRef) {
-                githubRef = JSON.parse(row.githubRef);
-              }
-            } catch {
-              // Ignore invalid JSON — treat as no ref
-            }
-            const thread = Object.assign(
-              {
-                id: row.threadId,
-                projectId: row.projectId,
-                title: row.title,
-                model: row.model,
-                runtimeMode: row.runtimeMode,
-                interactionMode: row.interactionMode,
-                branch: row.branch,
-                worktreePath: row.worktreePath,
-                latestTurn: latestTurnByThread.get(row.threadId) ?? null,
-                createdAt: row.createdAt,
-                updatedAt: row.updatedAt,
-                deletedAt: row.deletedAt,
-                messages: messagesByThread.get(row.threadId) ?? [],
-                proposedPlans: proposedPlansByThread.get(row.threadId) ?? [],
-                activities: activitiesByThread.get(row.threadId) ?? [],
-                checkpoints: checkpointsByThread.get(row.threadId) ?? [],
-                session: sessionsByThread.get(row.threadId) ?? null,
-              },
-              githubRef ? { githubRef } : {},
-            ) as OrchestrationThread;
-            return thread;
-          });
+          const threads: Array<OrchestrationThread> = [];
+          for (const row of threadRows) {
+            const githubRef = parseGithubRef(row.githubRef);
+            const thread: OrchestrationThread = {
+              id: row.threadId,
+              projectId: row.projectId,
+              title: row.title,
+              model: row.model,
+              runtimeMode: row.runtimeMode,
+              interactionMode: row.interactionMode,
+              branch: row.branch,
+              worktreePath: row.worktreePath,
+              latestTurn: latestTurnByThread.get(row.threadId) ?? null,
+              createdAt: row.createdAt,
+              updatedAt: row.updatedAt,
+              deletedAt: row.deletedAt,
+              messages: messagesByThread.get(row.threadId) ?? [],
+              proposedPlans: proposedPlansByThread.get(row.threadId) ?? [],
+              activities: activitiesByThread.get(row.threadId) ?? [],
+              checkpoints: checkpointsByThread.get(row.threadId) ?? [],
+              session: sessionsByThread.get(row.threadId) ?? null,
+            };
+            threads.push(githubRef ? { ...thread, githubRef } : thread);
+          }
 
           const snapshot = {
             snapshotSequence: computeSnapshotSequence(stateRows),

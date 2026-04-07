@@ -22,7 +22,7 @@ import {
 import { useTheme } from "~/hooks/useTheme";
 import { isElectron } from "~/env";
 import { projectQueryKeys, projectReadFileQueryOptions } from "~/lib/projectReactQuery";
-import { cn, isMacPlatform } from "~/lib/utils";
+import { cn } from "~/lib/utils";
 import { isMarkdownPreviewFilePath } from "~/markdownPreview";
 import { readNativeApi } from "~/nativeApi";
 import { type CodeContextSelection, CodeMirrorViewer } from "./CodeMirrorViewer";
@@ -600,7 +600,7 @@ export default function CodeViewerPanel() {
     [setPendingContext],
   );
 
-  const modKey = isMacPlatform(navigator.platform) ? "\u2318" : "Ctrl+";
+
 
   return (
     <div className="flex h-full w-full flex-col bg-background">
@@ -618,9 +618,6 @@ export default function CodeViewerPanel() {
           onCloseAll={onCloseAll}
         />
         <div className="flex shrink-0 items-center gap-2 [-webkit-app-region:no-drag]">
-          <span className="hidden text-[10px] text-muted-foreground/50 sm:inline">
-            Select code + {modKey}L to add context
-          </span>
           <Button
             size="icon-xs"
             variant="ghost"

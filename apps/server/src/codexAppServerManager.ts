@@ -161,6 +161,9 @@ const BENIGN_ERROR_LOG_SNIPPETS = [
   "state db missing rollout path for thread",
   "state db record_discrepancy: find_thread_path_by_id_str_in_subdir, falling_back",
 ];
+const BENIGN_STDERR_MESSAGE_SNIPPETS = [
+  'worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer error=\\"invalid_request\\", error_description=\\"No access token was provided in this request\\", resource_metadata=\\"https://mcp.supabase.com/.well-known/oauth-protected-resource/mcp\\""',
+];
 const RECOVERABLE_THREAD_RESUME_ERROR_SNIPPETS = [
   "not found",
   "missing thread",
@@ -515,6 +518,11 @@ function toCodexUserInputAnswers(
 export function classifyCodexStderrLine(rawLine: string): { message: string } | null {
   const line = rawLine.replaceAll(ANSI_ESCAPE_REGEX, "").trim();
   if (!line) {
+    return null;
+  }
+
+  const isBenignMessage = BENIGN_STDERR_MESSAGE_SNIPPETS.some((snippet) => line.includes(snippet));
+  if (isBenignMessage) {
     return null;
   }
 

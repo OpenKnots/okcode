@@ -193,6 +193,12 @@ describe("classifyCodexStderrLine", () => {
     expect(classifyCodexStderrLine(line)).toBeNull();
   });
 
+  it("ignores known unauthenticated supabase mcp transport shutdown noise", () => {
+    const line =
+      '2026-04-07T11:04:55.822542Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer error=\\"invalid_request\\", error_description=\\"No access token was provided in this request\\", resource_metadata=\\"https://mcp.supabase.com/.well-known/oauth-protected-resource/mcp\\"" })';
+    expect(classifyCodexStderrLine(line)).toBeNull();
+  });
+
   it("keeps unknown structured errors", () => {
     const line = "2026-02-08T04:24:20.085687Z ERROR codex_core::runtime: unrecoverable failure";
     expect(classifyCodexStderrLine(line)).toEqual({

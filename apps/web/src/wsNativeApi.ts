@@ -8,6 +8,8 @@ import {
   type PrReviewRepoConfigUpdatedPayload,
   type PrReviewSyncUpdatedPayload,
   ServerConfigUpdatedPayload,
+  SME_WS_CHANNELS,
+  type SmeMessageEvent,
   WS_CHANNELS,
   WS_METHODS,
   type WsWelcomePayload,
@@ -26,6 +28,7 @@ const prReviewRepoConfigUpdatedListeners = new Set<
   (payload: PrReviewRepoConfigUpdatedPayload) => void
 >();
 const projectFileTreeChangedListeners = new Set<(payload: ProjectFileTreeChangedPayload) => void>();
+const smeMessageEventListeners = new Set<(event: SmeMessageEvent) => void>();
 const transportStateListeners = new Set<(state: TransportState) => void>();
 
 /**
@@ -189,6 +192,16 @@ export function createWsNativeApi(): NativeApi {
   transport.subscribe(WS_CHANNELS.projectFileTreeChanged, (message) => {
     const payload = message.data;
     for (const listener of projectFileTreeChangedListeners) {
+      try {
+        listener(payload);
+      } catch {
+        // Swallow listener errors
+      }
+    }
+  });
+  transport.subscribe(SME_WS_CHANNELS.messageEvent, (message) => {
+    const payload = message.data;
+    for (const listener of smeMessageEventListeners) {
       try {
         listener(payload);
       } catch {
@@ -385,6 +398,24 @@ export function createWsNativeApi(): NativeApi {
         transport.subscribe(ORCHESTRATION_WS_CHANNELS.domainEvent, (message) =>
           callback(message.data),
         ),
+    },
+    sme: {
+      uploadDocument: (input) => transport.request(WS_METHODS.smeUploadDocument, input),
+      deleteDocument: (input) => transport.request(WS_METHODS.smeDeleteDocument, input),
+      listDocuments: (input) => transport.request(WS_METHODS.smeListDocuments, input),
+      createConversation: (input) => transport.request(WS_METHODS.smeCreateConversation, input),
+      deleteConversation: (input) => transport.request(WS_METHODS.smeDeleteConversation, input),
+      listConversations: (input) => transport.request(WS_METHODS.smeListConversations, input),
+      getConversation: (input) => transport.request(WS_METHODS.smeGetConversation, input),
+      sendMessage: (input) =>
+        transport.request(WS_METHODS.smeSendMessage, input, { timeoutMs: null }),
+      interruptMessage: (input) => transport.request(WS_METHODS.smeInterruptMessage, input),
+      onMessageEvent: (callback) => {
+        smeMessageEventListeners.add(callback);
+        return () => {
+          smeMessageEventListeners.delete(callback);
+        };
+      },
     },
   };
 

@@ -98,7 +98,11 @@ import { TokenManager } from "./tokenManager.ts";
 import { resolveRuntimeEnvironment, RuntimeEnv } from "./runtimeEnvironment.ts";
 import { version as serverVersion } from "../package.json" with { type: "json" };
 import { serverBuildInfo } from "./buildInfo";
-import type { TestOpenclawGatewayInput, TestOpenclawGatewayResult, TestOpenclawGatewayStep } from "@okcode/contracts";
+import type {
+  TestOpenclawGatewayInput,
+  TestOpenclawGatewayResult,
+  TestOpenclawGatewayStep,
+} from "@okcode/contracts";
 import NodeWebSocket from "ws";
 
 // ── OpenClaw Gateway Connection Test ──────────────────────────────────
@@ -134,7 +138,8 @@ function testOpenclawGateway(
       new Promise((resolve, reject) => {
         const id = rpcId++;
         const timeout = setTimeout(
-          () => reject(new Error(`RPC '${method}' timed out after ${OPENCLAW_TEST_RPC_TIMEOUT_MS}ms`)),
+          () =>
+            reject(new Error(`RPC '${method}' timed out after ${OPENCLAW_TEST_RPC_TIMEOUT_MS}ms`)),
           OPENCLAW_TEST_RPC_TIMEOUT_MS,
         );
 
@@ -214,27 +219,26 @@ function testOpenclawGateway(
       // ── Step 2: WebSocket connect ───────────────────────────────────
       const connectStart = Date.now();
       try {
-        ws = yield* Effect.tryPromise(() =>
-          new Promise<NodeWebSocket>((resolve, reject) => {
-            const socket = new NodeWebSocket(gatewayUrl);
-            const timeout = setTimeout(() => {
-              socket.close();
-              reject(
-                new Error(
-                  `Connection timed out after ${OPENCLAW_TEST_CONNECT_TIMEOUT_MS}ms`,
-                ),
-              );
-            }, OPENCLAW_TEST_CONNECT_TIMEOUT_MS);
+        ws = yield* Effect.tryPromise(
+          () =>
+            new Promise<NodeWebSocket>((resolve, reject) => {
+              const socket = new NodeWebSocket(gatewayUrl);
+              const timeout = setTimeout(() => {
+                socket.close();
+                reject(
+                  new Error(`Connection timed out after ${OPENCLAW_TEST_CONNECT_TIMEOUT_MS}ms`),
+                );
+              }, OPENCLAW_TEST_CONNECT_TIMEOUT_MS);
 
-            socket.on("open", () => {
-              clearTimeout(timeout);
-              resolve(socket);
-            });
-            socket.on("error", (err) => {
-              clearTimeout(timeout);
-              reject(err);
-            });
-          }),
+              socket.on("open", () => {
+                clearTimeout(timeout);
+                resolve(socket);
+              });
+              socket.on("error", (err) => {
+                clearTimeout(timeout);
+                reject(err);
+              });
+            }),
         );
         pushStep(
           "WebSocket connect",
@@ -243,8 +247,7 @@ function testOpenclawGateway(
           `Connected in ${Date.now() - connectStart}ms`,
         );
       } catch (err) {
-        const detail =
-          err instanceof Error ? err.message : "Connection failed.";
+        const detail = err instanceof Error ? err.message : "Connection failed.";
         pushStep("WebSocket connect", "fail", Date.now() - connectStart, detail);
         return {
           success: false,

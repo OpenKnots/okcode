@@ -10,7 +10,7 @@ import {
   gitPruneWorktreesMutationOptions,
   gitRemoveWorktreeMutationOptions,
 } from "~/lib/gitReactQuery";
-import { formatWorktreePathForDisplay } from "~/worktreeCleanup";
+import { formatBranchAge, formatWorktreePathForDisplay } from "~/worktreeCleanup";
 import { useWorktreeCleanupStore } from "~/worktreeCleanupStore";
 import { toastManager } from "./ui/toast";
 import { Badge } from "./ui/badge";
@@ -64,8 +64,35 @@ export function WorktreeCleanupDialog() {
   const hasCandidates = candidates.length > 0;
   const isBusy = removeWorktreeMutation.isPending || pruneWorktreesMutation.isPending;
 
+  const staleCandidates = useMemo(
+    () =>
+      candidates.filter(
+        (c) => !c.pathExists && resolveWorktreeUsageCount(c, threadWorktreePaths) === 0,
+      ),
+    [candidates, threadWorktreePaths],
+  );
+  const hasStaleCandidates = staleCandidates.length > 0;
+
   const handleClose = () => {
     closeDialog();
+  };
+
+  const handlePruneAllStale = async () => {
+    if (!cwd || !hasStaleCandidates) return;
+    try {
+      await pruneWorktreesMutation.mutateAsync({ cwd });
+      toastManager.add({
+        type: "success",
+        title: "Stale records pruned",
+        description: `Pruned ${staleCandidates.length} stale worktree record${staleCandidates.length === 1 ? "" : "s"}.`,
+      });
+    } catch (error) {
+      toastManager.add({
+        type: "error",
+        title: "Could not prune stale records",
+        description: error instanceof Error ? error.message : "Unknown error.",
+      });
+    }
   };
 
   const handleRemoveCandidate = async (candidate: GitWorktreeCleanupCandidate) => {
@@ -151,10 +178,21 @@ export function WorktreeCleanupDialog() {
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div className="min-w-0 space-y-2">
                             <div className="flex flex-wrap items-center gap-2">
-                              <Badge variant="outline" size="sm">
-                                <GitMergeIcon className="size-3.5" />
-                                Merged PR #{candidate.prNumber}
-                              </Badge>
+                              <a
+                                href={candidate.prUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="no-underline"
+                              >
+                                <Badge
+                                  variant="outline"
+                                  size="sm"
+                                  className="cursor-pointer hover:bg-accent"
+                                >
+                                  <GitMergeIcon className="size-3.5" />
+                                  Merged PR #{candidate.prNumber}
+                                </Badge>
+                              </a>
                               {candidate.pathExists ? (
                                 <Badge variant="success" size="sm">
                                   On disk
@@ -182,6 +220,11 @@ export function WorktreeCleanupDialog() {
                                 {" · "}
                                 Path{" "}
                                 <span className="font-mono text-foreground">{displayPath}</span>
+                                {" · "}
+                                Merged{" "}
+                                <span className="text-foreground">
+                                  {formatBranchAge(candidate.mergedAt)}
+                                </span>
                               </div>
                             </div>
                           </div>
@@ -215,9 +258,26 @@ export function WorktreeCleanupDialog() {
             <div className="text-xs text-muted-foreground">
               {candidates.length} candidate{candidates.length === 1 ? "" : "s"} found
             </div>
-            <Button variant="outline" size="sm" onClick={handleClose}>
-              Close
-            </Button>
+            <div className="flex items-center gap-2">
+              {hasStaleCandidates ? (
+                <Button
+                  variant="destructive-outline"
+                  size="sm"
+                  disabled={isBusy}
+                  onClick={() => void handlePruneAllStale()}
+                >
+                  {pruneWorktreesMutation.isPending ? (
+                    <LoaderCircleIcon className="size-3.5 animate-spin" />
+                  ) : (
+                    <Trash2Icon className="size-3.5" />
+                  )}
+                  Prune all stale ({staleCandidates.length})
+                </Button>
+              ) : null}
+              <Button variant="outline" size="sm" onClick={handleClose}>
+                Close
+              </Button>
+            </div>
           </div>
         </DialogFooter>
       </DialogPopup>

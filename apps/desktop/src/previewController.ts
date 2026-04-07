@@ -298,6 +298,51 @@ export class DesktopPreviewController {
     this.broadcastState();
   }
 
+  /**
+   * Transfer all threads and tabs from this controller to another.
+   * Views are moved between windows (removed from this window, added
+   * to the target window). After the transfer this controller is empty.
+   */
+  transferTo(target: DesktopPreviewController): void {
+    // Move every view from this window → target window
+    for (const [threadId, threadSet] of this.threadTabs.entries()) {
+      for (const entry of threadSet.tabs.values()) {
+        if (!entry.view.webContents.isDestroyed()) {
+          try {
+            this.window.contentView.removeChildView(entry.view);
+          } catch {
+            // Window may already be torn down.
+          }
+          target.window.contentView.addChildView(entry.view);
+          // Reset bounds; the target controller will reposition.
+          entry.view.setBounds(ZERO_BOUNDS);
+        }
+      }
+
+      // Transfer the thread set to the target controller.
+      target.threadTabs.set(threadId, threadSet);
+
+      // Update the target's LRU.
+      const idx = target.threadLru.indexOf(threadId);
+      if (idx !== -1) target.threadLru.splice(idx, 1);
+      target.threadLru.push(threadId);
+    }
+
+    // Transfer the active thread reference.
+    if (this.activeThreadId) {
+      target.activeThreadId = this.activeThreadId;
+    }
+
+    // Clear this controller.
+    this.threadTabs.clear();
+    this.activeThreadId = null;
+    this.threadLru = [];
+
+    // Let the target controller reposition and broadcast.
+    target.applyActiveTabBounds();
+    target.broadcastState();
+  }
+
   destroy(): void {
     // Destroy all tabs across all threads
     for (const threadSet of this.threadTabs.values()) {

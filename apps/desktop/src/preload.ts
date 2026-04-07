@@ -26,6 +26,8 @@ const PREVIEW_SET_BOUNDS_CHANNEL = "desktop:preview-set-bounds";
 const PREVIEW_TOGGLE_PIN_TAB_CHANNEL = "desktop:preview-toggle-pin-tab";
 const PREVIEW_CLOSE_ALL_CHANNEL = "desktop:preview-close-all";
 const PREVIEW_CAPTURE_ACTIVE_TAB_CHANNEL = "desktop:preview-capture-active-tab";
+const PREVIEW_POP_OUT_CHANNEL = "desktop:preview-pop-out";
+const PREVIEW_POP_IN_CHANNEL = "desktop:preview-pop-in";
 const PREVIEW_TABS_STATE_CHANNEL = "desktop:preview-tabs-state";
 const wsUrl = process.env.OKCODE_DESKTOP_WS_URL ?? null;
 
@@ -77,6 +79,8 @@ contextBridge.exposeInMainWorld("desktopBridge", {
     closeAll: () => ipcRenderer.invoke(PREVIEW_CLOSE_ALL_CHANNEL),
     getState: () => ipcRenderer.invoke(PREVIEW_GET_STATE_CHANNEL),
     captureActiveTab: () => ipcRenderer.invoke(PREVIEW_CAPTURE_ACTIVE_TAB_CHANNEL),
+    popOut: () => ipcRenderer.invoke(PREVIEW_POP_OUT_CHANNEL),
+    popIn: () => ipcRenderer.invoke(PREVIEW_POP_IN_CHANNEL),
     onState: (listener) => {
       const wrappedListener = (_event: Electron.IpcRendererEvent, state: unknown) => {
         if (typeof state !== "object" || state === null) return;

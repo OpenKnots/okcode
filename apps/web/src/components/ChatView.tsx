@@ -118,6 +118,7 @@ import {
   LockIcon,
   LockOpenIcon,
   PaperclipIcon,
+  PictureInPicture2Icon,
   XIcon,
 } from "lucide-react";
 import { Button } from "./ui/button";
@@ -348,6 +349,7 @@ const SCRIPT_TERMINAL_COLS = 120;
 const SCRIPT_TERMINAL_ROWS = 30;
 const PREVIEW_SPLIT_MIN_SIZE_PX = 220;
 const PREVIEW_SPLIT_DEFAULT_SIZE_PX = 384;
+const PREVIEW_SPLIT_SIDE_DEFAULT_SIZE_PX = 500;
 const PREVIEW_CHAT_MIN_SIZE_PX = 360;
 
 function composerAttachmentMimeType(file: File): string {
@@ -421,13 +423,18 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
   const previewDock = usePreviewStateStore((state) =>
     activeProjectId ? (state.dockByProjectId[activeProjectId] ?? "top") : "top",
   );
+  const previewSizeDefault =
+    previewLayoutMode === "side" ? PREVIEW_SPLIT_SIDE_DEFAULT_SIZE_PX : PREVIEW_SPLIT_DEFAULT_SIZE_PX;
   const previewSize = usePreviewStateStore((state) =>
     activeProjectId
-      ? (state.sizeByProjectId[activeProjectId] ?? PREVIEW_SPLIT_DEFAULT_SIZE_PX)
-      : PREVIEW_SPLIT_DEFAULT_SIZE_PX,
+      ? (state.sizeByProjectId[activeProjectId] ?? previewSizeDefault)
+      : previewSizeDefault,
   );
   const togglePreviewLayout = usePreviewStateStore((state) => state.toggleProjectLayout);
   const setPreviewSize = usePreviewStateStore((state) => state.setProjectSize);
+  const previewLayoutMode = usePreviewStateStore((state) =>
+    activeProjectId ? (state.layoutModeByProjectId[activeProjectId] ?? "top") : "top",
+  );
   const previewSplitRef = useRef<HTMLDivElement | null>(null);
   const previewResizeStateRef = useRef<{
     pointerId: number;
@@ -719,7 +726,9 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
   );
   const latestTurnSettled = isLatestTurnSettled(activeLatestTurn, activeThread?.session ?? null);
   const activeProject = projects.find((p) => p.id === activeThread?.projectId);
-  const previewPanelKey = activeProject ? `${activeProject.id}:${previewDock}` : null;
+  const previewPanelKey = activeProject
+    ? `${activeProject.id}:${previewDock}:${previewLayoutMode}`
+    : null;
 
   const openPullRequestDialog = useCallback(
     (reference?: string) => {
@@ -4598,6 +4607,8 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
     void onRevertToTurnCount(targetTurnCount);
   };
 
+  const isHorizontalResize = previewLayoutMode === "side";
+
   const handlePreviewResizePointerDown = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
       if (!previewOpen || !activeProject || event.button !== 0) {
@@ -4613,10 +4624,10 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
         startSize: previewSize,
       };
       event.currentTarget.setPointerCapture(event.pointerId);
-      document.body.style.cursor = "row-resize";
+      document.body.style.cursor = isHorizontalResize ? "col-resize" : "row-resize";
       document.body.style.userSelect = "none";
     },
-    [activeProject, previewOpen, previewSize],
+    [activeProject, previewOpen, previewSize, isHorizontalResize],
   );
 
   const handlePreviewResizePointerMove = useCallback(
@@ -4631,10 +4642,21 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
         return;
       }
 
-      // Browser is always docked at the top — resize vertically only.
-      const nextSizeUnclamped = resizeState.startSize + (event.clientY - resizeState.startY);
       const containerRect = container.getBoundingClientRect();
-      const containerMainAxisSize = containerRect.height;
+      let nextSizeUnclamped: number;
+      let containerMainAxisSize: number;
+
+      if (isHorizontalResize) {
+        // Side mode: preview is on the right, drag adjusts width.
+        // Moving left (negative deltaX) increases preview width.
+        nextSizeUnclamped = resizeState.startSize - (event.clientX - resizeState.startX);
+        containerMainAxisSize = containerRect.width;
+      } else {
+        // Top mode: preview is on top, drag adjusts height.
+        nextSizeUnclamped = resizeState.startSize + (event.clientY - resizeState.startY);
+        containerMainAxisSize = containerRect.height;
+      }
+
       const maxSize = Math.max(
         PREVIEW_SPLIT_MIN_SIZE_PX,
         containerMainAxisSize - PREVIEW_CHAT_MIN_SIZE_PX,
@@ -4645,7 +4667,7 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
       );
       if (activeProjectId) setPreviewSize(activeProjectId, nextSize);
     },
-    [activeProjectId, setPreviewSize],
+    [activeProjectId, setPreviewSize, isHorizontalResize],
   );
 
   const handlePreviewResizePointerEnd = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
@@ -4739,11 +4761,17 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
           ref={previewSplitRef}
           className={cn(
             "flex min-h-0 min-w-0 flex-1",
-            previewOpen && activeProject ? "flex-col" : "flex-row",
+            previewOpen && activeProject && previewLayoutMode === "top"
+              ? "flex-col"
+              : previewOpen && activeProject && previewLayoutMode === "side"
+                ? "flex-row"
+                : previewOpen && activeProject && previewLayoutMode === "fullscreen"
+                  ? "flex-col"
+                  : "flex-row",
           )}
         >
-          {/* Browser always renders above the chat (top dock) */}
-          {previewOpen && activeProject ? (
+          {/* Preview: top dock mode */}
+          {previewOpen && activeProject && previewLayoutMode === "top" ? (
             <>
               <div
                 className="min-h-0 min-w-0 flex-none overflow-hidden bg-background"
@@ -4769,8 +4797,45 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
             </>
           ) : null}
 
-          {/* Chat column */}
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {/* Preview: fullscreen mode — hides chat, preview fills entire area */}
+          {previewOpen && activeProject && previewLayoutMode === "fullscreen" ? (
+            <div className="min-h-0 min-w-0 flex-1 overflow-hidden bg-background">
+              <PreviewPanel
+                key={previewPanelKey ?? undefined}
+                projectId={activeProject!.id}
+                threadId={threadId}
+                onClose={() => setPreviewOpen(activeProject!.id, false)}
+              />
+            </div>
+          ) : null}
+
+          {/* Preview: popout mode — show indicator strip */}
+          {previewOpen && activeProject && previewLayoutMode === "popout" ? (
+            <div className="flex items-center gap-3 border-b border-border/40 bg-muted/20 px-4 py-2 text-xs text-muted-foreground">
+              <PictureInPicture2Icon className="size-3.5 shrink-0" />
+              <span>Preview is in a separate window</span>
+              <button
+                type="button"
+                className="rounded-md border border-border/50 bg-background px-2 py-0.5 text-xs text-foreground transition-colors hover:bg-muted"
+                onClick={() => {
+                  if (activeProjectId) {
+                    usePreviewStateStore.getState().setProjectLayoutMode(activeProjectId, "top");
+                    void readDesktopPreviewBridge()?.popIn?.();
+                  }
+                }}
+              >
+                Bring Back
+              </button>
+            </div>
+          ) : null}
+
+          {/* Chat column — hidden in fullscreen preview mode */}
+          <div
+            className={cn(
+              "flex min-h-0 min-w-0 flex-1 flex-col",
+              previewOpen && activeProject && previewLayoutMode === "fullscreen" && "hidden",
+            )}
+          >
             {isMobileCompanion ? (
               <div className="mx-auto w-full max-w-7xl px-3 pt-3 sm:px-5">
                 <MobileThreadAttentionBar
@@ -5552,7 +5617,32 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
           </div>
           {/* end chat column */}
 
-          {/* Right/bottom/left dock positions removed — browser is always above the chat */}
+          {/* Preview: side-by-side mode — resize handle + preview to the right of chat */}
+          {previewOpen && activeProject && previewLayoutMode === "side" ? (
+            <>
+              <div
+                className="relative z-10 shrink-0 bg-transparent touch-none select-none after:absolute after:bg-border/35 after:transition-colors hover:after:bg-border/55 w-4 cursor-col-resize after:inset-y-0 after:left-1/2 after:w-px after:-translate-x-1/2"
+                onPointerDown={handlePreviewResizePointerDown}
+                onPointerMove={handlePreviewResizePointerMove}
+                onPointerUp={handlePreviewResizePointerEnd}
+                onPointerCancel={handlePreviewResizePointerEnd}
+                role="separator"
+                aria-label="Resize preview panel"
+                aria-orientation="vertical"
+              />
+              <div
+                className="min-h-0 min-w-0 flex-none overflow-hidden bg-background"
+                style={{ width: `${previewSize}px` }}
+              >
+                <PreviewPanel
+                  key={previewPanelKey ?? undefined}
+                  projectId={activeProject!.id}
+                  threadId={threadId}
+                  onClose={() => setPreviewOpen(activeProject!.id, false)}
+                />
+              </div>
+            </>
+          ) : null}
         </div>
 
         {/* Plan sidebar */}

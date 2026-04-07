@@ -77,6 +77,8 @@ const PREVIEW_SET_BOUNDS_CHANNEL = "desktop:preview-set-bounds";
 const PREVIEW_TOGGLE_PIN_TAB_CHANNEL = "desktop:preview-toggle-pin-tab";
 const PREVIEW_CLOSE_ALL_CHANNEL = "desktop:preview-close-all";
 const PREVIEW_CAPTURE_ACTIVE_TAB_CHANNEL = "desktop:preview-capture-active-tab";
+const PREVIEW_POP_OUT_CHANNEL = "desktop:preview-pop-out";
+const PREVIEW_POP_IN_CHANNEL = "desktop:preview-pop-in";
 const PREVIEW_TABS_STATE_CHANNEL = "desktop:preview-tabs-state";
 const BASE_DIR = process.env.OKCODE_HOME?.trim() || Path.join(OS.homedir(), ".okcode");
 const STATE_DIR = Path.join(BASE_DIR, "userdata");
@@ -114,6 +116,7 @@ let desktopLogSink: RotatingFileSink | null = null;
 let backendLogSink: RotatingFileSink | null = null;
 let restoreStdIoCapture: (() => void) | null = null;
 const previewControllers = new WeakMap<BrowserWindow, DesktopPreviewController>();
+const popOutWindows = new Map<BrowserWindow, BrowserWindow>();
 
 let destructiveMenuIconCache: Electron.NativeImage | null | undefined;
 const desktopRuntimeInfo = resolveDesktopRuntimeInfo({
@@ -1385,6 +1388,123 @@ function registerIpcHandlers(): void {
     const window = resolvePreviewWindow(event.sender);
     if (!window) return null;
     return getPreviewController(window).captureActiveTab();
+  });
+
+  ipcMain.removeHandler(PREVIEW_POP_OUT_CHANNEL);
+  ipcMain.handle(PREVIEW_POP_OUT_CHANNEL, async (event) => {
+    const parentWindow = resolvePreviewWindow(event.sender);
+    if (!parentWindow) return;
+
+    // If there is already a pop-out window for this parent, focus it.
+    const existing = popOutWindows.get(parentWindow);
+    if (existing && !existing.isDestroyed()) {
+      existing.focus();
+      return;
+    }
+
+    const parentController = getPreviewController(parentWindow);
+
+    // Create a minimal pop-out window.
+    const popOut = new BrowserWindow({
+      width: 700,
+      height: 520,
+      minWidth: 360,
+      minHeight: 280,
+      alwaysOnTop: true,
+      title: `${APP_DISPLAY_NAME} — Preview`,
+      autoHideMenuBar: true,
+      ...getIconOption(),
+      webPreferences: {
+        preload: Path.join(__dirname, "preload.js"),
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: true,
+      },
+    });
+
+    // Create a controller for the pop-out window.
+    const popOutController = new DesktopPreviewController(popOut, (state) => {
+      emitPreviewState(popOut, state);
+    });
+    previewControllers.set(popOut, popOutController);
+    popOutWindows.set(parentWindow, popOut);
+
+    // Transfer tabs from parent to pop-out.
+    parentController.transferTo(popOutController);
+
+    // Notify the parent renderer that tabs are gone (empty state).
+    emitPreviewState(parentWindow, parentController.getState());
+
+    // Hide the native overlay in the parent window.
+    parentController.setBounds({
+      x: 0,
+      y: 0,
+      width: 0,
+      height: 0,
+      visible: false,
+      viewportWidth: 0,
+      viewportHeight: 0,
+    });
+
+    // Fill the pop-out window with the preview surface.
+    const [popOutWidth, popOutHeight] = popOut.getContentSize();
+    popOutController.setBounds({
+      x: 0,
+      y: 0,
+      width: popOutWidth,
+      height: popOutHeight,
+      visible: true,
+      viewportWidth: popOutWidth,
+      viewportHeight: popOutHeight,
+    });
+
+    // Keep preview surface filling the pop-out window on resize.
+    popOut.on("resize", () => {
+      if (popOut.isDestroyed()) return;
+      const [w, h] = popOut.getContentSize();
+      popOutController.setBounds({
+        x: 0,
+        y: 0,
+        width: w,
+        height: h,
+        visible: true,
+        viewportWidth: w,
+        viewportHeight: h,
+      });
+    });
+
+    // On close, transfer tabs back to the parent.
+    popOut.on("closed", () => {
+      popOutWindows.delete(parentWindow);
+      if (!parentWindow.isDestroyed()) {
+        popOutController.transferTo(parentController);
+        emitPreviewState(parentWindow, parentController.getState());
+      }
+      previewControllers.delete(popOut);
+    });
+
+    // Load the same app URL but with a query parameter so the renderer
+    // can detect pop-out mode and render a simplified UI if needed.
+    if (isDevelopment && process.env.VITE_DEV_SERVER_URL) {
+      void popOut.loadURL(`${process.env.VITE_DEV_SERVER_URL}?popout=true`);
+    } else {
+      void popOut.loadFile(
+        Path.join(__dirname, "../../web/dist/index.html"),
+        { query: { popout: "true" } },
+      );
+    }
+  });
+
+  ipcMain.removeHandler(PREVIEW_POP_IN_CHANNEL);
+  ipcMain.handle(PREVIEW_POP_IN_CHANNEL, async (event) => {
+    const parentWindow = resolvePreviewWindow(event.sender);
+    if (!parentWindow) return;
+
+    const popOut = popOutWindows.get(parentWindow);
+    if (popOut && !popOut.isDestroyed()) {
+      // The 'closed' handler already transfers tabs back.
+      popOut.close();
+    }
   });
 }
 

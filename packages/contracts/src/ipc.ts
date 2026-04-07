@@ -270,6 +270,10 @@ export interface DesktopBridge {
     /** Capture the active tab as a PNG data URL. Returns null if no active tab. */
     captureActiveTab: () => Promise<string | null>;
     onState: (listener: (state: PreviewTabsState) => void) => () => void;
+    /** Open the preview in a standalone pop-out window. */
+    popOut: () => Promise<void>;
+    /** Close the pop-out window and return preview to the main window. */
+    popIn: () => Promise<void>;
   };
 }
 

@@ -1650,24 +1650,7 @@ export default function Sidebar() {
   }, []);
 
   const wordmark = (
-    <div className="flex items-center gap-2 w-full">
-      <SidebarTrigger className="shrink-0 md:hidden" />
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <div className="wordmark-stitch flex min-w-0 flex-1 items-center justify-center gap-1.5 cursor-pointer mx-auto px-2.5 py-1 rounded-md">
-              <OkCodeMark className="size-5 text-foreground drop-shadow-[0_1px_0_rgba(255,255,255,0.15)]" />
-              <span className="truncate text-sm font-semibold tracking-wide text-foreground drop-shadow-[0_1px_0_rgba(255,255,255,0.15)]">
-                {APP_BASE_NAME}
-              </span>
-            </div>
-          }
-        />
-        <TooltipPopup side="bottom" sideOffset={2}>
-          Version {APP_VERSION}
-        </TooltipPopup>
-      </Tooltip>
-    </div>
+    <SidebarTrigger className="shrink-0 md:hidden" />
   );
 
   return (
@@ -2116,6 +2099,21 @@ export default function Sidebar() {
             </>
           )}
         </SidebarMenu>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <div className="flex items-center gap-1.5 px-2 pt-2 mt-1 border-t border-border/30">
+                <OkCodeMark className="size-3.5 text-muted-foreground/40" />
+                <span className="text-[10px] font-medium tracking-wide text-muted-foreground/40">
+                  {APP_BASE_NAME}
+                </span>
+              </div>
+            }
+          />
+          <TooltipPopup side="top" sideOffset={4}>
+            Version {APP_VERSION}
+          </TooltipPopup>
+        </Tooltip>
       </SidebarFooter>
 
       <CloneRepositoryDialog

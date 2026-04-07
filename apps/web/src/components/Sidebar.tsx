@@ -22,7 +22,6 @@ import {
   TriangleAlertIcon,
 } from "lucide-react";
 import { OkCodeMark } from "./OkCodeMark";
-import { ConnectionIndicator } from "./ConnectionIndicator";
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import {
   DndContext,
@@ -1802,9 +1801,9 @@ export default function Sidebar() {
       <Tooltip>
         <TooltipTrigger
           render={
-            <div className="wordmark-stitch flex min-w-0 flex-1 items-center justify-center gap-1.5 cursor-pointer mx-auto px-3 py-1.5 rounded-lg">
-              <OkCodeMark className="size-6 text-foreground drop-shadow-[0_1px_0_rgba(255,255,255,0.15)]" />
-              <span className="truncate text-base font-semibold tracking-wide text-foreground drop-shadow-[0_1px_0_rgba(255,255,255,0.15)]">
+            <div className="wordmark-stitch flex min-w-0 flex-1 items-center justify-center gap-1.5 cursor-pointer mx-auto px-2.5 py-1 rounded-md">
+              <OkCodeMark className="size-5 text-foreground drop-shadow-[0_1px_0_rgba(255,255,255,0.15)]" />
+              <span className="truncate text-sm font-semibold tracking-wide text-foreground drop-shadow-[0_1px_0_rgba(255,255,255,0.15)]">
                 {APP_BASE_NAME}
               </span>
             </div>
@@ -1821,10 +1820,9 @@ export default function Sidebar() {
     <>
       {isElectron ? (
         <>
-          <SidebarHeader className="drag-region h-[52px] flex-row items-center gap-2 px-4 py-0 pl-[90px]">
+          <SidebarHeader className="drag-region h-[42px] flex-row items-center gap-2 px-4 py-0 pl-[90px]">
             {wordmark}
-            <div className="ml-auto flex items-center gap-1 mt-1.5">
-              <ConnectionIndicator />
+            <div className="ml-auto flex items-center gap-1">
               {showDesktopUpdateButton && (
                 <Tooltip>
                   <TooltipTrigger
@@ -1850,10 +1848,10 @@ export default function Sidebar() {
                     <button
                       type="button"
                       aria-label="Collapse sidebar"
-                      className="hidden md:inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                      className="hidden md:inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-all duration-150 hover:bg-accent hover:text-foreground active:scale-90"
                       onClick={toggleSidebar}
                     >
-                      <PanelLeftCloseIcon className="size-4" />
+                      <PanelLeftCloseIcon className="size-3.5" />
                     </button>
                   }
                 />
@@ -1863,11 +1861,10 @@ export default function Sidebar() {
           </SidebarHeader>
         </>
       ) : (
-        <SidebarHeader className="gap-3 px-3 py-2 sm:gap-2.5 sm:px-4 sm:py-3">
+        <SidebarHeader className="gap-2 px-3 py-1.5 sm:gap-2 sm:px-4 sm:py-2">
           <div className="flex flex-row items-center gap-2">
             {wordmark}
             <div className="ml-auto flex items-center gap-1">
-              <ConnectionIndicator />
               {serverUpdateInfo?.updateAvailable && (
                 <Tooltip>
                   <TooltipTrigger
@@ -1899,10 +1896,10 @@ export default function Sidebar() {
                     <button
                       type="button"
                       aria-label="Collapse sidebar"
-                      className="hidden md:inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                      className="hidden md:inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-all duration-150 hover:bg-accent hover:text-foreground active:scale-90"
                       onClick={toggleSidebar}
                     >
-                      <PanelLeftCloseIcon className="size-4" />
+                      <PanelLeftCloseIcon className="size-3.5" />
                     </button>
                   }
                 />

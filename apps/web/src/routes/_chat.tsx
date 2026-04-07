@@ -6,6 +6,7 @@ import { type CSSProperties, useEffect } from "react";
 import ThreadSidebar from "../components/Sidebar";
 import { CommandPalette } from "../components/CommandPalette";
 import { ScreenshotTool, ScreenshotButton } from "../components/ScreenshotTool";
+import { WorktreeCleanupDialog } from "../components/WorktreeCleanupDialog";
 import { useHandleNewThread } from "../hooks/useHandleNewThread";
 import { isTerminalFocused } from "../lib/terminalFocus";
 import { isMacPlatform } from "../lib/utils";
@@ -267,6 +268,7 @@ function ChatRouteLayout() {
         <SidebarProvider defaultOpen={clientMode !== "mobile"}>
           <ChatRouteGlobalShortcuts />
           <CommandPalette />
+          <WorktreeCleanupDialog />
           <ScreenshotTool />
           <div className="fixed bottom-4 right-4 z-50">
             <ScreenshotButton />

@@ -1963,6 +1963,17 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
             ),
           ),
         );
+
+        // Keep Git's worktree bookkeeping tidy after removing a checkout.
+        yield* executeGit(
+          "GitCore.removeWorktree.prune",
+          input.cwd,
+          ["worktree", "prune", "--expire", "now"],
+          {
+            allowNonZeroExit: true,
+            timeoutMs: 15_000,
+          },
+        ).pipe(Effect.catch(() => Effect.void));
       });
 
     const renameBranch: GitCoreShape["renameBranch"] = (input) =>

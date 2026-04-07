@@ -1447,7 +1447,7 @@ function registerIpcHandlers(): void {
     });
 
     // Fill the pop-out window with the preview surface.
-    const [popOutWidth, popOutHeight] = popOut.getContentSize();
+    const [popOutWidth = 0, popOutHeight = 0] = popOut.getContentSize();
     popOutController.setBounds({
       x: 0,
       y: 0,
@@ -1461,7 +1461,7 @@ function registerIpcHandlers(): void {
     // Keep preview surface filling the pop-out window on resize.
     popOut.on("resize", () => {
       if (popOut.isDestroyed()) return;
-      const [w, h] = popOut.getContentSize();
+      const [w = 0, h = 0] = popOut.getContentSize();
       popOutController.setBounds({
         x: 0,
         y: 0,
@@ -1488,10 +1488,9 @@ function registerIpcHandlers(): void {
     if (isDevelopment && process.env.VITE_DEV_SERVER_URL) {
       void popOut.loadURL(`${process.env.VITE_DEV_SERVER_URL}?popout=true`);
     } else {
-      void popOut.loadFile(
-        Path.join(__dirname, "../../web/dist/index.html"),
-        { query: { popout: "true" } },
-      );
+      void popOut.loadFile(Path.join(__dirname, "../../web/dist/index.html"), {
+        query: { popout: "true" },
+      });
     }
   });
 

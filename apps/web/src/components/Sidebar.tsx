@@ -1649,9 +1649,7 @@ export default function Sidebar() {
     });
   }, []);
 
-  const wordmark = (
-    <SidebarTrigger className="shrink-0 md:hidden" />
-  );
+  const wordmark = <SidebarTrigger className="shrink-0 md:hidden" />;
 
   return (
     <>

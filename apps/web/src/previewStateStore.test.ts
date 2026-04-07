@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const STORAGE_KEY = "okcode:desktop-preview:v4";
+const STORAGE_KEY = "okcode:desktop-preview:v5";
 
 let usePreviewStateStore: typeof import("./previewStateStore").usePreviewStateStore;
 let storage: Map<string, string>;
@@ -30,7 +30,11 @@ describe("previewStateStore", () => {
       dockByProjectId: {},
       sizeByProjectId: {},
       presetByProjectId: {},
+      orientationByProjectId: {},
+      customViewportByProjectId: {},
       favoriteUrls: [],
+      layoutModeByProjectId: {},
+      previousLayoutModeByProjectId: {},
     });
     storage.clear();
   });

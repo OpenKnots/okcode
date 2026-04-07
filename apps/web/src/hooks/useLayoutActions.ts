@@ -146,6 +146,9 @@ export function useLayoutActions(): UseLayoutActionsResult {
 
       const previewDock = projectId ? (previewState.dockByProjectId[projectId] ?? null) : null;
       const previewSize = projectId ? (previewState.sizeByProjectId[projectId] ?? null) : null;
+      const previewLayoutMode = projectId
+        ? (previewState.layoutModeByProjectId[projectId] ?? null)
+        : null;
 
       const now = Date.now();
       return {
@@ -164,6 +167,7 @@ export function useLayoutActions(): UseLayoutActionsResult {
         sidebarWidths: readSidebarWidths(),
         previewDock,
         previewSize,
+        previewLayoutMode,
       };
     },
     [],
@@ -214,6 +218,9 @@ export function useLayoutActions(): UseLayoutActionsResult {
         if (layout.previewSize !== null) {
           usePreviewStateStore.getState().setProjectSize(projectId, layout.previewSize);
         }
+        if (layout.previewLayoutMode !== null) {
+          usePreviewStateStore.getState().setProjectLayoutMode(projectId, layout.previewLayoutMode);
+        }
       }
 
       // ── 4. Apply terminal state ────────────────────────────────
@@ -257,6 +264,7 @@ export function useLayoutActions(): UseLayoutActionsResult {
         sidebarWidths: snapshot.sidebarWidths,
         previewDock: snapshot.previewDock,
         previewSize: snapshot.previewSize,
+        previewLayoutMode: snapshot.previewLayoutMode,
       });
     },
     [captureCurrentLayout, updateLayoutInStore],

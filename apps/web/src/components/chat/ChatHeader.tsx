@@ -7,19 +7,16 @@ import type {
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDownIcon, ExternalLinkIcon, GitPullRequestIcon } from "lucide-react";
 import { memo, useCallback, useEffect } from "react";
-import { useTheme } from "~/hooks/useTheme";
 import { useThreadTitleEditor } from "~/hooks/useThreadTitleEditor";
 import { shortcutLabelsForCommand } from "~/keybindings";
 import type { ClientMode } from "~/lib/clientMode";
 import { gitStatusQueryOptions } from "~/lib/gitReactQuery";
 import { ensureNativeApi } from "~/nativeApi";
 import type { PreviewDock } from "~/previewStateStore";
-import { useProjectColor } from "~/projectColors";
 import type { ProjectScriptDraft } from "~/projectScriptDefaults";
 import { EditableThreadTitle } from "../EditableThreadTitle";
 import GitActionsControl from "../GitActionsControl";
 import ProjectScriptsControl, { type NewProjectScriptInput } from "../ProjectScriptsControl";
-import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Kbd } from "../ui/kbd";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
@@ -61,7 +58,7 @@ interface ChatHeaderProps {
 export const ChatHeader = memo(function ChatHeader({
   activeThreadId,
   activeThreadTitle,
-  activeProjectId,
+  activeProjectId: _activeProjectId,
   activeProjectName,
   activeProjectCwd,
   isLocalDraftThread,
@@ -91,9 +88,6 @@ export const ChatHeader = memo(function ChatHeader({
   onMinimize,
 }: ChatHeaderProps) {
   const isMobileCompanion = clientMode === "mobile";
-  const projectColor = useProjectColor(activeProjectId);
-  const { resolvedTheme } = useTheme();
-  const isDark = resolvedTheme === "dark";
   const {
     editingThreadId,
     draftTitle,

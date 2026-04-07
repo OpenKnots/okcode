@@ -46,11 +46,7 @@ describe("PreviewLayoutSwitcher", () => {
 });
 
 describe("previewStateStore layout mode", () => {
-  const projectId = "test-project" as unknown as Parameters<
-    typeof usePreviewStateStore.getState
-  >[0] extends undefined
-    ? string
-    : string;
+  const projectId = "test-project";
 
   it("defaults layout mode to 'top'", () => {
     const state = usePreviewStateStore.getState();

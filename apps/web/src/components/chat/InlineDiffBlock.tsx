@@ -171,7 +171,7 @@ function basename(filePath: string): string {
 /** Max lines to show before collapsing with a "show more" toggle. */
 const MAX_VISIBLE_LINES = 18;
 
-function DiffLineRow(props: { line: DiffLine; html?: string }) {
+function DiffLineRow(props: { line: DiffLine; html?: string | undefined }) {
   const { line, html } = props;
 
   return (
@@ -202,7 +202,7 @@ function DiffLineRow(props: { line: DiffLine; html?: string }) {
 /** Shared diff-lines rendering used by both the main path and the error
  *  boundary fallback, eliminating the previous triplication of JSX. */
 function DiffLinesContent(props: {
-  lines: Array<{ key: string; line: DiffLine; html?: string }>;
+  lines: Array<{ key: string; line: DiffLine; html?: string | undefined }>;
   needsTruncation: boolean;
   hiddenCount: number;
   isExpanded: boolean;

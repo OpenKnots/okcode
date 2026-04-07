@@ -9,6 +9,7 @@ Use this directory for versioned release notes and asset manifests only:
 
 | Version              | Summary                                                                                      | Assets                        |
 | -------------------- | -------------------------------------------------------------------------------------------- | ----------------------------- |
+| [0.18.0](v0.18.0.md) | Workspace panel, preview pop-out controls, worktree cleanup actions, and release-flow polish | [manifest](v0.18.0/assets.md) |
 | [0.17.0](v0.17.0.md) | Unified right-panel review, worktree cleanup controls, chat UX polish, and release hardening | [manifest](v0.17.0/assets.md) |
 | [0.16.1](v0.16.1.md) | Release with 8 new feature(s), 3 fix(es), 19 improvement(s)                                  | [manifest](v0.16.1/assets.md) |
 | [0.16.0](v0.16.0.md) | Right-panel diff review, editable code previews, and stronger release stability              | [manifest](v0.16.0/assets.md) |

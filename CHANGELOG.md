@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-04-07
+
+See [docs/releases/v0.18.0.md](docs/releases/v0.18.0.md) for full notes and [docs/releases/v0.18.0/assets.md](docs/releases/v0.18.0/assets.md) for release asset inventory.
+
+### Added
+
+- Add a unified workspace panel to the right sidebar.
+- Add bulk delete-all worktree cleanup action.
+- Add preview layout modes and pop-out controls.
+- Add project sidebar expand-all toggle.
+- Add tab snapshot capture for the browser preview.
+- Add support for binary project writes.
+
+### Changed
+
+- Make CLI publishing optional in the coordinated release workflow.
+- Open diff files in the integrated viewer by default.
+- Cache sidebar thread and project lookups for faster navigation.
+- Lock the browser preview to the top dock.
+- Collapse the workspace tree when binary project writes are shown.
+- Move sidebar branding to the footer and drop the chat project badge.
+- Clean up chat header panel toggles.
+
+### Fixed
+
+- Reduce preview and diff flicker during active workspace updates.
+- Resolve web release warnings before shipping v0.18.0.
+
 ## [0.17.0] - 2026-04-07
 
 See [docs/releases/v0.17.0.md](docs/releases/v0.17.0.md) for full notes and [docs/releases/v0.17.0/assets.md](docs/releases/v0.17.0/assets.md) for release asset inventory.
@@ -552,3 +580,4 @@ First public version tag. See [docs/releases/v0.0.1.md](docs/releases/v0.0.1.md)
 [0.13.0]: https://github.com/OpenKnots/okcode/releases/tag/v0.13.0
 [0.16.1]: https://github.com/OpenKnots/okcode/releases/tag/v0.16.1
 [0.17.0]: https://github.com/OpenKnots/okcode/releases/tag/v0.17.0
+[0.18.0]: https://github.com/OpenKnots/okcode/releases/tag/v0.18.0

@@ -1,17 +1,9 @@
 import type { ProjectId } from "@okcode/contracts";
-import {
-  Maximize2Icon,
-  PanelRightIcon,
-  PanelTopIcon,
-  PictureInPicture2Icon,
-} from "lucide-react";
+import { Maximize2Icon, PanelRightIcon, PanelTopIcon, PictureInPicture2Icon } from "lucide-react";
 
 import { readDesktopPreviewBridge } from "~/desktopPreview";
 import { cn } from "~/lib/utils";
-import {
-  type PreviewLayoutMode,
-  usePreviewStateStore,
-} from "~/previewStateStore";
+import { type PreviewLayoutMode, usePreviewStateStore } from "~/previewStateStore";
 
 import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
 

@@ -635,18 +635,20 @@ export function PreviewPanel({ projectId, threadId, onClose }: PreviewPanelProps
           {/* Exit fullscreen shortcut button */}
           {layoutMode === "fullscreen" && (
             <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  size="icon-xs"
-                  variant="ghost"
-                  className="text-muted-foreground/55 hover:bg-transparent hover:text-foreground"
-                  aria-label="Exit full screen"
-                  onClick={() => toggleFullscreen(projectId)}
-                >
-                  <Minimize2Icon className="size-3.5" />
-                </Button>
-              </TooltipTrigger>
+              <TooltipTrigger
+                render={
+                  <Button
+                    type="button"
+                    size="icon-xs"
+                    variant="ghost"
+                    className="text-muted-foreground/55 hover:bg-transparent hover:text-foreground"
+                    aria-label="Exit full screen"
+                    onClick={() => toggleFullscreen(projectId)}
+                  >
+                    <Minimize2Icon className="size-3.5" />
+                  </Button>
+                }
+              />
               <TooltipPopup side="bottom" sideOffset={6}>
                 Exit full screen
               </TooltipPopup>

@@ -51,7 +51,13 @@ export interface SavedLayout {
 const LAYOUT_STORAGE_KEY = "okcode:saved-layouts:v1";
 const MAX_SAVED_LAYOUTS = 32;
 
-const VALID_PANELS = new Set<string>(["none", "code-viewer", "diff-viewer", "preview", "simulation"]);
+const VALID_PANELS = new Set<string>([
+  "none",
+  "code-viewer",
+  "diff-viewer",
+  "preview",
+  "simulation",
+]);
 const VALID_DOCKS = new Set<string>(["left", "right", "top", "bottom"]);
 
 // ─── Validation helpers ─────────────────────────────────────────────
@@ -100,8 +106,10 @@ function normalizeLayout(raw: unknown): SavedLayout | null {
   return {
     id: obj.id.trim(),
     name: obj.name.trim().slice(0, 128),
-    createdAt: typeof obj.createdAt === "number" && Number.isFinite(obj.createdAt) ? obj.createdAt : now,
-    updatedAt: typeof obj.updatedAt === "number" && Number.isFinite(obj.updatedAt) ? obj.updatedAt : now,
+    createdAt:
+      typeof obj.createdAt === "number" && Number.isFinite(obj.createdAt) ? obj.createdAt : now,
+    updatedAt:
+      typeof obj.updatedAt === "number" && Number.isFinite(obj.updatedAt) ? obj.updatedAt : now,
     activePanel: isValidPanel(obj.activePanel) ? obj.activePanel : "none",
     terminalOpen: typeof obj.terminalOpen === "boolean" ? obj.terminalOpen : false,
     terminalHeight: isFinitePositiveOrNull(obj.terminalHeight) ? obj.terminalHeight : null,
@@ -254,7 +262,10 @@ export const useLayoutStore = create<LayoutStoreState>((set) => ({
       const nextLayouts = state.savedLayouts.filter((l) => l.id !== id);
       if (nextLayouts.length === state.savedLayouts.length) return state;
       const nextActiveId = state.activeLayoutId === id ? null : state.activeLayoutId;
-      const next: PersistedLayoutState = { savedLayouts: nextLayouts, activeLayoutId: nextActiveId };
+      const next: PersistedLayoutState = {
+        savedLayouts: nextLayouts,
+        activeLayoutId: nextActiveId,
+      };
       persistState(next);
       return next;
     });

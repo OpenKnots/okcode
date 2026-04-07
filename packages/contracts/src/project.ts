@@ -79,8 +79,10 @@ export const ProjectReadFileResult = Schema.Struct({
   contents: Schema.String,
   sizeBytes: Schema.Number,
   truncated: Schema.Boolean,
-  /** Base64 data URL for image files (e.g. "data:image/png;base64,...") */
-  imageDataUrl: Schema.optional(Schema.String),
+  /** Base64 data URL for previewable files (e.g. "data:image/png;base64,...") */
+  previewDataUrl: Schema.optional(Schema.String),
+  /** MIME type associated with `previewDataUrl`. */
+  previewMimeType: Schema.optional(Schema.String),
 });
 export type ProjectReadFileResult = typeof ProjectReadFileResult.Type;
 

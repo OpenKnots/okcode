@@ -56,6 +56,7 @@ const PICK_FOLDER_CHANNEL = "desktop:pick-folder";
 const CONFIRM_CHANNEL = "desktop:confirm";
 const SET_THEME_CHANNEL = "desktop:set-theme";
 const SET_SIDEBAR_OPACITY_CHANNEL = "desktop:set-sidebar-opacity";
+const SET_WINDOW_BUTTON_VISIBILITY_CHANNEL = "desktop:set-window-button-visibility";
 const CONTEXT_MENU_CHANNEL = "desktop:context-menu";
 const OPEN_EXTERNAL_CHANNEL = "desktop:open-external";
 const MENU_ACTION_CHANNEL = "desktop:menu-action";
@@ -1171,6 +1172,21 @@ function registerIpcHandlers(): void {
     // Sidebar opacity is handled purely on the renderer side via CSS.
     // This channel exists so the bridge contract is satisfied; the renderer
     // applies the value through a CSS custom-property.
+  });
+
+  ipcMain.removeHandler(SET_WINDOW_BUTTON_VISIBILITY_CHANNEL);
+  ipcMain.handle(SET_WINDOW_BUTTON_VISIBILITY_CHANNEL, async (event, rawVisible: unknown) => {
+    if (process.platform !== "darwin" || typeof rawVisible !== "boolean") {
+      return;
+    }
+
+    const owner =
+      BrowserWindow.fromWebContents(event.sender) ?? BrowserWindow.getFocusedWindow() ?? mainWindow;
+    if (!owner || owner.isDestroyed()) {
+      return;
+    }
+
+    owner.setWindowButtonVisibility(rawVisible);
   });
 
   ipcMain.removeHandler(CONTEXT_MENU_CHANNEL);

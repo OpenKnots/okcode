@@ -238,6 +238,7 @@ export interface DesktopBridge {
   confirm: (message: string) => Promise<boolean>;
   setTheme: (theme: DesktopTheme) => Promise<void>;
   setSidebarOpacity: (opacity: number) => Promise<void>;
+  setWindowButtonVisibility: (visible: boolean) => Promise<void>;
   showContextMenu: <T extends string>(
     items: readonly ContextMenuItem<T>[],
     position?: { x: number; y: number },

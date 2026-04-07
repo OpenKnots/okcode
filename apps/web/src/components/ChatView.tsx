@@ -4700,9 +4700,7 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
       <header
         className={cn(
           "border-b border-border px-3 sm:px-5",
-          isElectron
-            ? "drag-region flex h-[52px] items-center pl-[90px] sm:pl-[90px]"
-            : "py-2 sm:py-3",
+          isElectron ? "drag-region flex h-[52px] items-center" : "py-2 sm:py-3",
         )}
       >
         <ChatHeader

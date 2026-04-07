@@ -1,12 +1,12 @@
 import {
-  FileCodeIcon,
-  FileDiffIcon,
-  FolderIcon,
   MonitorIcon,
+  PanelLeftIcon,
+  PanelRightIcon,
   TerminalSquareIcon,
 } from "lucide-react";
 import { memo, useCallback, useMemo } from "react";
-import { type RightPanelTab, useRightPanelStore } from "~/rightPanelStore";
+import { useRightPanelStore } from "~/rightPanelStore";
+import { useSidebar } from "../ui/sidebar";
 import { Toggle, ToggleGroup, ToggleGroupSeparator } from "../ui/toggle-group";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 
@@ -31,36 +31,45 @@ export const HeaderPanelsMenu = memo(function HeaderPanelsMenu({
   onToggleTerminal,
   onTogglePreview,
 }: HeaderPanelsMenuProps) {
+  const { open: sidebarOpen, toggleSidebar } = useSidebar();
   const rightPanelOpen = useRightPanelStore((s) => s.isOpen);
-  const rightPanelTab = useRightPanelStore((s) => s.activeTab);
   const openRightPanel = useRightPanelStore((s) => s.open);
   const closeRightPanel = useRightPanelStore((s) => s.close);
 
-  const toggleRightPanelTab = useCallback(
-    (tab: RightPanelTab) => {
-      if (rightPanelOpen && rightPanelTab === tab) {
-        closeRightPanel();
-      } else {
-        openRightPanel(tab);
-      }
-    },
-    [rightPanelOpen, rightPanelTab, openRightPanel, closeRightPanel],
-  );
+  const toggleRightPanel = useCallback(() => {
+    if (rightPanelOpen) {
+      closeRightPanel();
+    } else {
+      openRightPanel();
+    }
+  }, [rightPanelOpen, openRightPanel, closeRightPanel]);
 
   const value = useMemo(() => {
     const v: string[] = [];
+    if (sidebarOpen) v.push("sidebar");
     if (terminalOpen) v.push("terminal");
-    if (rightPanelOpen) {
-      if (rightPanelTab === "files") v.push("files");
-      if (rightPanelTab === "editor") v.push("code-viewer");
-      if (rightPanelTab === "diffs") v.push("diff-viewer");
-    }
+    if (rightPanelOpen) v.push("right-panel");
     if (previewOpen) v.push("preview");
     return v;
-  }, [terminalOpen, rightPanelOpen, rightPanelTab, previewOpen]);
+  }, [sidebarOpen, terminalOpen, rightPanelOpen, previewOpen]);
 
   return (
     <ToggleGroup value={value} variant="outline" size="xs" className="shrink-0">
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Toggle
+              value="sidebar"
+              onClick={toggleSidebar}
+              aria-label="Toggle sidebar"
+            >
+              <PanelLeftIcon className="size-3.5" />
+            </Toggle>
+          }
+        />
+        <TooltipPopup side="bottom">Sidebar</TooltipPopup>
+      </Tooltip>
+      <ToggleGroupSeparator />
       <Tooltip>
         <TooltipTrigger
           render={
@@ -81,52 +90,6 @@ export const HeaderPanelsMenu = memo(function HeaderPanelsMenu({
           {terminalToggleShortcutLabel ? ` ${terminalToggleShortcutLabel}` : ""}
         </TooltipPopup>
       </Tooltip>
-      <ToggleGroupSeparator />
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <Toggle
-              value="files"
-              onClick={() => toggleRightPanelTab("files")}
-              aria-label="Toggle file tree"
-            >
-              <FolderIcon className="size-3.5" />
-            </Toggle>
-          }
-        />
-        <TooltipPopup side="bottom">Files</TooltipPopup>
-      </Tooltip>
-      <ToggleGroupSeparator />
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <Toggle
-              value="code-viewer"
-              onClick={() => toggleRightPanelTab("editor")}
-              aria-label="Toggle code viewer"
-            >
-              <FileCodeIcon className="size-3.5" />
-            </Toggle>
-          }
-        />
-        <TooltipPopup side="bottom">Code viewer</TooltipPopup>
-      </Tooltip>
-      <ToggleGroupSeparator />
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <Toggle
-              value="diff-viewer"
-              onClick={() => toggleRightPanelTab("diffs")}
-              aria-label="Toggle diffs viewer"
-            >
-              <FileDiffIcon className="size-3.5" />
-            </Toggle>
-          }
-        />
-        <TooltipPopup side="bottom">Diffs viewer</TooltipPopup>
-      </Tooltip>
-      <ToggleGroupSeparator />
       <Tooltip>
         <TooltipTrigger
           render={
@@ -141,6 +104,21 @@ export const HeaderPanelsMenu = memo(function HeaderPanelsMenu({
           }
         />
         <TooltipPopup side="bottom">Preview</TooltipPopup>
+      </Tooltip>
+      <ToggleGroupSeparator />
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Toggle
+              value="right-panel"
+              onClick={toggleRightPanel}
+              aria-label="Toggle right panel"
+            >
+              <PanelRightIcon className="size-3.5" />
+            </Toggle>
+          }
+        />
+        <TooltipPopup side="bottom">Right panel</TooltipPopup>
       </Tooltip>
     </ToggleGroup>
   );

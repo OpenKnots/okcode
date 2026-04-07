@@ -4,7 +4,7 @@ import { useCodeViewerStore } from "~/codeViewerStore";
 import { useStore } from "~/store";
 
 /**
- * Opens a file in the code-viewer side panel of the active thread.
+ * Opens a file in the workspace side panel of the active thread.
  * If the caller is not on a thread page, navigates to the most recent thread first.
  */
 export function useFileViewNavigation() {
@@ -20,7 +20,7 @@ export function useFileViewNavigation() {
     (cwd: string, relativePath: string) => {
       openFile(cwd, relativePath);
       // If not already on a thread page, navigate to the most recent thread
-      // so the code-viewer inline sidebar is visible.
+      // so the workspace inline sidebar is visible.
       if (!threadId) {
         const sorted = threads.toSorted((a, b) =>
           (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt),

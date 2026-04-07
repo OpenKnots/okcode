@@ -12,6 +12,7 @@ import {
   useState,
 } from "react";
 import { RightPanelHeader } from "~/components/RightPanelHeader";
+import { WorkspacePanel } from "~/components/WorkspacePanel";
 import { Sidebar, SidebarInset, SidebarProvider, SidebarRail } from "~/components/ui/sidebar";
 import { WorkspaceFileTree } from "~/components/WorkspaceFileTree";
 import { useChatWidgetStore } from "../chatWidgetStore";
@@ -36,7 +37,7 @@ const SimulationViewerLazy = lazy(() =>
 );
 
 const RIGHT_PANEL_SIDEBAR_WIDTH_STORAGE_KEY = "chat_right_panel_sidebar_width";
-const RIGHT_PANEL_DEFAULT_WIDTH = "clamp(20rem,38vw,44rem)";
+const RIGHT_PANEL_DEFAULT_WIDTH = "clamp(22rem,44vw,56rem)";
 const RIGHT_PANEL_SIDEBAR_MIN_WIDTH = 18 * 16;
 const COMPOSER_COMPACT_MIN_LEFT_CONTROLS_WIDTH_PX = 208;
 
@@ -211,7 +212,6 @@ function ChatThreadRouteView() {
   });
 
   // ── Keep-alive flags so lazy content doesn't unmount on tab switch ─
-  const [hasOpenedCodeViewer, setHasOpenedCodeViewer] = useState(codeViewerOpen);
   const [hasOpenedSimulation, setHasOpenedSimulation] = useState(simulationOpen);
 
   const closeCodeViewer = useCallback(() => {
@@ -225,10 +225,10 @@ function ChatThreadRouteView() {
   }, [closeSimulationStore]);
 
   // ── Sync sub-panel opens → right panel tab ────────────────────────
-  // When code viewer opens (or a new file is activated), switch to editor tab.
+  // When code viewer opens (or a new file is activated), switch to workspace tab.
   useEffect(() => {
     if (codeViewerOpen) {
-      openRightPanel("editor");
+      openRightPanel("workspace");
     }
   }, [codeViewerOpen, codeViewerActiveTabId, openRightPanel]);
 
@@ -249,12 +249,6 @@ function ChatThreadRouteView() {
       closeDiffViewer();
     }
   }, [rightPanelOpen, closeCodeViewer, closeDiffViewer]);
-
-  useEffect(() => {
-    if (codeViewerOpen) {
-      setHasOpenedCodeViewer(true);
-    }
-  }, [codeViewerOpen]);
 
   useEffect(() => {
     if (simulationOpen) {
@@ -279,7 +273,6 @@ function ChatThreadRouteView() {
     return null;
   }
 
-  const shouldRenderCodeViewerContent = codeViewerOpen || hasOpenedCodeViewer;
   const shouldRenderDiffViewerContent = diffViewerOpen;
   const shouldRenderSimulation = simulationOpen || hasOpenedSimulation;
 
@@ -288,15 +281,16 @@ function ChatThreadRouteView() {
     <div className="flex h-full flex-col bg-background">
       <RightPanelHeader />
       <div className="relative flex-1 overflow-hidden">
-        {rightPanelTab === "files" && activeWorkspaceCwd ? (
-          <div className="h-full overflow-y-auto pt-2">
-            <WorkspaceFileTree cwd={activeWorkspaceCwd} resolvedTheme={resolvedTheme} />
-          </div>
-        ) : null}
-        {rightPanelTab === "editor" ? (
-          <div className="h-full">
-            {shouldRenderCodeViewerContent ? <LazyCodeViewerPanel /> : null}
-          </div>
+        {rightPanelTab === "workspace" ? (
+          <WorkspacePanel
+            cwd={activeWorkspaceCwd}
+            tree={
+              activeWorkspaceCwd ? (
+                <WorkspaceFileTree cwd={activeWorkspaceCwd} resolvedTheme={resolvedTheme} />
+              ) : null
+            }
+            editor={<LazyCodeViewerPanel />}
+          />
         ) : null}
         {rightPanelTab === "diffs" ? (
           <div className="h-full">

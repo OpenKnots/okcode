@@ -712,7 +712,7 @@ export default function CodeViewerPanel() {
           {!activeTab ? (
             <div className="flex h-full flex-col items-center justify-center gap-2 px-5 text-center text-muted-foreground/60">
               <FileCodeIcon className="size-8 opacity-40" />
-              <p className="text-xs">Click a file in the sidebar to view it here.</p>
+              <p className="text-xs">Click a file to view it here.</p>
             </div>
           ) : (
             <CodeViewerFileContent

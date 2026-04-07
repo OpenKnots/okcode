@@ -1,4 +1,4 @@
-import { CodeIcon, FolderIcon, GitCompareIcon, PanelRightCloseIcon } from "lucide-react";
+import { FolderIcon, GitCompareIcon, PanelRightCloseIcon } from "lucide-react";
 import { memo } from "react";
 import { isElectron } from "~/env";
 import { cn } from "~/lib/utils";
@@ -10,8 +10,7 @@ const TABS: readonly {
   label: string;
   icon: typeof FolderIcon;
 }[] = [
-  { id: "files", label: "Files", icon: FolderIcon },
-  { id: "editor", label: "Editor", icon: CodeIcon },
+  { id: "workspace", label: "Workspace", icon: FolderIcon },
   { id: "diffs", label: "Diffs", icon: GitCompareIcon },
 ];
 

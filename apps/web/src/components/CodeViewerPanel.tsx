@@ -498,8 +498,7 @@ export const CodeViewerFileContent = memo(function CodeViewerFileContent(
                   "border-primary/40 text-primary hover:bg-primary/10 dark:border-primary/30 dark:text-primary",
                 saveButtonState === "saved" &&
                   "border-emerald-500/30 text-emerald-600 hover:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400",
-                saveButtonState === "clean" &&
-                  "text-muted-foreground",
+                saveButtonState === "clean" && "text-muted-foreground",
               )}
               title={
                 saveButtonState === "dirty"
@@ -602,8 +601,6 @@ export default function CodeViewerPanel() {
     },
     [setPendingContext],
   );
-
-
 
   return (
     <div className="flex h-full w-full flex-col bg-background">

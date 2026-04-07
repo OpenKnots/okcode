@@ -123,12 +123,7 @@ import { WorkspaceFileTree } from "~/components/WorkspaceFileTree";
 import { EditableThreadTitle } from "~/components/EditableThreadTitle";
 import { useProjectTitleEditor } from "~/hooks/useProjectTitleEditor";
 import { useThreadTitleEditor } from "~/hooks/useThreadTitleEditor";
-import {
-  buildProjectScriptDraftsFromPackageScripts,
-  materializeProjectScripts,
-  readPackageScriptInventory,
-  resolvePackageManagerResolution,
-} from "~/projectScriptDefaults";
+import { resolveImportedProjectScripts } from "~/lib/projectImport";
 import { useClientMode } from "~/hooks/useClientMode";
 import { CloneRepositoryDialog } from "~/components/CloneRepositoryDialog";
 import { getProjectColor } from "~/projectColors";
@@ -769,28 +764,8 @@ export default function Sidebar() {
       const createdAt = new Date().toISOString();
       const title = cwd.split(/[/\\]/).findLast(isNonEmptyString) ?? cwd;
       try {
-        let projectScripts;
-        let packageScriptWarning: string | null = null;
-        try {
-          const inventory = await readPackageScriptInventory(api, cwd);
-          const packageManagerResolution = resolvePackageManagerResolution(inventory);
-          packageScriptWarning =
-            inventory.scriptNames.length > 0 ? packageManagerResolution.warning : null;
-          if (
-            inventory.scriptNames.length > 0 &&
-            packageManagerResolution.preferredPackageManager &&
-            !packageManagerResolution.requiresManualSelection
-          ) {
-            projectScripts = materializeProjectScripts(
-              buildProjectScriptDraftsFromPackageScripts({
-                scriptNames: inventory.scriptNames,
-                packageManager: packageManagerResolution.preferredPackageManager,
-              }),
-            );
-          }
-        } catch {
-          projectScripts = undefined;
-        }
+        const { scripts: projectScripts, warning: packageScriptWarning } =
+          await resolveImportedProjectScripts(api, cwd);
 
         await api.orchestration.dispatchCommand({
           type: "project.create",

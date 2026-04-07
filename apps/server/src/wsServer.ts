@@ -98,6 +98,253 @@ import { TokenManager } from "./tokenManager.ts";
 import { resolveRuntimeEnvironment, RuntimeEnv } from "./runtimeEnvironment.ts";
 import { version as serverVersion } from "../package.json" with { type: "json" };
 import { serverBuildInfo } from "./buildInfo";
+import type { TestOpenclawGatewayInput, TestOpenclawGatewayResult, TestOpenclawGatewayStep } from "@okcode/contracts";
+import NodeWebSocket from "ws";
+
+// ── OpenClaw Gateway Connection Test ──────────────────────────────────
+
+const OPENCLAW_TEST_CONNECT_TIMEOUT_MS = 10_000;
+const OPENCLAW_TEST_RPC_TIMEOUT_MS = 10_000;
+
+function testOpenclawGateway(
+  input: TestOpenclawGatewayInput,
+): Effect.Effect<TestOpenclawGatewayResult> {
+  return Effect.gen(function* () {
+    const overallStart = Date.now();
+    const steps: TestOpenclawGatewayStep[] = [];
+    let ws: NodeWebSocket | null = null;
+    let rpcId = 1;
+    let serverInfo: { version?: string; sessionId?: string } | undefined;
+
+    const pushStep = (
+      name: string,
+      status: "pass" | "fail" | "skip",
+      durationMs: number,
+      detail?: string,
+    ) => {
+      steps.push({ name, status, durationMs, ...(detail ? { detail } : {}) });
+    };
+
+    // ── Helper: send a JSON-RPC 2.0 request and wait for a response ──
+    const sendRpc = (
+      socket: NodeWebSocket,
+      method: string,
+      params?: Record<string, unknown>,
+    ): Promise<{ result?: unknown; error?: { code: number; message: string } }> =>
+      new Promise((resolve, reject) => {
+        const id = rpcId++;
+        const timeout = setTimeout(
+          () => reject(new Error(`RPC '${method}' timed out after ${OPENCLAW_TEST_RPC_TIMEOUT_MS}ms`)),
+          OPENCLAW_TEST_RPC_TIMEOUT_MS,
+        );
+
+        const handler = (data: NodeWebSocket.Data) => {
+          try {
+            const msg = JSON.parse(String(data)) as {
+              id?: number;
+              result?: unknown;
+              error?: { code: number; message: string };
+            };
+            if (msg.id === id) {
+              clearTimeout(timeout);
+              socket.off("message", handler);
+              resolve({ result: msg.result, error: msg.error });
+            }
+          } catch {
+            // Ignore non-JSON messages
+          }
+        };
+
+        socket.on("message", handler);
+        socket.send(
+          JSON.stringify({
+            jsonrpc: "2.0",
+            method,
+            ...(params !== undefined ? { params } : {}),
+            id,
+          }),
+        );
+      });
+
+    try {
+      // ── Step 1: URL validation ──────────────────────────────────────
+      const urlStart = Date.now();
+      const gatewayUrl = input.gatewayUrl.trim();
+      if (!gatewayUrl) {
+        pushStep("URL validation", "fail", Date.now() - urlStart, "Gateway URL is empty.");
+        return {
+          success: false,
+          steps,
+          totalDurationMs: Date.now() - overallStart,
+          error: "Gateway URL is empty.",
+        };
+      }
+      try {
+        const parsed = new URL(gatewayUrl);
+        if (!["ws:", "wss:"].includes(parsed.protocol)) {
+          pushStep(
+            "URL validation",
+            "fail",
+            Date.now() - urlStart,
+            `Invalid protocol "${parsed.protocol}". Expected ws: or wss:.`,
+          );
+          return {
+            success: false,
+            steps,
+            totalDurationMs: Date.now() - overallStart,
+            error: `Invalid protocol "${parsed.protocol}".`,
+          };
+        }
+        pushStep(
+          "URL validation",
+          "pass",
+          Date.now() - urlStart,
+          `${parsed.protocol}//${parsed.host}`,
+        );
+      } catch {
+        pushStep("URL validation", "fail", Date.now() - urlStart, "Malformed URL.");
+        return {
+          success: false,
+          steps,
+          totalDurationMs: Date.now() - overallStart,
+          error: "Malformed URL.",
+        };
+      }
+
+      // ── Step 2: WebSocket connect ───────────────────────────────────
+      const connectStart = Date.now();
+      try {
+        ws = yield* Effect.tryPromise(() =>
+          new Promise<NodeWebSocket>((resolve, reject) => {
+            const socket = new NodeWebSocket(gatewayUrl);
+            const timeout = setTimeout(() => {
+              socket.close();
+              reject(
+                new Error(
+                  `Connection timed out after ${OPENCLAW_TEST_CONNECT_TIMEOUT_MS}ms`,
+                ),
+              );
+            }, OPENCLAW_TEST_CONNECT_TIMEOUT_MS);
+
+            socket.on("open", () => {
+              clearTimeout(timeout);
+              resolve(socket);
+            });
+            socket.on("error", (err) => {
+              clearTimeout(timeout);
+              reject(err);
+            });
+          }),
+        );
+        pushStep(
+          "WebSocket connect",
+          "pass",
+          Date.now() - connectStart,
+          `Connected in ${Date.now() - connectStart}ms`,
+        );
+      } catch (err) {
+        const detail =
+          err instanceof Error ? err.message : "Connection failed.";
+        pushStep("WebSocket connect", "fail", Date.now() - connectStart, detail);
+        return {
+          success: false,
+          steps,
+          totalDurationMs: Date.now() - overallStart,
+          error: detail,
+        };
+      }
+
+      // ── Step 3: Authentication ──────────────────────────────────────
+      if (input.password) {
+        const authStart = Date.now();
+        try {
+          const response = yield* Effect.tryPromise(() =>
+            sendRpc(ws!, "auth.authenticate", { password: input.password }),
+          );
+          if (response.error) {
+            pushStep(
+              "Authentication",
+              "fail",
+              Date.now() - authStart,
+              `RPC error ${response.error.code}: ${response.error.message}`,
+            );
+            return {
+              success: false,
+              steps,
+              totalDurationMs: Date.now() - overallStart,
+              error: `Authentication failed: ${response.error.message}`,
+            };
+          }
+          pushStep("Authentication", "pass", Date.now() - authStart, "Authenticated successfully.");
+        } catch (err) {
+          const detail = err instanceof Error ? err.message : "Authentication request failed.";
+          pushStep("Authentication", "fail", Date.now() - authStart, detail);
+          return {
+            success: false,
+            steps,
+            totalDurationMs: Date.now() - overallStart,
+            error: detail,
+          };
+        }
+      } else {
+        pushStep("Authentication", "skip", 0, "No password configured.");
+      }
+
+      // ── Step 4: Session create (probe) ──────────────────────────────
+      const sessionStart = Date.now();
+      try {
+        const response = yield* Effect.tryPromise(() =>
+          sendRpc(ws!, "session.create", { runtimeMode: "headless" }),
+        );
+        if (response.error) {
+          pushStep(
+            "Session create",
+            "fail",
+            Date.now() - sessionStart,
+            `RPC error ${response.error.code}: ${response.error.message}`,
+          );
+          return {
+            success: false,
+            steps,
+            totalDurationMs: Date.now() - overallStart,
+            error: `Session creation failed: ${response.error.message}`,
+          };
+        }
+        const result = (response.result ?? {}) as Record<string, unknown>;
+        const sessionId = typeof result.sessionId === "string" ? result.sessionId : undefined;
+        const version = typeof result.version === "string" ? result.version : undefined;
+        serverInfo = { version, sessionId };
+        pushStep(
+          "Session create",
+          "pass",
+          Date.now() - sessionStart,
+          sessionId ? `Session ID: ${sessionId}` : "Session created.",
+        );
+      } catch (err) {
+        const detail = err instanceof Error ? err.message : "Session creation failed.";
+        pushStep("Session create", "fail", Date.now() - sessionStart, detail);
+        return {
+          success: false,
+          steps,
+          totalDurationMs: Date.now() - overallStart,
+          error: detail,
+        };
+      }
+
+      return {
+        success: true,
+        steps,
+        totalDurationMs: Date.now() - overallStart,
+        ...(serverInfo ? { serverInfo } : {}),
+      };
+    } finally {
+      // Always close the test WebSocket.
+      if (ws && ws.readyState === NodeWebSocket.OPEN) {
+        ws.close();
+      }
+    }
+  });
+}
 
 /**
  * Returns true if `a` is a strictly higher semver than `b`.
@@ -1533,6 +1780,12 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
       case WS_METHODS.serverListTokens: {
         const tokens = tokenManager.list();
         return { tokens };
+      }
+
+      // ── OpenClaw gateway test ────────────────────────────────────────
+      case WS_METHODS.serverTestOpenclawGateway: {
+        const body = stripRequestTag(request.body);
+        return yield* testOpenclawGateway(body);
       }
 
       // ── Connection health ───────────────────────────────────────────

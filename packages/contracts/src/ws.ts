@@ -68,7 +68,12 @@ import {
 } from "./project";
 import { ProjectFileTreeChangedPayload } from "./project";
 import { OpenInEditorInput, OpenPathInput } from "./editor";
-import { GeneratePairingLinkInput, RevokeTokenInput, ServerConfigUpdatedPayload } from "./server";
+import {
+  GeneratePairingLinkInput,
+  RevokeTokenInput,
+  ServerConfigUpdatedPayload,
+  TestOpenclawGatewayInput,
+} from "./server";
 import { GitHubGetIssueInput, GitHubListIssuesInput, GitHubPostCommentInput } from "./github";
 import {
   SkillListInput,
@@ -171,6 +176,9 @@ export const WS_METHODS = {
   serverRotateToken: "server.rotateToken",
   serverRevokeToken: "server.revokeToken",
   serverListTokens: "server.listTokens",
+
+  // OpenClaw gateway
+  serverTestOpenclawGateway: "server.testOpenclawGateway",
 
   // Connection health
   serverPing: "server.ping",
@@ -303,6 +311,9 @@ const WebSocketRequestBody = Schema.Union([
   tagRequestBody(WS_METHODS.serverRotateToken, Schema.Struct({})),
   tagRequestBody(WS_METHODS.serverRevokeToken, RevokeTokenInput),
   tagRequestBody(WS_METHODS.serverListTokens, Schema.Struct({})),
+
+  // OpenClaw gateway
+  tagRequestBody(WS_METHODS.serverTestOpenclawGateway, TestOpenclawGatewayInput),
 
   // Connection health
   tagRequestBody(WS_METHODS.serverPing, Schema.Struct({})),

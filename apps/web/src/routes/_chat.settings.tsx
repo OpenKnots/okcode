@@ -1,14 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  CheckCircle2Icon,
   ChevronDownIcon,
   ImportIcon,
+  Loader2Icon,
   PlusIcon,
   RotateCcwIcon,
+  SkipForwardIcon,
   Undo2Icon,
+  XCircleIcon,
   XIcon,
 } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
+import type { TestOpenclawGatewayResult } from "@okcode/contracts";
 import {
   type ProjectId,
   type ProviderKind,
@@ -370,6 +375,10 @@ function SettingsRouteView() {
   const [fontSizeOverride, setFontSizeOverrideState] = useState<number | null>(() =>
     getStoredFontSizeOverride(),
   );
+  const [openclawTestResult, setOpenclawTestResult] =
+    useState<TestOpenclawGatewayResult | null>(null);
+  const [openclawTestLoading, setOpenclawTestLoading] = useState(false);
+
   const globalEnvironmentVariablesQuery = useQuery(globalEnvironmentVariablesQueryOptions());
   const activeProjectId = selectedProjectId ?? projects[0]?.id ?? null;
   const selectedProject = projects.find((project) => project.id === activeProjectId) ?? null;
@@ -541,6 +550,29 @@ function SettingsRouteView() {
     },
     [queryClient, selectedProject],
   );
+
+  const testOpenclawGateway = useCallback(async () => {
+    if (openclawTestLoading) return;
+    setOpenclawTestLoading(true);
+    setOpenclawTestResult(null);
+    try {
+      const api = ensureNativeApi();
+      const result = await api.server.testOpenclawGateway({
+        gatewayUrl: settings.openclawGatewayUrl,
+        password: settings.openclawPassword || undefined,
+      });
+      setOpenclawTestResult(result);
+    } catch (err) {
+      setOpenclawTestResult({
+        success: false,
+        steps: [],
+        totalDurationMs: 0,
+        error: err instanceof Error ? err.message : "Unexpected error during test.",
+      });
+    } finally {
+      setOpenclawTestLoading(false);
+    }
+  }, [openclawTestLoading, settings.openclawGatewayUrl, settings.openclawPassword]);
 
   const addCustomModel = useCallback(
     (provider: ProviderKind) => {
@@ -2051,9 +2083,10 @@ function SettingsRouteView() {
                       id="openclaw-gateway-url"
                       className="mt-1"
                       value={settings.openclawGatewayUrl}
-                      onChange={(event) =>
-                        updateSettings({ openclawGatewayUrl: event.target.value })
-                      }
+                      onChange={(event) => {
+                        updateSettings({ openclawGatewayUrl: event.target.value });
+                        setOpenclawTestResult(null);
+                      }}
                       placeholder="ws://localhost:8080"
                       spellCheck={false}
                     />
@@ -2068,7 +2101,10 @@ function SettingsRouteView() {
                       className="mt-1"
                       type="password"
                       value={settings.openclawPassword}
-                      onChange={(event) => updateSettings({ openclawPassword: event.target.value })}
+                      onChange={(event) => {
+                        updateSettings({ openclawPassword: event.target.value });
+                        setOpenclawTestResult(null);
+                      }}
                       placeholder="Shared secret"
                       spellCheck={false}
                       autoComplete="off"
@@ -2077,6 +2113,125 @@ function SettingsRouteView() {
                       Shared secret used to authenticate with the gateway.
                     </span>
                   </label>
+
+                  {/* Test Connection Button */}
+                  <div className="pt-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!settings.openclawGatewayUrl || openclawTestLoading}
+                      onClick={testOpenclawGateway}
+                    >
+                      {openclawTestLoading ? (
+                        <>
+                          <Loader2Icon className="mr-1.5 size-3.5 animate-spin" />
+                          Testing…
+                        </>
+                      ) : (
+                        "Test Connection"
+                      )}
+                    </Button>
+                  </div>
+
+                  {/* Debug / Results Panel */}
+                  {openclawTestResult && (
+                    <div className="mt-3 rounded-md border border-border bg-muted/30 p-3">
+                      {/* Overall status header */}
+                      <div className="flex items-center gap-2">
+                        {openclawTestResult.success ? (
+                          <CheckCircle2Icon className="size-4 text-emerald-500" />
+                        ) : (
+                          <XCircleIcon className="size-4 text-red-500" />
+                        )}
+                        <span
+                          className={cn(
+                            "text-xs font-semibold",
+                            openclawTestResult.success
+                              ? "text-emerald-500"
+                              : "text-red-500",
+                          )}
+                        >
+                          {openclawTestResult.success
+                            ? "Connection successful"
+                            : "Connection failed"}
+                        </span>
+                        <span className="ml-auto text-[10px] tabular-nums text-muted-foreground">
+                          {openclawTestResult.totalDurationMs}ms total
+                        </span>
+                      </div>
+
+                      {/* Step-by-step results */}
+                      {openclawTestResult.steps.length > 0 && (
+                        <div className="mt-2.5 space-y-1.5">
+                          {openclawTestResult.steps.map((step, i) => (
+                            <div key={i} className="flex items-start gap-2 text-xs">
+                              {step.status === "pass" && (
+                                <CheckCircle2Icon className="mt-px size-3.5 shrink-0 text-emerald-500" />
+                              )}
+                              {step.status === "fail" && (
+                                <XCircleIcon className="mt-px size-3.5 shrink-0 text-red-500" />
+                              )}
+                              {step.status === "skip" && (
+                                <SkipForwardIcon className="mt-px size-3.5 shrink-0 text-muted-foreground" />
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-baseline gap-2">
+                                  <span className="font-medium text-foreground">
+                                    {step.name}
+                                  </span>
+                                  <span className="tabular-nums text-muted-foreground text-[10px]">
+                                    {step.durationMs}ms
+                                  </span>
+                                </div>
+                                {step.detail && (
+                                  <span className="block break-all text-muted-foreground">
+                                    {step.detail}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Server info */}
+                      {openclawTestResult.serverInfo && (
+                        <div className="mt-2.5 border-t border-border pt-2">
+                          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                            Server Info
+                          </span>
+                          <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                            {openclawTestResult.serverInfo.version && (
+                              <div>
+                                Version:{" "}
+                                <span className="font-mono text-foreground">
+                                  {openclawTestResult.serverInfo.version}
+                                </span>
+                              </div>
+                            )}
+                            {openclawTestResult.serverInfo.sessionId && (
+                              <div>
+                                Session:{" "}
+                                <span className="font-mono text-foreground">
+                                  {openclawTestResult.serverInfo.sessionId}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Error summary */}
+                      {openclawTestResult.error &&
+                        !openclawTestResult.steps.some(
+                          (s) => s.status === "fail",
+                        ) && (
+                          <div className="mt-2 text-xs text-red-500">
+                            {openclawTestResult.error}
+                          </div>
+                        )}
+                    </div>
+                  )}
                 </div>
               </SettingsRow>
 

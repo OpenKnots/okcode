@@ -19,6 +19,12 @@ import {
 import { GitCore } from "../Services/GitCore.ts";
 import { GitHubCli } from "../Services/GitHubCli.ts";
 import { TextGeneration } from "../Services/TextGeneration.ts";
+import {
+  sanitizeGeneratedCommitBody,
+  sanitizeGeneratedCommitSubject,
+  sanitizeGeneratedPrBody,
+  sanitizeGeneratedPrTitle,
+} from "../generatedTextSanitization.ts";
 import { buildGitActionFailure } from "../actionFailure.ts";
 
 const COMMIT_TIMEOUT_MS = 10 * 60_000;
@@ -202,12 +208,9 @@ function sanitizeCommitMessage(generated: {
   body: string;
   branch?: string | undefined;
 } {
-  const rawSubject = generated.subject.trim().split(/\r?\n/g)[0]?.trim() ?? "";
-  const subject = rawSubject.replace(/[.]+$/g, "").trim();
-  const safeSubject = subject.length > 0 ? subject.slice(0, 72).trimEnd() : "Update project files";
   return {
-    subject: safeSubject,
-    body: generated.body.trim(),
+    subject: sanitizeGeneratedCommitSubject(generated.subject),
+    body: sanitizeGeneratedCommitBody(generated.body),
     ...(generated.branch !== undefined ? { branch: generated.branch } : {}),
   };
 }
@@ -1044,10 +1047,12 @@ export const makeGitManager = Effect.gen(function* () {
         diffPatch: limitContext(rangeContext.diffPatch, 60_000),
         ...(model ? { model } : {}),
       });
+      const sanitizedPrTitle = sanitizeGeneratedPrTitle(generated.title);
+      const sanitizedPrBody = sanitizeGeneratedPrBody(generated.body);
 
       const bodyFile = path.join(tempDir, `okcode-pr-body-${process.pid}-${randomUUID()}.md`);
       yield* fileSystem
-        .writeFileString(bodyFile, generated.body)
+        .writeFileString(bodyFile, sanitizedPrBody)
         .pipe(
           Effect.mapError((cause) =>
             gitManagerError("runPrStep", "Failed to write pull request body temp file.", cause),
@@ -1058,7 +1063,7 @@ export const makeGitManager = Effect.gen(function* () {
           cwd,
           baseBranch,
           headSelector: headContext.preferredHeadSelector,
-          title: generated.title,
+          title: sanitizedPrTitle,
           bodyFile,
         })
         .pipe(Effect.ensuring(fileSystem.remove(bodyFile).pipe(Effect.catch(() => Effect.void))));
@@ -1069,7 +1074,7 @@ export const makeGitManager = Effect.gen(function* () {
           status: "created" as const,
           baseBranch,
           headBranch: headContext.headBranch,
-          title: generated.title,
+          title: sanitizedPrTitle,
         };
       }
 

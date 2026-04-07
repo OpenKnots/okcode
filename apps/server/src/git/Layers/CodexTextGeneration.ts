@@ -14,6 +14,12 @@ import { sanitizeBranchFragment, sanitizeFeatureBranchName } from "@okcode/share
 import { resolveAttachmentPath } from "../../attachmentStore.ts";
 import { ServerConfig } from "../../config.ts";
 import { getRuntimeEnv } from "../../runtimeEnvironment.ts";
+import {
+  sanitizeGeneratedCommitBody,
+  sanitizeGeneratedCommitSubject,
+  sanitizeGeneratedPrBody,
+  sanitizeGeneratedPrTitle,
+} from "../generatedTextSanitization.ts";
 import { TextGenerationError } from "../Errors.ts";
 import {
   type BranchNameGenerationInput,
@@ -78,27 +84,6 @@ function limitSection(value: string, maxChars: number): string {
   if (value.length <= maxChars) return value;
   const truncated = value.slice(0, maxChars);
   return `${truncated}\n\n[truncated]`;
-}
-
-function sanitizeCommitSubject(raw: string): string {
-  const singleLine = raw.trim().split(/\r?\n/g)[0]?.trim() ?? "";
-  const withoutTrailingPeriod = singleLine.replace(/[.]+$/g, "").trim();
-  if (withoutTrailingPeriod.length === 0) {
-    return "Update project files";
-  }
-
-  if (withoutTrailingPeriod.length <= 72) {
-    return withoutTrailingPeriod;
-  }
-  return withoutTrailingPeriod.slice(0, 72).trimEnd();
-}
-
-function sanitizePrTitle(raw: string): string {
-  const singleLine = raw.trim().split(/\r?\n/g)[0]?.trim() ?? "";
-  if (singleLine.length > 0) {
-    return singleLine;
-  }
-  return "Update project changes";
 }
 
 const makeCodexTextGeneration = Effect.gen(function* () {
@@ -341,6 +326,7 @@ const makeCodexTextGeneration = Effect.gen(function* () {
         ? ["- branch must be a short semantic git branch fragment for this change"]
         : []),
       "- capture the primary user-visible or developer-visible change",
+      "- do not include AI/provider attribution, signatures, trailers, or generated-with footers",
       "",
       `Branch: ${input.branch ?? "(detached)"}`,
       "",
@@ -372,8 +358,8 @@ const makeCodexTextGeneration = Effect.gen(function* () {
       Effect.map(
         (generated) =>
           ({
-            subject: sanitizeCommitSubject(generated.subject),
-            body: generated.body.trim(),
+            subject: sanitizeGeneratedCommitSubject(generated.subject),
+            body: sanitizeGeneratedCommitBody(generated.body),
             ...("branch" in generated && typeof generated.branch === "string"
               ? { branch: sanitizeFeatureBranchName(generated.branch) }
               : {}),
@@ -391,6 +377,7 @@ const makeCodexTextGeneration = Effect.gen(function* () {
       "- body must be markdown and include headings '## Summary' and '## Testing'",
       "- under Summary, provide short bullet points",
       "- under Testing, include bullet points with concrete checks or 'Not run' where appropriate",
+      "- do not include AI/provider attribution, co-author trailers, or generated-with footers",
       "",
       `Base branch: ${input.baseBranch}`,
       `Head branch: ${input.headBranch}`,
@@ -418,8 +405,8 @@ const makeCodexTextGeneration = Effect.gen(function* () {
       Effect.map(
         (generated) =>
           ({
-            title: sanitizePrTitle(generated.title),
-            body: generated.body.trim(),
+            title: sanitizeGeneratedPrTitle(generated.title),
+            body: sanitizeGeneratedPrBody(generated.body),
           }) satisfies PrContentGenerationResult,
       ),
     );

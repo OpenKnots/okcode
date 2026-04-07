@@ -44,7 +44,9 @@ export function WorktreeCleanupDialog() {
   const queryClient = useQueryClient();
   const activeProject = useMemo(() => {
     if (activeThread) {
-      return projects.find((project) => project.id === activeThread.projectId) ?? projects[0] ?? null;
+      return (
+        projects.find((project) => project.id === activeThread.projectId) ?? projects[0] ?? null
+      );
     }
     return projects[0] ?? null;
   }, [activeThread, projects]);
@@ -84,7 +86,9 @@ export function WorktreeCleanupDialog() {
     } catch (error) {
       toastManager.add({
         type: "error",
-        title: candidate.pathExists ? "Could not delete worktree" : "Could not prune worktree record",
+        title: candidate.pathExists
+          ? "Could not delete worktree"
+          : "Could not prune worktree record",
         description: error instanceof Error ? error.message : "Unknown error.",
       });
     }
@@ -134,7 +138,9 @@ export function WorktreeCleanupDialog() {
                   const usageCount = resolveWorktreeUsageCount(candidate, threadWorktreePaths);
                   const displayPath = formatWorktreePathForDisplay(candidate.path);
                   const canDelete = usageCount === 0;
-                  const actionLabel = candidate.pathExists ? "Delete worktree" : "Prune stale records";
+                  const actionLabel = candidate.pathExists
+                    ? "Delete worktree"
+                    : "Prune stale records";
 
                   return (
                     <Card
@@ -169,9 +175,13 @@ export function WorktreeCleanupDialog() {
                                 {candidate.prTitle}
                               </div>
                               <div className="mt-1 text-xs text-muted-foreground">
-                                Branch <span className="font-mono text-foreground">{candidate.branch}</span>
+                                Branch{" "}
+                                <span className="font-mono text-foreground">
+                                  {candidate.branch}
+                                </span>
                                 {" · "}
-                                Path <span className="font-mono text-foreground">{displayPath}</span>
+                                Path{" "}
+                                <span className="font-mono text-foreground">{displayPath}</span>
                               </div>
                             </div>
                           </div>

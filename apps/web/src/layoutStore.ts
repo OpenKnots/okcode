@@ -11,6 +11,8 @@
 
 import { create } from "zustand";
 
+import type { PreviewLayoutMode } from "./previewStateStore";
+
 // ─── Types ──────────────────────────────────────────────────────────
 
 export type LayoutPanel = "none" | "code-viewer" | "diff-viewer" | "preview" | "simulation";
@@ -44,6 +46,8 @@ export interface SavedLayout {
   previewDock: LayoutPreviewDock | null;
   /** Preview panel size in px. Null = keep the current size. */
   previewSize: number | null;
+  /** Preview layout mode. Null = keep the current mode. */
+  previewLayoutMode: PreviewLayoutMode | null;
 }
 
 // ─── Constants ──────────────────────────────────────────────────────
@@ -59,6 +63,7 @@ const VALID_PANELS = new Set<string>([
   "simulation",
 ]);
 const VALID_DOCKS = new Set<string>(["left", "right", "top", "bottom"]);
+const VALID_LAYOUT_MODES = new Set<string>(["top", "side", "fullscreen", "popout"]);
 
 // ─── Validation helpers ─────────────────────────────────────────────
 
@@ -68,6 +73,10 @@ function isValidPanel(value: unknown): value is LayoutPanel {
 
 function isValidDock(value: unknown): value is LayoutPreviewDock {
   return typeof value === "string" && VALID_DOCKS.has(value);
+}
+
+function isValidLayoutMode(value: unknown): value is PreviewLayoutMode {
+  return typeof value === "string" && VALID_LAYOUT_MODES.has(value);
 }
 
 function isFinitePositive(value: unknown): value is number {
@@ -116,6 +125,7 @@ function normalizeLayout(raw: unknown): SavedLayout | null {
     sidebarWidths: normalizeSidebarWidths(obj.sidebarWidths),
     previewDock: isValidDock(obj.previewDock) ? obj.previewDock : null,
     previewSize: isFinitePositiveOrNull(obj.previewSize) ? obj.previewSize : null,
+    previewLayoutMode: isValidLayoutMode(obj.previewLayoutMode) ? obj.previewLayoutMode : null,
   };
 }
 
@@ -198,6 +208,7 @@ interface LayoutStoreState extends PersistedLayoutState {
         | "sidebarWidths"
         | "previewDock"
         | "previewSize"
+        | "previewLayoutMode"
       >
     >,
   ) => void;

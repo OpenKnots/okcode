@@ -8,6 +8,7 @@ import {
   LaptopIcon,
   LoaderCircleIcon,
   MaximizeIcon,
+  Minimize2Icon,
   MonitorIcon,
   PinIcon,
   PinOffIcon,
@@ -37,6 +38,7 @@ import { isMacPlatform } from "~/lib/utils";
 import { readNativeApi } from "~/nativeApi";
 import { usePreviewStateStore } from "~/previewStateStore";
 
+import { PreviewLayoutSwitcher } from "./PreviewLayoutSwitcher";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
@@ -157,6 +159,10 @@ export function PreviewPanel({ projectId, threadId, onClose }: PreviewPanelProps
     (state) => state.customViewportByProjectId[projectId] ?? DEFAULT_CUSTOM_VIEWPORT,
   );
   const setCustomViewport = usePreviewStateStore((state) => state.setCustomViewport);
+  const layoutMode = usePreviewStateStore(
+    (state) => state.layoutModeByProjectId[projectId] ?? "top",
+  );
+  const toggleFullscreen = usePreviewStateStore((state) => state.toggleFullscreen);
 
   const effectiveDims = resolveViewportDimensions(presetId, orientation, customViewport);
   const PresetIcon = presetId ? PRESET_ICONS[presetId] : null;
@@ -623,6 +629,30 @@ export function PreviewPanel({ projectId, threadId, onClose }: PreviewPanelProps
                 max={2160}
               />
             </div>
+          )}
+
+          {/* ---- Layout Mode Switcher ---- */}
+          <PreviewLayoutSwitcher projectId={projectId} />
+
+          {/* Exit fullscreen shortcut button */}
+          {layoutMode === "fullscreen" && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  size="icon-xs"
+                  variant="ghost"
+                  className="text-muted-foreground/55 hover:bg-transparent hover:text-foreground"
+                  aria-label="Exit full screen"
+                  onClick={() => toggleFullscreen(projectId)}
+                >
+                  <Minimize2Icon className="size-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipPopup side="bottom" sideOffset={6}>
+                Exit full screen
+              </TooltipPopup>
+            </Tooltip>
           )}
 
           <Button

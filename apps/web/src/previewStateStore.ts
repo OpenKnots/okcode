@@ -5,6 +5,7 @@ import type { BrowserPresetId } from "./lib/browserPresets";
 
 export type PreviewDock = "left" | "right" | "top" | "bottom";
 export type PreviewOrientation = "portrait" | "landscape";
+export type PreviewLayoutMode = "top" | "side" | "fullscreen" | "popout";
 
 export interface CustomViewport {
   width: number;
@@ -19,6 +20,9 @@ interface PersistedPreviewUiState {
   orientationByProjectId: Record<string, PreviewOrientation>;
   customViewportByProjectId: Record<string, CustomViewport>;
   favoriteUrls: string[];
+  layoutModeByProjectId: Record<string, PreviewLayoutMode>;
+  /** Stores the mode to restore when exiting fullscreen. Not user-facing. */
+  previousLayoutModeByProjectId: Record<string, PreviewLayoutMode>;
 }
 
 interface PreviewStateStore extends PersistedPreviewUiState {
@@ -34,9 +38,12 @@ interface PreviewStateStore extends PersistedPreviewUiState {
   addFavoriteUrl: (url: string) => void;
   removeFavoriteUrl: (url: string) => void;
   toggleFavoriteUrl: (url: string) => void;
+  setProjectLayoutMode: (projectId: ProjectId, mode: PreviewLayoutMode) => void;
+  toggleFullscreen: (projectId: ProjectId) => void;
 }
 
-const PREVIEW_STATE_STORAGE_KEY = "okcode:desktop-preview:v4";
+const PREVIEW_STATE_STORAGE_KEY = "okcode:desktop-preview:v5";
+const PREVIEW_STATE_STORAGE_KEY_V4 = "okcode:desktop-preview:v4";
 
 const VALID_PRESETS = new Set<string>([
   "mobile",
@@ -47,6 +54,7 @@ const VALID_PRESETS = new Set<string>([
   "custom",
 ]);
 const VALID_ORIENTATIONS = new Set<string>(["portrait", "landscape"]);
+const VALID_LAYOUT_MODES = new Set<string>(["top", "side", "fullscreen", "popout"]);
 
 function isValidPresetId(value: unknown): value is BrowserPresetId {
   return typeof value === "string" && VALID_PRESETS.has(value);
@@ -54,6 +62,10 @@ function isValidPresetId(value: unknown): value is BrowserPresetId {
 
 function isValidOrientation(value: unknown): value is PreviewOrientation {
   return typeof value === "string" && VALID_ORIENTATIONS.has(value);
+}
+
+function isValidLayoutMode(value: unknown): value is PreviewLayoutMode {
+  return typeof value === "string" && VALID_LAYOUT_MODES.has(value);
 }
 
 function isValidCustomViewport(value: unknown): value is CustomViewport {
@@ -83,6 +95,8 @@ function createEmptyPersistedPreviewUiState(): PersistedPreviewUiState {
     orientationByProjectId: {},
     customViewportByProjectId: {},
     favoriteUrls: [],
+    layoutModeByProjectId: {},
+    previousLayoutModeByProjectId: {},
   };
 }
 
@@ -99,7 +113,11 @@ function readPersistedPreviewUiState(): PersistedPreviewUiState {
   }
 
   try {
-    const raw = window.localStorage.getItem(PREVIEW_STATE_STORAGE_KEY);
+    // Try v5 first, fall back to v4 for migration
+    let raw = window.localStorage.getItem(PREVIEW_STATE_STORAGE_KEY);
+    if (!raw) {
+      raw = window.localStorage.getItem(PREVIEW_STATE_STORAGE_KEY_V4);
+    }
     if (!raw) {
       return createEmptyPersistedPreviewUiState();
     }
@@ -172,6 +190,25 @@ function readPersistedPreviewUiState(): PersistedPreviewUiState {
             (u): u is string => typeof u === "string" && u.trim().length > 0,
           )
         : [],
+      layoutModeByProjectId:
+        parsed.layoutModeByProjectId && typeof parsed.layoutModeByProjectId === "object"
+          ? Object.fromEntries(
+              Object.entries(parsed.layoutModeByProjectId).filter(
+                (entry): entry is [string, PreviewLayoutMode] =>
+                  typeof entry[0] === "string" && isValidLayoutMode(entry[1]),
+              ),
+            )
+          : {},
+      previousLayoutModeByProjectId:
+        parsed.previousLayoutModeByProjectId &&
+        typeof parsed.previousLayoutModeByProjectId === "object"
+          ? Object.fromEntries(
+              Object.entries(parsed.previousLayoutModeByProjectId).filter(
+                (entry): entry is [string, PreviewLayoutMode] =>
+                  typeof entry[0] === "string" && isValidLayoutMode(entry[1]),
+              ),
+            )
+          : {},
     };
   } catch {
     return createEmptyPersistedPreviewUiState();
@@ -194,6 +231,8 @@ function persistPreviewUiState(state: PersistedPreviewUiState): void {
         orientationByProjectId: state.orientationByProjectId,
         customViewportByProjectId: state.customViewportByProjectId,
         favoriteUrls: state.favoriteUrls,
+        layoutModeByProjectId: state.layoutModeByProjectId,
+        previousLayoutModeByProjectId: state.previousLayoutModeByProjectId,
       } satisfies PersistedPreviewUiState),
     );
   } catch {
@@ -210,6 +249,8 @@ function snapshotState(state: PreviewStateStore): PersistedPreviewUiState {
     orientationByProjectId: state.orientationByProjectId,
     customViewportByProjectId: state.customViewportByProjectId,
     favoriteUrls: state.favoriteUrls,
+    layoutModeByProjectId: state.layoutModeByProjectId,
+    previousLayoutModeByProjectId: state.previousLayoutModeByProjectId,
   };
 }
 
@@ -345,6 +386,41 @@ export const usePreviewStateStore = create<PreviewStateStore>((set, get) => ({
       get().removeFavoriteUrl(normalized);
     } else {
       get().addFavoriteUrl(normalized);
+    }
+  },
+
+  setProjectLayoutMode: (projectId, mode) => {
+    set((state) => {
+      const currentMode = state.layoutModeByProjectId[projectId] ?? "top";
+      const nextLayoutModeByProjectId = {
+        ...state.layoutModeByProjectId,
+        [projectId]: mode,
+      };
+      // Store the previous mode so we can restore from fullscreen
+      const nextPreviousLayoutModeByProjectId = {
+        ...state.previousLayoutModeByProjectId,
+        [projectId]: currentMode,
+      };
+      persistPreviewUiState({
+        ...snapshotState(state),
+        layoutModeByProjectId: nextLayoutModeByProjectId,
+        previousLayoutModeByProjectId: nextPreviousLayoutModeByProjectId,
+      });
+      return {
+        layoutModeByProjectId: nextLayoutModeByProjectId,
+        previousLayoutModeByProjectId: nextPreviousLayoutModeByProjectId,
+      };
+    });
+  },
+
+  toggleFullscreen: (projectId) => {
+    const current = get().layoutModeByProjectId[projectId] ?? "top";
+    if (current === "fullscreen") {
+      // Restore previous mode
+      const previous = get().previousLayoutModeByProjectId[projectId] ?? "top";
+      get().setProjectLayoutMode(projectId, previous);
+    } else {
+      get().setProjectLayoutMode(projectId, "fullscreen");
     }
   },
 }));

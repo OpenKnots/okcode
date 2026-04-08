@@ -76,7 +76,7 @@ import {
   isLatestTurnSettled,
   formatElapsed,
 } from "../session-logic";
-import { isScrollContainerNearBottom } from "../chat-scroll";
+import { computeNextAutoScrollState, isScrollContainerNearBottom } from "../chat-scroll";
 import {
   buildPendingUserInputAnswers,
   derivePendingUserInputProgress,
@@ -2217,27 +2217,16 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
     const currentScrollTop = scrollContainer.scrollTop;
     const isNearBottom = isScrollContainerNearBottom(scrollContainer);
 
-    if (!shouldAutoScrollRef.current && isNearBottom) {
-      shouldAutoScrollRef.current = true;
-      pendingUserScrollUpIntentRef.current = false;
-    } else if (shouldAutoScrollRef.current && pendingUserScrollUpIntentRef.current) {
-      const scrolledUp = currentScrollTop < lastKnownScrollTopRef.current - 1;
-      if (scrolledUp) {
-        shouldAutoScrollRef.current = false;
-      }
-      pendingUserScrollUpIntentRef.current = false;
-    } else if (shouldAutoScrollRef.current && isPointerScrollActiveRef.current) {
-      const scrolledUp = currentScrollTop < lastKnownScrollTopRef.current - 1;
-      if (scrolledUp) {
-        shouldAutoScrollRef.current = false;
-      }
-    } else if (shouldAutoScrollRef.current && !isNearBottom) {
-      // Catch-all for keyboard/assistive scroll interactions.
-      const scrolledUp = currentScrollTop < lastKnownScrollTopRef.current - 1;
-      if (scrolledUp) {
-        shouldAutoScrollRef.current = false;
-      }
-    }
+    const next = computeNextAutoScrollState({
+      shouldAutoScroll: shouldAutoScrollRef.current,
+      pendingUserScrollUpIntent: pendingUserScrollUpIntentRef.current,
+      isPointerScrollActive: isPointerScrollActiveRef.current,
+      isNearBottom,
+      currentScrollTop,
+      lastKnownScrollTop: lastKnownScrollTopRef.current,
+    });
+    shouldAutoScrollRef.current = next.shouldAutoScroll;
+    pendingUserScrollUpIntentRef.current = next.pendingUserScrollUpIntent;
 
     setShowScrollToBottom(!shouldAutoScrollRef.current);
     lastKnownScrollTopRef.current = currentScrollTop;

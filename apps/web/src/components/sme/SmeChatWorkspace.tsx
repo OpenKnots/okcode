@@ -1,22 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BookOpenIcon, SendIcon } from "lucide-react";
 import type { SmeConversationId, SmeMessage, SmeMessageId } from "@okcode/contracts";
-
-import type { Project } from "~/types";
 import { ensureNativeApi } from "~/nativeApi";
 import { useSmeStore } from "~/smeStore";
 
 import { SmeMessageBubble } from "./SmeMessageBubble";
 
 interface SmeChatWorkspaceProps {
-  project: Project;
   conversationId: string | null;
   onToggleKnowledge: () => void;
   knowledgePanelOpen: boolean;
 }
 
 export function SmeChatWorkspace({
-  project,
   conversationId,
   onToggleKnowledge,
   knowledgePanelOpen,

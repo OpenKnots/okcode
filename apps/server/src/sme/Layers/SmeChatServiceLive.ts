@@ -7,18 +7,13 @@
  * @module SmeChatServiceLive
  */
 import Anthropic from "@anthropic-ai/sdk";
-import type {
-  SmeConversation,
-  SmeKnowledgeDocument,
-  SmeMessage,
-  SmeMessageEvent,
-} from "@okcode/contracts";
+import type { SmeConversation, SmeKnowledgeDocument, SmeMessage } from "@okcode/contracts";
 import {
   SME_MAX_DOCUMENT_SIZE_BYTES,
   SME_MAX_DOCUMENTS_PER_PROJECT,
   SME_MAX_CONVERSATIONS_PER_PROJECT,
 } from "@okcode/contracts";
-import { DateTime, Effect, Fiber, Layer, Option, Random, Ref } from "effect";
+import { DateTime, Effect, Layer, Option, Random, Ref } from "effect";
 import crypto from "node:crypto";
 
 import { SmeKnowledgeDocumentRepository } from "../../persistence/Services/SmeKnowledgeDocuments.ts";

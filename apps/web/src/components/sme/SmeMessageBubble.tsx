@@ -9,7 +9,6 @@ interface SmeMessageBubbleProps {
 
 export function SmeMessageBubble({ message }: SmeMessageBubbleProps) {
   const isUser = message.role === "user";
-  const isAssistant = message.role === "assistant";
 
   return (
     <div className={cn("flex gap-3", isUser && "flex-row-reverse")}>

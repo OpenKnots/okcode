@@ -491,6 +491,7 @@ function runStackedAction(
     actionId?: string;
     commitMessage?: string;
     featureBranch?: boolean;
+    featureBranchName?: string;
     rebaseBeforeCommit?: boolean;
     filePaths?: readonly string[];
   },
@@ -1358,6 +1359,99 @@ it.layer(GitManagerTestLayer)("GitManager", (it) => {
       ).toBe(true);
       expect(ghCalls.some((call) => call.startsWith("pr view "))).toBe(false);
     }),
+  );
+
+  it.effect("uses the requested feature branch name when creating a new PR head", () =>
+    Effect.gen(function* () {
+      const repoDir = yield* makeTempDir("okcode-git-manager-");
+      yield* initRepo(repoDir);
+      const remoteDir = yield* createBareRemote();
+      yield* runGit(repoDir, ["remote", "add", "origin", remoteDir]);
+      fs.writeFileSync(path.join(repoDir, "changes.txt"), "change\n");
+
+      const { manager, ghCalls } = yield* makeManager({
+        ghScenario: {
+          prListSequence: [
+            "[]",
+            JSON.stringify([
+              {
+                number: 99,
+                title: "Custom head branch PR",
+                url: "https://github.com/pingdotgg/codething-mvp/pull/99",
+                baseRefName: "main",
+                headRefName: "feature/custom-head",
+              },
+            ]),
+          ],
+        },
+      });
+
+      const result = yield* runStackedAction(manager, {
+        cwd: repoDir,
+        action: "commit_push_pr",
+        featureBranch: true,
+        featureBranchName: "custom-head",
+      });
+
+      expect(result.branch.status).toBe("created");
+      expect(result.branch.name).toBe("feature/custom-head");
+      expect(
+        ghCalls.some((call) => call.includes("pr create --base main --head feature/custom-head")),
+      ).toBe(true);
+    }),
+  );
+
+  it.effect(
+    "defaults PR base to the local default branch when GitHub metadata is unavailable",
+    () =>
+      Effect.gen(function* () {
+        const repoDir = yield* makeTempDir("okcode-git-manager-");
+        yield* runGit(repoDir, ["init", "--initial-branch=master"]);
+        yield* runGit(repoDir, ["config", "user.email", "test@example.com"]);
+        yield* runGit(repoDir, ["config", "user.name", "Test User"]);
+        yield* runGit(repoDir, ["config", "commit.gpgsign", "false"]);
+        fs.writeFileSync(path.join(repoDir, "README.md"), "hello\n");
+        yield* runGit(repoDir, ["add", "README.md"]);
+        yield* runGit(repoDir, ["commit", "-m", "Initial commit"]);
+        const remoteDir = yield* createBareRemote();
+        yield* runGit(repoDir, ["remote", "add", "origin", remoteDir]);
+        yield* runGit(repoDir, ["push", "-u", "origin", "master"]);
+        yield* runGit(repoDir, ["remote", "set-head", "origin", "master"]);
+        yield* runGit(repoDir, ["checkout", "-b", "feature/local-default-base"]);
+        fs.writeFileSync(path.join(repoDir, "feature.txt"), "feature\n");
+        yield* runGit(repoDir, ["add", "feature.txt"]);
+        yield* runGit(repoDir, ["commit", "-m", "Feature commit"]);
+        yield* runGit(repoDir, ["push", "-u", "origin", "feature/local-default-base"]);
+
+        const { manager, ghCalls } = yield* makeManager({
+          ghScenario: {
+            prListSequence: [
+              "[]",
+              JSON.stringify([
+                {
+                  number: 101,
+                  title: "Local default branch PR",
+                  url: "https://github.com/pingdotgg/codething-mvp/pull/101",
+                  baseRefName: "master",
+                  headRefName: "feature/local-default-base",
+                },
+              ]),
+            ],
+          },
+        });
+
+        const result = yield* runStackedAction(manager, {
+          cwd: repoDir,
+          action: "commit_push_pr",
+        });
+
+        expect(result.pr.status).toBe("created");
+        expect(
+          ghCalls.some((call) =>
+            call.includes("pr create --base master --head feature/local-default-base"),
+          ),
+        ).toBe(true);
+      }),
   );
 
   it.effect("creates cross-repo PRs with the fork owner selector and default base branch", () =>

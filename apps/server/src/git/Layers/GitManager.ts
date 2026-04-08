@@ -676,10 +676,17 @@ export const makeGitManager = Effect.gen(function* () {
     headContext: Pick<BranchHeadContext, "headBranch" | "isCrossRepository">,
   ) =>
     Effect.gen(function* () {
+      const branchList = yield* gitCore.listBranches({ cwd });
+      const localDefaultBranch =
+        branchList.branches.find((candidate) => !candidate.isRemote && candidate.isDefault)?.name ??
+        null;
       const defaultFromGh = yield* gitHubCli
         .getDefaultBranch({ cwd })
         .pipe(Effect.catch(() => Effect.succeed(null)));
-      const fallbackBase = defaultFromGh ?? "main";
+      const fallbackBase =
+        [localDefaultBranch, defaultFromGh, "main"].find(
+          (candidate): candidate is string => typeof candidate === "string" && candidate.length > 0,
+        ) ?? "main";
       const configured = yield* gitCore.readConfigValue(cwd, `branch.${branch}.gh-merge-base`);
       if (configured && configured !== headContext.headBranch && configured === fallbackBase) {
         return configured;
@@ -1275,6 +1282,7 @@ export const makeGitManager = Effect.gen(function* () {
     commitMessage?: string,
     filePaths?: readonly string[],
     model?: string,
+    featureBranchName?: string,
   ) =>
     Effect.gen(function* () {
       const suggestion = yield* resolveCommitAndBranchSuggestion({
@@ -1292,7 +1300,11 @@ export const makeGitManager = Effect.gen(function* () {
         );
       }
 
-      const preferredBranch = suggestion.branch ?? sanitizeFeatureBranchName(suggestion.subject);
+      const trimmedFeatureBranchName = featureBranchName?.trim() ?? "";
+      const preferredBranch =
+        trimmedFeatureBranchName.length > 0
+          ? trimmedFeatureBranchName
+          : (suggestion.branch ?? sanitizeFeatureBranchName(suggestion.subject));
       const existingBranchNames = yield* gitCore.listLocalBranchNames(cwd);
       const resolvedBranch = resolveAutoFeatureBranchName(existingBranchNames, preferredBranch);
 
@@ -1379,6 +1391,7 @@ export const makeGitManager = Effect.gen(function* () {
             input.commitMessage,
             input.filePaths,
             input.textGenerationModel,
+            input.featureBranchName,
           );
           branchStep = result.branchStep;
           commitMessageForStep = result.resolvedCommitMessage;

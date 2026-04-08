@@ -114,7 +114,7 @@ const OPENCLAW_TEST_RPC_TIMEOUT_MS = 10_000;
 
 function testOpenclawGateway(
   input: TestOpenclawGatewayInput,
-): Effect.Effect<TestOpenclawGatewayResult> {
+): Effect.Effect<TestOpenclawGatewayResult, unknown> {
   return Effect.gen(function* () {
     const overallStart = Date.now();
     const steps: TestOpenclawGatewayStep[] = [];
@@ -155,17 +155,10 @@ function testOpenclawGateway(
             if (msg.id === id) {
               clearTimeout(timeout);
               socket.off("message", handler);
-              const response: {
-                result?: unknown;
-                error?: { code: number; message: string };
-              } = {};
-              if (msg.result !== undefined) {
-                response.result = msg.result;
-              }
-              if (msg.error !== undefined) {
-                response.error = msg.error;
-              }
-              resolve(response);
+              const payload: { result?: unknown; error?: { code: number; message: string } } = {};
+              if ("result" in msg) payload.result = msg.result;
+              if (msg.error !== undefined) payload.error = msg.error;
+              resolve(payload);
             }
           } catch {
             // Ignore non-JSON messages
@@ -229,8 +222,8 @@ function testOpenclawGateway(
 
       // ── Step 2: WebSocket connect ───────────────────────────────────
       const connectStart = Date.now();
-      const wsResult = yield* Effect.either(
-        Effect.tryPromise(
+      try {
+        ws = yield* Effect.tryPromise(
           () =>
             new Promise<NodeWebSocket>((resolve, reject) => {
               const socket = new NodeWebSocket(gatewayUrl);
@@ -250,11 +243,15 @@ function testOpenclawGateway(
                 reject(err);
               });
             }),
-        ),
-      );
-      if (wsResult._tag === "Left") {
-        const detail =
-          wsResult.left instanceof Error ? wsResult.left.message : "Connection failed.";
+        );
+        pushStep(
+          "WebSocket connect",
+          "pass",
+          Date.now() - connectStart,
+          `Connected in ${Date.now() - connectStart}ms`,
+        );
+      } catch (err) {
+        const detail = err instanceof Error ? err.message : "Connection failed.";
         pushStep("WebSocket connect", "fail", Date.now() - connectStart, detail);
         return {
           success: false,
@@ -304,30 +301,13 @@ function testOpenclawGateway(
             error: `Authentication failed: ${authResult.right.error.message}`,
           };
         }
-        pushStep("Authentication", "pass", Date.now() - authStart, "Authenticated successfully.");
-      } else {
-        pushStep("Authentication", "skip", 0, "No password configured.");
-      }
-
-      // ── Step 4: Session create (probe) ──────────────────────────────
-      const sessionStart = Date.now();
-      const sessionResult = yield* Effect.either(
-        Effect.tryPromise(() => sendRpc(ws!, "session.create", { runtimeMode: "headless" })),
-      );
-      if (sessionResult._tag === "Left") {
-        const detail =
-          sessionResult.left instanceof Error
-            ? sessionResult.left.message
-            : "Session creation failed.";
-        pushStep("Session create", "fail", Date.now() - sessionStart, detail);
-        return {
-          success: false,
-          steps,
-          totalDurationMs: Date.now() - overallStart,
-          error: detail,
+        const result = (response.result ?? {}) as Record<string, unknown>;
+        const sessionId = typeof result.sessionId === "string" ? result.sessionId : undefined;
+        const version = typeof result.version === "string" ? result.version : undefined;
+        serverInfo = {
+          ...(version !== undefined ? { version } : {}),
+          ...(sessionId !== undefined ? { sessionId } : {}),
         };
-      }
-      if (sessionResult.right.error) {
         pushStep(
           "Session create",
           "fail",

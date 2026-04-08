@@ -2189,8 +2189,11 @@ function SettingsRouteView() {
                       {/* Step-by-step results */}
                       {openclawTestResult.steps.length > 0 && (
                         <div className="mt-2.5 space-y-1.5">
-                          {openclawTestResult.steps.map((step, i) => (
-                            <div key={i} className="flex items-start gap-2 text-xs">
+                          {openclawTestResult.steps.map((step) => (
+                            <div
+                              key={`${step.name}-${step.status}-${step.durationMs}`}
+                              className="flex items-start gap-2 text-xs"
+                            >
                               {step.status === "pass" && (
                                 <CheckCircle2Icon className="mt-px size-3.5 shrink-0 text-emerald-500" />
                               )}

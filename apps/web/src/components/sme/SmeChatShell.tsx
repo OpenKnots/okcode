@@ -83,7 +83,6 @@ export function SmeChatShell({
       {/* Center - chat workspace */}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <SmeChatWorkspace
-          project={project}
           conversationId={activeConversationId}
           onToggleKnowledge={() => setKnowledgePanelOpen((v) => !v)}
           knowledgePanelOpen={knowledgePanelOpen}

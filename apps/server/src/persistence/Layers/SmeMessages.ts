@@ -1,36 +1,12 @@
 import * as SqlClient from "effect/unstable/sql/SqlClient";
-import * as SqlSchema from "effect/unstable/sql/SqlSchema";
-import { Effect, Layer, Schema } from "effect";
-
-import { toPersistenceDecodeError, toPersistenceSqlError } from "../Errors.ts";
+import { Effect, Layer } from "effect";
+import { toPersistenceSqlError } from "../Errors.ts";
 
 import {
-  DeleteSmeMessagesByConversationInput,
-  ListSmeMessagesByConversationInput,
   SmeMessageRepository,
-  SmeMessageRow,
   type SmeMessageRepositoryShape,
+  type SmeMessageRow,
 } from "../Services/SmeMessages.ts";
-
-function toPersistenceSqlOrDecodeError(sqlOperation: string, decodeOperation: string) {
-  return (cause: unknown) =>
-    Schema.isSchemaError(cause)
-      ? toPersistenceDecodeError(decodeOperation)(cause)
-      : toPersistenceSqlError(sqlOperation)(cause);
-}
-
-/**
- * DB row schema: isStreaming stored as INTEGER 0/1, mapped to/from boolean.
- */
-const SmeMessageDbRow = Schema.Struct({
-  messageId: SmeMessageRow.fields.messageId,
-  conversationId: SmeMessageRow.fields.conversationId,
-  role: SmeMessageRow.fields.role,
-  text: SmeMessageRow.fields.text,
-  isStreaming: Schema.Number,
-  createdAt: SmeMessageRow.fields.createdAt,
-  updatedAt: SmeMessageRow.fields.updatedAt,
-});
 
 const makeSmeMessageRepository = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;
@@ -56,40 +32,51 @@ const makeSmeMessageRepository = Effect.gen(function* () {
     }).pipe(Effect.mapError(toPersistenceSqlError("SmeMessageRepository.upsert:query")));
 
   const listByConversationId: SmeMessageRepositoryShape["listByConversationId"] = (input) =>
-    Effect.gen(function* () {
-      const rows = yield* sql`
-        SELECT
-          message_id AS "messageId",
-          conversation_id AS "conversationId",
-          role,
-          text,
-          is_streaming AS "isStreaming",
-          created_at AS "createdAt",
-          updated_at AS "updatedAt"
-        FROM sme_messages
-        WHERE conversation_id = ${input.conversationId}
-        ORDER BY created_at ASC
-      `;
-      return rows.map((r: any) => ({
-        messageId: r.messageId,
-        conversationId: r.conversationId,
-        role: r.role,
-        text: r.text,
-        isStreaming: r.isStreaming !== 0,
-        createdAt: r.createdAt,
-        updatedAt: r.updatedAt,
-      })) as any;
-    }).pipe(
+    sql`
+      SELECT
+        message_id AS "messageId",
+        conversation_id AS "conversationId",
+        role,
+        text,
+        is_streaming AS "isStreaming",
+        created_at AS "createdAt",
+        updated_at AS "updatedAt"
+      FROM sme_messages
+      WHERE conversation_id = ${input.conversationId}
+      ORDER BY created_at ASC
+    `.pipe(
+      Effect.map((rows) =>
+        (
+          rows as ReadonlyArray<{
+            messageId: string;
+            conversationId: string;
+            role: string;
+            text: string;
+            isStreaming: number;
+            createdAt: string;
+            updatedAt: string;
+          }>
+        ).map(
+          (r) =>
+            ({
+              messageId: r.messageId as SmeMessageRow["messageId"],
+              conversationId: r.conversationId as SmeMessageRow["conversationId"],
+              role: r.role,
+              text: r.text,
+              isStreaming: r.isStreaming !== 0,
+              createdAt: r.createdAt,
+              updatedAt: r.updatedAt,
+            }) as SmeMessageRow,
+        ),
+      ),
       Effect.mapError(toPersistenceSqlError("SmeMessageRepository.listByConversationId:query")),
     );
 
   const deleteByConversationId: SmeMessageRepositoryShape["deleteByConversationId"] = (input) =>
-    Effect.gen(function* () {
-      yield* sql`
-        DELETE FROM sme_messages
-        WHERE conversation_id = ${input.conversationId}
-      `;
-    }).pipe(
+    sql`
+      DELETE FROM sme_messages
+      WHERE conversation_id = ${input.conversationId}
+    `.pipe(
       Effect.mapError(toPersistenceSqlError("SmeMessageRepository.deleteByConversationId:query")),
     );
 

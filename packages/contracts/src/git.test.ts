@@ -87,6 +87,19 @@ describe("GitRunStackedActionInput", () => {
     expect(parsed.action).toBe("commit");
     expect(parsed.rebaseBeforeCommit).toBe(true);
   });
+
+  it("accepts an optional feature branch name override", () => {
+    const parsed = decodeRunStackedActionInput({
+      actionId: "action-1",
+      cwd: "/repo",
+      action: "commit_push_pr",
+      featureBranch: true,
+      featureBranchName: "feature/custom-head",
+    });
+
+    expect(parsed.featureBranch).toBe(true);
+    expect(parsed.featureBranchName).toBe("feature/custom-head");
+  });
 });
 
 describe("GitStatusResult", () => {

@@ -156,6 +156,7 @@ export function gitRunStackedActionMutationOptions(input: {
       action,
       commitMessage,
       featureBranch,
+      featureBranchName,
       rebaseBeforeCommit,
       filePaths,
     }: {
@@ -163,6 +164,7 @@ export function gitRunStackedActionMutationOptions(input: {
       action: GitStackedAction;
       commitMessage?: string;
       featureBranch?: boolean;
+      featureBranchName?: string;
       rebaseBeforeCommit?: boolean;
       filePaths?: string[];
     }) => {
@@ -174,6 +176,7 @@ export function gitRunStackedActionMutationOptions(input: {
         action,
         ...(commitMessage ? { commitMessage } : {}),
         ...(featureBranch ? { featureBranch } : {}),
+        ...(featureBranchName ? { featureBranchName } : {}),
         ...(rebaseBeforeCommit ? { rebaseBeforeCommit } : {}),
         ...(filePaths ? { filePaths } : {}),
         ...(input.textGenerationModel ? { textGenerationModel: input.textGenerationModel } : {}),

@@ -44,6 +44,7 @@ import { useAppSettings } from "~/appSettings";
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { Button } from "~/components/ui/button";
 import { Checkbox } from "~/components/ui/checkbox";
+import { Input } from "~/components/ui/input";
 import {
   Dialog,
   DialogDescription,
@@ -98,6 +99,7 @@ interface PendingDefaultBranchAction {
   branchName: string;
   includesCommit: boolean;
   commitMessage?: string;
+  featureBranchName?: string;
   forcePushOnlyProgress: boolean;
   onConfirmed?: () => void;
   filePaths?: string[];
@@ -124,6 +126,7 @@ interface RunGitActionWithToastInput {
   skipDefaultBranchPrompt?: boolean;
   statusOverride?: GitStatusResult | null;
   featureBranch?: boolean;
+  featureBranchName?: string;
   isDefaultBranchOverride?: boolean;
   progressToastId?: GitActionToastId;
   filePaths?: string[];
@@ -134,6 +137,7 @@ type RetryableGitActionInput = Pick<
   | "action"
   | "commitMessage"
   | "featureBranch"
+  | "featureBranchName"
   | "filePaths"
   | "forcePushOnlyProgress"
   | "skipDefaultBranchPrompt"
@@ -153,6 +157,7 @@ function toRetryableGitActionInput(input: RunGitActionWithToastInput): Retryable
     action: input.action,
     ...(input.commitMessage ? { commitMessage: input.commitMessage } : {}),
     ...(input.featureBranch ? { featureBranch: input.featureBranch } : {}),
+    ...(input.featureBranchName ? { featureBranchName: input.featureBranchName } : {}),
     ...(input.filePaths ? { filePaths: input.filePaths } : {}),
     ...(input.forcePushOnlyProgress ? { forcePushOnlyProgress: input.forcePushOnlyProgress } : {}),
     ...(input.skipDefaultBranchPrompt
@@ -360,6 +365,7 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
   const queryClient = useQueryClient();
   const [activeDialogAction, setActiveDialogAction] = useState<GitDialogAction | null>(null);
   const [dialogCommitMessage, setDialogCommitMessage] = useState("");
+  const [dialogFeatureBranchName, setDialogFeatureBranchName] = useState("");
   const [excludedFiles, setExcludedFiles] = useState<ReadonlySet<string>>(new Set());
   const [isEditingFiles, setIsEditingFiles] = useState(false);
   const [pendingDefaultBranchAction, setPendingDefaultBranchAction] =
@@ -625,6 +631,7 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
       skipDefaultBranchPrompt = false,
       statusOverride,
       featureBranch = false,
+      featureBranchName,
       isDefaultBranchOverride,
       progressToastId,
       filePaths,
@@ -648,6 +655,7 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
           branchName: actionBranch,
           includesCommit,
           ...(commitMessage ? { commitMessage } : {}),
+          ...(featureBranchName ? { featureBranchName } : {}),
           forcePushOnlyProgress,
           ...(onConfirmed ? { onConfirmed } : {}),
           ...(filePaths ? { filePaths } : {}),
@@ -702,6 +710,7 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
         action,
         ...(commitMessage ? { commitMessage } : {}),
         ...(featureBranch ? { featureBranch } : {}),
+        ...(featureBranchName ? { featureBranchName } : {}),
         ...(settings.rebaseBeforeCommit ? { rebaseBeforeCommit: true } : {}),
         ...(filePaths ? { filePaths } : {}),
       });
@@ -798,6 +807,7 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
               action,
               ...(commitMessage ? { commitMessage } : {}),
               ...(featureBranch ? { featureBranch } : {}),
+              ...(featureBranchName ? { featureBranchName } : {}),
               ...(filePaths ? { filePaths } : {}),
               ...(forcePushOnlyProgress ? { forcePushOnlyProgress } : {}),
               ...(skipDefaultBranchPrompt ? { skipDefaultBranchPrompt } : {}),
@@ -831,12 +841,19 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
 
   const continuePendingDefaultBranchAction = useCallback(() => {
     if (!pendingDefaultBranchAction) return;
-    const { action, commitMessage, forcePushOnlyProgress, onConfirmed, filePaths } =
-      pendingDefaultBranchAction;
+    const {
+      action,
+      commitMessage,
+      featureBranchName,
+      forcePushOnlyProgress,
+      onConfirmed,
+      filePaths,
+    } = pendingDefaultBranchAction;
     setPendingDefaultBranchAction(null);
     void runGitActionWithToast({
       action,
       ...(commitMessage ? { commitMessage } : {}),
+      ...(featureBranchName ? { featureBranchName } : {}),
       forcePushOnlyProgress,
       ...(onConfirmed ? { onConfirmed } : {}),
       ...(filePaths ? { filePaths } : {}),
@@ -876,12 +893,19 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
 
   const checkoutFeatureBranchAndContinuePendingAction = useCallback(() => {
     if (!pendingDefaultBranchAction) return;
-    const { action, commitMessage, forcePushOnlyProgress, onConfirmed, filePaths } =
-      pendingDefaultBranchAction;
+    const {
+      action,
+      commitMessage,
+      featureBranchName,
+      forcePushOnlyProgress,
+      onConfirmed,
+      filePaths,
+    } = pendingDefaultBranchAction;
     setPendingDefaultBranchAction(null);
     void runGitActionWithToast({
       action,
       ...(commitMessage ? { commitMessage } : {}),
+      ...(featureBranchName ? { featureBranchName } : {}),
       forcePushOnlyProgress,
       ...(onConfirmed ? { onConfirmed } : {}),
       ...(filePaths ? { filePaths } : {}),
@@ -893,15 +917,18 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
   const runDialogActionOnNewBranch = useCallback(() => {
     if (!activeDialogAction || !activeDialogIncludesCommit) return;
     const commitMessage = dialogCommitMessage.trim();
+    const featureBranchName = dialogFeatureBranchName.trim();
 
     setActiveDialogAction(null);
     setDialogCommitMessage("");
+    setDialogFeatureBranchName("");
     setExcludedFiles(new Set());
     setIsEditingFiles(false);
 
     void runGitActionWithToast({
       action: activeDialogAction,
       ...(commitMessage ? { commitMessage } : {}),
+      ...(featureBranchName ? { featureBranchName } : {}),
       ...(!allSelected ? { filePaths: selectedFiles.map((f) => f.path) } : {}),
       featureBranch: true,
       skipDefaultBranchPrompt: true,
@@ -911,6 +938,7 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
     activeDialogIncludesCommit,
     allSelected,
     dialogCommitMessage,
+    dialogFeatureBranchName,
     selectedFiles,
   ]);
 
@@ -1104,6 +1132,7 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
     }
     if (quickAction.action) {
       setDialogCommitMessage("");
+      setDialogFeatureBranchName("");
       setExcludedFiles(new Set());
       setIsEditingFiles(false);
       setActiveDialogAction(quickAction.action);
@@ -1130,6 +1159,7 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
         return;
       }
       setDialogCommitMessage("");
+      setDialogFeatureBranchName("");
       setExcludedFiles(new Set());
       setIsEditingFiles(false);
       if (item.dialogAction === "push") {
@@ -1151,6 +1181,7 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
     const includesCommit = dialogIncludesCommit(activeDialogAction, gitStatusForActions);
     setActiveDialogAction(null);
     setDialogCommitMessage("");
+    setDialogFeatureBranchName("");
     setExcludedFiles(new Set());
     setIsEditingFiles(false);
     void runGitActionWithToast({
@@ -1427,6 +1458,7 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
           if (!open) {
             setActiveDialogAction(null);
             setDialogCommitMessage("");
+            setDialogFeatureBranchName("");
             setExcludedFiles(new Set());
             setIsEditingFiles(false);
           }
@@ -1550,6 +1582,20 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
                 )}
               </div>
             </div>
+            {activeDialogIncludesCommit && activeDialogAction === "commit_push_pr" ? (
+              <div className="space-y-1">
+                <p className="text-xs font-medium">Head branch (optional)</p>
+                <Input
+                  value={dialogFeatureBranchName}
+                  onChange={(event) => setDialogFeatureBranchName(event.target.value)}
+                  placeholder="feature/my-change"
+                  size="sm"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Used when you choose to create a new feature branch for this PR.
+                </p>
+              </div>
+            ) : null}
             {activeDialogIncludesCommit ? (
               <div className="space-y-1">
                 <p className="text-xs font-medium">Commit message (optional)</p>
@@ -1569,6 +1615,7 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
               onClick={() => {
                 setActiveDialogAction(null);
                 setDialogCommitMessage("");
+                setDialogFeatureBranchName("");
                 setExcludedFiles(new Set());
                 setIsEditingFiles(false);
               }}

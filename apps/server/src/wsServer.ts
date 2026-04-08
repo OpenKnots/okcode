@@ -189,29 +189,8 @@ function testOpenclawGateway(
           error: "Gateway URL is empty.",
         };
       }
-      try {
-        const parsed = new URL(gatewayUrl);
-        if (!["ws:", "wss:"].includes(parsed.protocol)) {
-          pushStep(
-            "URL validation",
-            "fail",
-            Date.now() - urlStart,
-            `Invalid protocol "${parsed.protocol}". Expected ws: or wss:.`,
-          );
-          return {
-            success: false,
-            steps,
-            totalDurationMs: Date.now() - overallStart,
-            error: `Invalid protocol "${parsed.protocol}".`,
-          };
-        }
-        pushStep(
-          "URL validation",
-          "pass",
-          Date.now() - urlStart,
-          `${parsed.protocol}//${parsed.host}`,
-        );
-      } catch {
+      const parsedUrl = URL.canParse(gatewayUrl) ? new URL(gatewayUrl) : null;
+      if (!parsedUrl) {
         pushStep("URL validation", "fail", Date.now() - urlStart, "Malformed URL.");
         return {
           success: false,
@@ -220,6 +199,26 @@ function testOpenclawGateway(
           error: "Malformed URL.",
         };
       }
+      if (!["ws:", "wss:"].includes(parsedUrl.protocol)) {
+        pushStep(
+          "URL validation",
+          "fail",
+          Date.now() - urlStart,
+          `Invalid protocol "${parsedUrl.protocol}". Expected ws: or wss:.`,
+        );
+        return {
+          success: false,
+          steps,
+          totalDurationMs: Date.now() - overallStart,
+          error: `Invalid protocol "${parsedUrl.protocol}".`,
+        };
+      }
+      pushStep(
+        "URL validation",
+        "pass",
+        Date.now() - urlStart,
+        `${parsedUrl.protocol}//${parsedUrl.host}`,
+      );
 
       // ── Step 2: WebSocket connect ───────────────────────────────────
       const connectStart = Date.now();
@@ -261,31 +260,25 @@ function testOpenclawGateway(
           error: detail,
         };
       }
+      ws = wsResult.right;
+      pushStep(
+        "WebSocket connect",
+        "pass",
+        Date.now() - connectStart,
+        `Connected in ${Date.now() - connectStart}ms`,
+      );
 
       // ── Step 3: Authentication ──────────────────────────────────────
       if (input.password) {
         const authStart = Date.now();
-        try {
-          const response = yield* Effect.tryPromise(() =>
-            sendRpc(ws!, "auth.authenticate", { password: input.password }),
-          );
-          if (response.error) {
-            pushStep(
-              "Authentication",
-              "fail",
-              Date.now() - authStart,
-              `RPC error ${response.error.code}: ${response.error.message}`,
-            );
-            return {
-              success: false,
-              steps,
-              totalDurationMs: Date.now() - overallStart,
-              error: `Authentication failed: ${response.error.message}`,
-            };
-          }
-          pushStep("Authentication", "pass", Date.now() - authStart, "Authenticated successfully.");
-        } catch (err) {
-          const detail = err instanceof Error ? err.message : "Authentication request failed.";
+        const authResult = yield* Effect.either(
+          Effect.tryPromise(() => sendRpc(ws!, "auth.authenticate", { password: input.password })),
+        );
+        if (authResult._tag === "Left") {
+          const detail =
+            authResult.left instanceof Error
+              ? authResult.left.message
+              : "Authentication request failed.";
           pushStep("Authentication", "fail", Date.now() - authStart, detail);
           return {
             success: false,
@@ -294,28 +287,18 @@ function testOpenclawGateway(
             error: detail,
           };
         }
-      } else {
-        pushStep("Authentication", "skip", 0, "No password configured.");
-      }
-
-      // ── Step 4: Session create (probe) ──────────────────────────────
-      const sessionStart = Date.now();
-      try {
-        const response = yield* Effect.tryPromise(() =>
-          sendRpc(ws!, "session.create", { runtimeMode: "headless" }),
-        );
-        if (response.error) {
+        if (authResult.right.error) {
           pushStep(
-            "Session create",
+            "Authentication",
             "fail",
-            Date.now() - sessionStart,
-            `RPC error ${response.error.code}: ${response.error.message}`,
+            Date.now() - authStart,
+            `RPC error ${authResult.right.error.code}: ${authResult.right.error.message}`,
           );
           return {
             success: false,
             steps,
             totalDurationMs: Date.now() - overallStart,
-            error: `Session creation failed: ${response.error.message}`,
+            error: `Authentication failed: ${authResult.right.error.message}`,
           };
         }
         const result = (response.result ?? {}) as Record<string, unknown>;
@@ -327,20 +310,33 @@ function testOpenclawGateway(
         };
         pushStep(
           "Session create",
-          "pass",
+          "fail",
           Date.now() - sessionStart,
-          sessionId ? `Session ID: ${sessionId}` : "Session created.",
+          `RPC error ${sessionResult.right.error.code}: ${sessionResult.right.error.message}`,
         );
-      } catch (err) {
-        const detail = err instanceof Error ? err.message : "Session creation failed.";
-        pushStep("Session create", "fail", Date.now() - sessionStart, detail);
         return {
           success: false,
           steps,
           totalDurationMs: Date.now() - overallStart,
-          error: detail,
+          error: `Session creation failed: ${sessionResult.right.error.message}`,
         };
       }
+      const result = (sessionResult.right.result ?? {}) as Record<string, unknown>;
+      const sessionId = typeof result.sessionId === "string" ? result.sessionId : undefined;
+      const version = typeof result.version === "string" ? result.version : undefined;
+      serverInfo = {};
+      if (version !== undefined) {
+        serverInfo.version = version;
+      }
+      if (sessionId !== undefined) {
+        serverInfo.sessionId = sessionId;
+      }
+      pushStep(
+        "Session create",
+        "pass",
+        Date.now() - sessionStart,
+        sessionId ? `Session ID: ${sessionId}` : "Session created.",
+      );
 
       return {
         success: true,

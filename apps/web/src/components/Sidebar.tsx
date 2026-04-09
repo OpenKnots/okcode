@@ -2122,16 +2122,38 @@ export default function Sidebar() {
         <Tooltip>
           <TooltipTrigger
             render={
-              <div className="flex items-center gap-1.5 px-2 pt-2 mt-1 border-t border-border/30">
-                <OkCodeMark className="size-3.5 text-muted-foreground/40" />
-                <span className="text-[10px] font-medium tracking-wide text-muted-foreground/40">
-                  {APP_BASE_NAME}
-                </span>
+              <div
+                className="mt-2 rounded-xl border px-3 py-2 shadow-sm transition-colors"
+                style={{
+                  backgroundColor: "color-mix(in srgb, var(--primary) 10%, transparent)",
+                  borderColor: "color-mix(in srgb, var(--primary) 18%, var(--border))",
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  <div
+                    className="flex size-7 items-center justify-center rounded-lg"
+                    style={{
+                      backgroundColor: "color-mix(in srgb, var(--primary) 18%, transparent)",
+                      color: "var(--primary)",
+                      boxShadow: "0 0 0 1px color-mix(in srgb, var(--primary) 16%, transparent)",
+                    }}
+                  >
+                    <OkCodeMark className="size-4" />
+                  </div>
+                  <div className="flex min-w-0 flex-col leading-none">
+                    <span className="truncate text-sm font-semibold tracking-tight text-foreground">
+                      {APP_BASE_NAME}
+                    </span>
+                    <span className="text-[10px] font-medium uppercase tracking-[0.22em] text-primary/80">
+                      Version {APP_VERSION}
+                    </span>
+                  </div>
+                </div>
               </div>
             }
           />
           <TooltipPopup side="top" sideOffset={4}>
-            Version {APP_VERSION}
+            {APP_BASE_NAME} {APP_VERSION}
           </TooltipPopup>
         </Tooltip>
       </SidebarFooter>

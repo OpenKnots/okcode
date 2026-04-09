@@ -34,6 +34,7 @@ import { RotatingFileSink } from "@okcode/shared/logging";
 import { showDesktopConfirmDialog } from "./confirmDialog";
 import { createEmptyTabsState } from "./preview";
 import { DesktopPreviewController } from "./previewController";
+import { resolveDesktopRendererUrl } from "./rendererUrl";
 import { syncShellEnvironment } from "./syncShellEnvironment";
 import { getAutoUpdateDisabledReason, shouldBroadcastDownloadProgress } from "./updateState";
 import {
@@ -1501,13 +1502,14 @@ function registerIpcHandlers(): void {
 
     // Load the same app URL but with a query parameter so the renderer
     // can detect pop-out mode and render a simplified UI if needed.
-    if (isDevelopment && process.env.VITE_DEV_SERVER_URL) {
-      void popOut.loadURL(`${process.env.VITE_DEV_SERVER_URL}?popout=true`);
-    } else {
-      void popOut.loadFile(Path.join(__dirname, "../../web/dist/index.html"), {
-        query: { popout: "true" },
-      });
-    }
+    void popOut.loadURL(
+      resolveDesktopRendererUrl({
+        isDevelopment,
+        devServerUrl: process.env.VITE_DEV_SERVER_URL,
+        scheme: DESKTOP_SCHEME,
+        query: { popout: true },
+      }),
+    );
   });
 
   ipcMain.removeHandler(PREVIEW_POP_IN_CHANNEL);
@@ -1600,11 +1602,16 @@ function createWindow(): BrowserWindow {
     window.show();
   });
 
+  void window.loadURL(
+    resolveDesktopRendererUrl({
+      isDevelopment,
+      devServerUrl: process.env.VITE_DEV_SERVER_URL,
+      scheme: DESKTOP_SCHEME,
+    }),
+  );
+
   if (isDevelopment) {
-    void window.loadURL(process.env.VITE_DEV_SERVER_URL as string);
     window.webContents.openDevTools({ mode: "detach" });
-  } else {
-    void window.loadURL(`${DESKTOP_SCHEME}://app/index.html`);
   }
 
   window.on("closed", () => {

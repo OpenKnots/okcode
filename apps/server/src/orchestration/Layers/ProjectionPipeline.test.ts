@@ -1,4 +1,5 @@
 import {
+  ApprovalRequestId,
   CheckpointRef,
   CommandId,
   CorrelationId,
@@ -910,11 +911,14 @@ it.layer(Layer.fresh(makeProjectionPipelinePrefixedTestLayer("t3-projection-atta
       Effect.gen(function* () {
         const fileSystem = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
+        const sql = yield* SqlClient.SqlClient;
         const projectionPipeline = yield* OrchestrationProjectionPipeline;
         const eventStore = yield* OrchestrationEventStore;
         const { attachmentsDir } = yield* ServerConfig;
         const now = new Date().toISOString();
         const threadId = ThreadId.makeUnsafe("Thread Delete.Files");
+        const turnId = TurnId.makeUnsafe("turn-delete-files");
+        const approvalRequestId = ApprovalRequestId.makeUnsafe("approval-delete-files");
         const attachmentId = "thread-delete-files-00000000-0000-4000-8000-000000000001";
         const otherThreadAttachmentId =
           "thread-delete-files-extra-00000000-0000-4000-8000-000000000002";
@@ -969,14 +973,90 @@ it.layer(Layer.fresh(makeProjectionPipelinePrefixedTestLayer("t3-projection-atta
         });
 
         yield* appendAndProject({
-          type: "thread.message-sent",
-          eventId: EventId.makeUnsafe("evt-delete-files-3"),
+          type: "thread.proposed-plan-upserted",
+          eventId: EventId.makeUnsafe("evt-delete-files-3a"),
           aggregateKind: "thread",
           aggregateId: threadId,
           occurredAt: now,
-          commandId: CommandId.makeUnsafe("cmd-delete-files-3"),
+          commandId: CommandId.makeUnsafe("cmd-delete-files-3a"),
           causationEventId: null,
-          correlationId: CorrelationId.makeUnsafe("cmd-delete-files-3"),
+          correlationId: CorrelationId.makeUnsafe("cmd-delete-files-3a"),
+          metadata: {},
+          payload: {
+            threadId,
+            proposedPlan: {
+              id: "plan-delete-files",
+              turnId,
+              planMarkdown: "1. Delete files",
+              implementedAt: null,
+              implementationThreadId: null,
+              createdAt: now,
+              updatedAt: now,
+            },
+          },
+        });
+
+        yield* appendAndProject({
+          type: "thread.session-set",
+          eventId: EventId.makeUnsafe("evt-delete-files-3b"),
+          aggregateKind: "thread",
+          aggregateId: threadId,
+          occurredAt: now,
+          commandId: CommandId.makeUnsafe("cmd-delete-files-3b"),
+          causationEventId: null,
+          correlationId: CorrelationId.makeUnsafe("cmd-delete-files-3b"),
+          metadata: {},
+          payload: {
+            threadId,
+            session: {
+              threadId,
+              status: "running",
+              providerName: "codex",
+              runtimeMode: "full-access",
+              activeTurnId: turnId,
+              lastError: null,
+              updatedAt: now,
+            },
+          },
+        });
+
+        yield* appendAndProject({
+          type: "thread.activity-appended",
+          eventId: EventId.makeUnsafe("evt-delete-files-3c"),
+          aggregateKind: "thread",
+          aggregateId: threadId,
+          occurredAt: now,
+          commandId: CommandId.makeUnsafe("cmd-delete-files-3c"),
+          causationEventId: null,
+          correlationId: CorrelationId.makeUnsafe("cmd-delete-files-3c"),
+          metadata: {
+            requestId: approvalRequestId,
+          },
+          payload: {
+            threadId,
+            activity: {
+              id: EventId.makeUnsafe("activity-delete-files"),
+              tone: "approval",
+              kind: "approval.requested",
+              summary: "Delete files approval",
+              payload: {
+                requestId: approvalRequestId,
+              },
+              turnId,
+              createdAt: now,
+            },
+          },
+        });
+
+        yield* appendAndProject({
+          type: "thread.message-sent",
+          eventId: EventId.makeUnsafe("evt-delete-files-3d"),
+          aggregateKind: "thread",
+          aggregateId: threadId,
+          occurredAt: now,
+          commandId: CommandId.makeUnsafe("cmd-delete-files-3d"),
+          causationEventId: null,
+          correlationId: CorrelationId.makeUnsafe("cmd-delete-files-3d"),
           metadata: {},
           payload: {
             threadId,
@@ -1028,6 +1108,42 @@ it.layer(Layer.fresh(makeProjectionPipelinePrefixedTestLayer("t3-projection-atta
 
         assert.isFalse(yield* exists(threadAttachmentPath));
         assert.isTrue(yield* exists(otherThreadAttachmentPath));
+
+        const childRowCounts = yield* sql<{
+          readonly messages: number;
+          readonly plans: number;
+          readonly activities: number;
+          readonly sessions: number;
+          readonly turns: number;
+          readonly approvals: number;
+        }>`
+          SELECT
+            (SELECT COUNT(*) FROM projection_thread_messages WHERE thread_id = ${threadId}) AS "messages",
+            (SELECT COUNT(*) FROM projection_thread_proposed_plans WHERE thread_id = ${threadId}) AS "plans",
+            (SELECT COUNT(*) FROM projection_thread_activities WHERE thread_id = ${threadId}) AS "activities",
+            (SELECT COUNT(*) FROM projection_thread_sessions WHERE thread_id = ${threadId}) AS "sessions",
+            (SELECT COUNT(*) FROM projection_turns WHERE thread_id = ${threadId}) AS "turns",
+            (SELECT COUNT(*) FROM projection_pending_approvals WHERE thread_id = ${threadId}) AS "approvals"
+        `;
+        assert.deepEqual(childRowCounts, [
+          {
+            messages: 0,
+            plans: 0,
+            activities: 0,
+            sessions: 0,
+            turns: 0,
+            approvals: 0,
+          },
+        ]);
+
+        const threadRows = yield* sql<{
+          readonly deletedAt: string | null;
+        }>`
+          SELECT deleted_at AS "deletedAt"
+          FROM projection_threads
+          WHERE thread_id = ${threadId}
+        `;
+        assert.deepEqual(threadRows, [{ deletedAt: now }]);
       }),
     );
   },

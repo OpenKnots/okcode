@@ -25,11 +25,27 @@ export function findThreadById(
   return readModel.threads.find((thread) => thread.id === threadId);
 }
 
+export function findActiveThreadById(
+  readModel: OrchestrationReadModel,
+  threadId: ThreadId,
+): OrchestrationThread | undefined {
+  return readModel.threads.find((thread) => thread.id === threadId && thread.deletedAt === null);
+}
+
 export function findProjectById(
   readModel: OrchestrationReadModel,
   projectId: ProjectId,
 ): OrchestrationProject | undefined {
   return readModel.projects.find((project) => project.id === projectId);
+}
+
+export function findActiveProjectById(
+  readModel: OrchestrationReadModel,
+  projectId: ProjectId,
+): OrchestrationProject | undefined {
+  return readModel.projects.find(
+    (project) => project.id === projectId && project.deletedAt === null,
+  );
 }
 
 export function listThreadsByProjectId(
@@ -44,14 +60,17 @@ export function requireProject(input: {
   readonly command: OrchestrationCommand;
   readonly projectId: ProjectId;
 }): Effect.Effect<OrchestrationProject, OrchestrationCommandInvariantError> {
-  const project = findProjectById(input.readModel, input.projectId);
+  const project = findActiveProjectById(input.readModel, input.projectId);
   if (project) {
     return Effect.succeed(project);
   }
+  const archivedProject = findProjectById(input.readModel, input.projectId);
   return Effect.fail(
     invariantError(
       input.command.type,
-      `Project '${input.projectId}' does not exist for command '${input.command.type}'.`,
+      archivedProject
+        ? `Project '${input.projectId}' has been archived and cannot be used by command '${input.command.type}'.`
+        : `Project '${input.projectId}' does not exist for command '${input.command.type}'.`,
     ),
   );
 }
@@ -77,14 +96,17 @@ export function requireThread(input: {
   readonly command: OrchestrationCommand;
   readonly threadId: ThreadId;
 }): Effect.Effect<OrchestrationThread, OrchestrationCommandInvariantError> {
-  const thread = findThreadById(input.readModel, input.threadId);
+  const thread = findActiveThreadById(input.readModel, input.threadId);
   if (thread) {
     return Effect.succeed(thread);
   }
+  const archivedThread = findThreadById(input.readModel, input.threadId);
   return Effect.fail(
     invariantError(
       input.command.type,
-      `Thread '${input.threadId}' does not exist for command '${input.command.type}'.`,
+      archivedThread
+        ? `Thread '${input.threadId}' has been archived and cannot be used by command '${input.command.type}'.`
+        : `Thread '${input.threadId}' does not exist for command '${input.command.type}'.`,
     ),
   );
 }
@@ -136,6 +158,28 @@ export function listActiveThreadsByProjectId(
   return readModel.threads.filter(
     (thread) => thread.projectId === projectId && thread.deletedAt === null,
   );
+}
+
+export function listActiveThreadsByProjectIds(
+  readModel: OrchestrationReadModel,
+  projectIds: ReadonlyArray<ProjectId>,
+): ReadonlyArray<OrchestrationThread> {
+  if (projectIds.length === 0) {
+    return [];
+  }
+
+  const projectOrder = new Map(projectIds.map((projectId, index) => [projectId, index] as const));
+  return readModel.threads
+    .filter((thread) => thread.deletedAt === null && projectOrder.has(thread.projectId))
+    .toSorted((left, right) => {
+      const leftProjectOrder = projectOrder.get(left.projectId) ?? Number.MAX_SAFE_INTEGER;
+      const rightProjectOrder = projectOrder.get(right.projectId) ?? Number.MAX_SAFE_INTEGER;
+      return (
+        leftProjectOrder - rightProjectOrder ||
+        left.updatedAt.localeCompare(right.updatedAt) ||
+        left.id.localeCompare(right.id)
+      );
+    });
 }
 
 /**

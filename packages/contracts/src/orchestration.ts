@@ -100,15 +100,15 @@ export type ProviderUserInputAnswers = typeof ProviderUserInputAnswers.Type;
 
 /**
  * Maximum number of active (non-deleted) projects allowed.
- * When this limit is reached, the oldest project is automatically archived
- * (soft-deleted) to make room for the new one.
+ * When this limit is reached, the oldest project and its active threads are
+ * automatically archived to make room for the new one.
  */
 export const MAX_PROJECTS = 50;
 
 /**
  * Maximum number of active (non-deleted) threads allowed per project.
  * When this limit is reached, the oldest thread in the project is
- * automatically archived (soft-deleted) to make room for the new one.
+ * automatically archived to make room for the new one.
  */
 export const MAX_THREADS_PER_PROJECT = 100;
 

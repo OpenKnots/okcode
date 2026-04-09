@@ -2,6 +2,8 @@ import type {
   OrchestrationCommand,
   OrchestrationEvent,
   OrchestrationReadModel,
+  ProjectId,
+  ThreadId,
 } from "@okcode/contracts";
 import { Effect } from "effect";
 
@@ -9,6 +11,7 @@ import { OrchestrationCommandInvariantError } from "./Errors.ts";
 import {
   getProjectsToArchive,
   getThreadsToArchive,
+  listActiveThreadsByProjectIds,
   requireProject,
   requireProjectAbsent,
   requireThread,
@@ -46,6 +49,46 @@ function withEventBase(
     commandId: input.commandId,
     correlationId: input.commandId,
     metadata: input.metadata ?? {},
+  };
+}
+
+function createThreadDeletedEvent(input: {
+  readonly command: Pick<OrchestrationCommand, "commandId">;
+  readonly threadId: ThreadId;
+  readonly occurredAt: string;
+}): Omit<OrchestrationEvent, "sequence"> {
+  return {
+    ...withEventBase({
+      aggregateKind: "thread",
+      aggregateId: input.threadId,
+      occurredAt: input.occurredAt,
+      commandId: input.command.commandId,
+    }),
+    type: "thread.deleted",
+    payload: {
+      threadId: input.threadId,
+      deletedAt: input.occurredAt,
+    },
+  };
+}
+
+function createProjectDeletedEvent(input: {
+  readonly command: Pick<OrchestrationCommand, "commandId">;
+  readonly projectId: ProjectId;
+  readonly occurredAt: string;
+}): Omit<OrchestrationEvent, "sequence"> {
+  return {
+    ...withEventBase({
+      aggregateKind: "project",
+      aggregateId: input.projectId,
+      occurredAt: input.occurredAt,
+      commandId: input.command.commandId,
+    }),
+    type: "project.deleted",
+    payload: {
+      projectId: input.projectId,
+      deletedAt: input.occurredAt,
+    },
   };
 }
 
@@ -92,24 +135,26 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
         return projectCreatedEvent;
       }
 
-      const archiveEvents: Omit<OrchestrationEvent, "sequence">[] = projectsToArchive.map(
-        (project) =>
-          Object.assign(
-            withEventBase({
-              aggregateKind: "project" as const,
-              aggregateId: project.id,
-              occurredAt: command.createdAt,
-              commandId: command.commandId,
-            }),
-            {
-              type: "project.deleted" as const,
-              payload: {
-                projectId: project.id,
-                deletedAt: command.createdAt,
-              },
-            },
-          ),
+      const threadsToArchive = listActiveThreadsByProjectIds(
+        readModel,
+        projectsToArchive.map((project) => project.id),
       );
+      const archiveEvents: Omit<OrchestrationEvent, "sequence">[] = [
+        ...threadsToArchive.map((thread) =>
+          createThreadDeletedEvent({
+            command,
+            threadId: thread.id,
+            occurredAt: command.createdAt,
+          }),
+        ),
+        ...projectsToArchive.map((project) =>
+          createProjectDeletedEvent({
+            command,
+            projectId: project.id,
+            occurredAt: command.createdAt,
+          }),
+        ),
+      ];
       return [...archiveEvents, projectCreatedEvent];
     }
 
@@ -146,19 +191,25 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
         projectId: command.projectId,
       });
       const occurredAt = nowIso();
-      return {
-        ...withEventBase({
-          aggregateKind: "project",
-          aggregateId: command.projectId,
-          occurredAt,
-          commandId: command.commandId,
-        }),
-        type: "project.deleted",
-        payload: {
-          projectId: command.projectId,
-          deletedAt: occurredAt,
-        },
-      };
+      const threadsToArchive = listActiveThreadsByProjectIds(readModel, [command.projectId]);
+      const projectDeletedEvent = createProjectDeletedEvent({
+        command,
+        projectId: command.projectId,
+        occurredAt,
+      });
+      if (threadsToArchive.length === 0) {
+        return projectDeletedEvent;
+      }
+      return [
+        ...threadsToArchive.map((thread) =>
+          createThreadDeletedEvent({
+            command,
+            threadId: thread.id,
+            occurredAt,
+          }),
+        ),
+        projectDeletedEvent,
+      ];
     }
 
     case "thread.create": {
@@ -203,21 +254,11 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
       }
 
       const archiveEvents: Omit<OrchestrationEvent, "sequence">[] = threadsToArchive.map((thread) =>
-        Object.assign(
-          withEventBase({
-            aggregateKind: "thread" as const,
-            aggregateId: thread.id,
-            occurredAt: command.createdAt,
-            commandId: command.commandId,
-          }),
-          {
-            type: "thread.deleted" as const,
-            payload: {
-              threadId: thread.id,
-              deletedAt: command.createdAt,
-            },
-          },
-        ),
+        createThreadDeletedEvent({
+          command,
+          threadId: thread.id,
+          occurredAt: command.createdAt,
+        }),
       );
       return [...archiveEvents, threadCreatedEvent];
     }
@@ -229,19 +270,11 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
         threadId: command.threadId,
       });
       const occurredAt = nowIso();
-      return {
-        ...withEventBase({
-          aggregateKind: "thread",
-          aggregateId: command.threadId,
-          occurredAt,
-          commandId: command.commandId,
-        }),
-        type: "thread.deleted",
-        payload: {
-          threadId: command.threadId,
-          deletedAt: occurredAt,
-        },
-      };
+      return createThreadDeletedEvent({
+        command,
+        threadId: command.threadId,
+        occurredAt,
+      });
     }
 
     case "thread.meta.update": {

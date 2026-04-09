@@ -1,4 +1,9 @@
-import { ApprovalRequestId, type ChatAttachment, type OrchestrationEvent } from "@okcode/contracts";
+import {
+  ApprovalRequestId,
+  type ChatAttachment,
+  type OrchestrationEvent,
+  type ThreadId,
+} from "@okcode/contracts";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { Effect, FileSystem, Layer, Option, Path, Stream } from "effect";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
@@ -347,6 +352,27 @@ const makeOrchestrationProjectionPipeline = Effect.gen(function* () {
   const path = yield* Path.Path;
   const serverConfig = yield* ServerConfig;
 
+  const deleteProjectedThreadChildren = (threadId: ThreadId) =>
+    Effect.gen(function* () {
+      yield* projectionThreadMessageRepository.deleteByThreadId({ threadId });
+      yield* projectionThreadProposedPlanRepository.deleteByThreadId({ threadId });
+      yield* projectionThreadActivityRepository.deleteByThreadId({ threadId });
+      yield* projectionThreadSessionRepository.deleteByThreadId({ threadId });
+      yield* projectionTurnRepository.deleteByThreadId({ threadId });
+
+      const pendingApprovals = yield* projectionPendingApprovalRepository.listByThreadId({
+        threadId,
+      });
+      yield* Effect.forEach(
+        pendingApprovals,
+        (approval) =>
+          projectionPendingApprovalRepository.deleteByRequestId({
+            requestId: approval.requestId,
+          }),
+        { concurrency: 1 },
+      ).pipe(Effect.asVoid);
+    });
+
   const applyProjectsProjection: ProjectorDefinition["apply"] = (event, _attachmentSideEffects) =>
     Effect.gen(function* () {
       switch (event.type) {
@@ -489,6 +515,7 @@ const makeOrchestrationProjectionPipeline = Effect.gen(function* () {
             threadId: event.payload.threadId,
           });
           if (Option.isNone(existingRow)) {
+            yield* deleteProjectedThreadChildren(event.payload.threadId);
             return;
           }
           yield* projectionThreadRepository.upsert({
@@ -496,6 +523,7 @@ const makeOrchestrationProjectionPipeline = Effect.gen(function* () {
             deletedAt: event.payload.deletedAt,
             updatedAt: event.payload.deletedAt,
           });
+          yield* deleteProjectedThreadChildren(event.payload.threadId);
           return;
         }
 

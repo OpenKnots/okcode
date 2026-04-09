@@ -1,8 +1,12 @@
 import {
+  CheckpointRef,
   CommandId,
   EventId,
+  MessageId,
   ProjectId,
   ThreadId,
+  TurnId,
+  type OrchestrationReadModel,
   type OrchestrationEvent,
 } from "@okcode/contracts";
 import { Effect } from "effect";
@@ -120,6 +124,121 @@ describe("orchestration projector", () => {
         ),
       ),
     ).rejects.toBeDefined();
+  });
+
+  it("clears retained thread payload when a thread is deleted", async () => {
+    const now = new Date().toISOString();
+    const model: OrchestrationReadModel = {
+      snapshotSequence: 0,
+      updatedAt: now,
+      projects: [],
+      threads: [
+        {
+          id: ThreadId.makeUnsafe("thread-delete"),
+          projectId: ProjectId.makeUnsafe("project-delete"),
+          title: "Delete me",
+          model: "gpt-5-codex",
+          runtimeMode: "full-access",
+          interactionMode: "chat",
+          branch: null,
+          worktreePath: null,
+          latestTurn: {
+            turnId: TurnId.makeUnsafe("turn-delete"),
+            state: "completed",
+            requestedAt: now,
+            startedAt: now,
+            completedAt: now,
+            assistantMessageId: MessageId.makeUnsafe("assistant-delete"),
+          },
+          createdAt: now,
+          updatedAt: now,
+          deletedAt: null,
+          messages: [
+            {
+              id: MessageId.makeUnsafe("assistant-delete"),
+              role: "assistant",
+              text: "done",
+              turnId: TurnId.makeUnsafe("turn-delete"),
+              streaming: false,
+              createdAt: now,
+              updatedAt: now,
+            },
+          ],
+          proposedPlans: [
+            {
+              id: "plan-delete",
+              turnId: TurnId.makeUnsafe("turn-delete"),
+              planMarkdown: "1. Delete",
+              implementedAt: null,
+              implementationThreadId: null,
+              createdAt: now,
+              updatedAt: now,
+            },
+          ],
+          activities: [
+            {
+              id: EventId.makeUnsafe("activity-delete"),
+              tone: "tool",
+              kind: "tool.completed",
+              summary: "Deleted thread payload",
+              payload: { toolKind: "command" },
+              turnId: TurnId.makeUnsafe("turn-delete"),
+              createdAt: now,
+            },
+          ],
+          checkpoints: [
+            {
+              turnId: TurnId.makeUnsafe("turn-delete"),
+              checkpointTurnCount: 1,
+              checkpointRef: CheckpointRef.makeUnsafe("refs/t3/checkpoints/thread-delete/turn/1"),
+              status: "ready",
+              files: [],
+              assistantMessageId: MessageId.makeUnsafe("assistant-delete"),
+              completedAt: now,
+            },
+          ],
+          session: {
+            threadId: ThreadId.makeUnsafe("thread-delete"),
+            status: "ready",
+            providerName: "codex",
+            runtimeMode: "full-access",
+            activeTurnId: null,
+            lastError: null,
+            updatedAt: now,
+          },
+        },
+      ],
+    };
+
+    const next = await Effect.runPromise(
+      projectEvent(
+        model,
+        makeEvent({
+          sequence: 1,
+          type: "thread.deleted",
+          aggregateKind: "thread",
+          aggregateId: "thread-delete",
+          occurredAt: now,
+          commandId: "cmd-thread-delete",
+          payload: {
+            threadId: "thread-delete",
+            deletedAt: now,
+          },
+        }),
+      ),
+    );
+
+    expect(next.threads[0]).toMatchObject({
+      id: "thread-delete",
+      latestTurn: null,
+      messages: [],
+      proposedPlans: [],
+      activities: [],
+      checkpoints: [],
+      session: null,
+      deletedAt: now,
+      updatedAt: now,
+    });
   });
 
   it("keeps projector forward-compatible for unhandled event types", async () => {

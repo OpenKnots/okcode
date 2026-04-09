@@ -284,6 +284,12 @@ export function projectEvent(
         Effect.map((payload) => ({
           ...nextBase,
           threads: updateThread(nextBase.threads, payload.threadId, {
+            latestTurn: null,
+            messages: [],
+            activities: [],
+            proposedPlans: [],
+            checkpoints: [],
+            session: null,
             deletedAt: payload.deletedAt,
             updatedAt: payload.deletedAt,
           }),

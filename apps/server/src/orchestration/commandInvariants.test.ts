@@ -12,6 +12,7 @@ import { Effect } from "effect";
 
 import {
   findThreadById,
+  requireProject,
   listThreadsByProjectId,
   requireNonNegativeInteger,
   requireThread,
@@ -43,6 +44,16 @@ const readModel: OrchestrationReadModel = {
       createdAt: now,
       updatedAt: now,
       deletedAt: null,
+    },
+    {
+      id: ProjectId.makeUnsafe("project-archived"),
+      title: "Project Archived",
+      workspaceRoot: "/tmp/project-archived",
+      defaultModel: "gpt-5-codex",
+      scripts: [],
+      createdAt: now,
+      updatedAt: now,
+      deletedAt: now,
     },
   ],
   threads: [
@@ -83,6 +94,25 @@ const readModel: OrchestrationReadModel = {
       proposedPlans: [],
       checkpoints: [],
       deletedAt: null,
+    },
+    {
+      id: ThreadId.makeUnsafe("thread-archived"),
+      projectId: ProjectId.makeUnsafe("project-archived"),
+      title: "Thread Archived",
+      model: "gpt-5-codex",
+      interactionMode: DEFAULT_PROVIDER_INTERACTION_MODE,
+      runtimeMode: "full-access",
+      branch: null,
+      worktreePath: null,
+      createdAt: now,
+      updatedAt: now,
+      latestTurn: null,
+      messages: [],
+      session: null,
+      activities: [],
+      proposedPlans: [],
+      checkpoints: [],
+      deletedAt: now,
     },
   ],
 };
@@ -128,10 +158,48 @@ describe("commandInvariants", () => {
         requireThread({
           readModel,
           command: messageSendCommand,
+          threadId: ThreadId.makeUnsafe("thread-archived"),
+        }),
+      ),
+    ).rejects.toThrow("has been archived");
+
+    await expect(
+      Effect.runPromise(
+        requireThread({
+          readModel,
+          command: messageSendCommand,
           threadId: ThreadId.makeUnsafe("missing"),
         }),
       ),
     ).rejects.toThrow("does not exist");
+  });
+
+  it("requires active projects for non-create flows", async () => {
+    await Effect.runPromise(
+      requireProject({
+        readModel,
+        command: {
+          type: "project.meta.update",
+          commandId: CommandId.makeUnsafe("cmd-project-update"),
+          projectId: ProjectId.makeUnsafe("project-a"),
+        },
+        projectId: ProjectId.makeUnsafe("project-a"),
+      }),
+    );
+
+    await expect(
+      Effect.runPromise(
+        requireProject({
+          readModel,
+          command: {
+            type: "project.meta.update",
+            commandId: CommandId.makeUnsafe("cmd-project-update-archived"),
+            projectId: ProjectId.makeUnsafe("project-archived"),
+          },
+          projectId: ProjectId.makeUnsafe("project-archived"),
+        }),
+      ),
+    ).rejects.toThrow("has been archived");
   });
 
   it("requires missing thread for create flows", async () => {

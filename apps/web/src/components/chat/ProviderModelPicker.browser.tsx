@@ -15,7 +15,7 @@ const MODEL_OPTIONS_BY_PROVIDER = {
     { slug: "gpt-5-codex", name: "GPT-5 Codex" },
     { slug: "gpt-5.3-codex", name: "GPT-5.3 Codex" },
   ],
-  copilot: [{ slug: "claude-sonnet-4.5", name: "Claude Sonnet 4.5" }],
+  copilot: [{ slug: "claude-sonnet-4-5", name: "Claude Sonnet 4.5" }],
   openclaw: [],
 } as const satisfies Record<ProviderKind, ReadonlyArray<{ slug: ModelSlug; name: string }>>;
 

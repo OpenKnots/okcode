@@ -24,7 +24,7 @@ const MODEL_SLUG_SET_BY_PROVIDER: Record<ProviderKind, ReadonlySet<ModelSlug>> =
   claudeAgent: new Set(MODEL_OPTIONS_BY_PROVIDER.claudeAgent.map((option) => option.slug)),
   codex: new Set(MODEL_OPTIONS_BY_PROVIDER.codex.map((option) => option.slug)),
   openclaw: new Set<ModelSlug>(),
-  copilot: new Set<ModelSlug>(),
+  copilot: new Set(MODEL_OPTIONS_BY_PROVIDER.copilot.map((option) => option.slug)),
 };
 
 const CLAUDE_OPUS_4_6_MODEL = "claude-opus-4-6";
@@ -164,6 +164,11 @@ export function inferProviderForModel(
   const normalizedCodex = normalizeModelSlug(model, "codex");
   if (normalizedCodex && MODEL_SLUG_SET_BY_PROVIDER.codex.has(normalizedCodex)) {
     return "codex";
+  }
+
+  const normalizedCopilot = normalizeModelSlug(model, "copilot");
+  if (normalizedCopilot && MODEL_SLUG_SET_BY_PROVIDER.copilot.has(normalizedCopilot)) {
+    return "copilot";
   }
 
   if (typeof model === "string") {

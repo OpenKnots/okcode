@@ -732,12 +732,71 @@ const makeCopilotAdapter = (options?: CopilotAdapterLiveOptions) =>
             toProcessError(threadId, "Failed to start GitHub Copilot CLI client.", cause),
         });
 
+        const pendingApprovals = new Map<ApprovalRequestId, PendingApproval>();
+        let context: CopilotSessionContext | undefined;
+        const onPermissionRequest = (request: CopilotPermissionRequest) => {
+          if (input.runtimeMode === "full-access") {
+            return { kind: "approved" } satisfies CopilotPermissionRequestResult;
+          }
+          const requestId = ApprovalRequestId.makeUnsafe(
+            `copilot-permission:${crypto.randomUUID()}`,
+          );
+          let resolve!: (decision: ProviderApprovalDecision) => void;
+          const promise = new Promise<ProviderApprovalDecision>((resolvePromise) => {
+            resolve = resolvePromise;
+          });
+          const detail = permissionDetail(request);
+          pendingApprovals.set(requestId, {
+            requestType: inferRequestType(request),
+            ...(detail ? { detail } : {}),
+            promise,
+            resolve,
+          });
+          void Effect.runPromise(
+            emitEvent({
+              ...makeBase(
+                threadId,
+                context?.turnState
+                  ? { turnId: context.turnState.turnId, requestId }
+                  : { requestId },
+              ),
+              type: "request.opened",
+              payload: {
+                requestType: inferRequestType(request),
+                ...(detail ? { detail } : {}),
+                args: request,
+              },
+            }),
+          );
+          return promise.then((decision) => {
+            const result = mapApprovalDecisionToPermissionResult(decision);
+            void Effect.runPromise(
+              emitEvent({
+                ...makeBase(
+                  threadId,
+                  context?.turnState
+                    ? { turnId: context.turnState.turnId, requestId }
+                    : { requestId },
+                ),
+                type: "request.resolved",
+                payload: {
+                  requestType: inferRequestType(request),
+                  decision: result.kind,
+                  resolution: result,
+                },
+              }).pipe(Effect.ensuring(Effect.sync(() => pendingApprovals.delete(requestId)))),
+            );
+            return result;
+          });
+        };
+
         const reasonEffort = input.modelOptions?.copilot?.reasoningEffort;
         const sessionConfig = {
           ...(input.model ? { model: input.model } : {}),
           ...(reasonEffort ? { reasoningEffort: reasonEffort } : {}),
           workingDirectory: resolvedCwd,
           streaming: true,
+          onPermissionRequest,
           ...(providerOptions.configDir ? { configDir: providerOptions.configDir } : {}),
         };
 
@@ -747,11 +806,9 @@ const makeCopilotAdapter = (options?: CopilotAdapterLiveOptions) =>
             resumeCursor
               ? client.resumeSession(resumeCursor.sessionId, {
                   ...sessionConfig,
-                  onPermissionRequest: () => ({ kind: "approved" }),
                 })
               : client.createSession({
                   ...sessionConfig,
-                  onPermissionRequest: () => ({ kind: "approved" }),
                 }),
           catch: (cause) =>
             toProcessError(threadId, "Failed to create GitHub Copilot session.", cause),
@@ -778,11 +835,11 @@ const makeCopilotAdapter = (options?: CopilotAdapterLiveOptions) =>
           resumeCursor: makeResumeCursor(copilotSession.sessionId),
         };
 
-        const context: CopilotSessionContext = {
+        context = {
           session,
           client,
           copilotSession,
-          pendingApprovals: new Map(),
+          pendingApprovals,
           pendingUserInputs: new Map(),
           turns: [],
           turnState: undefined,
@@ -792,62 +849,6 @@ const makeCopilotAdapter = (options?: CopilotAdapterLiveOptions) =>
 
         copilotSession.on((event) => {
           void Effect.runPromise(handleSessionEvent(context, event));
-        });
-
-        copilotSession.registerPermissionHandler((request) => {
-          if (context.session.runtimeMode === "full-access") {
-            return { kind: "approved" };
-          }
-          const requestId = ApprovalRequestId.makeUnsafe(
-            `copilot-permission:${crypto.randomUUID()}`,
-          );
-          let resolve!: (decision: ProviderApprovalDecision) => void;
-          const promise = new Promise<ProviderApprovalDecision>((resolvePromise) => {
-            resolve = resolvePromise;
-          });
-          const detail = permissionDetail(request);
-          context.pendingApprovals.set(requestId, {
-            requestType: inferRequestType(request),
-            ...(detail ? { detail } : {}),
-            promise,
-            resolve,
-          });
-          void Effect.runPromise(
-            emitEvent({
-              ...makeBase(
-                threadId,
-                context.turnState ? { turnId: context.turnState.turnId, requestId } : { requestId },
-              ),
-              type: "request.opened",
-              payload: {
-                requestType: inferRequestType(request),
-                ...(permissionDetail(request) ? { detail: permissionDetail(request) } : {}),
-                args: request,
-              },
-            }),
-          );
-          return promise.then((decision) => {
-            const result = mapApprovalDecisionToPermissionResult(decision);
-            void Effect.runPromise(
-              emitEvent({
-                ...makeBase(
-                  threadId,
-                  context.turnState
-                    ? { turnId: context.turnState.turnId, requestId }
-                    : { requestId },
-                ),
-                type: "request.resolved",
-                payload: {
-                  requestType: inferRequestType(request),
-                  decision: result.kind,
-                  resolution: result,
-                },
-              }).pipe(
-                Effect.ensuring(Effect.sync(() => context.pendingApprovals.delete(requestId))),
-              ),
-            );
-            return result;
-          });
         });
 
         copilotSession.registerUserInputHandler((request) => {

@@ -3,11 +3,23 @@ import { memo, type ReactNode, useEffect, useRef, useState } from "react";
 import { cn } from "~/lib/utils";
 
 export type WorkspaceLayoutMode = "stacked" | "split";
+export type WorkspacePanelDirection = "flex-col" | "flex-row";
 
 const WORKSPACE_SPLIT_MIN_WIDTH_PX = 600;
 
 export function resolveWorkspaceLayoutMode(width: number): WorkspaceLayoutMode {
   return width >= WORKSPACE_SPLIT_MIN_WIDTH_PX ? "split" : "stacked";
+}
+
+export function resolveWorkspacePanelDirection(input: {
+  layoutMode: WorkspaceLayoutMode;
+  treeCollapsed: boolean;
+}): WorkspacePanelDirection {
+  if (input.layoutMode === "split" && !input.treeCollapsed) {
+    return "flex-row";
+  }
+
+  return "flex-col";
 }
 
 function basenameOfPath(pathValue: string): string {
@@ -53,10 +65,11 @@ export const WorkspacePanel = memo(function WorkspacePanel(props: {
   }, []);
 
   const [treeCollapsed, setTreeCollapsed] = useState(false);
+  const panelDirection = resolveWorkspacePanelDirection({ layoutMode, treeCollapsed });
 
   return (
     <div ref={containerRef} className="flex h-full min-h-0 flex-col bg-background">
-      <div className={cn("flex min-h-0 flex-1", layoutMode === "split" ? "flex-row" : "flex-col")}>
+      <div className={cn("flex min-h-0 flex-1", panelDirection)}>
         {props.cwd ? (
           <section
             className={cn(

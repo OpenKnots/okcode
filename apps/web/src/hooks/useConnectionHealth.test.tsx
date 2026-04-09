@@ -42,7 +42,7 @@ function HookHarness() {
 
 function emitTransportState(nextState: TransportState) {
   currentState = nextState;
-  for (const listener of [...transportStateListeners]) {
+  for (const listener of new Set(transportStateListeners)) {
     listener(nextState);
   }
 }
@@ -129,8 +129,8 @@ describe("useConnectionHealth", () => {
 
     const refreshedMetrics: ConnectionMetrics = {
       reconnectCount: 1,
-      lastConnectedAt: "2026-04-09T20:00:00.000Z",
-      lastDisconnectedAt: "2026-04-09T19:59:00.000Z",
+      lastConnectedAt: Date.parse("2026-04-09T20:00:00.000Z"),
+      lastDisconnectedAt: Date.parse("2026-04-09T19:59:00.000Z"),
       latencyMs: 9,
       uptimeMs: 8_000,
     };
@@ -149,8 +149,8 @@ describe("useConnectionHealth", () => {
 
     const polledMetrics: ConnectionMetrics = {
       reconnectCount: 2,
-      lastConnectedAt: "2026-04-09T20:05:00.000Z",
-      lastDisconnectedAt: "2026-04-09T20:04:30.000Z",
+      lastConnectedAt: Date.parse("2026-04-09T20:05:00.000Z"),
+      lastDisconnectedAt: Date.parse("2026-04-09T20:04:30.000Z"),
       latencyMs: 4,
       uptimeMs: 13_000,
     };
@@ -177,8 +177,8 @@ describe("useConnectionHealth", () => {
 
     const reconnectingMetrics: ConnectionMetrics = {
       reconnectCount: 3,
-      lastConnectedAt: "2026-04-09T20:10:00.000Z",
-      lastDisconnectedAt: "2026-04-09T20:10:05.000Z",
+      lastConnectedAt: Date.parse("2026-04-09T20:10:00.000Z"),
+      lastDisconnectedAt: Date.parse("2026-04-09T20:10:05.000Z"),
       latencyMs: null,
       uptimeMs: 0,
     };

@@ -86,21 +86,21 @@ export function SmeKnowledgePanel({ project, onClose }: SmeKnowledgePanelProps) 
   );
 
   return (
-    <div className="flex w-72 shrink-0 flex-col border-l border-border bg-sidebar">
+    <div className="flex w-72 shrink-0 flex-col border-l border-border bg-muted/30">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-border px-3 py-2">
-        <span className="text-xs font-medium text-foreground">Knowledge Base</span>
+      <div className="flex items-center justify-between px-4 py-3">
+        <span className="text-sm font-semibold text-foreground">Knowledge Base</span>
         <button
           type="button"
           onClick={onClose}
-          className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+          className="flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
-          <XIcon className="size-3.5" />
+          <XIcon className="size-4" />
         </button>
       </div>
 
       {/* Upload button */}
-      <div className="px-3 py-2">
+      <div className="px-3 pb-2">
         <input
           ref={fileInputRef}
           type="file"
@@ -112,12 +112,12 @@ export function SmeKnowledgePanel({ project, onClose }: SmeKnowledgePanelProps) 
           type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={uploading}
-          className="flex w-full items-center justify-center gap-2 rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border/60 px-3 py-3 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-foreground disabled:opacity-50"
         >
-          <UploadIcon className="size-3.5" />
+          <UploadIcon className="size-4" />
           <span>{uploading ? "Uploading..." : "Upload Document"}</span>
         </button>
-        <p className="mt-1 text-center text-[10px] text-muted-foreground/60">
+        <p className="mt-1.5 text-center text-[10px] text-muted-foreground/50">
           .txt, .md, .json, .csv, .yaml, .html, .xml
         </p>
       </div>
@@ -125,29 +125,32 @@ export function SmeKnowledgePanel({ project, onClose }: SmeKnowledgePanelProps) 
       {/* Document list */}
       <div className="flex-1 overflow-y-auto px-2">
         {documents.length === 0 ? (
-          <p className="px-2 py-6 text-center text-xs text-muted-foreground">
-            No documents uploaded yet.
-            <br />
-            Upload reference docs to give your SME context.
-          </p>
+          <div className="flex flex-col items-center gap-2 px-2 py-8 text-center">
+            <FileTextIcon className="size-5 text-muted-foreground/30" />
+            <p className="text-xs text-muted-foreground">
+              No documents uploaded yet.
+              <br />
+              Upload reference docs to give your SME context.
+            </p>
+          </div>
         ) : (
-          <div className="space-y-1 py-1">
+          <div className="space-y-0.5 py-1">
             {documents.map((doc) => (
               <div
                 key={doc.documentId}
-                className="group flex items-start gap-2 rounded-md px-2 py-1.5 hover:bg-accent/50"
+                className="group flex items-start gap-2.5 rounded-lg px-3 py-2 transition-colors hover:bg-muted/60"
               >
-                <FileTextIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+                <FileTextIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-medium text-foreground">{doc.title}</p>
-                  <p className="truncate text-[10px] text-muted-foreground">
+                  <p className="truncate text-[13px] font-medium text-foreground">{doc.title}</p>
+                  <p className="truncate text-[11px] text-muted-foreground">
                     {doc.fileName} &middot; {formatBytes(doc.sizeBytes)}
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => void handleDelete(doc.documentId)}
-                  className="mt-0.5 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+                  className="mt-0.5 shrink-0 rounded-md p-0.5 opacity-0 transition-opacity hover:bg-background group-hover:opacity-100"
                 >
                   <TrashIcon className="size-3 text-muted-foreground hover:text-destructive" />
                 </button>

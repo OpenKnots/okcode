@@ -1,4 +1,4 @@
-import { UserIcon, BotIcon } from "lucide-react";
+import { UserIcon, SparklesIcon } from "lucide-react";
 import type { SmeMessage } from "@okcode/contracts";
 
 import { cn } from "~/lib/utils";
@@ -11,31 +11,44 @@ export function SmeMessageBubble({ message }: SmeMessageBubbleProps) {
   const isUser = message.role === "user";
 
   return (
-    <div className={cn("flex gap-3", isUser && "flex-row-reverse")}>
+    <div
+      className={cn(
+        "group flex w-full gap-4 px-4 py-5",
+        isUser ? "flex-row-reverse" : "flex-row",
+      )}
+    >
       {/* Avatar */}
       <div
         className={cn(
-          "flex size-7 shrink-0 items-center justify-center rounded-full",
-          isUser ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground",
+          "flex size-8 shrink-0 items-center justify-center rounded-lg",
+          isUser
+            ? "bg-primary text-primary-foreground"
+            : "bg-gradient-to-br from-primary/80 to-primary text-primary-foreground",
         )}
       >
-        {isUser ? <UserIcon className="size-3.5" /> : <BotIcon className="size-3.5" />}
+        {isUser ? <UserIcon className="size-4" /> : <SparklesIcon className="size-4" />}
       </div>
 
-      {/* Bubble */}
-      <div
-        className={cn(
-          "max-w-[80%] rounded-xl px-3.5 py-2.5 text-sm leading-relaxed",
-          isUser ? "bg-primary text-primary-foreground" : "bg-muted text-foreground",
-        )}
-      >
-        {/* Render text with basic whitespace preservation */}
-        <div className="whitespace-pre-wrap break-words">{message.text}</div>
+      {/* Content */}
+      <div className={cn("min-w-0 max-w-[85%] space-y-1", isUser && "text-right")}>
+        <p className="text-xs font-medium text-muted-foreground">
+          {isUser ? "You" : "SME Assistant"}
+        </p>
+        <div
+          className={cn(
+            "rounded-2xl px-4 py-3 text-sm leading-relaxed",
+            isUser
+              ? "bg-primary text-primary-foreground"
+              : "bg-muted/60 text-foreground",
+          )}
+        >
+          <div className="whitespace-pre-wrap break-words">{message.text}</div>
 
-        {/* Streaming indicator */}
-        {message.isStreaming ? (
-          <span className="mt-1 inline-block size-2 animate-pulse rounded-full bg-current opacity-60" />
-        ) : null}
+          {/* Streaming cursor */}
+          {message.isStreaming ? (
+            <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-current align-text-bottom opacity-70" />
+          ) : null}
+        </div>
       </div>
     </div>
   );

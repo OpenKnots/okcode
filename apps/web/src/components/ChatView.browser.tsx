@@ -2,6 +2,7 @@
 import "../index.css";
 
 import {
+  type GitBranch,
   ORCHESTRATION_WS_METHODS,
   type MessageId,
   type OrchestrationReadModel,
@@ -333,6 +334,27 @@ function createDraftOnlySnapshot(): OrchestrationReadModel {
   };
 }
 
+function withThreadWorkspace(
+  snapshot: OrchestrationReadModel,
+  input: {
+    branch: string;
+    worktreePath: string | null;
+  },
+): OrchestrationReadModel {
+  return {
+    ...snapshot,
+    threads: snapshot.threads.map((thread) =>
+      thread.id === THREAD_ID
+        ? {
+            ...thread,
+            branch: input.branch,
+            worktreePath: input.worktreePath,
+          }
+        : thread,
+    ),
+  };
+}
+
 function withProjectScripts(
   snapshot: OrchestrationReadModel,
   scripts: OrchestrationReadModel["projects"][number]["scripts"],
@@ -404,6 +426,10 @@ function createSnapshotWithLongProposedPlan(): OrchestrationReadModel {
 
 function resolveWsRpc(body: WsRequestEnvelope["body"]): unknown {
   const tag = body._tag;
+  const fixtureThread = fixture.snapshot.threads.find((thread) => thread.id === THREAD_ID) ?? null;
+  const fixtureWorktreePath = fixtureThread?.worktreePath ?? null;
+  const fixtureWorktreeBranch =
+    fixtureThread?.worktreePath && fixtureThread.branch ? fixtureThread.branch : null;
   if (tag === ORCHESTRATION_WS_METHODS.getSnapshot) {
     return fixture.snapshot;
   }
@@ -411,22 +437,38 @@ function resolveWsRpc(body: WsRequestEnvelope["body"]): unknown {
     return fixture.serverConfig;
   }
   if (tag === WS_METHODS.gitListBranches) {
+    const cwd = typeof body.cwd === "string" ? body.cwd : "/repo/project";
+    const isFixtureWorktreeCwd = fixtureWorktreePath !== null && cwd === fixtureWorktreePath;
+    const branches: GitBranch[] = [
+      {
+        name: "main",
+        current: !isFixtureWorktreeCwd,
+        isDefault: true,
+        worktreePath: null,
+      },
+    ];
+    if (fixtureWorktreePath && fixtureWorktreeBranch && fixtureWorktreeBranch !== "main") {
+      branches.push({
+        name: fixtureWorktreeBranch,
+        current: isFixtureWorktreeCwd,
+        isDefault: false,
+        worktreePath: fixtureWorktreePath,
+      });
+    }
     return {
       isRepo: true,
       hasOriginRemote: true,
-      branches: [
-        {
-          name: "main",
-          current: true,
-          isDefault: true,
-          worktreePath: null,
-        },
-      ],
+      branches,
     };
   }
   if (tag === WS_METHODS.gitStatus) {
+    const cwd = typeof body.cwd === "string" ? body.cwd : "/repo/project";
+    const branch =
+      fixtureWorktreePath !== null && fixtureWorktreeBranch && cwd === fixtureWorktreePath
+        ? fixtureWorktreeBranch
+        : "main";
     return {
-      branch: "main",
+      branch,
       hasWorkingTreeChanges: false,
       workingTree: {
         files: [],
@@ -1799,6 +1841,69 @@ describe("ChatView timeline estimator parity (full app)", () => {
       await mounted.cleanup();
     }
   });
+
+  it("starts a shortcut-created chat from the default tree instead of the active worktree", async () => {
+    const mounted = await mountChatView({
+      viewport: DEFAULT_VIEWPORT,
+      snapshot: withThreadWorkspace(
+        createSnapshotForTargetUser({
+          targetMessageId: "msg-user-chat-shortcut-default-tree-test" as MessageId,
+          targetText: "chat shortcut default tree test",
+        }),
+        {
+          branch: "feature/from-worktree",
+          worktreePath: "/repo/worktrees/feature-from-worktree",
+        },
+      ),
+      configureFixture: (nextFixture) => {
+        nextFixture.serverConfig = {
+          ...nextFixture.serverConfig,
+          keybindings: [
+            {
+              command: "chat.new",
+              shortcut: {
+                key: "o",
+                metaKey: false,
+                ctrlKey: false,
+                shiftKey: true,
+                altKey: false,
+                modKey: true,
+              },
+              whenAst: {
+                type: "not",
+                node: { type: "identifier", name: "terminalFocus" },
+              },
+            },
+          ],
+        };
+      },
+    });
+
+    try {
+      await waitForNewThreadShortcutLabel();
+      await waitForServerConfigToApply();
+      const composerEditor = await waitForComposerEditor();
+      composerEditor.focus();
+      await waitForLayout();
+      const newThreadPath = await triggerChatNewShortcutUntilPath(
+        mounted.router,
+        (path) => UUID_ROUTE_RE.test(path),
+        "Route should have changed to a new draft thread UUID from the shortcut.",
+      );
+      const newThreadId = newThreadPath.slice(1) as ThreadId;
+
+      await vi.waitFor(() => {
+        expect(useComposerDraftStore.getState().draftThreadsByThreadId[newThreadId]).toMatchObject({
+          branch: "main",
+          worktreePath: null,
+          envMode: "worktree",
+        });
+      });
+    } finally {
+      await mounted.cleanup();
+    }
+  });
+
   it("creates a fresh draft after the previous draft thread is promoted", async () => {
     const mounted = await mountChatView({
       viewport: DEFAULT_VIEWPORT,

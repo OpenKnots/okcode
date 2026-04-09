@@ -23,9 +23,11 @@ import {
 import { readNativeApi } from "../nativeApi";
 import { parsePullRequestReference } from "../pullRequestReference";
 import {
+  buildBranchMetadataBadges,
   deriveLocalBranchNameFromRemoteRef,
   EnvMode,
   filterSelectableBranches,
+  formatBranchStashBadgeLabel,
   resolveBranchSelectionTarget,
   resolveBranchToolbarValue,
 } from "./BranchToolbar.logic";
@@ -87,9 +89,12 @@ export function BranchToolbarBranchSelector({
   const [isBranchMenuOpen, setIsBranchMenuOpen] = useState(false);
   const [branchQuery, setBranchQuery] = useState("");
   const deferredBranchQuery = useDeferredValue(branchQuery);
+  const isSelectingWorktreeBase =
+    effectiveEnvMode === "worktree" && !envLocked && !activeWorktreePath;
+  const branchQueryCwd = isSelectingWorktreeBase ? activeProjectCwd : branchCwd;
 
-  const branchesQuery = useQuery(gitBranchesQueryOptions(branchCwd));
-  const branchStatusQuery = useQuery(gitStatusQueryOptions(branchCwd));
+  const branchesQuery = useQuery(gitBranchesQueryOptions(branchQueryCwd));
+  const branchStatusQuery = useQuery(gitStatusQueryOptions(branchQueryCwd));
   const branches = useMemo(
     () => filterSelectableBranches(branchesQuery.data?.branches ?? []),
     [branchesQuery.data?.branches],
@@ -111,8 +116,6 @@ export function BranchToolbarBranchSelector({
   const deferredTrimmedBranchQuery = deferredBranchQuery.trim();
   const normalizedDeferredBranchQuery = deferredTrimmedBranchQuery.toLowerCase();
   const prReference = parsePullRequestReference(trimmedBranchQuery);
-  const isSelectingWorktreeBase =
-    effectiveEnvMode === "worktree" && !envLocked && !activeWorktreePath;
   const checkoutPullRequestItemValue =
     prReference && onCheckoutPullRequestRequest ? `__checkout_pull_request__:${prReference}` : null;
   const canCreateBranch = !isSelectingWorktreeBase && trimmedBranchQuery.length > 0;
@@ -278,10 +281,10 @@ export function BranchToolbarBranchSelector({
         return;
       }
       void queryClient.invalidateQueries({
-        queryKey: gitQueryKeys.branches(branchCwd),
+        queryKey: gitQueryKeys.branches(branchQueryCwd),
       });
     },
-    [branchCwd, queryClient],
+    [branchQueryCwd, queryClient],
   );
 
   const branchListScrollElementRef = useRef<HTMLDivElement | null>(null);
@@ -326,6 +329,9 @@ export function BranchToolbarBranchSelector({
     effectiveEnvMode,
     resolvedActiveBranch,
   });
+  const activeBranchStashBadge = formatBranchStashBadgeLabel(
+    resolvedActiveBranch ? branchByName.get(resolvedActiveBranch)?.stashCount : undefined,
+  );
 
   function renderPickerItem(itemValue: string, index: number, style?: CSSProperties) {
     if (checkoutPullRequestItemValue && itemValue === checkoutPullRequestItemValue) {
@@ -371,16 +377,10 @@ export function BranchToolbarBranchSelector({
     const branch = branchByName.get(itemValue);
     if (!branch) return null;
 
-    const hasSecondaryWorktree = branch.worktreePath && branch.worktreePath !== activeProjectCwd;
-    const badge = branch.current
-      ? "current"
-      : hasSecondaryWorktree
-        ? "worktree"
-        : branch.isRemote
-          ? "remote"
-          : branch.isDefault
-            ? "default"
-            : null;
+    const badges = buildBranchMetadataBadges({
+      branch,
+      activeProjectCwd,
+    });
     return (
       <ComboboxItem
         hideIndicator
@@ -393,7 +393,18 @@ export function BranchToolbarBranchSelector({
       >
         <div className="flex w-full items-center justify-between gap-2">
           <span className="truncate">{itemValue}</span>
-          {badge && <span className="shrink-0 text-[10px] text-muted-foreground/45">{badge}</span>}
+          {badges.length > 0 ? (
+            <div className="flex shrink-0 items-center gap-1">
+              {badges.map((badge) => (
+                <span
+                  key={`${itemValue}-${badge}`}
+                  className="rounded-full border border-border/60 px-1.5 py-0.5 text-[10px] leading-none text-muted-foreground/65"
+                >
+                  {badge}
+                </span>
+              ))}
+            </div>
+          ) : null}
         </div>
       </ComboboxItem>
     );
@@ -419,6 +430,11 @@ export function BranchToolbarBranchSelector({
         disabled={(branchesQuery.isLoading && branches.length === 0) || isBranchActionPending}
       >
         <span className="max-w-[240px] truncate">{triggerLabel}</span>
+        {activeBranchStashBadge ? (
+          <span className="rounded-full border border-amber-500/30 px-1.5 py-0.5 text-[10px] leading-none text-amber-700 dark:text-amber-200">
+            {activeBranchStashBadge}
+          </span>
+        ) : null}
         <ChevronDownIcon />
       </ComboboxTrigger>
       <ComboboxPopup align="end" side="top" className="w-80">

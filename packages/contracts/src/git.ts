@@ -70,6 +70,7 @@ export const GitBranch = Schema.Struct({
   current: Schema.Boolean,
   isDefault: Schema.Boolean,
   worktreePath: TrimmedNonEmptyStringSchema.pipe(Schema.NullOr),
+  stashCount: Schema.optional(NonNegativeInt),
 });
 export type GitBranch = typeof GitBranch.Type;
 

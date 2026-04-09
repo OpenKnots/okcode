@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   dispatchTerminalShortcutSelection,
+  resolveTerminalLaunchOverlay,
   resolveTerminalSelectionActionPosition,
   shouldHandleTerminalSelectionMouseUp,
   terminalSelectionActionDelayForClickCount,
@@ -117,5 +118,31 @@ describe("resolveTerminalSelectionActionPosition", () => {
     );
 
     expect(addSelections).toEqual(["bun lint"]);
+  });
+
+  it("describes opening and error launch states for the terminal overlay", () => {
+    expect(
+      resolveTerminalLaunchOverlay({
+        status: "opening",
+        errorMessage: null,
+        lastRequestKey: "request-1",
+      }),
+    ).toEqual({
+      title: "Starting terminal...",
+      description: "Connecting the shell and restoring saved output.",
+      canRetry: false,
+    });
+
+    expect(
+      resolveTerminalLaunchOverlay({
+        status: "error",
+        errorMessage: "spawn failed",
+        lastRequestKey: "request-2",
+      }),
+    ).toEqual({
+      title: "Terminal failed to start",
+      description: "spawn failed",
+      canRetry: true,
+    });
   });
 });

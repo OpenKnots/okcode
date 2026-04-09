@@ -28,6 +28,7 @@ import { makeEventNdjsonLogger } from "./provider/Layers/EventNdjsonLogger";
 import { EnvironmentVariablesLive } from "./persistence/Services/EnvironmentVariables";
 
 import { TerminalManagerLive } from "./terminal/Layers/Manager";
+import { TerminalRuntimeEnvResolverLive } from "./terminal/Layers/RuntimeEnvResolver";
 import { KeybindingsLive } from "./keybindings";
 import { SkillServiceLive } from "./skills/SkillService";
 import { GitManagerLive } from "./git/Layers/GitManager";
@@ -177,6 +178,7 @@ export function makeServerRuntimeServicesLayer() {
     prReviewLayer,
     githubLayer,
     terminalLayer,
+    TerminalRuntimeEnvResolverLive,
     KeybindingsLive,
     SkillServiceLive,
     smeChatLayer,

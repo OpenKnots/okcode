@@ -19,6 +19,7 @@ import { readNativeApi } from "../nativeApi";
 import { clearPromotedDraftThreads, useComposerDraftStore } from "../composerDraftStore";
 import { useStore } from "../store";
 import { useTerminalStateStore } from "../terminalStateStore";
+import { applyTerminalLaunchEvent } from "../terminalSessionController";
 import { terminalRunningSubprocessFromEvent } from "../terminalActivity";
 import { onServerConfigUpdated, onServerWelcome, onTransportReconnected } from "../wsNativeApi";
 import { providerQueryKeys } from "../lib/providerReactQuery";
@@ -263,6 +264,7 @@ function EventRouter() {
       domainEventFlushThrottler.maybeExecute();
     });
     const unsubTerminalEvent = api.terminal.onEvent((event) => {
+      applyTerminalLaunchEvent(event);
       const hasRunningSubprocess = terminalRunningSubprocessFromEvent(event);
       if (hasRunningSubprocess === null) {
         return;

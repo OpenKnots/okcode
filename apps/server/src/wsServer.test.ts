@@ -55,6 +55,10 @@ import { GitCore } from "./git/Services/GitCore.ts";
 import { GitActionExecutionError, GitCommandError } from "./git/Errors.ts";
 import { MigrationError } from "@effect/sql-sqlite-bun/SqliteMigrator";
 import { serverBuildInfo } from "./buildInfo";
+import {
+  ProjectionSnapshotQuery,
+  type ProjectionSnapshotQueryShape,
+} from "./orchestration/Services/ProjectionSnapshotQuery";
 
 const asEventId = (value: string): EventId => EventId.makeUnsafe(value);
 const asProviderItemId = (value: string): ProviderItemId => ProviderItemId.makeUnsafe(value);
@@ -508,6 +512,7 @@ describe("WebSocket Server", () => {
       gitManager?: GitManagerShape;
       gitCore?: Pick<GitCoreShape, "listBranches" | "initRepo" | "syncCurrentBranch">;
       terminalManager?: TerminalManagerShape;
+      projectionSnapshotQuery?: ProjectionSnapshotQueryShape;
     } = {},
   ): Promise<Http.Server> {
     if (serverScope) {
@@ -542,6 +547,9 @@ describe("WebSocket Server", () => {
       logWebSocketEvents: options.logWebSocketEvents ?? Boolean(options.devUrl),
     } satisfies ServerConfigShape);
     const infrastructureLayer = providerLayer.pipe(Layer.provideMerge(persistenceLayer));
+    const projectionSnapshotQueryLayer = options.projectionSnapshotQuery
+      ? Layer.succeed(ProjectionSnapshotQuery, options.projectionSnapshotQuery)
+      : OrchestrationProjectionSnapshotQueryLive;
     const runtimeOverrides = Layer.mergeAll(
       options.gitManager ? Layer.succeed(GitManager, options.gitManager) : Layer.empty,
       options.gitCore
@@ -550,6 +558,7 @@ describe("WebSocket Server", () => {
       options.terminalManager
         ? Layer.succeed(TerminalManager, options.terminalManager)
         : Layer.empty,
+      projectionSnapshotQueryLayer,
     );
 
     const runtimeLayer = Layer.merge(
@@ -570,7 +579,7 @@ describe("WebSocket Server", () => {
       Layer.build(
         dependenciesLayer.pipe(
           Layer.provideMerge(EnvironmentVariablesLive),
-          Layer.provideMerge(OrchestrationProjectionSnapshotQueryLive),
+          Layer.provideMerge(projectionSnapshotQueryLayer),
           Layer.provideMerge(serverConfigLayer),
           Layer.provideMerge(persistenceLayer),
         ),
@@ -1526,6 +1535,47 @@ describe("WebSocket Server", () => {
     );
     expect(push.type).toBe("push");
     expect(push.channel).toBe(WS_CHANNELS.terminalEvent);
+  });
+
+  it("opens and restarts terminals without touching the full snapshot query", async () => {
+    const cwd = makeTempDir("okcode-ws-terminal-fast-path-");
+    const terminalManager = new MockTerminalManager();
+    const { cwd: workspaceCwd } = makeWorkspaceFixture("terminal-fast-path");
+    const projectionSnapshotQuery: ProjectionSnapshotQueryShape = {
+      getSnapshot: () =>
+        Effect.die(new Error("terminal fast path should not call getSnapshot on open/restart")),
+    };
+    server = await createTestServer({
+      cwd: workspaceCwd,
+      terminalManager,
+      projectionSnapshotQuery,
+    });
+    const addr = server.address();
+    const port = typeof addr === "object" && addr !== null ? addr.port : 0;
+
+    const [ws] = await connectAndAwaitWelcome(port);
+    connections.push(ws);
+
+    const open = await sendRequest(ws, WS_METHODS.terminalOpen, {
+      threadId: "thread-fast-path",
+      cwd,
+      cols: 100,
+      rows: 24,
+      env: { TEST_FAST_PATH: "open" },
+    });
+    expect(open.error).toBeUndefined();
+    expect((open.result as TerminalSessionSnapshot).status).toBe("running");
+
+    const restart = await sendRequest(ws, WS_METHODS.terminalRestart, {
+      threadId: "thread-fast-path",
+      cwd,
+      terminalId: DEFAULT_TERMINAL_ID,
+      cols: 120,
+      rows: 30,
+      env: { TEST_FAST_PATH: "restart" },
+    });
+    expect(restart.error).toBeUndefined();
+    expect((restart.result as TerminalSessionSnapshot).status).toBe("running");
   });
 
   it("detaches terminal event listener on stop for injected manager", async () => {

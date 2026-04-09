@@ -41,6 +41,11 @@ import {
 } from "../types";
 import { readNativeApi } from "~/nativeApi";
 import { getStoredFontSizeOverride } from "~/lib/customTheme";
+import {
+  ensureTerminalOpen,
+  type TerminalLaunchState,
+  useTerminalLaunchState,
+} from "../terminalSessionController";
 
 const MIN_DRAWER_HEIGHT = 180;
 const MAX_DRAWER_HEIGHT_RATIO = 0.75;
@@ -59,6 +64,17 @@ function clampDrawerHeight(height: number): number {
 
 function writeSystemMessage(terminal: Terminal, message: string): void {
   terminal.write(`\r\n\x1b[33m⚠ ${message}\x1b[0m\r\n`);
+}
+
+function markTerminalViewportPerformance(step: string, threadId: string, terminalId: string): void {
+  if (typeof window === "undefined" || typeof performance === "undefined") {
+    return;
+  }
+  try {
+    performance.mark(`okcode:terminal:${step}:${threadId}:${terminalId}`);
+  } catch {
+    // Best-effort instrumentation only.
+  }
 }
 
 function terminalThemeFromApp(): ITheme {
@@ -205,6 +221,26 @@ export function dispatchTerminalShortcutSelection(
   handler(selection);
 }
 
+export function resolveTerminalLaunchOverlay(
+  launchState: TerminalLaunchState,
+): { title: string; description: string | null; canRetry: boolean } | null {
+  if (launchState.status === "opening") {
+    return {
+      title: "Starting terminal...",
+      description: "Connecting the shell and restoring saved output.",
+      canRetry: false,
+    };
+  }
+  if (launchState.status === "error") {
+    return {
+      title: "Terminal failed to start",
+      description: launchState.errorMessage,
+      canRetry: true,
+    };
+  }
+  return null;
+}
+
 interface TerminalViewportProps {
   threadId: ThreadId;
   terminalId: string;
@@ -236,6 +272,7 @@ function TerminalViewport({
   resizeEpoch,
   drawerHeight,
 }: TerminalViewportProps) {
+  const launchState = useTerminalLaunchState(threadId, terminalId);
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
@@ -295,8 +332,10 @@ function TerminalViewport({
       theme: terminalThemeFromApp(),
     });
     terminal.loadAddon(fitAddon);
+    markTerminalViewportPerformance("drawer-visible", threadId, terminalId);
     terminal.open(mount);
     fitAddon.fit();
+    markTerminalViewportPerformance("xterm-mounted", threadId, terminalId);
 
     terminalRef.current = terminal;
     fitAddonRef.current = fitAddon;
@@ -566,7 +605,7 @@ function TerminalViewport({
         const activeFitAddon = fitAddonRef.current;
         if (!activeTerminal || !activeFitAddon) return;
         activeFitAddon.fit();
-        const snapshot = await api.terminal.open({
+        await ensureTerminalOpen({
           threadId,
           terminalId,
           cwd,
@@ -575,19 +614,13 @@ function TerminalViewport({
           ...(runtimeEnv ? { env: runtimeEnv } : {}),
         });
         if (disposed) return;
-        activeTerminal.write("\u001bc");
-        scheduleHistoryReplay(snapshot.history);
         if (autoFocus) {
           window.requestAnimationFrame(() => {
             activeTerminal.focus();
           });
         }
-      } catch (err) {
+      } catch {
         if (disposed) return;
-        writeSystemMessage(
-          terminal,
-          err instanceof Error ? err.message : "Failed to open terminal",
-        );
       }
     };
 
@@ -781,6 +814,18 @@ function TerminalViewport({
     hoverBufferLineRef.current = null;
     setHoverLine(null);
   }, []);
+  const launchOverlay = resolveTerminalLaunchOverlay(launchState);
+  const retryTerminalOpen = useCallback(() => {
+    const terminal = terminalRef.current;
+    void ensureTerminalOpen({
+      threadId,
+      terminalId,
+      cwd,
+      cols: terminal?.cols,
+      rows: terminal?.rows,
+      ...(runtimeEnv ? { env: runtimeEnv } : {}),
+    }).catch(() => undefined);
+  }, [cwd, runtimeEnv, terminalId, threadId]);
 
   return (
     <div
@@ -789,6 +834,27 @@ function TerminalViewport({
       onMouseLeave={handleTerminalMouseLeave}
     >
       <div ref={containerRef} className="h-full w-full" />
+      {launchOverlay ? (
+        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-background/72 backdrop-blur-[1px]">
+          <div className="pointer-events-auto max-w-xs rounded-md border border-border/70 bg-background/95 px-3 py-2 text-center shadow-lg">
+            <p className="text-sm font-medium text-foreground">{launchOverlay.title}</p>
+            {launchOverlay.description ? (
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                {launchOverlay.description}
+              </p>
+            ) : null}
+            {launchOverlay.canRetry ? (
+              <button
+                type="button"
+                className="mt-2 inline-flex items-center justify-center rounded border border-border/70 px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-accent"
+                onClick={retryTerminalOpen}
+              >
+                Retry terminal
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
       {hoverLine !== null && (
         <button
           type="button"

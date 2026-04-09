@@ -1286,6 +1286,7 @@ export default function Sidebar() {
     const isDark = resolvedTheme === "dark";
     const projectNameTone = resolveProjectNameTone({
       isSelectedProject: activeProjectId === project.id,
+      accentProjectNames: appSettings.sidebarAccentProjectNames,
       visualIndex,
     });
 

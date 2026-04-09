@@ -115,9 +115,10 @@ export function resolveThreadRowClassName(input: {
 
 export function resolveProjectNameTone(input: {
   isSelectedProject: boolean;
+  accentProjectNames: boolean;
   visualIndex: number;
 }): "project" | "mutedStrong" | "mutedSoft" {
-  if (input.isSelectedProject) {
+  if (input.isSelectedProject || input.accentProjectNames) {
     return "project";
   }
 

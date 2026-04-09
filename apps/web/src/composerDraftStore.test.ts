@@ -14,6 +14,7 @@ import {
   type TerminalContextDraft,
 } from "./lib/terminalContext";
 import { createDebouncedStorage } from "./lib/storage";
+import { DEFAULT_INTERACTION_MODE } from "./types";
 
 function makeImage(input: {
   id: string;
@@ -483,7 +484,7 @@ describe("composerDraftStore project draft thread mapping", () => {
       worktreePath: "/tmp/worktree-test",
       envMode: "worktree",
       runtimeMode: "full-access",
-      interactionMode: "chat",
+      interactionMode: DEFAULT_INTERACTION_MODE,
       createdAt: "2026-01-01T00:00:00.000Z",
     });
     expect(useComposerDraftStore.getState().getDraftThread(threadId)).toEqual({
@@ -493,7 +494,7 @@ describe("composerDraftStore project draft thread mapping", () => {
       worktreePath: "/tmp/worktree-test",
       envMode: "worktree",
       runtimeMode: "full-access",
-      interactionMode: "chat",
+      interactionMode: DEFAULT_INTERACTION_MODE,
       createdAt: "2026-01-01T00:00:00.000Z",
     });
   });

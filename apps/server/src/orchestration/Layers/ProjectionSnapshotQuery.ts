@@ -22,6 +22,7 @@ import { Effect, Layer, Schema, Struct } from "effect";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 import * as SqlSchema from "effect/unstable/sql/SqlSchema";
 
+import { createLogger } from "../../logger";
 import {
   isPersistenceError,
   toPersistenceDecodeError,
@@ -140,6 +141,7 @@ function toPersistenceSqlOrDecodeError(sqlOperation: string, decodeOperation: st
 
 const makeProjectionSnapshotQuery = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;
+  const logger = createLogger("projection-snapshot");
 
   const listProjectRows = SqlSchema.findAll({
     Request: Schema.Void,
@@ -326,6 +328,7 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
     sql
       .withTransaction(
         Effect.gen(function* () {
+          const startedAt = performance.now();
           const [
             projectRows,
             threadRows,
@@ -584,11 +587,20 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
             updatedAt: updatedAt ?? new Date(0).toISOString(),
           };
 
-          return yield* decodeReadModel(snapshot).pipe(
+          const decodedSnapshot = yield* decodeReadModel(snapshot).pipe(
             Effect.mapError(
               toPersistenceDecodeError("ProjectionSnapshotQuery.getSnapshot:decodeReadModel"),
             ),
           );
+          logger.info("built orchestration snapshot", {
+            durationMs: Math.round((performance.now() - startedAt) * 100) / 100,
+            projectCount: decodedSnapshot.projects.length,
+            threadCount: decodedSnapshot.threads.length,
+            messageCount: messageRows.length,
+            activityCount: activityRows.length,
+            checkpointCount: checkpointRows.length,
+          });
+          return decodedSnapshot;
         }),
       )
       .pipe(

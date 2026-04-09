@@ -507,6 +507,7 @@ export class TerminalManagerRuntime extends EventEmitter<TerminalManagerEvents> 
   private readonly persistQueues = new Map<string, Promise<void>>();
   private readonly persistTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly pendingPersistHistory = new Map<string, string>();
+  private readonly historyKnownMissing = new Set<string>();
   private readonly threadLocks = new Map<string, Promise<void>>();
   private readonly persistDebounceMs: number;
   private readonly subprocessChecker: TerminalSubprocessChecker;
@@ -759,6 +760,7 @@ export class TerminalManagerRuntime extends EventEmitter<TerminalManagerEvents> 
     }
     this.killEscalationTimers.clear();
     this.pendingPersistHistory.clear();
+    this.historyKnownMissing.clear();
     this.threadLocks.clear();
     this.persistQueues.clear();
   }
@@ -781,6 +783,7 @@ export class TerminalManagerRuntime extends EventEmitter<TerminalManagerEvents> 
 
     let ptyProcess: PtyProcess | null = null;
     let startedShell: string | null = null;
+    const spawnStartedAt = performance.now();
     try {
       const shellCandidates = resolveShellCandidates(this.shellResolver);
       const terminalEnv = createTerminalSpawnEnv(process.env, session.runtimeEnv);
@@ -856,6 +859,13 @@ export class TerminalManagerRuntime extends EventEmitter<TerminalManagerEvents> 
         createdAt: new Date().toISOString(),
         snapshot: this.snapshot(session),
       });
+      this.logger.info("terminal session started", {
+        threadId: session.threadId,
+        terminalId: session.terminalId,
+        cwd: session.cwd,
+        durationMs: Math.round((performance.now() - spawnStartedAt) * 100) / 100,
+        ...(startedShell ? { shell: startedShell } : {}),
+      });
     } catch (error) {
       if (ptyProcess) {
         this.killProcessWithEscalation(ptyProcess, session.threadId, session.terminalId);
@@ -878,6 +888,7 @@ export class TerminalManagerRuntime extends EventEmitter<TerminalManagerEvents> 
       this.logger.error("failed to start terminal", {
         threadId: session.threadId,
         terminalId: session.terminalId,
+        durationMs: Math.round((performance.now() - spawnStartedAt) * 100) / 100,
         error: message,
         ...(startedShell ? { shell: startedShell } : {}),
       });
@@ -1014,6 +1025,7 @@ export class TerminalManagerRuntime extends EventEmitter<TerminalManagerEvents> 
       this.sessions.delete(key);
       this.clearPersistTimer(session.threadId, session.terminalId);
       this.pendingPersistHistory.delete(key);
+      this.historyKnownMissing.delete(key);
       this.persistQueues.delete(key);
       this.clearKillEscalationTimer(session.process);
     }
@@ -1044,6 +1056,7 @@ export class TerminalManagerRuntime extends EventEmitter<TerminalManagerEvents> 
     const persistenceKey = toSessionKey(threadId, terminalId);
     const task = async () => {
       await fs.promises.writeFile(this.historyPath(threadId, terminalId), history, "utf8");
+      this.historyKnownMissing.delete(persistenceKey);
     };
     const previous = this.persistQueues.get(persistenceKey) ?? Promise.resolve();
     const next = previous
@@ -1094,13 +1107,34 @@ export class TerminalManagerRuntime extends EventEmitter<TerminalManagerEvents> 
   }
 
   private async readHistory(threadId: string, terminalId: string): Promise<string> {
+    const persistenceKey = toSessionKey(threadId, terminalId);
+    if (this.historyKnownMissing.has(persistenceKey)) {
+      this.logger.info("restored terminal history", {
+        threadId,
+        terminalId,
+        source: "missing-cache",
+        durationMs: 0,
+        bytes: 0,
+      });
+      return "";
+    }
+
     const nextPath = this.historyPath(threadId, terminalId);
+    const startedAt = performance.now();
     try {
       const raw = await fs.promises.readFile(nextPath, "utf8");
       const capped = capHistory(raw, this.historyLineLimit);
       if (capped !== raw) {
         await fs.promises.writeFile(nextPath, capped, "utf8");
       }
+      this.historyKnownMissing.delete(persistenceKey);
+      this.logger.info("restored terminal history", {
+        threadId,
+        terminalId,
+        source: "current",
+        durationMs: Math.round((performance.now() - startedAt) * 100) / 100,
+        bytes: capped.length,
+      });
       return capped;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
@@ -1109,6 +1143,14 @@ export class TerminalManagerRuntime extends EventEmitter<TerminalManagerEvents> 
     }
 
     if (terminalId !== DEFAULT_TERMINAL_ID) {
+      this.historyKnownMissing.add(persistenceKey);
+      this.logger.info("restored terminal history", {
+        threadId,
+        terminalId,
+        source: "missing",
+        durationMs: Math.round((performance.now() - startedAt) * 100) / 100,
+        bytes: 0,
+      });
       return "";
     }
 
@@ -1128,9 +1170,25 @@ export class TerminalManagerRuntime extends EventEmitter<TerminalManagerEvents> 
         });
       }
 
+      this.historyKnownMissing.delete(persistenceKey);
+      this.logger.info("restored terminal history", {
+        threadId,
+        terminalId,
+        source: "legacy",
+        durationMs: Math.round((performance.now() - startedAt) * 100) / 100,
+        bytes: capped.length,
+      });
       return capped;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        this.historyKnownMissing.add(persistenceKey);
+        this.logger.info("restored terminal history", {
+          threadId,
+          terminalId,
+          source: "missing",
+          durationMs: Math.round((performance.now() - startedAt) * 100) / 100,
+          bytes: 0,
+        });
         return "";
       }
       throw error;
@@ -1138,12 +1196,14 @@ export class TerminalManagerRuntime extends EventEmitter<TerminalManagerEvents> 
   }
 
   private async deleteHistory(threadId: string, terminalId: string): Promise<void> {
+    const persistenceKey = toSessionKey(threadId, terminalId);
     const deletions = [fs.promises.rm(this.historyPath(threadId, terminalId), { force: true })];
     if (terminalId === DEFAULT_TERMINAL_ID) {
       deletions.push(fs.promises.rm(this.legacyHistoryPath(threadId), { force: true }));
     }
     try {
       await Promise.all(deletions);
+      this.historyKnownMissing.add(persistenceKey);
     } catch (error) {
       this.logger.warn("failed to delete terminal history", {
         threadId,

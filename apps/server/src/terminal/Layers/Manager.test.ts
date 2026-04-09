@@ -8,7 +8,7 @@ import {
   type TerminalOpenInput,
   type TerminalRestartInput,
 } from "@okcode/contracts";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   PtySpawnError,
@@ -377,6 +377,22 @@ describe("TerminalManager", () => {
     expect(snapshot.status).toBe("running");
     expect(ptyAdapter.spawnInputs).toHaveLength(2);
     await waitFor(() => fs.readFileSync(historyLogPath(logsDir), "utf8") === "");
+
+    manager.dispose();
+  });
+
+  it("skips repeated missing-history reads for brand-new sidecar terminals", async () => {
+    const { manager, logsDir } = makeManager();
+    const targetHistoryPath = multiTerminalHistoryLogPath(logsDir, "thread-1", "sidecar");
+    const readFileSpy = vi.spyOn(fs.promises, "readFile");
+
+    await manager.open(openInput({ terminalId: "sidecar" }));
+    await manager.close({ threadId: "thread-1", terminalId: "sidecar" });
+    await manager.open(openInput({ terminalId: "sidecar" }));
+
+    expect(
+      readFileSpy.mock.calls.filter(([filePath]) => String(filePath) === targetHistoryPath),
+    ).toHaveLength(1);
 
     manager.dispose();
   });

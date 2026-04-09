@@ -98,6 +98,7 @@ import { SkillService } from "./skills/SkillService.ts";
 import { SmeChatService } from "./sme/Services/SmeChatService.ts";
 import { TokenManager } from "./tokenManager.ts";
 import { resolveRuntimeEnvironment, RuntimeEnv } from "./runtimeEnvironment.ts";
+import { TerminalRuntimeEnvResolver } from "./terminal/Services/RuntimeEnvResolver.ts";
 import { version as serverVersion } from "../package.json" with { type: "json" };
 import { serverBuildInfo } from "./buildInfo";
 import { runOpenclawGatewayTest } from "./openclawGatewayTest.ts";
@@ -310,6 +311,7 @@ export type ServerRuntimeServices =
   | PrReview
   | GitHub
   | TerminalManager
+  | TerminalRuntimeEnvResolver
   | Keybindings
   | SkillService
   | SmeChatService
@@ -765,6 +767,7 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
   const orchestrationReactor = yield* OrchestrationReactor;
   const prReview = yield* PrReview;
   const github = yield* GitHub;
+  const terminalRuntimeEnvResolver = yield* TerminalRuntimeEnvResolver;
   const { openInEditor, openInFileManager, revealInFileManager } = yield* Open;
   const environmentVariables = yield* EnvironmentVariables;
   const skillService = yield* SkillService;
@@ -1403,20 +1406,24 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
 
       case WS_METHODS.terminalOpen: {
         const body = stripRequestTag(request.body);
-        const snapshot = yield* projectionReadModelQuery.getSnapshot();
-        const runtimeEnv = yield* resolveRuntimeEnvironment({
-          projectId:
-            snapshot.threads.find(
-              (thread) => thread.id === body.threadId && thread.deletedAt === null,
-            )?.projectId ?? null,
+        const envResolutionStartedAt = performance.now();
+        const runtimeEnv = yield* terminalRuntimeEnvResolver.resolve({
+          threadId: ThreadId.makeUnsafe(body.threadId),
           cwd: body.cwd,
-          readModel: snapshot,
           ...(body.env !== undefined ? { extraEnv: body.env } : {}),
         });
-        return yield* terminalManager.open({
+        const envResolutionMs =
+          Math.round((performance.now() - envResolutionStartedAt) * 100) / 100;
+        const session = yield* terminalManager.open({
           ...body,
           env: runtimeEnv,
         });
+        logger.info("terminal open prepared", {
+          threadId: body.threadId,
+          terminalId: body.terminalId ?? "default",
+          envResolutionMs,
+        });
+        return session;
       }
 
       case WS_METHODS.terminalWrite: {
@@ -1436,20 +1443,24 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
 
       case WS_METHODS.terminalRestart: {
         const body = stripRequestTag(request.body);
-        const snapshot = yield* projectionReadModelQuery.getSnapshot();
-        const runtimeEnv = yield* resolveRuntimeEnvironment({
-          projectId:
-            snapshot.threads.find(
-              (thread) => thread.id === body.threadId && thread.deletedAt === null,
-            )?.projectId ?? null,
+        const envResolutionStartedAt = performance.now();
+        const runtimeEnv = yield* terminalRuntimeEnvResolver.resolve({
+          threadId: ThreadId.makeUnsafe(body.threadId),
           cwd: body.cwd,
-          readModel: snapshot,
           ...(body.env !== undefined ? { extraEnv: body.env } : {}),
         });
-        return yield* terminalManager.restart({
+        const envResolutionMs =
+          Math.round((performance.now() - envResolutionStartedAt) * 100) / 100;
+        const session = yield* terminalManager.restart({
           ...body,
           env: runtimeEnv,
         });
+        logger.info("terminal restart prepared", {
+          threadId: body.threadId,
+          terminalId: body.terminalId ?? "default",
+          envResolutionMs,
+        });
+        return session;
       }
 
       case WS_METHODS.terminalClose: {

@@ -183,6 +183,7 @@ import {
 import { deriveLatestContextWindowSnapshot } from "../lib/contextWindow";
 import { shouldUseCompactComposerFooter } from "./composerFooterLayout";
 import { selectThreadTerminalState, useTerminalStateStore } from "../terminalStateStore";
+import { clearTerminalLaunchState, ensureTerminalOpen } from "../terminalSessionController";
 import { ComposerPromptEditor, type ComposerPromptEditorHandle } from "./ComposerPromptEditor";
 import { PullRequestThreadDialog } from "./PullRequestThreadDialog";
 import { MessagesTimeline } from "./chat/MessagesTimeline";
@@ -617,6 +618,7 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
   const dragDepthRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const terminalOpenByThreadRef = useRef<Record<string, boolean>>({});
+  const hasPrefetchedTerminalDrawerRef = useRef(false);
   const setMessagesScrollContainerRef = useCallback((element: HTMLDivElement | null) => {
     messagesScrollRef.current = element;
     setMessagesScrollElement(element);
@@ -731,6 +733,23 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
   const previewPanelKey = activeProject
     ? `${activeProject.id}:${previewDock}:${previewLayoutMode}`
     : null;
+  const activeThreadStableId = activeThread?.id ?? null;
+  const [mountedTerminalThreadId, setMountedTerminalThreadId] = useState<string | null>(null);
+  const shouldMountTerminalDrawer =
+    activeThreadStableId !== null &&
+    (terminalState.terminalOpen || mountedTerminalThreadId === activeThreadStableId);
+
+  useEffect(() => {
+    if (!activeThreadStableId) {
+      setMountedTerminalThreadId(null);
+      return;
+    }
+    if (terminalState.terminalOpen) {
+      setMountedTerminalThreadId(activeThreadStableId);
+      return;
+    }
+    setMountedTerminalThreadId((current) => (current === activeThreadStableId ? current : null));
+  }, [activeThreadStableId, terminalState.terminalOpen]);
 
   const openPullRequestDialog = useCallback(
     (reference?: string) => {
@@ -1494,6 +1513,27 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
     () => new Set(nonPersistedComposerAttachmentIds),
     [nonPersistedComposerAttachmentIds],
   );
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return undefined;
+    }
+
+    if (typeof window.requestIdleCallback === "function") {
+      const idleHandle = window.requestIdleCallback(() => {
+        void preloadThreadTerminalDrawer();
+      });
+      return () => {
+        window.cancelIdleCallback?.(idleHandle);
+      };
+    }
+
+    const timer = window.setTimeout(() => {
+      void preloadThreadTerminalDrawer();
+    }, 150);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, []);
   const keybindings = serverConfigQuery.data?.keybindings ?? EMPTY_KEYBINDINGS;
   const providerStatuses = serverConfigQuery.data?.providers ?? EMPTY_PROVIDER_STATUSES;
   const activeProviderStatus = useMemo(
@@ -1669,22 +1709,85 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
     },
     [activeThreadId, storeSetTerminalHeight],
   );
+  const ensureThreadTerminalOpen = useCallback(
+    async (options: {
+      terminalId: string;
+      cwd?: string;
+      cols?: number;
+      rows?: number;
+      env?: Record<string, string>;
+    }) => {
+      if (!activeThreadId) return;
+      const targetCwd = options.cwd ?? gitCwd ?? activeProjectCwd;
+      if (!targetCwd) return;
+      await ensureTerminalOpen({
+        threadId: activeThreadId,
+        terminalId: options.terminalId,
+        cwd: targetCwd,
+        ...(options.cols !== undefined ? { cols: options.cols } : {}),
+        ...(options.rows !== undefined ? { rows: options.rows } : {}),
+        ...(options.env !== undefined ? { env: options.env } : {}),
+      });
+    },
+    [activeProjectCwd, activeThreadId, gitCwd],
+  );
   const toggleTerminalVisibility = useCallback(() => {
     if (!activeThreadId) return;
-    setTerminalOpen(!terminalState.terminalOpen);
-  }, [activeThreadId, setTerminalOpen, terminalState.terminalOpen]);
+    const nextOpen = !terminalState.terminalOpen;
+    setTerminalOpen(nextOpen);
+    if (!nextOpen) {
+      return;
+    }
+    const targetTerminalId =
+      terminalState.activeTerminalId || terminalState.terminalIds[0] || DEFAULT_THREAD_TERMINAL_ID;
+    void ensureThreadTerminalOpen({
+      terminalId: targetTerminalId,
+      env: threadTerminalRuntimeEnv,
+    });
+  }, [
+    activeThreadId,
+    ensureThreadTerminalOpen,
+    setTerminalOpen,
+    terminalState.activeTerminalId,
+    terminalState.terminalIds,
+    terminalState.terminalOpen,
+    threadTerminalRuntimeEnv,
+  ]);
   const splitTerminal = useCallback(() => {
     if (!activeThreadId || hasReachedSplitLimit) return;
     const terminalId = `terminal-${randomUUID()}`;
+    setTerminalOpen(true);
     storeSplitTerminal(activeThreadId, terminalId);
     setTerminalFocusRequestId((value) => value + 1);
-  }, [activeThreadId, hasReachedSplitLimit, storeSplitTerminal]);
+    void ensureThreadTerminalOpen({
+      terminalId,
+      env: threadTerminalRuntimeEnv,
+    });
+  }, [
+    activeThreadId,
+    ensureThreadTerminalOpen,
+    hasReachedSplitLimit,
+    setTerminalOpen,
+    storeSplitTerminal,
+    threadTerminalRuntimeEnv,
+  ]);
   const createNewTerminal = useCallback(() => {
     if (!activeThreadId) return;
     const terminalId = `terminal-${randomUUID()}`;
+    setTerminalOpen(true);
     storeNewTerminal(activeThreadId, terminalId);
     setTerminalFocusRequestId((value) => value + 1);
-  }, [activeThreadId, storeNewTerminal]);
+    void ensureThreadTerminalOpen({
+      terminalId,
+      env: threadTerminalRuntimeEnv,
+    });
+  }, [
+    activeThreadId,
+    ensureThreadTerminalOpen,
+    setTerminalOpen,
+    storeNewTerminal,
+    threadTerminalRuntimeEnv,
+  ]);
   const activateTerminal = useCallback(
     (terminalId: string) => {
       if (!activeThreadId) return;
@@ -1719,6 +1822,7 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
         void fallbackExitWrite();
       }
       storeCloseTerminal(activeThreadId, terminalId);
+      clearTerminalLaunchState(activeThreadId, terminalId);
       setTerminalFocusRequestId((value) => value + 1);
     },
     [activeThreadId, storeCloseTerminal, terminalState.terminalIds.length],
@@ -1777,7 +1881,7 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
           };
 
       try {
-        await api.terminal.open(openTerminalInput);
+        await ensureTerminalOpen(openTerminalInput);
         await api.terminal.write({
           threadId: activeThreadId,
           terminalId: targetTerminalId,
@@ -2778,6 +2882,10 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
   }, [activeThreadId, focusComposer, terminalState.terminalOpen]);
 
   useEffect(() => {
+    if (!hasPrefetchedTerminalDrawerRef.current) {
+      hasPrefetchedTerminalDrawerRef.current = true;
+      void preloadThreadTerminalDrawer();
+    }
     const handler = (event: globalThis.KeyboardEvent) => {
       if (!activeThreadId || event.defaultPrevented) return;
       const shortcutContext = {
@@ -5695,7 +5803,7 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
       {/* Terminal drawer – once mounted, stay mounted to avoid the
           unmount/remount flicker when toggling visibility or switching threads.
           We hide it with display:none when collapsed so the DOM is retained. */}
-      {activeProject && (
+      {activeProject && shouldMountTerminalDrawer ? (
         <div style={{ display: terminalState.terminalOpen ? undefined : "none" }}>
           <Suspense
             fallback={<TerminalDrawerLoadingFallback height={terminalState.terminalHeight} />}
@@ -5726,7 +5834,7 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
             />
           </Suspense>
         </div>
-      )}
+      ) : null}
 
       <Dialog
         open={pendingProjectScriptRun !== null}

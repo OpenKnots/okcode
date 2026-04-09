@@ -1,4 +1,7 @@
+import { DEFAULT_MODEL_BY_PROVIDER } from "@okcode/contracts";
 import type { SidebarProjectSortOrder, SidebarThreadSortOrder } from "../appSettings";
+import type { DraftThreadState } from "../composerDraftStore";
+import { buildLocalDraftThread } from "../draftThreads";
 import type { Thread } from "../types";
 import { cn } from "../lib/utils";
 import {
@@ -281,6 +284,28 @@ export function groupThreadsByProjectId<TThread extends SidebarProjectThread>(
   }
 
   return threadsByProjectId;
+}
+
+export function mergeDraftThreadsIntoSidebarThreads(input: {
+  serverThreads: readonly Thread[];
+  draftThreadsByThreadId: Readonly<Record<string, DraftThreadState>>;
+  projectModelByProjectId: ReadonlyMap<Thread["projectId"], string>;
+}): Thread[] {
+  const serverThreadIds = new Set(input.serverThreads.map((thread) => thread.id));
+  const mergedThreads = [...input.serverThreads];
+
+  for (const [threadId, draftThread] of Object.entries(input.draftThreadsByThreadId)) {
+    if (serverThreadIds.has(threadId as Thread["id"])) {
+      continue;
+    }
+    const fallbackModel =
+      input.projectModelByProjectId.get(draftThread.projectId) ?? DEFAULT_MODEL_BY_PROVIDER.codex;
+    mergedThreads.push(
+      buildLocalDraftThread(threadId as Thread["id"], draftThread, fallbackModel, null),
+    );
+  }
+
+  return mergedThreads;
 }
 
 function toSortableTimestamp(iso: string | undefined): number | null {

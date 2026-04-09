@@ -176,6 +176,9 @@ function ChatThreadRouteView() {
   const draftThreadExists = useComposerDraftStore((store) =>
     Object.hasOwn(store.draftThreadsByThreadId, threadId),
   );
+  const draftThread = useComposerDraftStore(
+    (store) => store.draftThreadsByThreadId[threadId] ?? null,
+  );
   const routeThreadExists = threadExists || draftThreadExists;
   const clientMode = useClientMode();
   const shouldUseSheet = clientMode === "mobile";
@@ -205,10 +208,11 @@ function ChatThreadRouteView() {
   // ── Active workspace CWD for file tree ────────────────────────────
   const activeWorkspaceCwd = useStore((store) => {
     const thread = store.threads.find((t) => t.id === threadId);
-    if (!thread) return null;
-    const project = store.projects.find((p) => p.id === thread.projectId);
+    const threadProjectId = thread?.projectId ?? draftThread?.projectId ?? null;
+    if (!threadProjectId) return null;
+    const project = store.projects.find((p) => p.id === threadProjectId);
     if (!project) return null;
-    return thread.worktreePath ?? project.cwd;
+    return thread?.worktreePath ?? draftThread?.worktreePath ?? project.cwd;
   });
 
   // ── Keep-alive flags so lazy content doesn't unmount on tab switch ─

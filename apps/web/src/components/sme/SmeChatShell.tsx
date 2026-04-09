@@ -24,16 +24,12 @@ export function SmeChatShell({
 }: SmeChatShellProps) {
   const [knowledgePanelOpen, setKnowledgePanelOpen] = useState(false);
   const activeConversationId = useSmeStore((s) => s.activeConversationId);
-  const setConversations = useSmeStore((s) => s.setConversations);
-  const setDocuments = useSmeStore((s) => s.setDocuments);
-  const setActiveConversationId = useSmeStore((s) => s.setActiveConversationId);
-  const appendStreamDelta = useSmeStore((s) => s.appendStreamDelta);
-  const completeStream = useSmeStore((s) => s.completeStream);
-  const setMessages = useSmeStore((s) => s.setMessages);
 
   // Load conversations and documents when project changes
   useEffect(() => {
     const api = ensureNativeApi();
+    const { setConversations, setDocuments, setActiveConversationId } =
+      useSmeStore.getState();
     void api.sme.listConversations({ projectId: project.id }).then((convs) => {
       setConversations(convs as any[]);
     });
@@ -42,7 +38,7 @@ export function SmeChatShell({
     });
     // Reset active conversation when switching projects
     setActiveConversationId(null);
-  }, [project.id, setConversations, setDocuments, setActiveConversationId]);
+  }, [project.id]);
 
   // Load messages when active conversation changes
   useEffect(() => {
@@ -52,23 +48,23 @@ export function SmeChatShell({
       .getConversation({ conversationId: activeConversationId as SmeConversationId })
       .then((result) => {
         if (result) {
-          setMessages(activeConversationId, result.messages as any[]);
+          useSmeStore.getState().setMessages(activeConversationId, result.messages as any[]);
         }
       });
-  }, [activeConversationId, setMessages]);
+  }, [activeConversationId]);
 
   // Subscribe to SME push events
   useEffect(() => {
     const api = ensureNativeApi();
     const unsubscribe = api.sme.onMessageEvent((event: SmeMessageEvent) => {
       if (event.type === "sme.message.delta") {
-        appendStreamDelta(event.messageId, event.text);
+        useSmeStore.getState().appendStreamDelta(event.messageId, event.text);
       } else if (event.type === "sme.message.complete") {
-        completeStream(event.messageId, event.text);
+        useSmeStore.getState().completeStream(event.messageId, event.text);
       }
     });
     return unsubscribe;
-  }, [appendStreamDelta, completeStream]);
+  }, []);
 
   return (
     <div className="flex min-h-0 flex-1 overflow-hidden">

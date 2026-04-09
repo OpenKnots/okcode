@@ -1,9 +1,11 @@
 import type { GitBranch } from "@okcode/contracts";
 import { describe, expect, it } from "vitest";
 import {
+  buildBranchMetadataBadges,
   dedupeRemoteBranchesWithLocalMatches,
   deriveLocalBranchNameFromRemoteRef,
   filterSelectableBranches,
+  formatBranchStashBadgeLabel,
   resolveBranchSelectionTarget,
   resolveDraftEnvModeAfterBranchChange,
   resolveBranchToolbarValue,
@@ -130,6 +132,50 @@ describe("filterSelectableBranches", () => {
       "main",
       "feature/demo",
     ]);
+  });
+});
+
+describe("formatBranchStashBadgeLabel", () => {
+  it("returns null when a branch has no stashes", () => {
+    expect(formatBranchStashBadgeLabel(undefined)).toBeNull();
+    expect(formatBranchStashBadgeLabel(0)).toBeNull();
+  });
+
+  it("formats stash badges compactly", () => {
+    expect(formatBranchStashBadgeLabel(1)).toBe("stash");
+    expect(formatBranchStashBadgeLabel(3)).toBe("stash 3");
+  });
+});
+
+describe("buildBranchMetadataBadges", () => {
+  it("includes stash badges alongside worktree metadata", () => {
+    expect(
+      buildBranchMetadataBadges({
+        activeProjectCwd: "/repo/project",
+        branch: {
+          current: false,
+          isDefault: false,
+          isRemote: false,
+          stashCount: 2,
+          worktreePath: "/repo/worktrees/feature-a",
+        },
+      }),
+    ).toEqual(["worktree", "stash 2"]);
+  });
+
+  it("does not treat the root checkout as a secondary worktree", () => {
+    expect(
+      buildBranchMetadataBadges({
+        activeProjectCwd: "/repo/project",
+        branch: {
+          current: true,
+          isDefault: true,
+          isRemote: false,
+          stashCount: 1,
+          worktreePath: "/repo/project",
+        },
+      }),
+    ).toEqual(["current", "default", "stash"]);
   });
 });
 

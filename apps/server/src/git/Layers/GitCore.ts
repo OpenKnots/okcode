@@ -230,6 +230,29 @@ function parseRemoteRefWithRemoteNames(
   return null;
 }
 
+function parseStashBranchName(subject: string): string | null {
+  const trimmed = subject.trim();
+  if (trimmed.length === 0) {
+    return null;
+  }
+
+  const match = /^(?:WIP on|On)\s+(.+?):\s/.exec(trimmed);
+  const branchName = match?.[1]?.trim() ?? "";
+  return branchName.length > 0 ? branchName : null;
+}
+
+function parseStashCounts(stdout: string): ReadonlyMap<string, number> {
+  const counts = new Map<string, number>();
+  for (const line of stdout.split("\n")) {
+    const branchName = parseStashBranchName(line);
+    if (!branchName) {
+      continue;
+    }
+    counts.set(branchName, (counts.get(branchName) ?? 0) + 1);
+  }
+  return counts;
+}
+
 function parseUpstreamRef(
   value: string,
 ): { upstreamRef: string; remoteName: string; upstreamBranch: string } | null {
@@ -1662,36 +1685,57 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
           ),
         );
 
-        const [defaultRef, worktreeList, remoteBranchResult, remoteNamesResult, branchLastCommit] =
-          yield* Effect.all(
-            [
-              executeGit(
-                "GitCore.listBranches.defaultRef",
-                input.cwd,
-                ["symbolic-ref", "refs/remotes/origin/HEAD"],
-                {
-                  timeoutMs: 5_000,
-                  allowNonZeroExit: true,
-                },
-              ),
-              executeGit(
-                "GitCore.listBranches.worktreeList",
-                input.cwd,
-                ["worktree", "list", "--porcelain"],
-                {
-                  timeoutMs: 5_000,
-                  allowNonZeroExit: true,
-                },
-              ),
-              remoteBranchResultEffect,
-              remoteNamesResultEffect,
-              branchRecencyPromise,
-            ],
-            { concurrency: "unbounded" },
-          );
+        const stashListResultEffect = executeGit("GitCore.listBranches.stashList", input.cwd, [
+          "stash",
+          "list",
+          "--format=%gs",
+        ]).pipe(
+          Effect.catch((error) =>
+            Effect.logWarning(
+              `GitCore.listBranches: stash lookup failed for ${input.cwd}: ${error.message}. Falling back to an empty stash list.`,
+            ).pipe(Effect.as({ code: 1, stdout: "", stderr: "" })),
+          ),
+        );
+
+        const [
+          defaultRef,
+          worktreeList,
+          remoteBranchResult,
+          remoteNamesResult,
+          stashListResult,
+          branchLastCommit,
+        ] = yield* Effect.all(
+          [
+            executeGit(
+              "GitCore.listBranches.defaultRef",
+              input.cwd,
+              ["symbolic-ref", "refs/remotes/origin/HEAD"],
+              {
+                timeoutMs: 5_000,
+                allowNonZeroExit: true,
+              },
+            ),
+            executeGit(
+              "GitCore.listBranches.worktreeList",
+              input.cwd,
+              ["worktree", "list", "--porcelain"],
+              {
+                timeoutMs: 5_000,
+                allowNonZeroExit: true,
+              },
+            ),
+            remoteBranchResultEffect,
+            remoteNamesResultEffect,
+            stashListResultEffect,
+            branchRecencyPromise,
+          ],
+          { concurrency: "unbounded" },
+        );
 
         const remoteNames =
           remoteNamesResult.code === 0 ? parseRemoteNames(remoteNamesResult.stdout) : [];
+        const stashCounts =
+          stashListResult.code === 0 ? parseStashCounts(stashListResult.stdout) : new Map();
         if (remoteBranchResult.code !== 0 && remoteBranchResult.stderr.trim().length > 0) {
           yield* Effect.logWarning(
             `GitCore.listBranches: remote branch lookup returned code ${remoteBranchResult.code} for ${input.cwd}: ${remoteBranchResult.stderr.trim()}. Falling back to an empty remote branch list.`,
@@ -1700,6 +1744,11 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
         if (remoteNamesResult.code !== 0 && remoteNamesResult.stderr.trim().length > 0) {
           yield* Effect.logWarning(
             `GitCore.listBranches: remote name lookup returned code ${remoteNamesResult.code} for ${input.cwd}: ${remoteNamesResult.stderr.trim()}. Falling back to an empty remote name list.`,
+          );
+        }
+        if (stashListResult.code !== 0 && stashListResult.stderr.trim().length > 0) {
+          yield* Effect.logWarning(
+            `GitCore.listBranches: stash lookup returned code ${stashListResult.code} for ${input.cwd}: ${stashListResult.stderr.trim()}. Falling back to an empty stash list.`,
           );
         }
 
@@ -1731,13 +1780,27 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
           .split("\n")
           .map(parseBranchLine)
           .filter((branch): branch is { name: string; current: boolean } => branch !== null)
-          .map((branch) => ({
-            name: branch.name,
-            current: branch.current,
-            isRemote: false,
-            isDefault: branch.name === defaultBranch,
-            worktreePath: worktreeMap.get(branch.name) ?? null,
-          }))
+          .map((branch) => {
+            const localBranch: {
+              name: string;
+              current: boolean;
+              isRemote: boolean;
+              isDefault: boolean;
+              worktreePath: string | null;
+              stashCount?: number;
+            } = {
+              name: branch.name,
+              current: branch.current,
+              isRemote: false,
+              isDefault: branch.name === defaultBranch,
+              worktreePath: worktreeMap.get(branch.name) ?? null,
+            };
+            const stashCount = stashCounts.get(branch.name);
+            if (stashCount !== undefined) {
+              localBranch.stashCount = stashCount;
+            }
+            return localBranch;
+          })
           .toSorted((a, b) => {
             const aPriority = a.current ? 0 : a.isDefault ? 1 : 2;
             const bPriority = b.current ? 0 : b.isDefault ? 1 : 2;

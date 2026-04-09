@@ -77,6 +77,41 @@ export function filterSelectableBranches(
   return branches.filter((branch) => !branch.isRemote);
 }
 
+export function formatBranchStashBadgeLabel(stashCount: number | undefined): string | null {
+  if (!stashCount || stashCount < 1) {
+    return null;
+  }
+  return stashCount === 1 ? "stash" : `stash ${stashCount}`;
+}
+
+export function buildBranchMetadataBadges(input: {
+  activeProjectCwd: string;
+  branch: Pick<GitBranch, "current" | "isDefault" | "isRemote" | "stashCount" | "worktreePath">;
+}): ReadonlyArray<string> {
+  const badges: string[] = [];
+  const hasSecondaryWorktree =
+    input.branch.worktreePath !== null && input.branch.worktreePath !== input.activeProjectCwd;
+
+  if (input.branch.current) {
+    badges.push("current");
+  }
+  if (hasSecondaryWorktree) {
+    badges.push("worktree");
+  }
+  if (input.branch.isRemote) {
+    badges.push("remote");
+  }
+  if (input.branch.isDefault) {
+    badges.push("default");
+  }
+  const stashBadge = formatBranchStashBadgeLabel(input.branch.stashCount);
+  if (stashBadge) {
+    badges.push(stashBadge);
+  }
+
+  return badges;
+}
+
 export function dedupeRemoteBranchesWithLocalMatches(
   branches: ReadonlyArray<GitBranch>,
   options?: {

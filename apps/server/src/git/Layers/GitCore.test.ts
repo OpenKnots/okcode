@@ -226,6 +226,30 @@ it.layer(TestLayer)("git integration", (it) => {
       }),
     );
 
+    it.effect("marks worktree branches that still have stashed changes", () =>
+      Effect.gen(function* () {
+        const tmp = yield* makeTmpDir();
+        const { initialBranch } = yield* initRepoWithCommit(tmp);
+        const worktree = yield* (yield* GitCore).createWorktree({
+          cwd: tmp,
+          branch: initialBranch,
+          newBranch: "feature/stashed-worktree",
+          path: null,
+        });
+
+        yield* writeTextFile(path.join(worktree.worktree.path, "README.md"), "stashed change\n");
+        yield* git(worktree.worktree.path, ["stash", "push", "-m", "save worktree state"]);
+
+        const result = yield* (yield* GitCore).listBranches({ cwd: tmp });
+        const stashedBranch = result.branches.find(
+          (branch) => branch.name === "feature/stashed-worktree",
+        );
+        expect(stashedBranch?.name).toBe("feature/stashed-worktree");
+        expect(stashedBranch?.worktreePath).toBe(fs.realpathSync(worktree.worktree.path));
+        expect(stashedBranch?.stashCount).toBe(1);
+      }),
+    );
+
     it.effect(
       "does not include detached HEAD pseudo-refs as branches",
       () =>

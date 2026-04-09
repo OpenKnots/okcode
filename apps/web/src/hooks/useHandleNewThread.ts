@@ -2,6 +2,7 @@ import { DEFAULT_RUNTIME_MODE, type ProjectId, ThreadId } from "@okcode/contract
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useCallback } from "react";
 import { inferProviderForModel } from "@okcode/shared/model";
+import { useAppSettings } from "../appSettings";
 import {
   type DraftThreadEnvMode,
   type DraftThreadState,
@@ -13,6 +14,7 @@ import { useStore } from "../store";
 export function useHandleNewThread() {
   const projects = useStore((store) => store.projects);
   const threads = useStore((store) => store.threads);
+  const { settings: appSettings } = useAppSettings();
   const stickyModel = useComposerDraftStore((store) => store.stickyModel);
   const stickyModelOptions = useComposerDraftStore((store) => store.stickyModelOptions);
   const navigate = useNavigate();
@@ -99,7 +101,7 @@ export function useHandleNewThread() {
           createdAt,
           branch: options?.branch ?? null,
           worktreePath: options?.worktreePath ?? null,
-          envMode: options?.envMode ?? "worktree",
+          envMode: options?.envMode ?? appSettings.defaultThreadEnvMode,
           runtimeMode: DEFAULT_RUNTIME_MODE,
         });
         if (stickyModel) {
@@ -116,7 +118,7 @@ export function useHandleNewThread() {
         });
       })();
     },
-    [navigate, routeThreadId, stickyModel, stickyModelOptions],
+    [appSettings.defaultThreadEnvMode, navigate, routeThreadId, stickyModel, stickyModelOptions],
   );
 
   return {

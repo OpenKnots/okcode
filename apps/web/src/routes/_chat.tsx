@@ -182,9 +182,9 @@ function ChatRouteGlobalShortcuts() {
       event.preventDefault();
       event.stopPropagation();
       void handleNewThread(projectId, {
-        branch: activeThread?.branch ?? activeDraftThread?.branch ?? null,
-        worktreePath: activeThread?.worktreePath ?? activeDraftThread?.worktreePath ?? null,
-        envMode: activeDraftThread?.envMode ?? (activeThread?.worktreePath ? "worktree" : "local"),
+        envMode: resolveSidebarNewThreadEnvMode({
+          defaultEnvMode: appSettings.defaultThreadEnvMode,
+        }),
       });
     };
 

@@ -49,6 +49,10 @@ class CopilotHealthProbeError extends Data.TaggedError("CopilotHealthProbeError"
   cause: unknown;
 }> {}
 
+function formatHealthProbeCause(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause);
+}
+
 // ── Pure helpers ────────────────────────────────────────────────────
 
 export interface CommandResult {
@@ -324,7 +328,7 @@ export const checkCopilotProviderStatus: Effect.Effect<ServerProviderStatus, nev
         checkedAt,
         message:
           error instanceof CopilotHealthProbeError
-            ? `Failed to start GitHub Copilot CLI: ${String(error.cause)}.`
+            ? `Failed to start GitHub Copilot CLI: ${formatHealthProbeCause(error.cause)}.`
             : "Failed to start GitHub Copilot CLI.",
       } satisfies ServerProviderStatus;
     }
@@ -367,7 +371,7 @@ export const checkCopilotProviderStatus: Effect.Effect<ServerProviderStatus, nev
         checkedAt,
         message:
           error instanceof CopilotHealthProbeError
-            ? `Could not verify GitHub Copilot authentication status: ${String(error.cause)}.`
+            ? `Could not verify GitHub Copilot authentication status: ${formatHealthProbeCause(error.cause)}.`
             : "Could not verify GitHub Copilot authentication status.",
       } satisfies ServerProviderStatus;
     }

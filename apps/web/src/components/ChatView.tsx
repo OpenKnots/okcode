@@ -385,7 +385,13 @@ const terminalContextIdListsEqual = (
 ): boolean =>
   contexts.length === ids.length && contexts.every((context, index) => context.id === ids[index]);
 
-const INTERACTION_MODE_CYCLE: readonly ProviderInteractionMode[] = ["chat", "code", "plan"];
+const INTERACTION_MODE_OPTIONS: readonly ProviderInteractionMode[] = ["code", "plan"];
+
+function normalizeVisibleInteractionMode(
+  mode: ProviderInteractionMode | null | undefined,
+): ProviderInteractionMode {
+  return mode === "plan" ? "plan" : "code";
+}
 
 interface ChatViewProps {
   threadId: ThreadId;
@@ -717,8 +723,9 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
   const activeThread = serverThread ?? localDraftThread;
   const runtimeMode =
     composerDraft.runtimeMode ?? activeThread?.runtimeMode ?? DEFAULT_RUNTIME_MODE;
-  const interactionMode =
-    composerDraft.interactionMode ?? activeThread?.interactionMode ?? DEFAULT_INTERACTION_MODE;
+  const interactionMode = normalizeVisibleInteractionMode(
+    composerDraft.interactionMode ?? activeThread?.interactionMode ?? DEFAULT_INTERACTION_MODE,
+  );
   const isServerThread = serverThread !== undefined;
   const isLocalDraftThread = !isServerThread && localDraftThread !== undefined;
   const canCheckoutPullRequestIntoThread = isLocalDraftThread;
@@ -1431,13 +1438,6 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
           command: "plan",
           label: "/plan",
           description: "Switch this thread into plan mode",
-        },
-        {
-          id: "slash:chat",
-          type: "slash-command",
-          command: "chat",
-          label: "/chat",
-          description: "Switch this thread into chat mode",
         },
         {
           id: "slash:code",
@@ -2175,8 +2175,8 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
     ],
   );
   const toggleInteractionMode = useCallback(() => {
-    const idx = Math.max(0, INTERACTION_MODE_CYCLE.indexOf(interactionMode));
-    const next = INTERACTION_MODE_CYCLE[(idx + 1) % INTERACTION_MODE_CYCLE.length]!;
+    const idx = Math.max(0, INTERACTION_MODE_OPTIONS.indexOf(interactionMode));
+    const next = INTERACTION_MODE_OPTIONS[(idx + 1) % INTERACTION_MODE_OPTIONS.length]!;
     handleInteractionModeChange(next);
   }, [handleInteractionModeChange, interactionMode]);
   const toggleRuntimeMode = useCallback(() => {
@@ -4072,9 +4072,9 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
           createdAt: messageCreatedAt,
         });
         // Optimistically open the plan sidebar when implementing (not refining).
-        // Chat/code mode here means the agent is executing the plan, which produces
+        // Code mode means the agent is executing the plan, which produces
         // step-tracking activities that the sidebar will display.
-        if (nextInteractionMode === "chat" || nextInteractionMode === "code") {
+        if (nextInteractionMode === "code") {
           planSidebarDismissedForTurnRef.current = null;
           setPlanSidebarOpen(true);
         }
@@ -5353,23 +5353,50 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
                                 className="mx-0.5 hidden h-4 sm:block"
                               />
 
-                              <Button
-                                variant="ghost"
-                                className="shrink-0 whitespace-nowrap px-2 text-muted-foreground/70 hover:text-foreground/80 sm:px-3"
-                                size="sm"
-                                type="button"
-                                onClick={toggleInteractionMode}
-                                title="Cycle interaction mode: Chat → Code → Plan"
+                              <div
+                                className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-border/70 bg-card/80 p-1 shadow-[inset_0_1px_0_hsl(0_0%_100%/0.03)]"
+                                aria-label="Thread mode"
+                                role="group"
                               >
-                                <BotIcon />
-                                <span className="sr-only sm:not-sr-only">
-                                  {interactionMode === "plan"
-                                    ? "Plan"
-                                    : interactionMode === "code"
-                                      ? "Code"
-                                      : "Chat"}
-                                </span>
-                              </Button>
+                                <Button
+                                  variant={interactionMode === "code" ? "secondary" : "ghost"}
+                                  className={cn(
+                                    "h-7 gap-1.5 rounded-lg px-2.5 text-xs sm:h-8 sm:px-3",
+                                    interactionMode === "code"
+                                      ? "bg-foreground text-background hover:bg-foreground/90 hover:text-background"
+                                      : "text-muted-foreground hover:text-foreground",
+                                  )}
+                                  size="sm"
+                                  type="button"
+                                  aria-pressed={interactionMode === "code"}
+                                  aria-label="Code mode"
+                                  data-testid="thread-mode-code"
+                                  title="Code mode"
+                                  onClick={() => handleInteractionModeChange("code")}
+                                >
+                                  <BotIcon className="size-3.5" />
+                                  <span>Code</span>
+                                </Button>
+                                <Button
+                                  variant={interactionMode === "plan" ? "secondary" : "ghost"}
+                                  className={cn(
+                                    "h-7 gap-1.5 rounded-lg px-2.5 text-xs sm:h-8 sm:px-3",
+                                    interactionMode === "plan"
+                                      ? "bg-blue-500/14 text-blue-200 ring-1 ring-inset ring-blue-400/40 hover:bg-blue-500/18 hover:text-blue-100"
+                                      : "text-muted-foreground hover:text-foreground",
+                                  )}
+                                  size="sm"
+                                  type="button"
+                                  aria-pressed={interactionMode === "plan"}
+                                  aria-label="Plan mode"
+                                  data-testid="thread-mode-plan"
+                                  title="Plan mode"
+                                  onClick={() => handleInteractionModeChange("plan")}
+                                >
+                                  <ListTodoIcon className="size-3.5" />
+                                  <span>Plan</span>
+                                </Button>
+                              </div>
 
                               <Separator
                                 orientation="vertical"

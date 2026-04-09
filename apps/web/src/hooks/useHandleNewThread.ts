@@ -37,10 +37,10 @@ export function useHandleNewThread() {
         branch?: string | null;
         worktreePath?: string | null;
         envMode?: DraftThreadEnvMode;
+        reuseExistingDraft?: boolean;
       },
     ): Promise<void> => {
       const {
-        clearProjectDraftThreadId,
         getDraftThread,
         getDraftThreadByProjectId,
         setModel,
@@ -52,11 +52,12 @@ export function useHandleNewThread() {
       const hasBranchOption = options?.branch !== undefined;
       const hasWorktreePathOption = options?.worktreePath !== undefined;
       const hasEnvModeOption = options?.envMode !== undefined;
+      const shouldReuseExistingDraft = options?.reuseExistingDraft === true;
       const storedDraftThread = getDraftThreadByProjectId(projectId);
       const latestActiveDraftThread: DraftThreadState | null = routeThreadId
         ? getDraftThread(routeThreadId)
         : null;
-      if (storedDraftThread) {
+      if (shouldReuseExistingDraft && storedDraftThread) {
         return (async () => {
           if (hasBranchOption || hasWorktreePathOption || hasEnvModeOption) {
             setDraftThreadContext(storedDraftThread.threadId, {
@@ -76,9 +77,8 @@ export function useHandleNewThread() {
         })();
       }
 
-      clearProjectDraftThreadId(projectId);
-
       if (
+        shouldReuseExistingDraft &&
         latestActiveDraftThread &&
         routeThreadId &&
         latestActiveDraftThread.projectId === projectId

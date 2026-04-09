@@ -96,6 +96,7 @@ import { OkCodeMark } from "./OkCodeMark";
 import {
   getVisibleThreadsForProject,
   isActionableThreadStatus,
+  mergeDraftThreadsIntoSidebarThreads,
   resolveProjectNameTone,
   resolveSidebarNewThreadEnvMode,
   resolveThreadStatusPill,
@@ -292,6 +293,7 @@ function SortableProjectItem({
 
 interface MemoizedThreadRowProps {
   thread: Thread;
+  isDraft: boolean;
   isActive: boolean;
   isSelected: boolean;
   prByThreadId: Map<ThreadIdType, ThreadPr>;
@@ -300,7 +302,7 @@ interface MemoizedThreadRowProps {
   editingThreadId: ThreadIdType | null;
   editingThreadTitle: string;
   bindInputRef: (node: HTMLInputElement | null) => void;
-  startEditing: (opts: { threadId: ThreadIdType; title: string }) => void;
+  startEditing: (opts: { threadId: ThreadIdType; title: string; isDraft?: boolean }) => void;
   setDraftTitle: (title: string) => void;
   commitEditing: () => Promise<void> | void;
   cancelEditing: () => void;
@@ -322,6 +324,7 @@ interface MemoizedThreadRowProps {
 const MemoizedThreadRow = memo(
   function ThreadRow({
     thread,
+    isDraft,
     isActive,
     isSelected,
     prByThreadId,
@@ -430,6 +433,7 @@ const MemoizedThreadRow = memo(
                 startEditing({
                   threadId: thread.id,
                   title: thread.title,
+                  isDraft,
                 });
               }}
               onDraftTitleChange={setDraftTitle}
@@ -443,6 +447,7 @@ const MemoizedThreadRow = memo(
     );
   },
   (prev, next) => {
+    if (prev.isDraft !== next.isDraft) return false;
     if (prev.isActive !== next.isActive) return false;
     if (prev.isSelected !== next.isSelected) return false;
     if (prev.thread.title !== next.thread.title) return false;
@@ -466,12 +471,16 @@ export default function Sidebar() {
   const threads = useStore((store) => store.threads);
   const markThreadUnread = useStore((store) => store.markThreadUnread);
   const toggleProject = useStore((store) => store.toggleProject);
+  const setProjectExpanded = useStore((store) => store.setProjectExpanded);
   const setAllProjectsExpanded = useStore((store) => store.setAllProjectsExpanded);
   const reorderProjects = useStore((store) => store.reorderProjects);
   const clearComposerDraftForThread = useComposerDraftStore((store) => store.clearDraftThread);
+  const clearDraftThread = useComposerDraftStore((store) => store.clearDraftThread);
+  const draftThreadsByThreadId = useComposerDraftStore((store) => store.draftThreadsByThreadId);
   const getDraftThreadByProjectId = useComposerDraftStore(
     (store) => store.getDraftThreadByProjectId,
   );
+  const setDraftThreadTitle = useComposerDraftStore((store) => store.setDraftThreadTitle);
   const clearTerminalState = useTerminalStateStore((state) => state.clearTerminalState);
   const clearProjectDraftThreadId = useComposerDraftStore(
     (store) => store.clearProjectDraftThreadId,
@@ -539,7 +548,11 @@ export default function Sidebar() {
     commitEditing,
     setDraftTitle,
     startEditing,
-  } = useThreadTitleEditor();
+  } = useThreadTitleEditor({
+    onRenameDraftThread: (threadId, title) => {
+      setDraftThreadTitle(threadId, title);
+    },
+  });
   const {
     editingProjectId,
     draftProjectTitle,
@@ -557,14 +570,29 @@ export default function Sidebar() {
     () => new Map(projects.map((project) => [project.id, project.cwd] as const)),
     [projects],
   );
-  const threadById = useMemo(
-    () => new Map(threads.map((thread) => [thread.id, thread] as const)),
-    [threads],
+  const projectModelById = useMemo(
+    () => new Map(projects.map((project) => [project.id, project.model] as const)),
+    [projects],
   );
+  const sidebarThreads = useMemo(
+    () =>
+      mergeDraftThreadsIntoSidebarThreads({
+        serverThreads: threads,
+        draftThreadsByThreadId,
+        projectModelByProjectId: projectModelById,
+      }),
+    [draftThreadsByThreadId, projectModelById, threads],
+  );
+  const threadById = useMemo(
+    () => new Map(sidebarThreads.map((thread) => [thread.id, thread] as const)),
+    [sidebarThreads],
+  );
+  const serverThreadIds = useMemo(() => new Set(threads.map((thread) => thread.id)), [threads]);
   const activeProjectId = routeThreadId ? (threadById.get(routeThreadId)?.projectId ?? null) : null;
+  const lastAutoExpandedThreadIdRef = useRef<ThreadIdType | null>(null);
   const sortedThreadsByProjectId = useMemo(
-    () => sortThreadsByProjectIdForSidebar(threads, appSettings.sidebarThreadSortOrder),
-    [appSettings.sidebarThreadSortOrder, threads],
+    () => sortThreadsByProjectIdForSidebar(sidebarThreads, appSettings.sidebarThreadSortOrder),
+    [appSettings.sidebarThreadSortOrder, sidebarThreads],
   );
   const orderedThreadIdsByProjectId = useMemo(() => {
     const orderedThreadIds = new Map<ProjectId, ThreadIdType[]>();
@@ -586,14 +614,25 @@ export default function Sidebar() {
     }
     return latestThreads;
   }, [sortedThreadsByProjectId]);
+
+  useEffect(() => {
+    if (!routeThreadId || !activeProjectId) {
+      return;
+    }
+    if (lastAutoExpandedThreadIdRef.current === routeThreadId) {
+      return;
+    }
+    lastAutoExpandedThreadIdRef.current = routeThreadId;
+    setProjectExpanded(activeProjectId, true);
+  }, [activeProjectId, routeThreadId, setProjectExpanded]);
   const threadGitTargets = useMemo(
     () =>
-      threads.map((thread) => ({
+      sidebarThreads.map((thread) => ({
         threadId: thread.id,
         branch: thread.branch,
         cwd: thread.worktreePath ?? projectCwdById.get(thread.projectId) ?? null,
       })),
-    [projectCwdById, threads],
+    [projectCwdById, sidebarThreads],
   );
   const threadGitStatusCwds = useMemo(
     () => [
@@ -789,10 +828,10 @@ export default function Sidebar() {
       threadId: ThreadId,
       opts: { deletedThreadIds?: ReadonlySet<ThreadId> } = {},
     ): Promise<void> => {
-      const api = readNativeApi();
-      if (!api) return;
       const thread = threadById.get(threadId);
       if (!thread) return;
+      const api = readNativeApi();
+      const isDraftThread = !serverThreadIds.has(threadId);
       const threadProject = projectById.get(thread.projectId);
       // When bulk-deleting, exclude the other threads being deleted so
       // getOrphanedWorktreePathForThread correctly detects that no surviving
@@ -800,14 +839,15 @@ export default function Sidebar() {
       const deletedIds = opts.deletedThreadIds;
       const survivingThreads =
         deletedIds && deletedIds.size > 0
-          ? threads.filter((t) => t.id === threadId || !deletedIds.has(t.id))
-          : threads;
+          ? sidebarThreads.filter((t) => t.id === threadId || !deletedIds.has(t.id))
+          : sidebarThreads;
       const orphanedWorktreePath = getOrphanedWorktreePathForThread(survivingThreads, threadId);
       const displayWorktreePath = orphanedWorktreePath
         ? formatWorktreePathForDisplay(orphanedWorktreePath)
         : null;
       const canDeleteWorktree = orphanedWorktreePath !== null && threadProject !== undefined;
       const shouldDeleteWorktree =
+        api &&
         canDeleteWorktree &&
         (await api.dialogs.confirm(
           [
@@ -818,7 +858,7 @@ export default function Sidebar() {
           ].join("\n"),
         ));
 
-      if (thread.session && thread.session.status !== "closed") {
+      if (!isDraftThread && api && thread.session && thread.session.status !== "closed") {
         await api.orchestration
           .dispatchCommand({
             type: "thread.session.stop",
@@ -829,22 +869,28 @@ export default function Sidebar() {
           .catch(() => undefined);
       }
 
-      try {
-        await api.terminal.close({ threadId, deleteHistory: true });
-      } catch {
-        // Terminal may already be closed
+      if (api) {
+        try {
+          await api.terminal.close({ threadId, deleteHistory: true });
+        } catch {
+          // Terminal may already be closed
+        }
       }
 
       const allDeletedIds = deletedIds ?? new Set<ThreadId>();
       const shouldNavigateToFallback = routeThreadId === threadId;
       const fallbackThreadId =
-        threads.find((entry) => entry.id !== threadId && !allDeletedIds.has(entry.id))?.id ?? null;
-      await api.orchestration.dispatchCommand({
-        type: "thread.delete",
-        commandId: newCommandId(),
-        threadId,
-      });
-      clearComposerDraftForThread(threadId);
+        sidebarThreads.find((entry) => entry.id !== threadId && !allDeletedIds.has(entry.id))?.id ??
+        null;
+      if (!isDraftThread) {
+        if (!api) return;
+        await api.orchestration.dispatchCommand({
+          type: "thread.delete",
+          commandId: newCommandId(),
+          threadId,
+        });
+      }
+      clearDraftThread(threadId);
       clearProjectDraftThreadById(thread.projectId, thread.id);
       clearTerminalState(threadId);
       if (shouldNavigateToFallback) {
@@ -885,15 +931,16 @@ export default function Sidebar() {
       }
     },
     [
-      clearComposerDraftForThread,
+      clearDraftThread,
       clearProjectDraftThreadById,
       clearTerminalState,
       navigate,
       projectById,
       removeWorktreeMutation,
       routeThreadId,
+      serverThreadIds,
+      sidebarThreads,
       threadById,
-      threads,
     ],
   );
 
@@ -938,12 +985,13 @@ export default function Sidebar() {
       if (!api) return;
       const thread = threadById.get(threadId);
       if (!thread) return;
+      const isDraftThread = !serverThreadIds.has(threadId);
       const threadWorkspacePath =
         thread.worktreePath ?? projectCwdById.get(thread.projectId) ?? null;
       const clicked = await api.contextMenu.show(
         [
           { id: "rename", label: "Rename thread" },
-          { id: "mark-unread", label: "Mark unread" },
+          ...(!isDraftThread ? [{ id: "mark-unread", label: "Mark unread" }] : []),
           { id: "copy-path", label: "Copy Path" },
           { id: "copy-thread-id", label: "Copy Thread ID" },
           { id: "delete", label: "Delete", destructive: true },
@@ -955,6 +1003,7 @@ export default function Sidebar() {
         startEditing({
           threadId,
           title: thread.title,
+          isDraft: isDraftThread,
         });
         return;
       }
@@ -1000,6 +1049,7 @@ export default function Sidebar() {
       deleteThread,
       markThreadUnread,
       projectCwdById,
+      serverThreadIds,
       startEditing,
       threadById,
     ],
@@ -1384,6 +1434,7 @@ export default function Sidebar() {
               <MemoizedThreadRow
                 key={thread.id}
                 thread={thread}
+                isDraft={!serverThreadIds.has(thread.id)}
                 isActive={routeThreadId === thread.id}
                 isSelected={selectedThreadIds.has(thread.id)}
                 prByThreadId={prByThreadId}

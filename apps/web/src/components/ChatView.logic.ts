@@ -1,7 +1,7 @@
-import { type MessageId, ProjectId, type ThreadId } from "@okcode/contracts";
-import { type ChatMessage, type Thread } from "../types";
+import { type MessageId, ProjectId } from "@okcode/contracts";
+import { type ChatMessage } from "../types";
 import { randomUUID } from "~/lib/utils";
-import { type ComposerAttachment, type DraftThreadState } from "../composerDraftStore";
+import { type ComposerAttachment } from "../composerDraftStore";
 import { Schema } from "effect";
 import {
   filterTerminalContextsWithText,
@@ -9,42 +9,12 @@ import {
   type TerminalContextDraft,
 } from "../lib/terminalContext";
 import { type PromptEnhancementId } from "../promptEnhancement";
-import { normalizeThreadTitle } from "../threadTitle";
+export { buildLocalDraftThread } from "../draftThreads";
 
 export const LAST_INVOKED_SCRIPT_BY_PROJECT_KEY = "okcode:last-invoked-script-by-project";
 const WORKTREE_BRANCH_PREFIX = "okcode";
 
 export const LastInvokedScriptByProjectSchema = Schema.Record(ProjectId, Schema.String);
-
-export function buildLocalDraftThread(
-  threadId: ThreadId,
-  draftThread: DraftThreadState,
-  fallbackModel: string,
-  error: string | null,
-): Thread {
-  return {
-    id: threadId,
-    codexThreadId: null,
-    projectId: draftThread.projectId,
-    title: normalizeThreadTitle(draftThread.title),
-    model: fallbackModel,
-    runtimeMode: draftThread.runtimeMode,
-    interactionMode: draftThread.interactionMode,
-    session: null,
-    messages: [],
-    error,
-    createdAt: draftThread.createdAt,
-    latestTurn: null,
-    lastVisitedAt: draftThread.createdAt,
-    branch: draftThread.branch,
-    worktreePath: draftThread.worktreePath,
-    worktreeBaseBranch: null,
-    ...(draftThread.githubRef ? { githubRef: draftThread.githubRef } : {}),
-    turnDiffSummaries: [],
-    activities: [],
-    proposedPlans: [],
-  };
-}
 
 export function revokeBlobPreviewUrl(previewUrl: string | undefined): void {
   if (!previewUrl || typeof URL === "undefined" || !previewUrl.startsWith("blob:")) {

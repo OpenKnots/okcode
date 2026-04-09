@@ -1776,11 +1776,12 @@ describe("ChatView timeline estimator parity (full app)", () => {
 
       await newThreadButton.click();
 
-      await waitForURL(
+      const secondThreadPath = await waitForURL(
         mounted.router,
-        (path) => path === threadPath,
-        "New-thread should reuse the existing project draft thread.",
+        (path) => UUID_ROUTE_RE.test(path) && path !== threadPath,
+        "New-thread should create a fresh draft thread UUID.",
       );
+      const secondThreadId = secondThreadPath.slice(1) as ThreadId;
       expect(useComposerDraftStore.getState().draftsByThreadId[threadId]).toMatchObject({
         model: "gpt-5.4",
         modelOptions: {
@@ -1790,6 +1791,8 @@ describe("ChatView timeline estimator parity (full app)", () => {
           },
         },
       });
+      expect(useComposerDraftStore.getState().draftThreadsByThreadId[threadId]).toBeDefined();
+      expect(useComposerDraftStore.getState().draftThreadsByThreadId[secondThreadId]).toBeDefined();
     } finally {
       await mounted.cleanup();
     }

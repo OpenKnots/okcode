@@ -5,6 +5,7 @@ import {
   getVisibleThreadsForProject,
   getProjectSortTimestamp,
   hasUnseenCompletion,
+  mergeDraftThreadsIntoSidebarThreads,
   resolveProjectStatusIndicator,
   resolveProjectNameTone,
   resolveSidebarNewThreadEnvMode,
@@ -16,6 +17,7 @@ import {
   sortThreadsForSidebar,
 } from "./Sidebar.logic";
 import { ProjectId, ThreadId } from "@okcode/contracts";
+import type { DraftThreadState } from "../composerDraftStore";
 import {
   DEFAULT_INTERACTION_MODE,
   DEFAULT_RUNTIME_MODE,
@@ -96,6 +98,62 @@ describe("resolveSidebarNewThreadEnvMode", () => {
         defaultEnvMode: "worktree",
       }),
     ).toBe("local");
+  });
+});
+
+describe("mergeDraftThreadsIntoSidebarThreads", () => {
+  it("includes preserved local drafts alongside server threads for the same project", () => {
+    const projectId = ProjectId.makeUnsafe("project-1");
+    const merged = mergeDraftThreadsIntoSidebarThreads({
+      serverThreads: [makeThread({ id: ThreadId.makeUnsafe("thread-server"), projectId })],
+      draftThreadsByThreadId: {
+        [ThreadId.makeUnsafe("thread-draft")]: {
+          projectId,
+          createdAt: "2026-03-09T11:00:00.000Z",
+          title: "Draft thread",
+          runtimeMode: DEFAULT_RUNTIME_MODE,
+          interactionMode: DEFAULT_INTERACTION_MODE,
+          branch: null,
+          worktreePath: null,
+          envMode: "local",
+        } satisfies DraftThreadState,
+      },
+      projectModelByProjectId: new Map([[projectId, "gpt-5.4"]]),
+    });
+
+    expect(merged.map((thread) => thread.id)).toEqual([
+      ThreadId.makeUnsafe("thread-server"),
+      ThreadId.makeUnsafe("thread-draft"),
+    ]);
+    expect(merged[1]).toMatchObject({
+      projectId,
+      title: "Draft thread",
+      model: "gpt-5.4",
+    });
+  });
+
+  it("skips draft entries once a server thread with the same id exists", () => {
+    const projectId = ProjectId.makeUnsafe("project-1");
+    const threadId = ThreadId.makeUnsafe("thread-shared");
+    const merged = mergeDraftThreadsIntoSidebarThreads({
+      serverThreads: [makeThread({ id: threadId, projectId })],
+      draftThreadsByThreadId: {
+        [threadId]: {
+          projectId,
+          createdAt: "2026-03-09T11:00:00.000Z",
+          title: "Promoted draft",
+          runtimeMode: DEFAULT_RUNTIME_MODE,
+          interactionMode: DEFAULT_INTERACTION_MODE,
+          branch: null,
+          worktreePath: null,
+          envMode: "local",
+        } satisfies DraftThreadState,
+      },
+      projectModelByProjectId: new Map([[projectId, "gpt-5.4"]]),
+    });
+
+    expect(merged).toHaveLength(1);
+    expect(merged[0]?.id).toBe(threadId);
   });
 });
 

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-04-08
+
+See [docs/releases/v0.19.0.md](docs/releases/v0.19.0.md) for full notes and [docs/releases/v0.19.0/assets.md](docs/releases/v0.19.0/assets.md) for release asset inventory.
+
+### Changed
+
+- Harden release workflow staging and optional CLI publishing.
+- Fix branch-handling issues that could confuse release-related push and PR flows.
+- Clear release-preflight blockers around server snapshot decoding and strict type checks.
+
+### Fixed
+
+- Fix formatting drift and release-preflight cleanup issues discovered during rollout.
+
 ## [0.18.0] - 2026-04-07
 
 See [docs/releases/v0.18.0.md](docs/releases/v0.18.0.md) for full notes and [docs/releases/v0.18.0/assets.md](docs/releases/v0.18.0/assets.md) for release asset inventory.

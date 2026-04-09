@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-04-09
+
+See [docs/releases/v0.21.0.md](docs/releases/v0.21.0.md) for full notes and [docs/releases/v0.21.0/assets.md](docs/releases/v0.21.0/assets.md) for release asset inventory.
+
+### Added
+
+- Add regression coverage for cleanup, connection health, terminal readiness, and native folder picker flows.
+- Add terminal runtime environment resolution so thread terminals can start with less startup work.
+
+### Changed
+
+- Centralize desktop renderer URL resolution for packaged and development shells.
+- Simplify thread mode controls to code and plan.
+- Archive older project threads when project limits are enforced.
+- Preserve local draft threads across project switches.
+- Reduce terminal session startup latency across the server and web terminal controller flow.
+- Collapse the workspace tree vertically when the panel is hidden.
+- Polish sidebar project name accent handling.
+- Update iOS team metadata, display name wiring, and Info.plist release settings.
+
+### Fixed
+
+- Resolve SME chat Anthropic authentication from persisted environment state.
+- Avoid stale SME store closures in the chat shell.
+
 ## [0.20.0] - 2026-04-09
 
 See [docs/releases/v0.20.0.md](docs/releases/v0.20.0.md) for full notes and [docs/releases/v0.20.0/assets.md](docs/releases/v0.20.0/assets.md) for release asset inventory.
@@ -612,3 +637,4 @@ First public version tag. See [docs/releases/v0.0.1.md](docs/releases/v0.0.1.md)
 [0.17.0]: https://github.com/OpenKnots/okcode/releases/tag/v0.17.0
 [0.18.0]: https://github.com/OpenKnots/okcode/releases/tag/v0.18.0
 [0.20.0]: https://github.com/OpenKnots/okcode/releases/tag/v0.20.0
+[0.21.0]: https://github.com/OpenKnots/okcode/releases/tag/v0.21.0

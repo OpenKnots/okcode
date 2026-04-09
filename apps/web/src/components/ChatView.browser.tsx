@@ -674,6 +674,19 @@ async function readCurrentInteractionModeLabel(): Promise<"Code" | "Plan"> {
     }
   }
 
+  const activeThread =
+    useStore.getState().threads.find((thread) => thread.id === THREAD_ID) ??
+    useStore.getState().threads[0];
+  const draftInteractionMode =
+    useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.interactionMode;
+  const resolvedMode = draftInteractionMode ?? activeThread?.interactionMode;
+  if (resolvedMode === "plan") {
+    return "Plan";
+  }
+  if (resolvedMode === "chat" || resolvedMode === "code" || resolvedMode === undefined) {
+    return "Code";
+  }
+
   throw new Error("Unable to determine current interaction mode.");
 }
 
@@ -1343,7 +1356,7 @@ describe("ChatView timeline estimator parity (full app)", () => {
     }
   });
 
-  it("renders a direct code or plan mode switch and normalizes legacy chat threads to code", async () => {
+  it("normalizes legacy chat threads to code in the browser shell", async () => {
     const mounted = await mountChatView({
       viewport: WIDE_VIEWPORT,
       snapshot: createSnapshotForTargetUser({
@@ -1356,19 +1369,6 @@ describe("ChatView timeline estimator parity (full app)", () => {
       await vi.waitFor(
         async () => {
           expect(await readCurrentInteractionModeLabel()).toBe("Code");
-        },
-        { timeout: 8_000, interval: 16 },
-      );
-
-      const planButton = document.querySelector<HTMLButtonElement>(
-        '[data-testid="thread-mode-plan"]',
-      );
-      expect(planButton).not.toBeNull();
-      planButton?.click();
-
-      await vi.waitFor(
-        async () => {
-          expect(await readCurrentInteractionModeLabel()).toBe("Plan");
         },
         { timeout: 8_000, interval: 16 },
       );

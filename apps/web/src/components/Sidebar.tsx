@@ -1584,6 +1584,62 @@ export default function Sidebar() {
   const newThreadShortcutLabel =
     shortcutLabelForCommand(keybindings, "chat.newLocal") ??
     shortcutLabelForCommand(keybindings, "chat.new");
+  const isOnHomeRoute = pathname === "/";
+  const brandFooterStatus = serverUpdateInfo?.updateAvailable
+    ? {
+        detail: `v${serverUpdateInfo.latestVersion} available`,
+        label: "Update",
+        pillStyle: {
+          backgroundColor: "color-mix(in srgb, var(--warning) 16%, transparent)",
+          color: "var(--warning-foreground)",
+        } as const,
+        surfaceStyle: {
+          backgroundColor: "color-mix(in srgb, var(--warning) 10%, transparent)",
+          borderColor: "color-mix(in srgb, var(--warning) 22%, var(--border))",
+        } as const,
+      }
+    : desktopUpdateState?.status === "downloaded"
+      ? {
+          detail: "Ready to install",
+          label: "Install",
+          pillStyle: {
+            backgroundColor: "color-mix(in srgb, var(--success) 16%, transparent)",
+            color: "var(--success-foreground)",
+          } as const,
+          surfaceStyle: {
+            backgroundColor: "color-mix(in srgb, var(--success) 10%, transparent)",
+            borderColor: "color-mix(in srgb, var(--success) 20%, var(--border))",
+          } as const,
+        }
+      : desktopUpdateState?.status === "downloading"
+        ? {
+            detail: "Update downloading",
+            label: "Syncing",
+            pillStyle: {
+              backgroundColor: "color-mix(in srgb, var(--info) 16%, transparent)",
+              color: "var(--info-foreground)",
+            } as const,
+            surfaceStyle: {
+              backgroundColor: "color-mix(in srgb, var(--info) 10%, transparent)",
+              borderColor: "color-mix(in srgb, var(--info) 20%, var(--border))",
+            } as const,
+          }
+        : {
+            detail: isOnHomeRoute ? "Workspace home" : "Open workspace home",
+            label: isOnHomeRoute ? "Home" : "Ready",
+            pillStyle: {
+              backgroundColor: "color-mix(in srgb, var(--primary) 16%, transparent)",
+              color: "var(--primary)",
+            } as const,
+            surfaceStyle: {
+              backgroundColor: isOnHomeRoute
+                ? "color-mix(in srgb, var(--primary) 14%, transparent)"
+                : "color-mix(in srgb, var(--primary) 10%, transparent)",
+              borderColor: isOnHomeRoute
+                ? "color-mix(in srgb, var(--primary) 26%, var(--border))"
+                : "color-mix(in srgb, var(--primary) 18%, var(--border))",
+            } as const,
+          };
 
   const handleDesktopUpdateButtonClick = useCallback(() => {
     const bridge = window.desktopBridge;
@@ -2122,16 +2178,16 @@ export default function Sidebar() {
         <Tooltip>
           <TooltipTrigger
             render={
-              <div
-                className="mt-2 rounded-xl border px-3 py-2 shadow-sm transition-colors"
-                style={{
-                  backgroundColor: "color-mix(in srgb, var(--primary) 10%, transparent)",
-                  borderColor: "color-mix(in srgb, var(--primary) 18%, var(--border))",
-                }}
+              <button
+                type="button"
+                aria-label={isOnHomeRoute ? `${APP_BASE_NAME} home` : `Open ${APP_BASE_NAME} home`}
+                className="group mt-2 flex w-full rounded-xl border px-3 py-2 text-left shadow-sm transition-[transform,background-color,border-color,box-shadow] hover:-translate-y-0.5 hover:shadow-md active:translate-y-0"
+                onClick={() => void navigate({ replace: isOnHomeRoute, to: "/" })}
+                style={brandFooterStatus.surfaceStyle}
               >
-                <div className="flex items-center gap-2">
+                <div className="flex w-full items-center gap-2">
                   <div
-                    className="flex size-7 items-center justify-center rounded-lg"
+                    className="flex size-7 shrink-0 items-center justify-center rounded-lg transition-transform group-hover:scale-[1.04]"
                     style={{
                       backgroundColor: "color-mix(in srgb, var(--primary) 18%, transparent)",
                       color: "var(--primary)",
@@ -2144,16 +2200,30 @@ export default function Sidebar() {
                     <span className="truncate text-sm font-semibold tracking-tight text-foreground">
                       {APP_BASE_NAME}
                     </span>
-                    <span className="text-[10px] font-medium uppercase tracking-[0.22em] text-primary/80">
-                      Version {APP_VERSION}
+                    <span className="text-[10px] font-medium uppercase tracking-[0.22em] text-muted-foreground/80">
+                      {brandFooterStatus.detail}
+                    </span>
+                  </div>
+                  <div className="ml-auto flex shrink-0 flex-col items-end gap-1">
+                    <span
+                      className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]"
+                      style={brandFooterStatus.pillStyle}
+                    >
+                      <CircleDotIcon className="size-2.5" />
+                      {brandFooterStatus.label}
+                    </span>
+                    <span className="text-[10px] font-medium tracking-wide text-muted-foreground/80">
+                      v{APP_VERSION}
                     </span>
                   </div>
                 </div>
-              </div>
+              </button>
             }
           />
           <TooltipPopup side="top" sideOffset={4}>
-            {APP_BASE_NAME} {APP_VERSION}
+            {isOnHomeRoute
+              ? `${APP_BASE_NAME} home • v${APP_VERSION}`
+              : `Open ${APP_BASE_NAME} home • v${APP_VERSION}`}
           </TooltipPopup>
         </Tooltip>
       </SidebarFooter>

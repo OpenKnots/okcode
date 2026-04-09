@@ -3,6 +3,7 @@ import { BookOpenIcon, SendIcon } from "lucide-react";
 import type { SmeConversationId, SmeMessage, SmeMessageId } from "@okcode/contracts";
 import { ensureNativeApi } from "~/nativeApi";
 import { useSmeStore } from "~/smeStore";
+import { toastManager } from "~/components/ui/toast";
 
 import { SmeMessageBubble } from "./SmeMessageBubble";
 
@@ -22,9 +23,12 @@ export function SmeChatWorkspace({
   const messages = useSmeStore((s) =>
     conversationId ? (s.messagesByConversation[conversationId] ?? EMPTY_MESSAGES) : EMPTY_MESSAGES,
   );
+  const streamingConversationId = useSmeStore((s) => s.streamingConversationId);
   const streamingMessageId = useSmeStore((s) => s.streamingMessageId);
   const streamingText = useSmeStore((s) => s.streamingText);
   const addUserMessage = useSmeStore((s) => s.addUserMessage);
+  const clearStream = useSmeStore((s) => s.clearStream);
+  const setMessages = useSmeStore((s) => s.setMessages);
   const [inputText, setInputText] = useState("");
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -41,6 +45,7 @@ export function SmeChatWorkspace({
     const text = inputText.trim();
     setInputText("");
     setSending(true);
+    const previousMessages = messages;
 
     // Optimistically add user message
     addUserMessage(conversationId, {
@@ -56,17 +61,38 @@ export function SmeChatWorkspace({
     try {
       const api = ensureNativeApi();
       await api.sme.sendMessage({ conversationId: conversationId as SmeConversationId, text });
-      // After the send completes, re-fetch messages to get the final state
       const result = await api.sme.getConversation({
         conversationId: conversationId as SmeConversationId,
       });
       if (result) {
-        useSmeStore.getState().setMessages(conversationId, result.messages as any[]);
+        setMessages(conversationId, result.messages as any[]);
       }
+    } catch (error) {
+      clearStream();
+
+      try {
+        const api = ensureNativeApi();
+        const result = await api.sme.getConversation({
+          conversationId: conversationId as SmeConversationId,
+        });
+        if (result) {
+          setMessages(conversationId, result.messages as any[]);
+        } else {
+          setMessages(conversationId, previousMessages);
+        }
+      } catch {
+        setMessages(conversationId, previousMessages);
+      }
+
+      toastManager.add({
+        type: "error",
+        title: "SME Chat send failed",
+        description: error instanceof Error ? error.message : "Unknown SME Chat error.",
+      });
     } finally {
       setSending(false);
     }
-  }, [conversationId, inputText, sending, addUserMessage]);
+  }, [conversationId, inputText, sending, messages, addUserMessage, clearStream, setMessages]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -116,7 +142,7 @@ export function SmeChatWorkspace({
           {messages.map((msg) => (
             <SmeMessageBubble key={msg.messageId} message={msg} />
           ))}
-          {streamingText ? (
+          {streamingConversationId === conversationId && streamingText ? (
             <SmeMessageBubble
               message={
                 {

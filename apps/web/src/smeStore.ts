@@ -6,6 +6,7 @@ export interface SmeState {
   documents: SmeKnowledgeDocument[];
   activeConversationId: string | null;
   messagesByConversation: Record<string, SmeMessage[]>;
+  streamingConversationId: string | null;
   streamingMessageId: string | null;
   streamingText: string;
 }
@@ -15,8 +16,8 @@ interface SmeActions {
   setDocuments: (documents: SmeKnowledgeDocument[]) => void;
   setActiveConversationId: (id: string | null) => void;
   setMessages: (conversationId: string, messages: SmeMessage[]) => void;
-  appendStreamDelta: (messageId: string, text: string) => void;
-  completeStream: (messageId: string, text: string) => void;
+  appendStreamDelta: (conversationId: string, messageId: string, text: string) => void;
+  completeStream: (conversationId: string, messageId: string, text: string) => void;
   clearStream: () => void;
   addConversation: (conversation: SmeConversation) => void;
   removeConversation: (conversationId: string) => void;
@@ -30,6 +31,7 @@ export const useSmeStore = create<SmeState & SmeActions>((set) => ({
   documents: [],
   activeConversationId: null,
   messagesByConversation: {},
+  streamingConversationId: null,
   streamingMessageId: null,
   streamingText: "",
 
@@ -45,22 +47,27 @@ export const useSmeStore = create<SmeState & SmeActions>((set) => ({
       },
     })),
 
-  appendStreamDelta: (messageId, text) =>
+  appendStreamDelta: (conversationId, messageId, text) =>
     set((state) => ({
+      streamingConversationId: conversationId,
       streamingMessageId: messageId,
-      streamingText: state.streamingText + text,
+      streamingText:
+        state.streamingConversationId === conversationId && state.streamingMessageId === messageId
+          ? state.streamingText + text
+          : text,
     })),
 
-  completeStream: (messageId, text) =>
+  completeStream: (conversationId, messageId, text) =>
     set((state) => {
-      const conversationId = Object.keys(state.messagesByConversation).find((cid) =>
-        state.messagesByConversation[cid]?.some(
-          (m) => m.messageId === messageId || state.streamingMessageId === messageId,
-        ),
-      );
-
-      if (!conversationId) {
-        return { streamingMessageId: null, streamingText: "" };
+      if (
+        state.streamingMessageId !== messageId ||
+        state.streamingConversationId !== conversationId
+      ) {
+        return {
+          streamingConversationId: null,
+          streamingMessageId: null,
+          streamingText: "",
+        };
       }
 
       const messages = state.messagesByConversation[conversationId] ?? [];
@@ -83,6 +90,7 @@ export const useSmeStore = create<SmeState & SmeActions>((set) => ({
       }
 
       return {
+        streamingConversationId: null,
         streamingMessageId: null,
         streamingText: "",
         messagesByConversation: {
@@ -92,7 +100,8 @@ export const useSmeStore = create<SmeState & SmeActions>((set) => ({
       };
     }),
 
-  clearStream: () => set({ streamingMessageId: null, streamingText: "" }),
+  clearStream: () =>
+    set({ streamingConversationId: null, streamingMessageId: null, streamingText: "" }),
 
   addConversation: (conversation) =>
     set((state) => ({

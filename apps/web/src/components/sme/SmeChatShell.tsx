@@ -24,12 +24,16 @@ export function SmeChatShell({
 }: SmeChatShellProps) {
   const [knowledgePanelOpen, setKnowledgePanelOpen] = useState(false);
   const activeConversationId = useSmeStore((s) => s.activeConversationId);
+  const setConversations = useSmeStore((s) => s.setConversations);
+  const setDocuments = useSmeStore((s) => s.setDocuments);
+  const setActiveConversationId = useSmeStore((s) => s.setActiveConversationId);
+  const appendStreamDelta = useSmeStore((s) => s.appendStreamDelta);
+  const completeStream = useSmeStore((s) => s.completeStream);
+  const clearStream = useSmeStore((s) => s.clearStream);
 
   // Load conversations and documents when project changes
   useEffect(() => {
     const api = ensureNativeApi();
-    const { setConversations, setDocuments, setActiveConversationId } =
-      useSmeStore.getState();
     void api.sme.listConversations({ projectId: project.id }).then((convs) => {
       setConversations(convs as any[]);
     });
@@ -38,7 +42,8 @@ export function SmeChatShell({
     });
     // Reset active conversation when switching projects
     setActiveConversationId(null);
-  }, [project.id]);
+    clearStream();
+  }, [project.id, setConversations, setDocuments, setActiveConversationId, clearStream]);
 
   // Load messages when active conversation changes
   useEffect(() => {
@@ -58,13 +63,13 @@ export function SmeChatShell({
     const api = ensureNativeApi();
     const unsubscribe = api.sme.onMessageEvent((event: SmeMessageEvent) => {
       if (event.type === "sme.message.delta") {
-        useSmeStore.getState().appendStreamDelta(event.messageId, event.text);
+        appendStreamDelta(event.conversationId, event.messageId, event.text);
       } else if (event.type === "sme.message.complete") {
-        useSmeStore.getState().completeStream(event.messageId, event.text);
+        completeStream(event.conversationId, event.messageId, event.text);
       }
     });
     return unsubscribe;
-  }, []);
+  }, [appendStreamDelta, completeStream]);
 
   return (
     <div className="flex min-h-0 flex-1 overflow-hidden">

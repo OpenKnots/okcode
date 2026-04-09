@@ -6,6 +6,8 @@ import { useSmeStore } from "~/smeStore";
 
 import { SmeMessageBubble } from "./SmeMessageBubble";
 
+const EMPTY_MESSAGES: SmeMessage[] = [];
+
 interface SmeChatWorkspaceProps {
   conversationId: string | null;
   onToggleKnowledge: () => void;
@@ -18,7 +20,7 @@ export function SmeChatWorkspace({
   knowledgePanelOpen,
 }: SmeChatWorkspaceProps) {
   const messages = useSmeStore((s) =>
-    conversationId ? (s.messagesByConversation[conversationId] ?? []) : [],
+    conversationId ? (s.messagesByConversation[conversationId] ?? EMPTY_MESSAGES) : EMPTY_MESSAGES,
   );
   const streamingMessageId = useSmeStore((s) => s.streamingMessageId);
   const streamingText = useSmeStore((s) => s.streamingText);

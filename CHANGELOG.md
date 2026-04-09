@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-04-09
+
+See [docs/releases/v0.20.0.md](docs/releases/v0.20.0.md) for full notes and [docs/releases/v0.20.0/assets.md](docs/releases/v0.20.0/assets.md) for release asset inventory.
+
+### Added
+
+- Turn the sidebar footer brand block into a clickable home/status affordance.
+- Add OpenClaw gateway auth timeout diagnostics.
+
+### Changed
+
+- Use default tree for new chats and show stash badges.
+- Reuse stable empty message array in SME chat.
+- Refresh sidebar branding and align package versions.
+- Refresh sidebar app footer branding.
+
 ## [0.19.0] - 2026-04-08
 
 See [docs/releases/v0.19.0.md](docs/releases/v0.19.0.md) for full notes and [docs/releases/v0.19.0/assets.md](docs/releases/v0.19.0/assets.md) for release asset inventory.
@@ -595,3 +611,4 @@ First public version tag. See [docs/releases/v0.0.1.md](docs/releases/v0.0.1.md)
 [0.16.1]: https://github.com/OpenKnots/okcode/releases/tag/v0.16.1
 [0.17.0]: https://github.com/OpenKnots/okcode/releases/tag/v0.17.0
 [0.18.0]: https://github.com/OpenKnots/okcode/releases/tag/v0.18.0
+[0.20.0]: https://github.com/OpenKnots/okcode/releases/tag/v0.20.0

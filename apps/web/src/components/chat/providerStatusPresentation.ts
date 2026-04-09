@@ -7,6 +7,7 @@ const PROVIDER_LABELS = {
   codex: "OpenAI (Codex CLI)",
   claudeAgent: "Anthropic (Claude Code)",
   openclaw: "OpenClaw",
+  copilot: "GitHub Copilot",
 } as const;
 
 export function getProviderLabel(provider: ServerProviderStatus["provider"]): string {

@@ -10,6 +10,10 @@ export function getProviderLabel(provider: ServerProviderStatus["provider"]) {
       return "Claude";
     case "codex":
       return "Codex";
+    case "openclaw":
+      return "OpenClaw";
+    case "copilot":
+      return "GitHub Copilot";
   }
 }
 

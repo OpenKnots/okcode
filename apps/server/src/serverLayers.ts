@@ -166,6 +166,7 @@ export function makeServerRuntimeServicesLayer() {
   const githubLayer = GitHubLive.pipe(Layer.provideMerge(GitHubCliLive));
 
   const smeChatLayer = SmeChatServiceLive.pipe(
+    Layer.provideMerge(EnvironmentVariablesLive),
     Layer.provide(SmeKnowledgeDocumentRepositoryLive),
     Layer.provide(SmeConversationRepositoryLive),
     Layer.provide(SmeMessageRepositoryLive),

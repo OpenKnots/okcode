@@ -318,17 +318,50 @@ describe("resolveThreadRowClassName", () => {
 
 describe("resolveProjectNameTone", () => {
   it("keeps the selected project name on its assigned project color", () => {
-    expect(resolveProjectNameTone({ isSelectedProject: true, visualIndex: 3 })).toBe("project");
+    expect(
+      resolveProjectNameTone({
+        isSelectedProject: true,
+        accentProjectNames: false,
+        visualIndex: 3,
+      }),
+    ).toBe("project");
   });
 
-  it("starts inactive project names on the stronger muted grey", () => {
-    expect(resolveProjectNameTone({ isSelectedProject: false, visualIndex: 0 })).toBe(
-      "mutedStrong",
-    );
+  it("uses project color for all names when accentProjectNames is true", () => {
+    expect(
+      resolveProjectNameTone({
+        isSelectedProject: false,
+        accentProjectNames: true,
+        visualIndex: 0,
+      }),
+    ).toBe("project");
+    expect(
+      resolveProjectNameTone({
+        isSelectedProject: false,
+        accentProjectNames: true,
+        visualIndex: 1,
+      }),
+    ).toBe("project");
   });
 
-  it("alternates inactive project names to a softer muted grey on the next row", () => {
-    expect(resolveProjectNameTone({ isSelectedProject: false, visualIndex: 1 })).toBe("mutedSoft");
+  it("starts inactive project names on the stronger muted grey when accent is off", () => {
+    expect(
+      resolveProjectNameTone({
+        isSelectedProject: false,
+        accentProjectNames: false,
+        visualIndex: 0,
+      }),
+    ).toBe("mutedStrong");
+  });
+
+  it("alternates inactive project names to a softer muted grey on the next row when accent is off", () => {
+    expect(
+      resolveProjectNameTone({
+        isSelectedProject: false,
+        accentProjectNames: false,
+        visualIndex: 1,
+      }),
+    ).toBe("mutedSoft");
   });
 });
 

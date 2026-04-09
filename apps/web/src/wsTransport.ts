@@ -7,6 +7,7 @@ import {
   type WsResponse as WsResponseMessage,
   WsResponse as WsResponseSchema,
 } from "@okcode/contracts";
+import { redactSensitiveText, redactSensitiveValue } from "@okcode/shared/redaction";
 import { decodeUnknownJsonResult, formatSchemaError } from "@okcode/shared/schemaJson";
 import { Result, Schema } from "effect";
 import { resolveRuntimeWsUrl } from "./lib/runtimeBridge";
@@ -72,10 +73,10 @@ export class WsRequestError<T = unknown> extends Error {
   readonly data: T | undefined;
 
   constructor(input: WebSocketErrorPayload) {
-    super(input.message);
+    super(redactSensitiveText(input.message));
     this.name = "WsRequestError";
     this.code = input.code;
-    this.data = input.data as T | undefined;
+    this.data = redactSensitiveValue(input.data) as T | undefined;
   }
 }
 

@@ -51,6 +51,10 @@
     "./brand": {
       "types": "./src/brand.ts",
       "import": "./src/brand.ts"
+    },
+    "./redaction": {
+      "types": "./src/redaction.ts",
+      "import": "./src/redaction.ts"
     }
   },
   "scripts": {

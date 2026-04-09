@@ -23,6 +23,19 @@ describe("humanizeThreadError", () => {
     });
   });
 
+  it("redacts secret-like values before presenting thread errors", () => {
+    expect(
+      humanizeThreadError(
+        "Git command failed in GitCore.createWorktree: OPENAI_API_KEY=sk-proj-secret (/repo) - token=abc123",
+      ),
+    ).toEqual({
+      title: "Worktree thread could not start",
+      description: "token=[REDACTED]",
+      technicalDetails:
+        "Git command failed in GitCore.createWorktree: OPENAI_API_KEY=[REDACTED] (/repo) - token=[REDACTED]",
+    });
+  });
+
   it("detects provider authentication failures", () => {
     expect(
       isAuthenticationThreadError(

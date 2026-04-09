@@ -180,6 +180,49 @@ describe("WsTransport", () => {
     transport.dispose();
   });
 
+  it("redacts secret-like values from rejected websocket errors", async () => {
+    const transport = new WsTransport("ws://localhost:3020");
+    const socket = getSocket();
+    socket.open();
+
+    const requestPromise = transport.request("git.runStackedAction", { cwd: "/repo" });
+    const sent = socket.sent.at(-1);
+    if (!sent) {
+      throw new Error("Expected request envelope to be sent");
+    }
+
+    const requestEnvelope = JSON.parse(sent) as { id: string };
+    socket.serverMessage(
+      JSON.stringify({
+        id: requestEnvelope.id,
+        error: {
+          message: "Push failed for sk-proj-secret",
+          code: "git_action_failed",
+          data: {
+            code: "unknown",
+            phase: "push",
+            title: "Push failed",
+            summary: "Push failed for sk-proj-secret",
+            detail: "token=abc123 OPENAI_API_KEY=sk-proj-secret",
+            nextSteps: ["Unset OPENAI_API_KEY=sk-proj-secret"],
+          },
+        },
+      }),
+    );
+
+    await expect(requestPromise).rejects.toMatchObject({
+      message: "Push failed for [REDACTED]",
+      code: "git_action_failed",
+      data: {
+        summary: "Push failed for [REDACTED]",
+        detail: "token=[REDACTED] OPENAI_API_KEY=[REDACTED]",
+        nextSteps: ["Unset OPENAI_API_KEY=[REDACTED]"],
+      },
+    });
+
+    transport.dispose();
+  });
+
   it("drops malformed envelopes without crashing transport", () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const transport = new WsTransport("ws://localhost:3020");

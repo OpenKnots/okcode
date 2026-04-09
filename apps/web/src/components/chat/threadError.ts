@@ -1,3 +1,5 @@
+import { redactSensitiveText } from "@okcode/shared/redaction";
+
 export interface ThreadErrorPresentation {
   title: string | null;
   description: string;
@@ -36,7 +38,7 @@ export function isAuthenticationThreadError(error: string | null | undefined): b
 }
 
 export function humanizeThreadError(error: string): ThreadErrorPresentation {
-  const trimmed = error.trim();
+  const trimmed = redactSensitiveText(error).trim();
   const worktreeDetail = extractWorktreeDetail(trimmed);
   if (worktreeDetail) {
     return {

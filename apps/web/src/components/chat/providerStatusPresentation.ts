@@ -1,4 +1,5 @@
 import { type ServerProviderStatus } from "@okcode/contracts";
+import { redactSensitiveText } from "@okcode/shared/redaction";
 
 export type ProviderSetupPhase = "install" | "authenticate" | "verify" | "ready";
 
@@ -43,7 +44,7 @@ export function getProviderStatusHeading(status: ServerProviderStatus): string {
 
 export function getProviderStatusDescription(status: ServerProviderStatus): string {
   if (status.message) {
-    return status.message;
+    return redactSensitiveText(status.message);
   }
 
   const label = getProviderLabel(status.provider);

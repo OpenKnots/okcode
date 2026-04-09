@@ -90,6 +90,7 @@ import { expandHomePath } from "./os-jank.ts";
 import { makeServerPushBus } from "./wsServer/pushBus.ts";
 import { makeServerReadiness } from "./wsServer/readiness.ts";
 import { decodeJsonResult, formatSchemaError } from "@okcode/shared/schemaJson";
+import { redactSensitiveText, redactSensitiveValue } from "@okcode/shared/redaction";
 import { PrReview } from "./prReview/Services/PrReview.ts";
 import { GitHub } from "./github/Services/GitHub.ts";
 import { GitActionExecutionError } from "./git/Errors.ts";
@@ -1685,17 +1686,17 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
       squashed instanceof GitActionExecutionError
     ) {
       return {
-        message: squashed.failure.summary,
+        message: redactSensitiveText(squashed.failure.summary),
         code: "git_action_failed",
-        data: squashed.failure,
+        data: redactSensitiveValue(squashed.failure),
       };
     }
 
     if (squashed instanceof Error) {
-      return { message: squashed.message };
+      return { message: redactSensitiveText(squashed.message) };
     }
 
-    return { message: Cause.pretty(cause) };
+    return { message: redactSensitiveText(Cause.pretty(cause)) };
   };
 
   const handleMessage = Effect.fnUntraced(function* (ws: WebSocket, raw: unknown) {

@@ -143,14 +143,43 @@ export const TestOpenclawGatewayInput = Schema.Struct({
 });
 export type TestOpenclawGatewayInput = typeof TestOpenclawGatewayInput.Type;
 
+export const TestOpenclawGatewayStepStatus = Schema.Literals(["pass", "fail", "skip"]);
+export type TestOpenclawGatewayStepStatus = typeof TestOpenclawGatewayStepStatus.Type;
+
 /** Individual step result in the gateway connection test. */
 export const TestOpenclawGatewayStep = Schema.Struct({
   name: Schema.String,
-  status: Schema.Literals(["pass", "fail", "skip"]),
+  status: TestOpenclawGatewayStepStatus,
   durationMs: Schema.Number,
   detail: Schema.optional(Schema.String),
 });
 export type TestOpenclawGatewayStep = typeof TestOpenclawGatewayStep.Type;
+
+export const TestOpenclawGatewayHostKind = Schema.Literals([
+  "loopback",
+  "tailscale",
+  "private",
+  "public",
+  "unknown",
+]);
+export type TestOpenclawGatewayHostKind = typeof TestOpenclawGatewayHostKind.Type;
+
+export const TestOpenclawGatewayDiagnostics = Schema.Struct({
+  normalizedUrl: Schema.optional(Schema.String),
+  host: Schema.optional(Schema.String),
+  pathname: Schema.optional(Schema.String),
+  hostKind: Schema.optional(TestOpenclawGatewayHostKind),
+  resolvedAddresses: Schema.Array(Schema.String),
+  healthUrl: Schema.optional(Schema.String),
+  healthStatus: TestOpenclawGatewayStepStatus,
+  healthDetail: Schema.optional(Schema.String),
+  socketCloseCode: Schema.optional(Schema.Number),
+  socketCloseReason: Schema.optional(Schema.String),
+  socketError: Schema.optional(Schema.String),
+  observedNotifications: Schema.Array(Schema.String),
+  hints: Schema.Array(Schema.String),
+});
+export type TestOpenclawGatewayDiagnostics = typeof TestOpenclawGatewayDiagnostics.Type;
 
 export const TestOpenclawGatewayResult = Schema.Struct({
   success: Schema.Boolean,
@@ -164,6 +193,7 @@ export const TestOpenclawGatewayResult = Schema.Struct({
       sessionId: Schema.optional(Schema.String),
     }),
   ),
+  diagnostics: Schema.optional(TestOpenclawGatewayDiagnostics),
   error: Schema.optional(Schema.String),
 });
 export type TestOpenclawGatewayResult = typeof TestOpenclawGatewayResult.Type;

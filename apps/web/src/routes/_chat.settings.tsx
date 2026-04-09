@@ -13,7 +13,7 @@ import {
   XIcon,
 } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
-import type { TestOpenclawGatewayResult } from "@okcode/contracts";
+import type { TestOpenclawGatewayHostKind, TestOpenclawGatewayResult } from "@okcode/contracts";
 import {
   type BuildMetadata,
   type ProjectId,
@@ -51,6 +51,7 @@ import { CustomThemeDialog } from "../components/CustomThemeDialog";
 import { resolveAndPersistPreferredEditor } from "../editorPreferences";
 import { isElectron, isMobileShell } from "../env";
 import { useTheme, COLOR_THEMES, DEFAULT_COLOR_THEME, FONT_FAMILIES } from "../hooks/useTheme";
+import { useCopyToClipboard } from "../hooks/useCopyToClipboard";
 import {
   environmentVariablesQueryKeys,
   globalEnvironmentVariablesQueryOptions,
@@ -110,6 +111,111 @@ const PR_REVIEW_REQUEST_CHANGES_TONE_OPTIONS: ReadonlyArray<{
   { value: "neutral", label: "Neutral" },
   { value: "brand", label: "Brand" },
 ];
+
+function describeOpenclawGatewayHostKind(hostKind: TestOpenclawGatewayHostKind): string {
+  switch (hostKind) {
+    case "loopback":
+      return "Loopback / same machine";
+    case "tailscale":
+      return "Tailscale / tailnet";
+    case "private":
+      return "Private LAN";
+    case "public":
+      return "Public / internet-routable";
+    case "unknown":
+      return "Unknown";
+  }
+}
+
+function describeOpenclawGatewayHealthStatus(result: TestOpenclawGatewayResult): string | null {
+  const diagnostics = result.diagnostics;
+  if (!diagnostics) return null;
+  switch (diagnostics.healthStatus) {
+    case "pass":
+      return diagnostics.healthDetail ? `Reachable (${diagnostics.healthDetail})` : "Reachable";
+    case "fail":
+      return diagnostics.healthDetail ? `Failed (${diagnostics.healthDetail})` : "Failed";
+    case "skip":
+      return diagnostics.healthDetail ?? "Skipped";
+  }
+}
+
+function formatOpenclawGatewayDebugReport(result: TestOpenclawGatewayResult): string {
+  const lines = [
+    `OpenClaw gateway connection test: ${result.success ? "success" : "failed"}`,
+    `Total duration: ${result.totalDurationMs}ms`,
+  ];
+
+  if (result.error) {
+    lines.push(`Error: ${result.error}`);
+  }
+
+  lines.push("");
+  lines.push("Steps:");
+  for (const step of result.steps) {
+    lines.push(
+      `- ${step.name}: ${step.status} (${step.durationMs}ms)${
+        step.detail ? ` — ${step.detail}` : ""
+      }`,
+    );
+  }
+
+  if (result.serverInfo) {
+    lines.push("");
+    lines.push("Server info:");
+    if (result.serverInfo.version) {
+      lines.push(`- Version: ${result.serverInfo.version}`);
+    }
+    if (result.serverInfo.sessionId) {
+      lines.push(`- Session: ${result.serverInfo.sessionId}`);
+    }
+  }
+
+  if (result.diagnostics) {
+    const diagnostics = result.diagnostics;
+    lines.push("");
+    lines.push("Diagnostics:");
+    if (diagnostics.normalizedUrl) {
+      lines.push(`- Endpoint: ${diagnostics.normalizedUrl}`);
+    }
+    if (diagnostics.hostKind) {
+      lines.push(`- Host type: ${describeOpenclawGatewayHostKind(diagnostics.hostKind)}`);
+    }
+    if (diagnostics.resolvedAddresses.length > 0) {
+      lines.push(`- Resolved: ${diagnostics.resolvedAddresses.join(", ")}`);
+    }
+    const healthStatus = describeOpenclawGatewayHealthStatus(result);
+    if (healthStatus) {
+      lines.push(
+        `- Health probe: ${healthStatus}${
+          diagnostics.healthUrl ? ` at ${diagnostics.healthUrl}` : ""
+        }`,
+      );
+    }
+    if (diagnostics.socketCloseCode !== undefined) {
+      lines.push(
+        `- Socket close: ${diagnostics.socketCloseCode}${
+          diagnostics.socketCloseReason ? ` (${diagnostics.socketCloseReason})` : ""
+        }`,
+      );
+    }
+    if (diagnostics.socketError) {
+      lines.push(`- Socket error: ${diagnostics.socketError}`);
+    }
+    if (diagnostics.observedNotifications.length > 0) {
+      lines.push(`- Gateway notifications: ${diagnostics.observedNotifications.join(", ")}`);
+    }
+    if (diagnostics.hints.length > 0) {
+      lines.push("");
+      lines.push("Troubleshooting:");
+      for (const hint of diagnostics.hints) {
+        lines.push(`- ${hint}`);
+      }
+    }
+  }
+
+  return lines.join("\n");
+}
 
 type InstallBinarySettingsKey = "claudeBinaryPath" | "codexBinaryPath";
 type InstallProviderSettings = {
@@ -406,6 +512,8 @@ function SettingsRouteView() {
     null,
   );
   const [openclawTestLoading, setOpenclawTestLoading] = useState(false);
+  const { copyToClipboard: copyOpenclawDebugReport, isCopied: openclawDebugReportCopied } =
+    useCopyToClipboard();
 
   const globalEnvironmentVariablesQuery = useQuery(globalEnvironmentVariablesQueryOptions());
   const activeProjectId = selectedProjectId ?? projects[0]?.id ?? null;
@@ -601,6 +709,11 @@ function SettingsRouteView() {
       setOpenclawTestLoading(false);
     }
   }, [openclawTestLoading, settings.openclawGatewayUrl, settings.openclawPassword]);
+
+  const handleCopyOpenclawDebugReport = useCallback(() => {
+    if (!openclawTestResult) return;
+    copyOpenclawDebugReport(formatOpenclawGatewayDebugReport(openclawTestResult), undefined);
+  }, [copyOpenclawDebugReport, openclawTestResult]);
 
   const addCustomModel = useCallback(
     (provider: ProviderKind) => {
@@ -2184,6 +2297,14 @@ function SettingsRouteView() {
                         <span className="ml-auto text-[10px] tabular-nums text-muted-foreground">
                           {openclawTestResult.totalDurationMs}ms total
                         </span>
+                        <Button
+                          variant="ghost"
+                          size="xs"
+                          className="h-6 px-2 text-[10px]"
+                          onClick={handleCopyOpenclawDebugReport}
+                        >
+                          {openclawDebugReportCopied ? "Copied!" : "Copy debug report"}
+                        </Button>
                       </div>
 
                       {/* Step-by-step results */}
@@ -2247,6 +2368,103 @@ function SettingsRouteView() {
                           </div>
                         </div>
                       )}
+
+                      {openclawTestResult.diagnostics && (
+                        <div className="mt-2.5 border-t border-border pt-2">
+                          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                            Debugging Context
+                          </span>
+                          <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                            {openclawTestResult.diagnostics.normalizedUrl && (
+                              <div>
+                                Endpoint:{" "}
+                                <span className="break-all font-mono text-foreground">
+                                  {openclawTestResult.diagnostics.normalizedUrl}
+                                </span>
+                              </div>
+                            )}
+                            {openclawTestResult.diagnostics.hostKind && (
+                              <div>
+                                Host type:{" "}
+                                <span className="text-foreground">
+                                  {describeOpenclawGatewayHostKind(
+                                    openclawTestResult.diagnostics.hostKind,
+                                  )}
+                                </span>
+                              </div>
+                            )}
+                            {openclawTestResult.diagnostics.resolvedAddresses.length > 0 && (
+                              <div>
+                                Resolved:{" "}
+                                <span className="break-all font-mono text-foreground">
+                                  {openclawTestResult.diagnostics.resolvedAddresses.join(", ")}
+                                </span>
+                              </div>
+                            )}
+                            {describeOpenclawGatewayHealthStatus(openclawTestResult) && (
+                              <div>
+                                Health probe:{" "}
+                                <span className="text-foreground">
+                                  {describeOpenclawGatewayHealthStatus(openclawTestResult)}
+                                </span>
+                                {openclawTestResult.diagnostics.healthUrl && (
+                                  <>
+                                    {" "}
+                                    at{" "}
+                                    <span className="break-all font-mono text-foreground">
+                                      {openclawTestResult.diagnostics.healthUrl}
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                            )}
+                            {openclawTestResult.diagnostics.socketCloseCode !== undefined && (
+                              <div>
+                                Socket close:{" "}
+                                <span className="text-foreground">
+                                  {openclawTestResult.diagnostics.socketCloseCode}
+                                  {openclawTestResult.diagnostics.socketCloseReason
+                                    ? ` (${openclawTestResult.diagnostics.socketCloseReason})`
+                                    : ""}
+                                </span>
+                              </div>
+                            )}
+                            {openclawTestResult.diagnostics.socketError && (
+                              <div>
+                                Socket error:{" "}
+                                <span className="break-all text-foreground">
+                                  {openclawTestResult.diagnostics.socketError}
+                                </span>
+                              </div>
+                            )}
+                            {openclawTestResult.diagnostics.observedNotifications.length > 0 && (
+                              <div>
+                                Gateway notifications:{" "}
+                                <span className="break-all font-mono text-foreground">
+                                  {openclawTestResult.diagnostics.observedNotifications.join(", ")}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {openclawTestResult.diagnostics &&
+                        openclawTestResult.diagnostics.hints.length > 0 && (
+                          <div className="mt-2.5 border-t border-border pt-2">
+                            <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                              Troubleshooting
+                            </span>
+                            <ul className="mt-1 space-y-1 text-xs text-muted-foreground">
+                              {openclawTestResult.diagnostics.hints.map((hint) => (
+                                <li key={hint} className="flex gap-2">
+                                  <span className="mt-[6px] size-1 shrink-0 rounded-full bg-muted-foreground/60" />
+                                  <span>{hint}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
 
                       {/* Error summary */}
                       {openclawTestResult.error &&

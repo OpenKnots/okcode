@@ -241,16 +241,16 @@ describe("parseStandaloneComposerSlashCommand", () => {
     expect(parseStandaloneComposerSlashCommand(" /plan ")).toBe("plan");
   });
 
-  it("parses standalone /chat command", () => {
-    expect(parseStandaloneComposerSlashCommand("/chat")).toBe("chat");
+  it("maps legacy /chat command to code mode", () => {
+    expect(parseStandaloneComposerSlashCommand("/chat")).toBe("code");
   });
 
   it("parses standalone /code command", () => {
     expect(parseStandaloneComposerSlashCommand("/code")).toBe("code");
   });
 
-  it("maps legacy /default to chat mode", () => {
-    expect(parseStandaloneComposerSlashCommand("/default")).toBe("chat");
+  it("maps legacy /default to code mode", () => {
+    expect(parseStandaloneComposerSlashCommand("/default")).toBe("code");
   });
 
   it("ignores slash commands with extra message text", () => {

@@ -649,17 +649,14 @@ function isVisibleElement(element: Element | null): element is HTMLElement {
   );
 }
 
-async function readCurrentInteractionModeLabel(): Promise<"Chat" | "Code" | "Plan"> {
-  const inlineButton = Array.from(document.querySelectorAll("button")).find((button) => {
-    const label = button.textContent?.trim();
-    return (
-      button.getAttribute("title") === "Cycle interaction mode: Chat → Code → Plan" &&
-      (label === "Chat" || label === "Code" || label === "Plan")
-    );
-  });
-  const inlineLabel = inlineButton?.textContent?.trim();
-  if (inlineLabel === "Chat" || inlineLabel === "Code" || inlineLabel === "Plan") {
-    return inlineLabel;
+async function readCurrentInteractionModeLabel(): Promise<"Code" | "Plan"> {
+  const codeButton = document.querySelector<HTMLButtonElement>('[data-testid="thread-mode-code"]');
+  const planButton = document.querySelector<HTMLButtonElement>('[data-testid="thread-mode-plan"]');
+  if (codeButton?.getAttribute("aria-pressed") === "true") {
+    return "Code";
+  }
+  if (planButton?.getAttribute("aria-pressed") === "true") {
+    return "Plan";
   }
 
   const compactMenuTrigger = document.querySelector<HTMLButtonElement>(
@@ -672,7 +669,7 @@ async function readCurrentInteractionModeLabel(): Promise<"Chat" | "Code" | "Pla
       '[role="menuitemradio"][aria-checked="true"]',
     );
     const radioLabel = selectedRadio?.textContent?.trim();
-    if (radioLabel === "Chat" || radioLabel === "Code" || radioLabel === "Plan") {
+    if (radioLabel === "Code" || radioLabel === "Plan") {
       return radioLabel;
     }
   }
@@ -1291,7 +1288,7 @@ describe("ChatView timeline estimator parity (full app)", () => {
     try {
       await vi.waitFor(
         async () => {
-          expect(await readCurrentInteractionModeLabel()).toBe("Chat");
+          expect(await readCurrentInteractionModeLabel()).toBe("Code");
         },
         { timeout: 8_000, interval: 16 },
       );
@@ -1306,7 +1303,7 @@ describe("ChatView timeline estimator parity (full app)", () => {
       );
       await waitForLayout();
 
-      expect(await readCurrentInteractionModeLabel()).toBe("Chat");
+      expect(await readCurrentInteractionModeLabel()).toBe("Code");
 
       const composerEditor = await waitForComposerEditor();
       composerEditor.focus();
@@ -1337,7 +1334,41 @@ describe("ChatView timeline estimator parity (full app)", () => {
 
       await vi.waitFor(
         async () => {
-          expect(await readCurrentInteractionModeLabel()).toBe("Chat");
+          expect(await readCurrentInteractionModeLabel()).toBe("Code");
+        },
+        { timeout: 8_000, interval: 16 },
+      );
+    } finally {
+      await mounted.cleanup();
+    }
+  });
+
+  it("renders a direct code or plan mode switch and normalizes legacy chat threads to code", async () => {
+    const mounted = await mountChatView({
+      viewport: WIDE_VIEWPORT,
+      snapshot: createSnapshotForTargetUser({
+        targetMessageId: "msg-user-target-mode-buttons" as MessageId,
+        targetText: "mode button target",
+      }),
+    });
+
+    try {
+      await vi.waitFor(
+        async () => {
+          expect(await readCurrentInteractionModeLabel()).toBe("Code");
+        },
+        { timeout: 8_000, interval: 16 },
+      );
+
+      const planButton = document.querySelector<HTMLButtonElement>(
+        '[data-testid="thread-mode-plan"]',
+      );
+      expect(planButton).not.toBeNull();
+      planButton?.click();
+
+      await vi.waitFor(
+        async () => {
+          expect(await readCurrentInteractionModeLabel()).toBe("Plan");
         },
         { timeout: 8_000, interval: 16 },
       );

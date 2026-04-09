@@ -48,12 +48,11 @@ export const CompactComposerControlsMenu = memo(function CompactComposerControls
           value={props.interactionMode}
           onValueChange={(value) => {
             if (!value || value === props.interactionMode) return;
-            if (value === "chat" || value === "code" || value === "plan") {
+            if (value === "code" || value === "plan") {
               props.onInteractionModeChange(value);
             }
           }}
         >
-          <MenuRadioItem value="chat">Chat</MenuRadioItem>
           <MenuRadioItem value="code">Code</MenuRadioItem>
           <MenuRadioItem value="plan">Plan</MenuRadioItem>
         </MenuRadioGroup>

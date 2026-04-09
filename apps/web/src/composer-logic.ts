@@ -25,7 +25,7 @@ export interface ComposerTrigger {
   rangeEnd: number;
 }
 
-const SLASH_COMMANDS: readonly ComposerSlashCommand[] = ["model", "plan", "chat", "code", "skill"];
+const SLASH_COMMANDS: readonly ComposerSlashCommand[] = ["model", "plan", "code", "skill"];
 const isInlineTokenSegment = (
   segment: { type: "text"; text: string } | { type: "mention" } | { type: "terminal-context" },
 ): boolean => segment.type !== "text";
@@ -290,8 +290,8 @@ export function parseStandaloneComposerSlashCommand(
   if (command === "plan") return "plan";
   if (command === "code") return "code";
   if (command === "skill") return "skill";
-  // `/default` is a legacy alias for chat mode
-  return "chat";
+  // `/chat` and `/default` are legacy aliases for code mode.
+  return "code";
 }
 
 const SKILL_MANAGEMENT_COMMANDS = new Set<SkillManagementSubcommand>([

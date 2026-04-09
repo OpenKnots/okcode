@@ -46,7 +46,7 @@ async function mountMenu(props?: {
   const screen = await render(
     <CompactComposerControlsMenu
       activePlan={false}
-      interactionMode="chat"
+      interactionMode="code"
       planSidebarOpen={false}
       runtimeMode="approval-required"
       traitsMenuContent={

@@ -120,6 +120,12 @@ export const GitPullInput = Schema.Struct({
 });
 export type GitPullInput = typeof GitPullInput.Type;
 
+export const GitStopActionInput = Schema.Struct({
+  cwd: TrimmedNonEmptyStringSchema,
+  actionId: Schema.optional(TrimmedNonEmptyStringSchema),
+});
+export type GitStopActionInput = typeof GitStopActionInput.Type;
+
 export const GitRunStackedActionInput = Schema.Struct({
   actionId: TrimmedNonEmptyStringSchema,
   cwd: TrimmedNonEmptyStringSchema,

@@ -21,6 +21,7 @@ import {
   GitCommitIcon,
   InfoIcon,
   LinkIcon,
+  SquareIcon,
 } from "lucide-react";
 import { GitHubIcon } from "./Icons";
 import {
@@ -81,6 +82,7 @@ import {
   gitMutationKeys,
   gitPullMutationOptions,
   gitRunStackedActionMutationOptions,
+  gitStopActionMutationOptions,
   gitStatusQueryOptions,
   invalidateGitQueries,
 } from "~/lib/gitReactQuery";
@@ -436,11 +438,15 @@ export default function GitActionsControl({
     }),
   );
   const pullMutation = useMutation(gitPullMutationOptions({ cwd: gitCwd, queryClient }));
+  const stopGitActionMutation = useMutation(
+    gitStopActionMutationOptions({ cwd: gitCwd, queryClient }),
+  );
 
   const isRunStackedActionRunning =
     useIsMutating({ mutationKey: gitMutationKeys.runStackedAction(gitCwd) }) > 0;
   const isPullRunning = useIsMutating({ mutationKey: gitMutationKeys.pull(gitCwd) }) > 0;
   const isGitActionRunning = isRunStackedActionRunning || isPullRunning;
+  const activeGitActionId = activeGitActionProgressRef.current?.actionId;
   const isDefaultBranch = useMemo(() => {
     const branchName = gitStatusForActions?.branch;
     if (!branchName) return false;
@@ -845,8 +851,11 @@ export default function GitActionsControl({
           return;
         }
         toastManager.update(resolvedProgressToastId, {
-          type: "error",
-          title: "Action failed",
+          type: isWsRequestError(err) && err.code === "git_action_stopped" ? "info" : "error",
+          title:
+            isWsRequestError(err) && err.code === "git_action_stopped"
+              ? "Git action stopped"
+              : "Action failed",
           description: err instanceof Error ? err.message : "An error occurred.",
           data: threadToastData,
         });
@@ -1093,8 +1102,11 @@ export default function GitActionsControl({
         })
         .catch((err) => {
           toastManager.update(loadingToastId, {
-            type: "error",
-            title: messages?.errorTitle ?? "Pull failed",
+            type: isWsRequestError(err) && err.code === "git_action_stopped" ? "info" : "error",
+            title:
+              isWsRequestError(err) && err.code === "git_action_stopped"
+                ? "Pull stopped"
+                : (messages?.errorTitle ?? "Pull failed"),
             description: err instanceof Error ? err.message : "An error occurred.",
             data: threadToastData,
           });
@@ -1102,6 +1114,22 @@ export default function GitActionsControl({
     },
     [pullMutation, threadToastData],
   );
+
+  const stopPendingGitAction = useCallback(() => {
+    if (!gitCwd || !isGitActionRunning || stopGitActionMutation.isPending) {
+      return;
+    }
+    void stopGitActionMutation
+      .mutateAsync(activeGitActionId ? { actionId: activeGitActionId } : {})
+      .catch((error) => {
+        toastManager.add({
+          type: "error",
+          title: "Unable to stop git action",
+          description: error instanceof Error ? error.message : "An error occurred.",
+          data: threadToastData,
+        });
+      });
+  }, [activeGitActionId, gitCwd, isGitActionRunning, stopGitActionMutation, threadToastData]);
 
   const runSyncAction = useCallback(() => {
     if (!syncAction || syncAction.disabled) {
@@ -1249,6 +1277,20 @@ export default function GitActionsControl({
         </Button>
       ) : (
         <Group aria-label="Git actions">
+          {isGitActionRunning ? (
+            <>
+              <Button
+                variant="destructive-outline"
+                size="xs"
+                disabled={stopGitActionMutation.isPending}
+                onClick={stopPendingGitAction}
+              >
+                <SquareIcon className="size-3.5" />
+                <span className="ml-0.5">Stop</span>
+              </Button>
+              <GroupSeparator className="hidden @sm/header-actions:block" />
+            </>
+          ) : null}
           {syncAction ? (
             <>
               {syncActionDisabledReason ? (

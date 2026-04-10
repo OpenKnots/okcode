@@ -18,6 +18,7 @@ import { GitHubRef } from "./github";
 
 export const ORCHESTRATION_WS_METHODS = {
   getSnapshot: "orchestration.getSnapshot",
+  getThreadDetail: "orchestration.getThreadDetail",
   dispatchCommand: "orchestration.dispatchCommand",
   getTurnDiff: "orchestration.getTurnDiff",
   getFullThreadDiff: "orchestration.getFullThreadDiff",
@@ -346,6 +347,56 @@ export const OrchestrationThread = Schema.Struct({
   session: Schema.NullOr(OrchestrationSession),
 });
 export type OrchestrationThread = typeof OrchestrationThread.Type;
+
+export const OrchestrationLimits = Schema.Struct({
+  maxProjects: NonNegativeInt,
+  maxThreadsPerProject: NonNegativeInt,
+});
+export type OrchestrationLimits = typeof OrchestrationLimits.Type;
+
+export const OrchestrationOverviewProject = Schema.Struct({
+  id: ProjectId,
+  title: TrimmedNonEmptyString,
+  workspaceRoot: TrimmedNonEmptyString,
+  defaultModel: Schema.NullOr(TrimmedNonEmptyString),
+  scripts: Schema.Array(ProjectScript),
+  activeThreadCount: NonNegativeInt,
+  createdAt: IsoDateTime,
+  updatedAt: IsoDateTime,
+});
+export type OrchestrationOverviewProject = typeof OrchestrationOverviewProject.Type;
+
+export const OrchestrationOverviewThread = Schema.Struct({
+  id: ThreadId,
+  projectId: ProjectId,
+  title: TrimmedNonEmptyString,
+  model: TrimmedNonEmptyString,
+  runtimeMode: RuntimeMode,
+  interactionMode: ProviderInteractionMode.pipe(
+    Schema.withDecodingDefault(() => DEFAULT_PROVIDER_INTERACTION_MODE),
+  ),
+  branch: Schema.NullOr(TrimmedNonEmptyString),
+  worktreePath: Schema.NullOr(TrimmedNonEmptyString),
+  githubRef: Schema.optional(GitHubRef),
+  latestTurn: Schema.NullOr(OrchestrationLatestTurn),
+  session: Schema.NullOr(OrchestrationSession),
+  createdAt: IsoDateTime,
+  updatedAt: IsoDateTime,
+  lastUserMessageAt: Schema.NullOr(IsoDateTime),
+  pendingApprovalCount: NonNegativeInt,
+  pendingUserInputCount: NonNegativeInt,
+  hasActionablePlan: Schema.Boolean,
+});
+export type OrchestrationOverviewThread = typeof OrchestrationOverviewThread.Type;
+
+export const OrchestrationOverviewSnapshot = Schema.Struct({
+  snapshotSequence: NonNegativeInt,
+  limits: OrchestrationLimits,
+  projects: Schema.Array(OrchestrationOverviewProject),
+  threads: Schema.Array(OrchestrationOverviewThread),
+  updatedAt: IsoDateTime,
+});
+export type OrchestrationOverviewSnapshot = typeof OrchestrationOverviewSnapshot.Type;
 
 export const OrchestrationReadModel = Schema.Struct({
   snapshotSequence: NonNegativeInt,
@@ -689,9 +740,13 @@ export const ProjectMetaUpdatedPayload = Schema.Struct({
   updatedAt: IsoDateTime,
 });
 
+export const ProjectDeletedReason = Schema.Literals(["manual", "limit-eviction"]);
+export type ProjectDeletedReason = typeof ProjectDeletedReason.Type;
+
 export const ProjectDeletedPayload = Schema.Struct({
   projectId: ProjectId,
   deletedAt: IsoDateTime,
+  reason: ProjectDeletedReason,
 });
 
 export const ThreadCreatedPayload = Schema.Struct({
@@ -710,9 +765,17 @@ export const ThreadCreatedPayload = Schema.Struct({
   updatedAt: IsoDateTime,
 });
 
+export const ThreadDeletedReason = Schema.Literals([
+  "manual",
+  "limit-eviction",
+  "project-deleted",
+]);
+export type ThreadDeletedReason = typeof ThreadDeletedReason.Type;
+
 export const ThreadDeletedPayload = Schema.Struct({
   threadId: ThreadId,
   deletedAt: IsoDateTime,
+  reason: ThreadDeletedReason,
 });
 
 export const ThreadMetaUpdatedPayload = Schema.Struct({
@@ -1026,8 +1089,16 @@ export type DispatchResult = typeof DispatchResult.Type;
 
 export const OrchestrationGetSnapshotInput = Schema.Struct({});
 export type OrchestrationGetSnapshotInput = typeof OrchestrationGetSnapshotInput.Type;
-const OrchestrationGetSnapshotResult = OrchestrationReadModel;
+const OrchestrationGetSnapshotResult = OrchestrationOverviewSnapshot;
 export type OrchestrationGetSnapshotResult = typeof OrchestrationGetSnapshotResult.Type;
+
+export const OrchestrationGetThreadDetailInput = Schema.Struct({
+  threadId: ThreadId,
+});
+export type OrchestrationGetThreadDetailInput = typeof OrchestrationGetThreadDetailInput.Type;
+
+const OrchestrationGetThreadDetailResult = Schema.NullOr(OrchestrationThread);
+export type OrchestrationGetThreadDetailResult = typeof OrchestrationGetThreadDetailResult.Type;
 
 export const OrchestrationGetTurnDiffInput = TurnCountRange.mapFields(
   Struct.assign({
@@ -1065,6 +1136,10 @@ export const OrchestrationRpcSchemas = {
   getSnapshot: {
     input: OrchestrationGetSnapshotInput,
     output: OrchestrationGetSnapshotResult,
+  },
+  getThreadDetail: {
+    input: OrchestrationGetThreadDetailInput,
+    output: OrchestrationGetThreadDetailResult,
   },
   dispatchCommand: {
     input: ClientOrchestrationCommand,

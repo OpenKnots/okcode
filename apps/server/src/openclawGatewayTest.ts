@@ -10,18 +10,27 @@ import type {
   TestOpenclawGatewayStepStatus,
 } from "@okcode/contracts";
 import NodeWebSocket from "ws";
+import { serverBuildInfo } from "./buildInfo.ts";
 
 const OPENCLAW_TEST_CONNECT_TIMEOUT_MS = 10_000;
 const OPENCLAW_TEST_RPC_TIMEOUT_MS = 10_000;
 const OPENCLAW_TEST_HEALTH_TIMEOUT_MS = 2_500;
 const OPENCLAW_TEST_LOOKUP_TIMEOUT_MS = 1_500;
 const MAX_CAPTURED_NOTIFICATIONS = 5;
+const OPENCLAW_PROTOCOL_VERSION = 3;
+const OPENCLAW_OPERATOR_SCOPES = ["operator.read", "operator.write"] as const;
 
-type JsonRpcEnvelope = {
-  id?: number | string | null;
-  method?: string;
-  result?: unknown;
-  error?: { code: number; message: string };
+type GatewayEnvelope = {
+  type?: unknown;
+  id?: unknown;
+  ok?: unknown;
+  event?: unknown;
+  payload?: unknown;
+  error?: {
+    code?: unknown;
+    message?: unknown;
+    details?: unknown;
+  };
 };
 
 interface GatewayHealthProbe {
@@ -42,8 +51,22 @@ interface MutableGatewayDiagnostics {
   socketCloseCode?: number;
   socketCloseReason?: string;
   socketError?: string;
+  gatewayErrorCode?: string;
+  gatewayErrorDetailCode?: string;
+  gatewayErrorDetailReason?: string;
+  gatewayRecommendedNextStep?: string;
+  gatewayCanRetryWithDeviceToken?: boolean;
   observedNotifications: string[];
   hints: string[];
+}
+
+interface ParsedGatewayError {
+  message: string;
+  code?: string;
+  detailCode?: string;
+  detailReason?: string;
+  recommendedNextStep?: string;
+  canRetryWithDeviceToken?: boolean;
 }
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> {
@@ -74,6 +97,105 @@ function bufferToString(data: NodeWebSocket.Data): string {
   if (data instanceof ArrayBuffer) return Buffer.from(data).toString("utf8");
   if (Array.isArray(data)) return Buffer.concat(data).toString("utf8");
   return data.toString("utf8");
+}
+
+function parseGatewayEnvelope(data: NodeWebSocket.Data): GatewayEnvelope | null {
+  try {
+    const parsed = JSON.parse(bufferToString(data));
+    if (typeof parsed === "object" && parsed !== null) {
+      return parsed as GatewayEnvelope;
+    }
+  } catch {
+    // Ignore non-JSON websocket messages from intermediaries.
+  }
+  return null;
+}
+
+function readString(value: unknown): string | undefined {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function readBoolean(value: unknown): boolean | undefined {
+  return typeof value === "boolean" ? value : undefined;
+}
+
+function parseGatewayError(error: GatewayEnvelope["error"]): ParsedGatewayError {
+  const details =
+    typeof error?.details === "object" && error.details !== null
+      ? (error.details as Record<string, unknown>)
+      : undefined;
+  const parsed: ParsedGatewayError = {
+    message: readString(error?.message) ?? "Gateway request failed.",
+  };
+  const code =
+    typeof error?.code === "string" || typeof error?.code === "number"
+      ? String(error.code)
+      : undefined;
+  const detailCode = readString(details?.code);
+  const detailReason = readString(details?.reason);
+  const recommendedNextStep = readString(details?.recommendedNextStep);
+  const canRetryWithDeviceToken = readBoolean(details?.canRetryWithDeviceToken);
+
+  if (code) {
+    parsed.code = code;
+  }
+  if (detailCode) {
+    parsed.detailCode = detailCode;
+  }
+  if (detailReason) {
+    parsed.detailReason = detailReason;
+  }
+  if (recommendedNextStep) {
+    parsed.recommendedNextStep = recommendedNextStep;
+  }
+  if (canRetryWithDeviceToken !== undefined) {
+    parsed.canRetryWithDeviceToken = canRetryWithDeviceToken;
+  }
+
+  return parsed;
+}
+
+function recordGatewayError(
+  diagnostics: MutableGatewayDiagnostics,
+  error: ParsedGatewayError | undefined,
+): void {
+  if (error?.code) {
+    diagnostics.gatewayErrorCode = error.code;
+  } else {
+    delete diagnostics.gatewayErrorCode;
+  }
+  if (error?.detailCode) {
+    diagnostics.gatewayErrorDetailCode = error.detailCode;
+  } else {
+    delete diagnostics.gatewayErrorDetailCode;
+  }
+  if (error?.detailReason) {
+    diagnostics.gatewayErrorDetailReason = error.detailReason;
+  } else {
+    delete diagnostics.gatewayErrorDetailReason;
+  }
+  if (error?.recommendedNextStep) {
+    diagnostics.gatewayRecommendedNextStep = error.recommendedNextStep;
+  } else {
+    delete diagnostics.gatewayRecommendedNextStep;
+  }
+  if (error?.canRetryWithDeviceToken !== undefined) {
+    diagnostics.gatewayCanRetryWithDeviceToken = error.canRetryWithDeviceToken;
+  } else {
+    delete diagnostics.gatewayCanRetryWithDeviceToken;
+  }
+}
+
+function formatGatewayError(error: ParsedGatewayError): string {
+  const detailParts = [
+    error.code ? `code ${error.code}` : null,
+    error.detailCode ? `detail ${error.detailCode}` : null,
+    error.detailReason ? `reason ${error.detailReason}` : null,
+    error.recommendedNextStep ? `next ${error.recommendedNextStep}` : null,
+    error.canRetryWithDeviceToken ? "device-token retry available" : null,
+  ].filter((part): part is string => part !== null);
+
+  return detailParts.length > 0 ? `${error.message} (${detailParts.join(", ")})` : error.message;
 }
 
 function pushUnique(items: string[], value: string): void {
@@ -226,8 +348,8 @@ function formatSocketClose(code: number | undefined, reason: string | undefined)
   return reason && reason.length > 0 ? `code ${code}: ${reason}` : `code ${code}`;
 }
 
-function buildTimeoutDetail(method: string, diagnostics: TestOpenclawGatewayDiagnostics): string {
-  const parts = [`RPC '${method}' timed out after ${OPENCLAW_TEST_RPC_TIMEOUT_MS}ms.`];
+function buildTimeoutDetail(subject: string, diagnostics: TestOpenclawGatewayDiagnostics): string {
+  const parts = [`${subject} timed out after ${OPENCLAW_TEST_RPC_TIMEOUT_MS}ms.`];
   const closeDetail = formatSocketClose(diagnostics.socketCloseCode, diagnostics.socketCloseReason);
   if (closeDetail) {
     parts.push(`Socket closed with ${closeDetail}.`);
@@ -236,7 +358,7 @@ function buildTimeoutDetail(method: string, diagnostics: TestOpenclawGatewayDiag
     parts.push(`Last socket error: ${diagnostics.socketError}.`);
   }
   if (diagnostics.observedNotifications.length > 0) {
-    parts.push(`Observed notifications: ${diagnostics.observedNotifications.join(", ")}.`);
+    parts.push(`Observed gateway events: ${diagnostics.observedNotifications.join(", ")}.`);
   }
   return parts.join(" ");
 }
@@ -251,16 +373,22 @@ function buildHints(
     | "observedNotifications"
     | "hints"
     | "resolvedAddresses"
+    | "gatewayErrorCode"
+    | "gatewayErrorDetailCode"
+    | "gatewayErrorDetailReason"
+    | "gatewayRecommendedNextStep"
+    | "gatewayCanRetryWithDeviceToken"
   >,
   failedStepName: string | null,
   error: string | undefined,
-  passwordProvided: boolean,
+  sharedSecretProvided: boolean,
 ): string[] {
   const hints: string[] = [];
-  const authFailure = failedStepName === "Authentication";
+  const handshakeFailure = failedStepName === "Gateway handshake";
   const websocketFailure = failedStepName === "WebSocket connect";
-  const sessionFailure = failedStepName === "Session create";
   const errorLower = error?.toLowerCase() ?? "";
+  const detailCode = diagnostics.gatewayErrorDetailCode;
+  const gatewayRecommendedNextStep = diagnostics.gatewayRecommendedNextStep;
 
   if (diagnostics.hostKind === "loopback") {
     hints.push(
@@ -286,29 +414,39 @@ function buildHints(
     );
   }
 
-  if (authFailure) {
+  if (handshakeFailure) {
     hints.push(
-      "The WebSocket handshake succeeded, so DNS/TLS/basic routing are working. The missing piece is the gateway’s JSON-RPC auth response.",
+      "The WebSocket handshake succeeded, so DNS/TLS/basic routing are working. The remaining failure is inside the OpenClaw `connect` handshake.",
     );
+    if (errorLower.includes("connect.challenge")) {
+      hints.push(
+        "Modern OpenClaw gateways send `connect.challenge` before they will accept any client request. If that event never arrived, this URL may point at the wrong WebSocket service or an intermediary is swallowing frames.",
+      );
+    }
     if (errorLower.includes("timed out")) {
       hints.push(
-        "A timeout during `auth.authenticate` usually means this URL is not the actual OpenClaw JSON-RPC gateway endpoint, the gateway auth handler is stalled, or a proxy is accepting WebSockets without forwarding gateway traffic correctly.",
-      );
-      hints.push(
-        "A wrong password normally returns an RPC error quickly. A timeout is more consistent with the gateway never replying than with a simple credential mismatch.",
+        "A timeout during the `connect.challenge`/`connect` exchange usually means this URL is not the actual OpenClaw WebSocket gateway endpoint, or a proxy/Tailscale Serve setup upgraded the socket but did not keep forwarding frames.",
       );
     }
   }
 
-  if (!passwordProvided && sessionFailure) {
+  if (
+    !sharedSecretProvided &&
+    (detailCode === "AUTH_TOKEN_MISSING" || errorLower.includes("auth_token_missing"))
+  ) {
     hints.push(
-      "No password was provided for this test. If your OpenClaw gateway requires authentication, add the shared secret and test again.",
+      "No shared secret was provided for this test. If your OpenClaw gateway uses token/password auth, add the configured secret and test again.",
     );
   }
 
-  if (errorLower.includes("rpc error")) {
+  if (
+    sharedSecretProvided &&
+    (detailCode === "AUTH_TOKEN_MISMATCH" ||
+      detailCode === "AUTH_DEVICE_TOKEN_MISMATCH" ||
+      errorLower.includes("auth_token_mismatch"))
+  ) {
     hints.push(
-      "The gateway returned an RPC error, which usually means the request reached the OpenClaw service. Re-check the shared secret and any gateway-side auth configuration.",
+      "The gateway rejected the provided auth material. Re-check the configured shared secret and confirm whether this gateway expects token auth, password auth, or a paired device token.",
     );
   }
 
@@ -318,15 +456,53 @@ function buildHints(
     );
   }
 
-  if (parsedUrl.protocol === "wss:" && (websocketFailure || authFailure || sessionFailure)) {
+  if (detailCode === "PAIRING_REQUIRED") {
+    hints.push(
+      "The gateway is asking for device pairing approval. Approve the pending device with `openclaw devices list` and `openclaw devices approve <requestId>`, then retry.",
+    );
+  }
+
+  if (
+    detailCode?.startsWith("DEVICE_AUTH_") ||
+    errorLower.includes("device identity required") ||
+    errorLower.includes("device nonce") ||
+    errorLower.includes("device signature")
+  ) {
+    hints.push(
+      "This gateway requires challenge-based device auth. Modern OpenClaw connections must wait for `connect.challenge`, sign it with a device identity, and send that identity back in `connect.params.device`.",
+    );
+  }
+
+  if (
+    diagnostics.hostKind === "tailscale" &&
+    (detailCode === "PAIRING_REQUIRED" ||
+      detailCode?.startsWith("DEVICE_AUTH_") ||
+      errorLower.includes("device identity"))
+  ) {
+    hints.push(
+      "OpenClaw treats tailnet and LAN connects as remote for pairing/device auth. Even on the same physical machine, a `*.ts.net` connection usually needs an approved device identity unless the gateway is explicitly configured for a trusted proxy flow.",
+    );
+  }
+
+  if (gatewayRecommendedNextStep) {
+    hints.push(`Gateway recommended next step: \`${gatewayRecommendedNextStep}\`.`);
+  }
+
+  if (diagnostics.gatewayCanRetryWithDeviceToken) {
+    hints.push(
+      "The gateway reported that a retry with a cached device token could work. That only helps after the device has already been paired and a token was persisted.",
+    );
+  }
+
+  if (parsedUrl.protocol === "wss:" && (websocketFailure || handshakeFailure)) {
     hints.push(
       "Because this uses `wss://`, check any reverse proxy or Tailscale Serve setup too. It must preserve WebSocket upgrades and continue forwarding frames after the initial handshake.",
     );
   }
 
-  if (diagnostics.observedNotifications.length > 0 && authFailure) {
+  if (diagnostics.observedNotifications.length > 0 && handshakeFailure) {
     hints.push(
-      "The gateway sent notifications before auth completed. Check the gateway logs around the same time to see why it never answered the `auth.authenticate` request.",
+      "The gateway sent events before `connect` completed. Check the gateway logs around the same time to see why it never answered the handshake successfully.",
     );
   }
 
@@ -351,6 +527,8 @@ export async function runOpenclawGatewayTest(
   let rpcId = 1;
   const serverInfo: { version?: string; sessionId?: string } = {};
   const diagnostics: MutableGatewayDiagnostics = createDiagnostics();
+  const earlyGatewayEvents: GatewayEnvelope[] = [];
+  let captureEarlyGatewayEvents = true;
 
   const pushStep = (
     name: string,
@@ -381,7 +559,7 @@ export async function runOpenclawGatewayTest(
       diagnostics,
       failedStepName,
       error,
-      Boolean(input.password),
+      Boolean(input.password?.trim()),
     );
     const diagnosticsResult: TestOpenclawGatewayDiagnostics = {
       ...diagnostics,
@@ -401,13 +579,24 @@ export async function runOpenclawGatewayTest(
 
   let parsedUrlForHints: URL | null = null;
 
-  const sendRpc = (
+  const waitForGatewayEvent = (
     socket: NodeWebSocket,
-    method: string,
-    params?: Record<string, unknown>,
-  ): Promise<{ result?: unknown; error?: { code: number; message: string } }> =>
+    eventName: string,
+  ): Promise<Record<string, unknown> | undefined> =>
     new Promise((resolve, reject) => {
-      const id = rpcId++;
+      const bufferedIndex = earlyGatewayEvents.findIndex(
+        (message) => message.type === "event" && message.event === eventName,
+      );
+      if (bufferedIndex >= 0) {
+        const [message] = earlyGatewayEvents.splice(bufferedIndex, 1);
+        resolve(
+          typeof message?.payload === "object" && message.payload !== null
+            ? (message.payload as Record<string, unknown>)
+            : undefined,
+        );
+        return;
+      }
+
       let settled = false;
       let timeout: ReturnType<typeof setTimeout> | undefined;
 
@@ -428,21 +617,21 @@ export async function runOpenclawGatewayTest(
       };
 
       const onMessage = (data: NodeWebSocket.Data) => {
-        try {
-          const message = JSON.parse(bufferToString(data)) as JsonRpcEnvelope;
-          if (typeof message.method === "string") {
-            pushUnique(diagnostics.observedNotifications, message.method);
-          }
-          if (message.id === id) {
+        const message = parseGatewayEnvelope(data);
+        if (!message) {
+          return;
+        }
+        if (message.type === "event" && typeof message.event === "string") {
+          pushUnique(diagnostics.observedNotifications, message.event);
+          if (message.event === eventName) {
             settle(() =>
-              resolve({
-                ...(message.result !== undefined ? { result: message.result } : {}),
-                ...(message.error !== undefined ? { error: message.error } : {}),
-              }),
+              resolve(
+                typeof message.payload === "object" && message.payload !== null
+                  ? (message.payload as Record<string, unknown>)
+                  : undefined,
+              ),
             );
           }
-        } catch {
-          // Ignore non-JSON websocket messages from intermediaries.
         }
       };
 
@@ -456,7 +645,7 @@ export async function runOpenclawGatewayTest(
         settle(() =>
           reject(
             new Error(
-              `WebSocket closed before RPC '${method}' completed${
+              `WebSocket closed before gateway event '${eventName}' arrived${
                 closeDetail ? ` (${closeDetail})` : ""
               }.`,
             ),
@@ -467,7 +656,11 @@ export async function runOpenclawGatewayTest(
       const onError = (cause: Error) => {
         diagnostics.socketError = toMessage(cause, "WebSocket error.");
         settle(() =>
-          reject(new Error(`WebSocket error during RPC '${method}': ${diagnostics.socketError}`)),
+          reject(
+            new Error(
+              `WebSocket error while waiting for gateway event '${eventName}': ${diagnostics.socketError}`,
+            ),
+          ),
         );
       };
 
@@ -476,16 +669,112 @@ export async function runOpenclawGatewayTest(
       socket.on("error", onError);
 
       timeout = setTimeout(() => {
-        settle(() => reject(new Error(buildTimeoutDetail(method, diagnostics))));
+        settle(() =>
+          reject(new Error(buildTimeoutDetail(`Gateway event '${eventName}'`, diagnostics))),
+        );
+      }, OPENCLAW_TEST_RPC_TIMEOUT_MS);
+    });
+
+  const sendGatewayRequest = (
+    socket: NodeWebSocket,
+    method: string,
+    params?: Record<string, unknown>,
+  ): Promise<{ payload?: unknown; error?: ParsedGatewayError }> =>
+    new Promise((resolve, reject) => {
+      const id = String(rpcId++);
+      let settled = false;
+      let timeout: ReturnType<typeof setTimeout> | undefined;
+
+      const cleanup = () => {
+        if (timeout) {
+          clearTimeout(timeout);
+        }
+        socket.off("message", onMessage);
+        socket.off("close", onClose);
+        socket.off("error", onError);
+      };
+
+      const settle = (callback: () => void) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        callback();
+      };
+
+      const onMessage = (data: NodeWebSocket.Data) => {
+        const message = parseGatewayEnvelope(data);
+        if (!message) {
+          return;
+        }
+        if (message.type === "event" && typeof message.event === "string") {
+          pushUnique(diagnostics.observedNotifications, message.event);
+          return;
+        }
+        if (message.type === "res" && message.id === id) {
+          if (message.ok === true) {
+            recordGatewayError(diagnostics, undefined);
+            settle(() =>
+              resolve(
+                message.payload !== undefined
+                  ? { payload: message.payload }
+                  : { payload: undefined },
+              ),
+            );
+            return;
+          }
+
+          const parsedError = parseGatewayError(message.error);
+          recordGatewayError(diagnostics, parsedError);
+          settle(() => resolve({ error: parsedError }));
+        }
+      };
+
+      const onClose = (code: number, reasonBuffer: Buffer) => {
+        diagnostics.socketCloseCode = code;
+        const reason = reasonBuffer.toString("utf8");
+        if (reason.length > 0) {
+          diagnostics.socketCloseReason = reason;
+        }
+        const closeDetail = formatSocketClose(code, reason);
+        settle(() =>
+          reject(
+            new Error(
+              `WebSocket closed before gateway request '${method}' completed${
+                closeDetail ? ` (${closeDetail})` : ""
+              }.`,
+            ),
+          ),
+        );
+      };
+
+      const onError = (cause: Error) => {
+        diagnostics.socketError = toMessage(cause, "WebSocket error.");
+        settle(() =>
+          reject(
+            new Error(
+              `WebSocket error during gateway request '${method}': ${diagnostics.socketError}`,
+            ),
+          ),
+        );
+      };
+
+      socket.on("message", onMessage);
+      socket.on("close", onClose);
+      socket.on("error", onError);
+
+      timeout = setTimeout(() => {
+        settle(() =>
+          reject(new Error(buildTimeoutDetail(`Gateway request '${method}'`, diagnostics))),
+        );
       }, OPENCLAW_TEST_RPC_TIMEOUT_MS);
 
       try {
         socket.send(
           JSON.stringify({
-            jsonrpc: "2.0",
+            type: "req",
+            id,
             method,
             ...(params !== undefined ? { params } : {}),
-            id,
           }),
         );
       } catch (cause) {
@@ -494,9 +783,34 @@ export async function runOpenclawGatewayTest(
       }
     });
 
+  const buildConnectParams = (sharedSecret: string | undefined): Record<string, unknown> => ({
+    minProtocol: OPENCLAW_PROTOCOL_VERSION,
+    maxProtocol: OPENCLAW_PROTOCOL_VERSION,
+    client: {
+      id: "okcode",
+      version: serverBuildInfo.version,
+      platform:
+        process.platform === "darwin"
+          ? "macos"
+          : process.platform === "win32"
+            ? "windows"
+            : process.platform,
+      mode: "operator",
+    },
+    role: "operator",
+    scopes: [...OPENCLAW_OPERATOR_SCOPES],
+    caps: [],
+    commands: [],
+    permissions: {},
+    locale: Intl.DateTimeFormat().resolvedOptions().locale || "en-US",
+    userAgent: `okcode/${serverBuildInfo.version}`,
+    ...(sharedSecret ? { auth: { password: sharedSecret } } : {}),
+  });
+
   try {
     const urlStart = Date.now();
     const gatewayUrl = input.gatewayUrl.trim();
+    const sharedSecret = input.password?.trim() || undefined;
     if (!gatewayUrl) {
       pushStep("URL validation", "fail", Date.now() - urlStart, "Gateway URL is empty.");
       return finalize(false, "Gateway URL is empty.", "URL validation");
@@ -540,6 +854,18 @@ export async function runOpenclawGatewayTest(
     try {
       ws = await new Promise<NodeWebSocket>((resolve, reject) => {
         const socket = new NodeWebSocket(gatewayUrl);
+        socket.on("message", (data: NodeWebSocket.Data) => {
+          const message = parseGatewayEnvelope(data);
+          if (!message) {
+            return;
+          }
+          if (message.type === "event" && typeof message.event === "string") {
+            pushUnique(diagnostics.observedNotifications, message.event);
+          }
+          if (captureEarlyGatewayEvents) {
+            earlyGatewayEvents.push(message);
+          }
+        });
         const timeout = setTimeout(() => {
           socket.close();
           reject(new Error(`Connection timed out after ${OPENCLAW_TEST_CONNECT_TIMEOUT_MS}ms`));
@@ -564,16 +890,6 @@ export async function runOpenclawGatewayTest(
       ws.on("error", (cause: Error) => {
         diagnostics.socketError = toMessage(cause, "WebSocket error.");
       });
-      ws.on("message", (data: NodeWebSocket.Data) => {
-        try {
-          const message = JSON.parse(bufferToString(data)) as JsonRpcEnvelope;
-          if (typeof message.method === "string") {
-            pushUnique(diagnostics.observedNotifications, message.method);
-          }
-        } catch {
-          // Ignore non-JSON websocket messages from intermediaries.
-        }
-      });
       pushStep(
         "WebSocket connect",
         "pass",
@@ -589,61 +905,26 @@ export async function runOpenclawGatewayTest(
 
     applyHealthProbe(await healthPromise);
 
-    if (input.password) {
-      const authStart = Date.now();
-      try {
-        const authResult = await sendRpc(ws, "auth.authenticate", {
-          password: input.password,
-        });
-        if (authResult.error) {
-          const detail = `RPC error ${authResult.error.code}: ${authResult.error.message}`;
-          pushStep("Authentication", "fail", Date.now() - authStart, detail);
-          return finalize(
-            false,
-            `Authentication failed: ${authResult.error.message}`,
-            "Authentication",
-          );
-        }
-        pushStep("Authentication", "pass", Date.now() - authStart, "Authenticated.");
-      } catch (cause) {
-        const detail = toMessage(cause, "Authentication request failed.");
-        pushStep("Authentication", "fail", Date.now() - authStart, detail);
-        return finalize(false, detail, "Authentication");
-      }
-    }
-
-    const sessionStart = Date.now();
+    const handshakeStart = Date.now();
     try {
-      const sessionResult = await sendRpc(ws, "session.create");
-      if (sessionResult.error) {
-        const detail = `RPC error ${sessionResult.error.code}: ${sessionResult.error.message}`;
-        pushStep("Session create", "fail", Date.now() - sessionStart, detail);
-        return finalize(
-          false,
-          `Session creation failed: ${sessionResult.error.message}`,
-          "Session create",
-        );
-      }
-
-      const result = (sessionResult.result ?? {}) as Record<string, unknown>;
-      const sessionId = typeof result.sessionId === "string" ? result.sessionId : undefined;
-      const version = typeof result.version === "string" ? result.version : undefined;
-      if (version !== undefined) {
-        serverInfo.version = version;
-      }
-      if (sessionId !== undefined) {
-        serverInfo.sessionId = sessionId;
-      }
-      pushStep(
-        "Session create",
-        "pass",
-        Date.now() - sessionStart,
-        sessionId ? `Session ID: ${sessionId}` : "Session created.",
+      await waitForGatewayEvent(ws, "connect.challenge");
+      captureEarlyGatewayEvents = false;
+      earlyGatewayEvents.length = 0;
+      const connectResult = await sendGatewayRequest(
+        ws,
+        "connect",
+        buildConnectParams(sharedSecret),
       );
+      if (connectResult.error) {
+        const detail = formatGatewayError(connectResult.error);
+        pushStep("Gateway handshake", "fail", Date.now() - handshakeStart, detail);
+        return finalize(false, detail, "Gateway handshake");
+      }
+      pushStep("Gateway handshake", "pass", Date.now() - handshakeStart, "Connected.");
     } catch (cause) {
-      const detail = toMessage(cause, "Session creation failed.");
-      pushStep("Session create", "fail", Date.now() - sessionStart, detail);
-      return finalize(false, detail, "Session create");
+      const detail = toMessage(cause, "Gateway handshake failed.");
+      pushStep("Gateway handshake", "fail", Date.now() - handshakeStart, detail);
+      return finalize(false, detail, "Gateway handshake");
     }
 
     return finalize(true);

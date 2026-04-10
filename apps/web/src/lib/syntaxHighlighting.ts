@@ -4,6 +4,21 @@ import { LRUCache } from "./lruCache";
 import { fnv1a32, resolveDiffThemeName, type DiffThemeName } from "./diffRendering";
 
 const CODE_FENCE_LANGUAGE_REGEX = /(?:^|\s)language-([^\s]+)/;
+
+/**
+ * Map VSCode language identifiers that don't match Shiki's bundled language names.
+ * VSCode uses e.g. "typescriptreact" / "javascriptreact" while Shiki expects "tsx" / "jsx".
+ */
+const VSCODE_TO_SHIKI_LANG: Record<string, string> = {
+  typescriptreact: "tsx",
+  javascriptreact: "jsx",
+};
+
+/** Normalise a language identifier so Shiki can resolve it. */
+function normalizeLanguage(language: string): string {
+  return VSCODE_TO_SHIKI_LANG[language] ?? language;
+}
+
 const MAX_HIGHLIGHT_CACHE_ENTRIES = 500;
 const MAX_HIGHLIGHT_CACHE_MEMORY_BYTES = 50 * 1024 * 1024;
 const highlightedCodeCache = new LRUCache<string>(
@@ -61,16 +76,17 @@ export function setCachedHighlightedHtml(
 }
 
 export function getHighlighterPromise(language: string): Promise<DiffsHighlighter> {
-  const cached = highlighterPromiseCache.get(language);
+  const normalized = normalizeLanguage(language);
+  const cached = highlighterPromiseCache.get(normalized);
   if (cached) return cached;
 
   const promise = getSharedHighlighter({
     themes: [resolveDiffThemeName("dark"), resolveDiffThemeName("light")],
-    langs: [language as SupportedLanguages],
+    langs: [normalized as SupportedLanguages],
     preferredHighlighter: "shiki-js",
   }).catch((err) => {
-    highlighterPromiseCache.delete(language);
-    if (language === "text") {
+    highlighterPromiseCache.delete(normalized);
+    if (normalized === "text") {
       // "text" itself failed — Shiki cannot initialize at all, surface the error
       throw err;
     }
@@ -78,7 +94,7 @@ export function getHighlighterPromise(language: string): Promise<DiffsHighlighte
     return getHighlighterPromise("text");
   });
 
-  highlighterPromiseCache.set(language, promise);
+  highlighterPromiseCache.set(normalized, promise);
   return promise;
 }
 
@@ -88,12 +104,13 @@ export function renderHighlightedCodeHtml(
   language: string,
   themeName: DiffThemeName,
 ): string {
+  const normalized = normalizeLanguage(language);
   try {
-    return highlighter.codeToHtml(code, { lang: language, theme: themeName });
+    return highlighter.codeToHtml(code, { lang: normalized, theme: themeName });
   } catch (error) {
     // Log highlighting failures for debugging while falling back to plain text
     console.warn(
-      `Code highlighting failed for language "${language}", falling back to plain text.`,
+      `Code highlighting failed for language "${normalized}", falling back to plain text.`,
       error instanceof Error ? error.message : error,
     );
     return highlighter.codeToHtml(code, { lang: "text", theme: themeName });

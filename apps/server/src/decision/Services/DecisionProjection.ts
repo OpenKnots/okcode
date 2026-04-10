@@ -22,10 +22,11 @@ export interface DecisionProjectionShape {
     readonly consultation: DecisionConsultation;
     readonly questions: ReadonlyArray<DecisionConsultationQuestion>;
   }) => Effect.Effect<void, DecisionWorkspaceServiceError>;
-  readonly getConsultation: (input: {
-    readonly consultationId: string;
-  }) => Effect.Effect<
-    { consultation: DecisionConsultation; questions: ReadonlyArray<DecisionConsultationQuestion> } | null,
+  readonly getConsultation: (input: { readonly consultationId: string }) => Effect.Effect<
+    {
+      consultation: DecisionConsultation;
+      questions: ReadonlyArray<DecisionConsultationQuestion>;
+    } | null,
     DecisionWorkspaceServiceError
   >;
   readonly listConsultationsByCaseId: (input: {

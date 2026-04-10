@@ -1,4 +1,9 @@
-import { DecisionCaseId, IsoDateTime, NonNegativeInt, TrimmedNonEmptyString } from "@okcode/contracts";
+import {
+  DecisionCaseId,
+  IsoDateTime,
+  NonNegativeInt,
+  TrimmedNonEmptyString,
+} from "@okcode/contracts";
 import { Schema, ServiceMap } from "effect";
 import type { Effect } from "effect";
 import type { ProjectionRepositoryError } from "../Errors.ts";

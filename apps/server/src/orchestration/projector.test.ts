@@ -223,6 +223,7 @@ describe("orchestration projector", () => {
           payload: {
             threadId: "thread-delete",
             deletedAt: now,
+            reason: "manual",
           },
         }),
       ),

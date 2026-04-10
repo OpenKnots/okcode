@@ -126,8 +126,8 @@ const makeDecisionConsultationRepository = Effect.gen(function* () {
           "DecisionConsultationRepository.listByCaseId:decodeRows",
         ),
       ),
-      Effect.map((rows) =>
-        rows as ReadonlyArray<Schema.Schema.Type<typeof DecisionConsultationRow>>,
+      Effect.map(
+        (rows) => rows as ReadonlyArray<Schema.Schema.Type<typeof DecisionConsultationRow>>,
       ),
     );
 

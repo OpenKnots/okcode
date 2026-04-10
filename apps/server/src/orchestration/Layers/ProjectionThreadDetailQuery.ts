@@ -286,16 +286,29 @@ const makeProjectionThreadDetailQuery = Effect.gen(function* () {
             listLatestTurnRows(input),
           ]);
 
-          const messages: OrchestrationMessage[] = messageRows.map((row) => ({
-            id: row.messageId,
-            role: row.role,
-            text: row.text,
-            ...(row.attachments !== null ? { attachments: row.attachments } : {}),
-            turnId: row.turnId,
-            streaming: row.isStreaming === 1,
-            createdAt: row.createdAt,
-            updatedAt: row.updatedAt,
-          }));
+          const messages: OrchestrationMessage[] = messageRows.map((row) => {
+            if (row.attachments !== null) {
+              return {
+                id: row.messageId,
+                role: row.role,
+                text: row.text,
+                attachments: row.attachments,
+                turnId: row.turnId,
+                streaming: row.isStreaming === 1,
+                createdAt: row.createdAt,
+                updatedAt: row.updatedAt,
+              };
+            }
+            return {
+              id: row.messageId,
+              role: row.role,
+              text: row.text,
+              turnId: row.turnId,
+              streaming: row.isStreaming === 1,
+              createdAt: row.createdAt,
+              updatedAt: row.updatedAt,
+            };
+          });
 
           const proposedPlans: OrchestrationProposedPlan[] = proposedPlanRows.map((row) => ({
             id: row.planId,
@@ -307,16 +320,29 @@ const makeProjectionThreadDetailQuery = Effect.gen(function* () {
             updatedAt: row.updatedAt,
           }));
 
-          const activities: OrchestrationThreadActivity[] = activityRows.map((row) => ({
-            id: row.activityId,
-            tone: row.tone,
-            kind: row.kind,
-            summary: row.summary,
-            payload: row.payload,
-            turnId: row.turnId,
-            ...(row.sequence !== null ? { sequence: row.sequence } : {}),
-            createdAt: row.createdAt,
-          }));
+          const activities: OrchestrationThreadActivity[] = activityRows.map((row) => {
+            if (row.sequence !== null) {
+              return {
+                id: row.activityId,
+                tone: row.tone,
+                kind: row.kind,
+                summary: row.summary,
+                payload: row.payload,
+                turnId: row.turnId,
+                sequence: row.sequence,
+                createdAt: row.createdAt,
+              };
+            }
+            return {
+              id: row.activityId,
+              tone: row.tone,
+              kind: row.kind,
+              summary: row.summary,
+              payload: row.payload,
+              turnId: row.turnId,
+              createdAt: row.createdAt,
+            };
+          });
 
           const checkpoints: OrchestrationCheckpointSummary[] = checkpointRows.map((row) => ({
             turnId: row.turnId,

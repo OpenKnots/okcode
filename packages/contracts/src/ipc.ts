@@ -120,7 +120,7 @@ import type {
   OrchestrationGetTurnDiffInput,
   OrchestrationGetTurnDiffResult,
   OrchestrationEvent,
-  OrchestrationOverviewSnapshot,
+  OrchestrationReadModel,
   OrchestrationThread,
 } from "./orchestration";
 import type {
@@ -479,7 +479,7 @@ export interface NativeApi {
     testOpenclawGateway: (input: TestOpenclawGatewayInput) => Promise<TestOpenclawGatewayResult>;
   };
   orchestration: {
-    getSnapshot: () => Promise<OrchestrationOverviewSnapshot>;
+    getSnapshot: () => Promise<OrchestrationReadModel>;
     getThreadDetail: (
       input: OrchestrationGetThreadDetailInput,
     ) => Promise<OrchestrationThread | null>;

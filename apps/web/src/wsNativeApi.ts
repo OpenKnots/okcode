@@ -342,6 +342,19 @@ export function createWsNativeApi(): NativeApi {
         };
       },
     },
+    decision: {
+      listCases: (input) => transport.request(WS_METHODS.decisionListCases, input),
+      getWorkspace: (input) => transport.request(WS_METHODS.decisionGetWorkspace, input),
+      reanalyze: (input) => transport.request(WS_METHODS.decisionReanalyze, input),
+      requestConsultation: (input) =>
+        transport.request(WS_METHODS.decisionRequestConsultation, input),
+      respondConsultation: (input) =>
+        transport.request(WS_METHODS.decisionRespondConsultation, input),
+      executeRecommendation: (input) =>
+        transport.request(WS_METHODS.decisionExecuteRecommendation, input),
+      onUpdated: (callback) =>
+        transport.subscribe(WS_CHANNELS.decisionUpdated, (message) => callback(message.data)),
+    },
     skills: {
       list: (input) => transport.request(WS_METHODS.skillList, input ?? {}),
       catalog: (input) => transport.request(WS_METHODS.skillCatalog, input ?? {}),
@@ -388,6 +401,8 @@ export function createWsNativeApi(): NativeApi {
     },
     orchestration: {
       getSnapshot: () => transport.request(ORCHESTRATION_WS_METHODS.getSnapshot),
+      getThreadDetail: (input) =>
+        transport.request(ORCHESTRATION_WS_METHODS.getThreadDetail, input),
       dispatchCommand: (command) =>
         transport.request(ORCHESTRATION_WS_METHODS.dispatchCommand, { command }),
       getTurnDiff: (input) => transport.request(ORCHESTRATION_WS_METHODS.getTurnDiff, input),

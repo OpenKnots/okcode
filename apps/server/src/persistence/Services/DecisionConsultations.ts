@@ -39,7 +39,10 @@ export interface DecisionConsultationRepositoryShape {
   readonly upsert: (row: DecisionConsultationRow) => Effect.Effect<void, ProjectionRepositoryError>;
   readonly getById: (
     input: GetDecisionConsultationInput,
-  ) => Effect.Effect<import("effect").Option.Option<DecisionConsultationRow>, ProjectionRepositoryError>;
+  ) => Effect.Effect<
+    import("effect").Option.Option<DecisionConsultationRow>,
+    ProjectionRepositoryError
+  >;
   readonly listByCaseId: (
     input: ListDecisionConsultationsInput,
   ) => Effect.Effect<ReadonlyArray<DecisionConsultationRow>, ProjectionRepositoryError>;

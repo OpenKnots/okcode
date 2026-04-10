@@ -110,7 +110,7 @@ export type DecisionPrincipleResult = typeof DecisionPrincipleResult.Type;
 export const DecisionConfidenceFactor = Schema.Struct({
   id: DecisionFactorId,
   label: TrimmedNonEmptyString,
-  score: NonNegativeInt.pipe(Schema.clamp(0, 100)),
+  score: NonNegativeInt.check(Schema.isBetween({ minimum: 0, maximum: 100 })),
   weight: Schema.Number,
   weightedPoints: Schema.Number,
   why: TrimmedNonEmptyString,
@@ -129,7 +129,7 @@ export const DecisionNextContextHint = Schema.Struct({
 export type DecisionNextContextHint = typeof DecisionNextContextHint.Type;
 
 export const DecisionConfidenceAnalysis = Schema.Struct({
-  score: NonNegativeInt.pipe(Schema.clamp(0, 100)),
+  score: NonNegativeInt.check(Schema.isBetween({ minimum: 0, maximum: 100 })),
   riskTier: DecisionRiskTier,
   autoExecuteEligible: Schema.Boolean,
   scoreDelta: Schema.Int,
@@ -193,7 +193,7 @@ export const DecisionCaseSummary = Schema.Struct({
   title: TrimmedNonEmptyString,
   subtitle: Schema.String,
   conflictKind: DecisionConflictKind,
-  score: NonNegativeInt.pipe(Schema.clamp(0, 100)),
+  score: NonNegativeInt.check(Schema.isBetween({ minimum: 0, maximum: 100 })),
   riskTier: DecisionRiskTier,
   consultationStatus: DecisionConsultationStatus,
   updatedAt: IsoDateTime,

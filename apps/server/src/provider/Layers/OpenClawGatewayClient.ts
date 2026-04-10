@@ -25,21 +25,21 @@ export interface OpenClawGatewayClientInfo {
 
 export interface OpenClawGatewayConnectOptions {
   readonly gatewayUrl: string;
-  readonly stateDir?: string;
-  readonly sessionKey?: string;
+  readonly stateDir?: string | undefined;
+  readonly sessionKey?: string | undefined;
   readonly role: "operator" | "node";
   readonly scopes: ReadonlyArray<string>;
   readonly client: OpenClawGatewayClientInfo;
   readonly userAgent: string;
-  readonly locale?: string;
-  readonly caps?: ReadonlyArray<string>;
-  readonly commands?: ReadonlyArray<string>;
-  readonly permissions?: Record<string, boolean>;
-  readonly password?: string;
-  readonly deviceToken?: string;
-  readonly onEvent?: (event: OpenClawGatewayEvent) => void;
-  readonly connectTimeoutMs?: number;
-  readonly requestTimeoutMs?: number;
+  readonly locale?: string | undefined;
+  readonly caps?: ReadonlyArray<string> | undefined;
+  readonly commands?: ReadonlyArray<string> | undefined;
+  readonly permissions?: Record<string, boolean> | undefined;
+  readonly password?: string | undefined;
+  readonly deviceToken?: string | undefined;
+  readonly onEvent?: ((event: OpenClawGatewayEvent) => void) | undefined;
+  readonly connectTimeoutMs?: number | undefined;
+  readonly requestTimeoutMs?: number | undefined;
 }
 
 export interface OpenClawGatewayEvent {
@@ -50,9 +50,9 @@ export interface OpenClawGatewayEvent {
 }
 
 export interface OpenClawGatewayError {
-  readonly code?: string;
+  readonly code?: string | undefined;
   readonly message: string;
-  readonly details?: Record<string, unknown>;
+  readonly details?: Record<string, unknown> | undefined;
 }
 
 export interface OpenClawGatewayRequestResult<T = unknown> {
@@ -72,6 +72,8 @@ export interface OpenClawGatewayConnection {
   ): Promise<OpenClawGatewayRequestResult<T>>;
   close(): Promise<void>;
 }
+
+type OpenClawConnectionStage = "websocket" | "handshake";
 
 interface PersistedOpenClawGatewayAuthState {
   readonly version: 1;
@@ -98,6 +100,8 @@ interface GatewayFrame {
   readonly params?: unknown;
   readonly payload?: unknown;
   readonly error?: unknown;
+  readonly seq?: unknown;
+  readonly stateVersion?: unknown;
 }
 
 interface GatewayChallengePayload {
@@ -170,7 +174,7 @@ function buildSignaturePayload(input: {
   readonly client: OpenClawGatewayClientInfo;
   readonly role: "operator" | "node";
   readonly scopes: ReadonlyArray<string>;
-  readonly authValue: string | undefined;
+  readonly authValue?: string | undefined;
   readonly deviceFamily: string;
 }): string {
   return JSON.stringify({
@@ -220,7 +224,7 @@ async function readAuthState(stateDir: string): Promise<PersistedOpenClawGateway
         Object.entries(parsed.deviceTokens).filter(
           ([origin, token]) => typeof origin === "string" && typeof token === "string",
         ),
-      ),
+      ) as Record<string, string>,
     };
   } catch {
     return null;
@@ -304,14 +308,22 @@ function makeRequestError(message: string): Error {
   return new Error(message);
 }
 
+function withConnectionStage<T extends Error>(
+  error: T,
+  stage: OpenClawConnectionStage,
+): T & { openClawConnectionStage: OpenClawConnectionStage } {
+  return Object.assign(error, { openClawConnectionStage: stage });
+}
+
 function toGatewayError(frameError: unknown): OpenClawGatewayError {
   if (!isObject(frameError)) {
     return { message: "Gateway request failed." };
   }
   const details = isObject(frameError.details) ? frameError.details : undefined;
+  const code = readString(frameError.code);
   return {
     message: readString(frameError.message) ?? "Gateway request failed.",
-    ...(readString(frameError.code) ? { code: readString(frameError.code) } : {}),
+    ...(code !== undefined ? { code } : {}),
     ...(details ? { details } : {}),
   };
 }
@@ -324,13 +336,17 @@ function buildConnectParams(input: {
   readonly challengeNonce: string;
   readonly deviceIdentity: OpenClawDeviceIdentity;
   readonly userAgent: string;
-  readonly locale?: string;
-  readonly caps?: ReadonlyArray<string>;
-  readonly commands?: ReadonlyArray<string>;
-  readonly permissions?: Record<string, boolean>;
+  readonly locale?: string | undefined;
+  readonly caps?: ReadonlyArray<string> | undefined;
+  readonly commands?: ReadonlyArray<string> | undefined;
+  readonly permissions?: Record<string, boolean> | undefined;
   readonly deviceFamily: string;
 }): Record<string, unknown> {
   const signedAt = Date.now();
+  const authValue =
+    input.auth.kind === "password" || input.auth.kind === "deviceToken"
+      ? input.auth.value
+      : undefined;
   return {
     minProtocol: OPENCLAW_PROTOCOL_VERSION,
     maxProtocol: OPENCLAW_PROTOCOL_VERSION,
@@ -339,7 +355,7 @@ function buildConnectParams(input: {
     scopes: [...input.scopes],
     caps: [...(input.caps ?? [])],
     commands: [...(input.commands ?? [])],
-    permissions: { ...(input.permissions ?? {}) },
+    permissions: { ...input.permissions },
     ...(input.auth.kind === "password"
       ? {
           auth: {
@@ -364,7 +380,7 @@ function buildConnectParams(input: {
         client: input.client,
         role: input.role,
         scopes: input.scopes,
-        authValue: input.authValue,
+        ...(authValue !== undefined ? { authValue } : {}),
         deviceFamily: input.deviceFamily,
       }),
       signedAt,
@@ -419,6 +435,9 @@ export async function connectOpenClawGateway(
 
   for (let index = 0; index < candidateAuthSelections.length; index += 1) {
     const auth = candidateAuthSelections[index];
+    if (auth === undefined) {
+      continue;
+    }
     try {
       const connection = await connectOnce({
         gatewayUrl: options.gatewayUrl,
@@ -470,15 +489,15 @@ async function connectOnce(input: {
   readonly auth: OpenClawGatewayAuthSelection;
   readonly connectTimeoutMs: number;
   readonly requestTimeoutMs: number;
-  readonly onEvent?: (event: OpenClawGatewayEvent) => void;
+  readonly onEvent?: ((event: OpenClawGatewayEvent) => void) | undefined;
   readonly client: OpenClawGatewayClientInfo;
   readonly role: "operator" | "node";
   readonly scopes: ReadonlyArray<string>;
   readonly userAgent: string;
-  readonly locale?: string;
-  readonly caps?: ReadonlyArray<string>;
-  readonly commands?: ReadonlyArray<string>;
-  readonly permissions?: Record<string, boolean>;
+  readonly locale?: string | undefined;
+  readonly caps?: ReadonlyArray<string> | undefined;
+  readonly commands?: ReadonlyArray<string> | undefined;
+  readonly permissions?: Record<string, boolean> | undefined;
   readonly deviceFamily: string;
   readonly sessionKey: string;
 }): Promise<OpenClawGatewayConnection> {
@@ -494,6 +513,7 @@ async function connectOnce(input: {
     const bufferedEvents: OpenClawGatewayEvent[] = [];
     let connected = false;
     let closed = false;
+    let socketOpened = false;
     let handshakeSettled = false;
     let nextRequestId = 1;
     let challengeNonce: string | undefined;
@@ -528,14 +548,15 @@ async function connectOnce(input: {
       }
       handshakeSettled = true;
       closed = true;
-      rejectChallenge?.(reason);
+      const stagedReason = withConnectionStage(reason, socketOpened ? "handshake" : "websocket");
+      rejectChallenge?.(stagedReason);
       cleanup();
       try {
         ws.close();
       } catch {
         // ignore close errors
       }
-      reject(reason);
+      reject(stagedReason);
     };
 
     const deliverBufferedEvents = (): void => {
@@ -587,6 +608,12 @@ async function connectOnce(input: {
           return;
         }
         if (eventName === "connect.challenge") {
+          input.onEvent?.({
+            event: eventName,
+            ...(frame.payload !== undefined ? { payload: frame.payload } : {}),
+            ...(typeof frame.seq === "number" ? { seq: frame.seq } : {}),
+            ...(typeof frame.stateVersion === "number" ? { stateVersion: frame.stateVersion } : {}),
+          });
           const payload = isObject(frame.payload)
             ? (frame.payload as GatewayChallengePayload)
             : undefined;
@@ -660,6 +687,7 @@ async function connectOnce(input: {
     }, input.connectTimeoutMs);
 
     ws.once("open", () => {
+      socketOpened = true;
       void (async () => {
         try {
           const challenge = await challengePromise;
@@ -693,9 +721,13 @@ async function connectOnce(input: {
           clearTimeout(connectTimeout);
           handshakeSettled = true;
           if (!response.ok) {
-            const error = new Error(response.error?.message ?? "Gateway connect failed.");
-            (error as Error & { readonly gatewayError?: OpenClawGatewayError }).gatewayError =
-              response.error;
+            const error = withConnectionStage(
+              new Error(response.error?.message ?? "Gateway connect failed."),
+              "handshake",
+            ) as Error & {
+              gatewayError?: OpenClawGatewayError | undefined;
+            };
+            error.gatewayError = response.error;
             cleanup();
             try {
               ws.close();

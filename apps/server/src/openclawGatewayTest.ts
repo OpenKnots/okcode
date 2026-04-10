@@ -46,6 +46,10 @@ interface MutableGatewayDiagnostics {
   hints: string[];
 }
 
+interface RunOpenclawGatewayTestOptions {
+  readonly stateDir?: string | undefined;
+}
+
 interface OpenClawGatewayErrorLike {
   readonly message: string;
   readonly code?: string;
@@ -75,10 +79,6 @@ function toMessage(cause: unknown, fallback: string): string {
   return fallback;
 }
 
-function readString(value: unknown): string | undefined {
-  return typeof value === "string" && value.length > 0 ? value : undefined;
-}
-
 function applyGatewayError(
   diagnostics: MutableGatewayDiagnostics,
   error: OpenClawGatewayErrorLike | undefined,
@@ -87,22 +87,38 @@ function applyGatewayError(
     return;
   }
 
-  diagnostics.gatewayErrorCode = error.code;
+  if (typeof error.code === "string") {
+    diagnostics.gatewayErrorCode = error.code;
+  }
   const details = error.details ?? {};
-  diagnostics.gatewayErrorDetailCode = typeof details.code === "string" ? details.code : undefined;
-  diagnostics.gatewayErrorDetailReason =
-    typeof details.reason === "string" ? details.reason : undefined;
-  diagnostics.gatewayRecommendedNextStep =
-    typeof details.recommendedNextStep === "string" ? details.recommendedNextStep : undefined;
-  diagnostics.gatewayCanRetryWithDeviceToken =
-    typeof details.canRetryWithDeviceToken === "boolean"
-      ? details.canRetryWithDeviceToken
-      : undefined;
+  if (typeof details.code === "string") {
+    diagnostics.gatewayErrorDetailCode = details.code;
+  }
+  if (typeof details.reason === "string") {
+    diagnostics.gatewayErrorDetailReason = details.reason;
+  }
+  if (typeof details.recommendedNextStep === "string") {
+    diagnostics.gatewayRecommendedNextStep = details.recommendedNextStep;
+  }
+  if (typeof details.canRetryWithDeviceToken === "boolean") {
+    diagnostics.gatewayCanRetryWithDeviceToken = details.canRetryWithDeviceToken;
+  }
 }
 
 function pushUnique(items: string[], value: string): void {
   if (items.includes(value) || items.length >= MAX_CAPTURED_NOTIFICATIONS) return;
   items.push(value);
+}
+
+function formatGatewayFailureDetail(
+  detail: string,
+  diagnostics: Pick<MutableGatewayDiagnostics, "gatewayErrorDetailCode">,
+): string {
+  const code = diagnostics.gatewayErrorDetailCode;
+  if (!code || detail.includes(code)) {
+    return detail;
+  }
+  return `${detail} (${code})`;
 }
 
 function isLoopbackHost(host: string): boolean {
@@ -243,11 +259,6 @@ async function probeHealth(parsedUrl: URL): Promise<GatewayHealthProbe> {
   } finally {
     clearTimeout(timeout);
   }
-}
-
-function formatSocketClose(code: number | undefined, reason: string | undefined): string | null {
-  if (code === undefined) return null;
-  return reason && reason.length > 0 ? `code ${code}: ${reason}` : `code ${code}`;
 }
 
 function buildHints(
@@ -413,6 +424,7 @@ export async function runOpenclawGatewayTest(
   const steps: TestOpenclawGatewayStep[] = [];
   const diagnostics: MutableGatewayDiagnostics = createDiagnostics();
   let parsedUrlForHints: URL | null = null;
+  let connection: Awaited<ReturnType<typeof connectOpenClawGateway>> | undefined;
 
   const pushStep = (
     name: string,
@@ -504,11 +516,9 @@ export async function runOpenclawGatewayTest(
     diagnostics.hostKind = classifyGatewayHost(parsedUrl.hostname, diagnostics.resolvedAddresses);
 
     const connectStart = Date.now();
-    let connection: Awaited<ReturnType<typeof connectOpenClawGateway>> | undefined;
     try {
       connection = await connectOpenClawGateway({
         gatewayUrl,
-        stateDir: options?.stateDir,
         sessionKey: "okcode:gateway-test",
         role: "operator",
         scopes: [...OPENCLAW_OPERATOR_SCOPES],
@@ -525,7 +535,8 @@ export async function runOpenclawGatewayTest(
         },
         userAgent: `okcode/${serverBuildInfo.version}`,
         locale: Intl.DateTimeFormat().resolvedOptions().locale || "en-US",
-        password: sharedSecret,
+        ...(options?.stateDir ? { stateDir: options.stateDir } : {}),
+        ...(sharedSecret ? { password: sharedSecret } : {}),
         onEvent: (event) => {
           pushUnique(diagnostics.observedNotifications, event.event);
         },
@@ -543,8 +554,27 @@ export async function runOpenclawGatewayTest(
         cause instanceof Error
           ? (cause as Error & { readonly gatewayError?: OpenClawGatewayErrorLike }).gatewayError
           : undefined;
+      const connectionStage =
+        cause instanceof Error
+          ? (cause as Error & { readonly openClawConnectionStage?: "websocket" | "handshake" })
+              .openClawConnectionStage
+          : undefined;
       applyGatewayError(diagnostics, gatewayError);
-      const detail = toMessage(cause, "Connection failed.");
+      const detail = formatGatewayFailureDetail(
+        toMessage(cause, "Connection failed."),
+        diagnostics,
+      );
+      if (connectionStage === "handshake") {
+        pushStep(
+          "WebSocket connect",
+          "pass",
+          Date.now() - connectStart,
+          `Connected in ${Date.now() - connectStart}ms`,
+        );
+        applyHealthProbe(await healthPromise);
+        pushStep("Gateway handshake", "fail", 0, detail);
+        return finalize(false, detail, "Gateway handshake");
+      }
       pushStep("WebSocket connect", "fail", Date.now() - connectStart, detail);
       applyHealthProbe(await healthPromise);
       return finalize(false, detail, "WebSocket connect");

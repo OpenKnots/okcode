@@ -746,7 +746,7 @@ export type ProjectDeletedReason = typeof ProjectDeletedReason.Type;
 export const ProjectDeletedPayload = Schema.Struct({
   projectId: ProjectId,
   deletedAt: IsoDateTime,
-  reason: ProjectDeletedReason,
+  reason: ProjectDeletedReason.pipe(Schema.withDecodingDefault(() => "manual")),
 });
 
 export const ThreadCreatedPayload = Schema.Struct({
@@ -771,7 +771,7 @@ export type ThreadDeletedReason = typeof ThreadDeletedReason.Type;
 export const ThreadDeletedPayload = Schema.Struct({
   threadId: ThreadId,
   deletedAt: IsoDateTime,
-  reason: ThreadDeletedReason,
+  reason: ThreadDeletedReason.pipe(Schema.withDecodingDefault(() => "manual")),
 });
 
 export const ThreadMetaUpdatedPayload = Schema.Struct({
@@ -1085,7 +1085,7 @@ export type DispatchResult = typeof DispatchResult.Type;
 
 export const OrchestrationGetSnapshotInput = Schema.Struct({});
 export type OrchestrationGetSnapshotInput = typeof OrchestrationGetSnapshotInput.Type;
-const OrchestrationGetSnapshotResult = OrchestrationOverviewSnapshot;
+const OrchestrationGetSnapshotResult = OrchestrationReadModel;
 export type OrchestrationGetSnapshotResult = typeof OrchestrationGetSnapshotResult.Type;
 
 export const OrchestrationGetThreadDetailInput = Schema.Struct({

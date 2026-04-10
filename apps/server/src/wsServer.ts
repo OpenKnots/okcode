@@ -1020,6 +1020,17 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
       case ORCHESTRATION_WS_METHODS.getSnapshot:
         return yield* projectionReadModelQuery.getSnapshot();
 
+      case ORCHESTRATION_WS_METHODS.getThreadDetail: {
+        const body = stripRequestTag(request.body);
+        return yield* projectionReadModelQuery
+          .getSnapshot()
+          .pipe(
+            Effect.map(
+              (snapshot) => snapshot.threads.find((thread) => thread.id === body.threadId) ?? null,
+            ),
+          );
+      }
+
       case ORCHESTRATION_WS_METHODS.dispatchCommand: {
         const { command } = request.body;
         const normalizedCommand = yield* normalizeDispatchCommand({ command });
@@ -1809,6 +1820,16 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
         const body = stripRequestTag(request.body);
         return yield* smeChatService.interruptMessage(body);
       }
+
+      case WS_METHODS.decisionListCases:
+      case WS_METHODS.decisionGetWorkspace:
+      case WS_METHODS.decisionReanalyze:
+      case WS_METHODS.decisionRequestConsultation:
+      case WS_METHODS.decisionRespondConsultation:
+      case WS_METHODS.decisionExecuteRecommendation:
+        return yield* new RouteRequestError({
+          message: "Decision workspace RPCs are not wired on this server build yet.",
+        });
 
       default: {
         const _exhaustiveCheck: never = request.body;

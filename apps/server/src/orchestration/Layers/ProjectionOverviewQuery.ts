@@ -31,29 +31,21 @@ import {
 import { ProjectionState } from "../../persistence/Services/ProjectionState.ts";
 import { ProjectionProject } from "../../persistence/Services/ProjectionProjects.ts";
 import { ProjectionThread } from "../../persistence/Services/ProjectionThreads.ts";
-import { ProjectionThreadProposedPlan } from "../../persistence/Services/ProjectionThreadProposedPlans.ts";
 import { ProjectionThreadSession } from "../../persistence/Services/ProjectionThreadSessions.ts";
 import { ORCHESTRATION_PROJECTOR_NAMES } from "./ProjectionPipeline.ts";
 
-const ProjectionProjectOverviewRow = ProjectionProject.mapFields({
+const ProjectionProjectOverviewRow = Schema.Struct({
+  ...ProjectionProject.fields,
   scripts: Schema.fromJsonString(Schema.Array(ProjectScript)),
-}).pipe(
-  Schema.extend(
-    Schema.Struct({
-      activeThreadCount: NonNegativeInt,
-    }),
-  ),
-);
+  activeThreadCount: NonNegativeInt,
+});
 
-const ProjectionThreadOverviewRow = ProjectionThread.pipe(
-  Schema.extend(
-    Schema.Struct({
-      lastUserMessageAt: Schema.NullOr(IsoDateTime),
-      pendingApprovalCount: NonNegativeInt,
-      pendingUserInputCount: NonNegativeInt,
-    }),
-  ),
-);
+const ProjectionThreadOverviewRow = Schema.Struct({
+  ...ProjectionThread.fields,
+  lastUserMessageAt: Schema.NullOr(IsoDateTime),
+  pendingApprovalCount: NonNegativeInt,
+  pendingUserInputCount: NonNegativeInt,
+});
 
 const ProjectionLatestTurnDbRowSchema = Schema.Struct({
   threadId: ProjectionThread.fields.threadId,
@@ -419,7 +411,7 @@ const makeProjectionOverviewQuery = Effect.gen(function* () {
             projects,
             threads,
             updatedAt:
-              updatedAtCandidates.sort((left, right) =>
+              updatedAtCandidates.toSorted((left, right) =>
                 left < right ? 1 : left > right ? -1 : 0,
               )[0] ?? new Date(0).toISOString(),
           });

@@ -6,6 +6,7 @@ import {
   OrchestrationEvent,
   ORCHESTRATION_WS_CHANNELS,
   OrchestrationGetFullThreadDiffInput,
+  OrchestrationGetThreadDetailInput,
   ORCHESTRATION_WS_METHODS,
   OrchestrationGetSnapshotInput,
   OrchestrationGetTurnDiffInput,
@@ -339,6 +340,9 @@ const WebSocketRequestBody = Schema.Union([
   tagRequestBody(WS_METHODS.decisionRequestConsultation, DecisionRequestConsultationInput),
   tagRequestBody(WS_METHODS.decisionRespondConsultation, DecisionRespondConsultationInput),
   tagRequestBody(WS_METHODS.decisionExecuteRecommendation, DecisionExecuteRecommendationInput),
+
+  // Orchestration detail methods
+  tagRequestBody(ORCHESTRATION_WS_METHODS.getThreadDetail, OrchestrationGetThreadDetailInput),
 
   // Terminal methods
   tagRequestBody(WS_METHODS.terminalOpen, TerminalOpenInput),

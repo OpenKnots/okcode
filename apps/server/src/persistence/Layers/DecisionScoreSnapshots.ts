@@ -66,7 +66,9 @@ const makeDecisionScoreSnapshotRepository = Effect.gen(function* () {
           "DecisionScoreSnapshotRepository.listByCaseId:decodeRows",
         ),
       ),
-      Effect.map((rows) => rows as ReadonlyArray<Schema.Schema.Type<typeof DecisionScoreSnapshotRow>>),
+      Effect.map(
+        (rows) => rows as ReadonlyArray<Schema.Schema.Type<typeof DecisionScoreSnapshotRow>>,
+      ),
     );
 
   return { insert, listByCaseId } satisfies DecisionScoreSnapshotRepositoryShape;

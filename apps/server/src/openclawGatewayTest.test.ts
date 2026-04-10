@@ -5,6 +5,12 @@ import { OpenclawGatewayTestInternals, runOpenclawGatewayTest } from "./openclaw
 
 const servers = new Set<WebSocketServer>();
 
+type GatewayRequestFrame = {
+  type?: unknown;
+  id?: unknown;
+  method?: unknown;
+};
+
 afterEach(async () => {
   await Promise.all(
     [...servers].map(
@@ -36,8 +42,18 @@ async function createGatewayServer(
   return { url: `ws://127.0.0.1:${address.port}` };
 }
 
+function sendChallenge(socket: WebSocket): void {
+  socket.send(
+    JSON.stringify({
+      type: "event",
+      event: "connect.challenge",
+      payload: { nonce: "nonce-123", ts: Date.now() },
+    }),
+  );
+}
+
 describe("runOpenclawGatewayTest", () => {
-  it("captures Tailscale-oriented hints for auth timeouts", () => {
+  it("captures Tailscale-oriented hints for modern handshake timeouts", () => {
     const hostKind = OpenclawGatewayTestInternals.classifyGatewayHost("vals-mini.example.ts.net", [
       "100.90.12.34",
     ]);
@@ -50,27 +66,71 @@ describe("runOpenclawGatewayTest", () => {
         resolvedAddresses: ["100.90.12.34"],
         hostKind,
         healthStatus: "skip",
-        observedNotifications: [],
+        observedNotifications: ["connect.challenge"],
         hints: [],
       },
-      "Authentication",
-      "RPC 'auth.authenticate' timed out after 10000ms.",
+      "Gateway handshake",
+      "Gateway request 'connect' timed out after 10000ms.",
       true,
     );
 
     expect(hints.some((hint) => hint.includes("Tailscale"))).toBe(true);
-    expect(hints.some((hint) => hint.includes("actual OpenClaw JSON-RPC gateway endpoint"))).toBe(
+    expect(hints.some((hint) => hint.includes("actual OpenClaw WebSocket gateway endpoint"))).toBe(
       true,
     );
     expect(hints.some((hint) => hint.includes("reverse proxy"))).toBe(true);
   });
 
-  it("reports socket-close details when auth fails mid-handshake", async () => {
+  it("passes when the modern connect handshake succeeds", async () => {
     const gateway = await createGatewayServer((socket) => {
+      sendChallenge(socket);
       socket.on("message", (data) => {
-        const message = JSON.parse(data.toString()) as { method?: string };
-        if (message.method === "auth.authenticate") {
-          socket.close(4401, "gateway auth unavailable");
+        const message = JSON.parse(data.toString()) as GatewayRequestFrame;
+        if (message.type === "req" && message.method === "connect") {
+          socket.send(
+            JSON.stringify({
+              type: "res",
+              id: message.id,
+              ok: true,
+              payload: { type: "hello-ok", protocol: 3 },
+            }),
+          );
+        }
+      });
+    });
+
+    const result = await runOpenclawGatewayTest({
+      gatewayUrl: gateway.url,
+      password: "topsecret",
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.steps.find((step) => step.name === "WebSocket connect")?.status).toBe("pass");
+    expect(result.steps.find((step) => step.name === "Gateway handshake")?.status).toBe("pass");
+    expect(result.diagnostics?.observedNotifications).toContain("connect.challenge");
+  });
+
+  it("reports pairing-required detail codes from the connect handshake", async () => {
+    const gateway = await createGatewayServer((socket) => {
+      sendChallenge(socket);
+      socket.on("message", (data) => {
+        const message = JSON.parse(data.toString()) as GatewayRequestFrame;
+        if (message.type === "req" && message.method === "connect") {
+          socket.send(
+            JSON.stringify({
+              type: "res",
+              id: message.id,
+              ok: false,
+              error: {
+                message: "device is not approved",
+                details: {
+                  code: "PAIRING_REQUIRED",
+                  reason: "pairing-required",
+                  recommendedNextStep: "approve_device",
+                },
+              },
+            }),
+          );
         }
       });
     });
@@ -83,12 +143,13 @@ describe("runOpenclawGatewayTest", () => {
     expect(result.success).toBe(false);
     expect(result.steps.find((step) => step.name === "WebSocket connect")?.status).toBe("pass");
 
-    const authStep = result.steps.find((step) => step.name === "Authentication");
-    expect(authStep?.status).toBe("fail");
-    expect(authStep?.detail).toContain("WebSocket closed before RPC 'auth.authenticate' completed");
+    const handshakeStep = result.steps.find((step) => step.name === "Gateway handshake");
+    expect(handshakeStep?.status).toBe("fail");
+    expect(handshakeStep?.detail).toContain("PAIRING_REQUIRED");
 
-    expect(result.diagnostics?.socketCloseCode).toBe(4401);
-    expect(result.diagnostics?.socketCloseReason).toBe("gateway auth unavailable");
-    expect(result.diagnostics?.hints.some((hint) => hint.includes("loopback-only"))).toBe(true);
+    expect(result.diagnostics?.gatewayErrorDetailCode).toBe("PAIRING_REQUIRED");
+    expect(result.diagnostics?.gatewayErrorDetailReason).toBe("pairing-required");
+    expect(result.diagnostics?.gatewayRecommendedNextStep).toBe("approve_device");
+    expect(result.diagnostics?.hints.some((hint) => hint.includes("pairing approval"))).toBe(true);
   });
 });

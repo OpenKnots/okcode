@@ -236,8 +236,25 @@ function formatOpenclawGatewayDebugReport(result: TestOpenclawGatewayResult): st
     if (diagnostics.socketError) {
       lines.push(`- Socket error: ${diagnostics.socketError}`);
     }
+    if (diagnostics.gatewayErrorCode) {
+      lines.push(`- Gateway error code: ${diagnostics.gatewayErrorCode}`);
+    }
+    if (diagnostics.gatewayErrorDetailCode) {
+      lines.push(`- Gateway detail code: ${diagnostics.gatewayErrorDetailCode}`);
+    }
+    if (diagnostics.gatewayErrorDetailReason) {
+      lines.push(`- Gateway detail reason: ${diagnostics.gatewayErrorDetailReason}`);
+    }
+    if (diagnostics.gatewayRecommendedNextStep) {
+      lines.push(`- Gateway next step: ${diagnostics.gatewayRecommendedNextStep}`);
+    }
+    if (diagnostics.gatewayCanRetryWithDeviceToken !== undefined) {
+      lines.push(
+        `- Device-token retry available: ${diagnostics.gatewayCanRetryWithDeviceToken ? "yes" : "no"}`,
+      );
+    }
     if (diagnostics.observedNotifications.length > 0) {
-      lines.push(`- Gateway notifications: ${diagnostics.observedNotifications.join(", ")}`);
+      lines.push(`- Gateway events: ${diagnostics.observedNotifications.join(", ")}`);
     }
     if (diagnostics.hints.length > 0) {
       lines.push("");
@@ -2621,10 +2638,54 @@ function SettingsRouteView() {
                                       </span>
                                     </div>
                                   )}
+                                  {openclawTestResult.diagnostics.gatewayErrorCode && (
+                                    <div>
+                                      Gateway error code:{" "}
+                                      <span className="break-all font-mono text-foreground">
+                                        {openclawTestResult.diagnostics.gatewayErrorCode}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {openclawTestResult.diagnostics.gatewayErrorDetailCode && (
+                                    <div>
+                                      Gateway detail code:{" "}
+                                      <span className="break-all font-mono text-foreground">
+                                        {openclawTestResult.diagnostics.gatewayErrorDetailCode}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {openclawTestResult.diagnostics.gatewayErrorDetailReason && (
+                                    <div>
+                                      Gateway detail reason:{" "}
+                                      <span className="break-all font-mono text-foreground">
+                                        {openclawTestResult.diagnostics.gatewayErrorDetailReason}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {openclawTestResult.diagnostics.gatewayRecommendedNextStep && (
+                                    <div>
+                                      Gateway next step:{" "}
+                                      <span className="break-all font-mono text-foreground">
+                                        {openclawTestResult.diagnostics.gatewayRecommendedNextStep}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {openclawTestResult.diagnostics.gatewayCanRetryWithDeviceToken !==
+                                    undefined && (
+                                    <div>
+                                      Device-token retry available:{" "}
+                                      <span className="text-foreground">
+                                        {openclawTestResult.diagnostics
+                                          .gatewayCanRetryWithDeviceToken
+                                          ? "Yes"
+                                          : "No"}
+                                      </span>
+                                    </div>
+                                  )}
                                   {openclawTestResult.diagnostics.observedNotifications.length >
                                     0 && (
                                     <div>
-                                      Gateway notifications:{" "}
+                                      Gateway events:{" "}
                                       <span className="break-all font-mono text-foreground">
                                         {openclawTestResult.diagnostics.observedNotifications.join(
                                           ", ",

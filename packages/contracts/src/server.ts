@@ -176,6 +176,11 @@ export const TestOpenclawGatewayDiagnostics = Schema.Struct({
   socketCloseCode: Schema.optional(Schema.Number),
   socketCloseReason: Schema.optional(Schema.String),
   socketError: Schema.optional(Schema.String),
+  gatewayErrorCode: Schema.optional(Schema.String),
+  gatewayErrorDetailCode: Schema.optional(Schema.String),
+  gatewayErrorDetailReason: Schema.optional(Schema.String),
+  gatewayRecommendedNextStep: Schema.optional(Schema.String),
+  gatewayCanRetryWithDeviceToken: Schema.optional(Schema.Boolean),
   observedNotifications: Schema.Array(Schema.String),
   hints: Schema.Array(Schema.String),
 });

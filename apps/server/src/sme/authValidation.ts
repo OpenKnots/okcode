@@ -2,8 +2,8 @@ import {
   type SmeAuthMethod,
   type SmeValidateSetupResult,
   type ProviderKind,
+  type ServerProviderStatus,
 } from "@okcode/contracts";
-import { compactNodeProcessEnv } from "@okcode/shared/environment";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
@@ -15,48 +15,12 @@ import {
   readCodexAccountSnapshot,
   type CodexAppServerStartSessionInput,
 } from "../codexAppServerManager.ts";
-import type { ResolvedAnthropicClientOptions } from "./backends/anthropic.ts";
 
 const OPENAI_MODEL_PROVIDERS = new Set(["openai"]);
 
 function normalizeOptionalValue(value: string | undefined | null): string | null {
   const trimmed = value?.trim();
   return trimmed && trimmed.length > 0 ? trimmed : null;
-}
-
-function pickAnthropicCredential(
-  env: Record<string, string>,
-  authMethod: Extract<SmeAuthMethod, "auto" | "apiKey" | "authToken">,
-): {
-  apiKey: string | null;
-  authToken: string | null;
-  resolvedAuthMethod: "apiKey" | "authToken";
-} | null {
-  const apiKey = normalizeOptionalValue(env.ANTHROPIC_API_KEY);
-  const authToken = normalizeOptionalValue(env.ANTHROPIC_AUTH_TOKEN);
-
-  if (authMethod === "apiKey") {
-    return apiKey ? { apiKey, authToken: null, resolvedAuthMethod: "apiKey" } : null;
-  }
-  if (authMethod === "authToken") {
-    return authToken ? { apiKey: null, authToken, resolvedAuthMethod: "authToken" } : null;
-  }
-  if (apiKey) {
-    return { apiKey, authToken: null, resolvedAuthMethod: "apiKey" };
-  }
-  if (authToken) {
-    return { apiKey: null, authToken, resolvedAuthMethod: "authToken" };
-  }
-  return null;
-}
-
-function anthropicBaseUrl(persistedEnv: Record<string, string>, processEnv?: NodeJS.ProcessEnv) {
-  const processEnvRecord = compactNodeProcessEnv(processEnv ?? process.env);
-  return (
-    normalizeOptionalValue(persistedEnv.ANTHROPIC_BASE_URL) ??
-    normalizeOptionalValue(processEnvRecord.ANTHROPIC_BASE_URL) ??
-    undefined
-  );
 }
 
 export function getAllowedSmeAuthMethods(provider: ProviderKind): readonly SmeAuthMethod[] {
@@ -73,7 +37,7 @@ export function getAllowedSmeAuthMethods(provider: ProviderKind): readonly SmeAu
 export function getDefaultSmeAuthMethod(provider: ProviderKind): SmeAuthMethod {
   switch (provider) {
     case "claudeAgent":
-      return "apiKey";
+      return "auto";
     case "codex":
       return "chatgpt";
     case "openclaw":
@@ -85,58 +49,60 @@ export function isValidSmeAuthMethod(provider: ProviderKind, authMethod: SmeAuth
   return getAllowedSmeAuthMethods(provider).includes(authMethod);
 }
 
-export function validateAnthropicSetup(input: {
+export function validateClaudeSetup(input: {
   readonly authMethod: Extract<SmeAuthMethod, "auto" | "apiKey" | "authToken">;
-  readonly persistedEnv: Record<string, string>;
-  readonly processEnv?: NodeJS.ProcessEnv;
-}): SmeValidateSetupResult & { readonly clientOptions?: ResolvedAnthropicClientOptions } {
-  const processEnvRecord = compactNodeProcessEnv(input.processEnv ?? process.env);
-  const merged = { ...processEnvRecord, ...input.persistedEnv };
-  const credential = pickAnthropicCredential(merged, input.authMethod);
-  if (!credential) {
-    if (input.authMethod === "authToken") {
-      return {
-        ok: false,
-        severity: "error",
-        message:
-          "Anthropic auth token is missing. Set ANTHROPIC_AUTH_TOKEN in project or global environment variables.",
-        resolvedAuthMethod: "authToken",
-      };
-    }
-    if (input.authMethod === "apiKey") {
-      return {
-        ok: false,
-        severity: "error",
-        message:
-          "Anthropic API key is missing. Set ANTHROPIC_API_KEY in project or global environment variables.",
-        resolvedAuthMethod: "apiKey",
-      };
-    }
+  readonly providerStatus?: ServerProviderStatus | null | undefined;
+}): SmeValidateSetupResult {
+  const providerStatus = input.providerStatus;
+  if (!providerStatus) {
+    return {
+      ok: false,
+      severity: "error",
+      message: "Claude Code CLI status is unavailable.",
+      resolvedAuthMethod: input.authMethod,
+      resolvedAccountType: "unknown",
+    };
+  }
+
+  if (!providerStatus.available || providerStatus.status === "error") {
     return {
       ok: false,
       severity: "error",
       message:
-        "SME Chat requires ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN. Add one in Settings > Environment Variables.",
-      resolvedAuthMethod: "auto",
+        providerStatus.message ?? "Claude Code CLI is not installed or not available on PATH.",
+      resolvedAuthMethod: input.authMethod,
+      resolvedAccountType: "unknown",
+    };
+  }
+
+  if (providerStatus.authStatus === "unauthenticated") {
+    return {
+      ok: false,
+      severity: "error",
+      message:
+        providerStatus.message ??
+        "Claude Code CLI is not authenticated. Run `claude auth login` and try again.",
+      resolvedAuthMethod: input.authMethod,
+      resolvedAccountType: "unknown",
+    };
+  }
+
+  if (providerStatus.status === "warning") {
+    return {
+      ok: true,
+      severity: "warning",
+      message: providerStatus.message ?? "Claude Code CLI is available but needs verification.",
+      resolvedAuthMethod: input.authMethod,
+      resolvedAccountType: "unknown",
     };
   }
 
   return {
     ok: true,
     severity: "ready",
-    message:
-      credential.resolvedAuthMethod === "apiKey"
-        ? "Anthropic API key is configured."
-        : "Anthropic auth token is configured.",
-    resolvedAuthMethod: credential.resolvedAuthMethod,
-    clientOptions: (() => {
-      const baseURL = anthropicBaseUrl(input.persistedEnv, input.processEnv);
-      return {
-        apiKey: credential.apiKey,
-        authToken: credential.authToken,
-        ...(baseURL ? { baseURL } : {}),
-      };
-    })(),
+    message: providerStatus.message ?? "Claude Code CLI is ready.",
+    resolvedAuthMethod: input.authMethod,
+    resolvedAccountType: "unknown",
   };
 }
 

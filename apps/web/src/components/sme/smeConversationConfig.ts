@@ -2,14 +2,14 @@ import type { ProviderKind, SmeAuthMethod } from "@okcode/contracts";
 
 export const SME_PROVIDER_LABELS: Record<ProviderKind, string> = {
   codex: "Codex / ChatGPT",
-  claudeAgent: "Anthropic",
+  claudeAgent: "Claude Code",
   openclaw: "OpenClaw",
 };
 
 export function getDefaultSmeAuthMethod(provider: ProviderKind): SmeAuthMethod {
   switch (provider) {
     case "claudeAgent":
-      return "apiKey";
+      return "auto";
     case "codex":
       return "chatgpt";
     case "openclaw":
@@ -23,9 +23,9 @@ export function getSmeAuthMethodOptions(
   switch (provider) {
     case "claudeAgent":
       return [
-        { value: "apiKey", label: "API Key" },
-        { value: "authToken", label: "Auth Token" },
-        { value: "auto", label: "Auto" },
+        { value: "apiKey", label: "OAuth" },
+        { value: "authToken", label: "Setup Token" },
+        { value: "auto", label: "CLI" },
       ];
     case "codex":
       return [
@@ -41,4 +41,11 @@ export function getSmeAuthMethodOptions(
         { value: "auto", label: "Auto" },
       ];
   }
+}
+
+export function getSmeAuthMethodLabel(provider: ProviderKind, authMethod: SmeAuthMethod): string {
+  return (
+    getSmeAuthMethodOptions(provider).find((option) => option.value === authMethod)?.label ??
+    authMethod
+  );
 }

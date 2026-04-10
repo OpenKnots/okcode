@@ -65,17 +65,3 @@ export function buildSmeCompiledPrompt(input: {
     .filter((section) => section.length > 0)
     .join("\n\n");
 }
-
-export function buildSmeAnthropicMessages(input: {
-  readonly history: ReadonlyArray<{ readonly role: string; readonly text: string }>;
-  readonly userText: string;
-}): Array<{ role: "user" | "assistant"; content: string }> {
-  const apiMessages: Array<{ role: "user" | "assistant"; content: string }> = [];
-  for (const message of input.history) {
-    if (message.role === "user" || message.role === "assistant") {
-      apiMessages.push({ role: message.role, content: message.text });
-    }
-  }
-  apiMessages.push({ role: "user", content: input.userText });
-  return apiMessages;
-}

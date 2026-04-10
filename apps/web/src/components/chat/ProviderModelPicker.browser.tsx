@@ -52,7 +52,7 @@ describe("ProviderModelPicker", () => {
     document.body.innerHTML = "";
   });
 
-  it("shows both Codex and Anthropic model groups when provider switching is allowed", async () => {
+  it("shows providers on the left and swaps models in the right pane", async () => {
     const mounted = await mountPicker({
       provider: "claudeAgent",
       model: "claude-opus-4-6",
@@ -64,11 +64,21 @@ describe("ProviderModelPicker", () => {
 
       await vi.waitFor(() => {
         const text = document.body.textContent ?? "";
+        expect(text).toContain("Providers");
+        expect(text).toContain("Models");
         expect(text).toContain("Codex");
         expect(text).toContain("Anthropic");
-        expect(text).toContain("GPT-5 Codex");
         expect(text).toContain("Claude Sonnet 4.6");
         expect(text).toContain("Claude Haiku 4.5");
+        expect(text).not.toContain("GPT-5 Codex");
+      });
+
+      await page.getByRole("menuitemradio", { name: /Codex/ }).click();
+
+      await vi.waitFor(() => {
+        const text = document.body.textContent ?? "";
+        expect(text).toContain("GPT-5 Codex");
+        expect(text).toContain("GPT-5.3 Codex");
       });
     } finally {
       await mounted.cleanup();
@@ -87,6 +97,7 @@ describe("ProviderModelPicker", () => {
 
       await vi.waitFor(() => {
         const text = document.body.textContent ?? "";
+        expect(text).toContain("Locked");
         expect(text).toContain("Claude Sonnet 4.6");
         expect(text).toContain("Claude Haiku 4.5");
         expect(text).not.toContain("Codex");
@@ -100,17 +111,15 @@ describe("ProviderModelPicker", () => {
     const mounted = await mountPicker({
       provider: "claudeAgent",
       model: "claude-opus-4-6",
-      lockedProvider: "claudeAgent",
+      lockedProvider: null,
     });
 
     try {
       await page.getByRole("button").click();
-      await page.getByRole("menuitemradio", { name: "Claude Sonnet 4.6" }).click();
+      await page.getByRole("menuitemradio", { name: /Codex/ }).click();
+      await page.getByRole("menuitemradio", { name: "GPT-5 Codex" }).click();
 
-      expect(mounted.onProviderModelChange).toHaveBeenCalledWith(
-        "claudeAgent",
-        "claude-sonnet-4-6",
-      );
+      expect(mounted.onProviderModelChange).toHaveBeenCalledWith("codex", "gpt-5-codex");
     } finally {
       await mounted.cleanup();
     }

@@ -2294,13 +2294,13 @@ function SettingsRouteView() {
                                 : providerSettings.provider === "copilot"
                                   ? settings.copilotBinaryPath !== defaults.copilotBinaryPath ||
                                     settings.copilotConfigDir !== defaults.copilotConfigDir
-                                : settings.claudeBinaryPath !== defaults.claudeBinaryPath;
+                                  : settings.claudeBinaryPath !== defaults.claudeBinaryPath;
                             const binaryPathValue =
                               providerSettings.binaryPathKey === "claudeBinaryPath"
                                 ? claudeBinaryPath
                                 : providerSettings.binaryPathKey === "copilotBinaryPath"
                                   ? copilotBinaryPath
-                                : codexBinaryPath;
+                                  : codexBinaryPath;
 
                             return (
                               <Collapsible

@@ -192,6 +192,14 @@ const makeSmeChatService = (options: SmeChatServiceLiveOptions = {}) =>
                 new SmeChatError("validateSetup", "Failed to validate Codex setup.", cause),
             });
 
+          case "copilot":
+            return {
+              ok: false,
+              severity: "warning" as const,
+              message: "GitHub Copilot is not available in SME Chat yet.",
+              resolvedAuthMethod: "auto" as const,
+            };
+
           case "openclaw":
             return validateOpenClawSetup({
               authMethod: conversation.authMethod as Extract<
@@ -499,18 +507,25 @@ const makeSmeChatService = (options: SmeChatServiceLiveOptions = {}) =>
                   abortSignal: controller.signal,
                 }).pipe(Effect.ensuring(clearInterrupt(input.conversationId)));
               })
-            : sendSmeViaProviderRuntime({
-                providerService,
-                provider: conv.provider,
-                conversationId: input.conversationId,
-                assistantMessageId,
-                model: conv.model,
-                compiledPrompt,
-                ...(input.providerOptions ? { providerOptions: input.providerOptions } : {}),
-                ...(onEvent ? { onEvent } : {}),
-                setInterruptEffect: (interrupt) => setInterrupt(input.conversationId, interrupt),
-                clearInterruptEffect: clearInterrupt(input.conversationId),
-              });
+            : conv.provider === "codex" || conv.provider === "openclaw"
+              ? sendSmeViaProviderRuntime({
+                  providerService,
+                  provider: conv.provider,
+                  conversationId: input.conversationId,
+                  assistantMessageId,
+                  model: conv.model,
+                  compiledPrompt,
+                  ...(input.providerOptions ? { providerOptions: input.providerOptions } : {}),
+                  ...(onEvent ? { onEvent } : {}),
+                  setInterruptEffect: (interrupt) => setInterrupt(input.conversationId, interrupt),
+                  clearInterruptEffect: clearInterrupt(input.conversationId),
+                })
+              : Effect.fail(
+                  new SmeChatError(
+                    "sendMessage:validate",
+                    "GitHub Copilot is not available in SME Chat yet.",
+                  ),
+                );
 
         const responseText = yield* sendEffect.pipe(
           Effect.mapError((cause) =>

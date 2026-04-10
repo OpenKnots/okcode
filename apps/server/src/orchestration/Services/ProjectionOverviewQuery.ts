@@ -5,7 +5,10 @@ import type { Effect } from "effect";
 import type { ProjectionRepositoryError } from "../../persistence/Errors.ts";
 
 export interface ProjectionOverviewQueryShape {
-  readonly getOverview: () => Effect.Effect<OrchestrationOverviewSnapshot, ProjectionRepositoryError>;
+  readonly getOverview: () => Effect.Effect<
+    OrchestrationOverviewSnapshot,
+    ProjectionRepositoryError
+  >;
 }
 
 export class ProjectionOverviewQuery extends ServiceMap.Service<

@@ -458,7 +458,9 @@ export interface NativeApi {
   };
   orchestration: {
     getSnapshot: () => Promise<OrchestrationOverviewSnapshot>;
-    getThreadDetail: (input: OrchestrationGetThreadDetailInput) => Promise<OrchestrationThread | null>;
+    getThreadDetail: (
+      input: OrchestrationGetThreadDetailInput,
+    ) => Promise<OrchestrationThread | null>;
     dispatchCommand: (command: ClientOrchestrationCommand) => Promise<{ sequence: number }>;
     getTurnDiff: (input: OrchestrationGetTurnDiffInput) => Promise<OrchestrationGetTurnDiffResult>;
     getFullThreadDiff: (

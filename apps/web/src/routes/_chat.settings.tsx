@@ -3,12 +3,18 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CheckCircle2Icon,
   ChevronDownIcon,
+  CpuIcon,
+  GitBranchIcon,
   ImportIcon,
   Loader2Icon,
+  PaletteIcon,
   PlusIcon,
   RotateCcwIcon,
   SkipForwardIcon,
+  SmartphoneIcon,
   Undo2Icon,
+  VariableIcon,
+  WrenchIcon,
   XCircleIcon,
   XIcon,
 } from "lucide-react";
@@ -78,6 +84,34 @@ import { cn } from "../lib/utils";
 import { ensureNativeApi, readNativeApi } from "../nativeApi";
 import { useStore } from "../store";
 import { PairingLink } from "../components/mobile/PairingLink";
+
+// ---------------------------------------------------------------------------
+// Settings navigation sections
+// ---------------------------------------------------------------------------
+type SettingsSectionId = "general" | "environment" | "git" | "models" | "mobile" | "advanced";
+
+interface SettingsNavItem {
+  id: SettingsSectionId;
+  label: string;
+  icon: ReactNode;
+  hidden?: boolean;
+}
+
+function useSettingsNavItems(): SettingsNavItem[] {
+  return [
+    { id: "general", label: "General", icon: <PaletteIcon className="size-4" /> },
+    { id: "environment", label: "Environment", icon: <VariableIcon className="size-4" /> },
+    { id: "git", label: "Git", icon: <GitBranchIcon className="size-4" /> },
+    { id: "models", label: "Models", icon: <CpuIcon className="size-4" /> },
+    {
+      id: "mobile",
+      label: "Mobile Companion",
+      icon: <SmartphoneIcon className="size-4" />,
+      hidden: isMobileShell,
+    },
+    { id: "advanced", label: "Advanced", icon: <WrenchIcon className="size-4" /> },
+  ];
+}
 
 const THEME_OPTIONS = [
   {
@@ -259,16 +293,64 @@ const INSTALL_PROVIDER_SETTINGS: readonly InstallProviderSettings[] = [
   },
 ];
 
-function SettingsSection({ title, children }: { title: string; children: ReactNode }) {
+function SettingsSection({
+  title,
+  description,
+  children,
+  actions,
+}: {
+  title: string;
+  description?: string;
+  children: ReactNode;
+  actions?: ReactNode;
+}) {
   return (
-    <section className="space-y-3">
-      <h2 className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-        {title}
-      </h2>
-      <div className="relative overflow-hidden rounded-2xl border bg-card not-dark:bg-clip-padding text-card-foreground shadow-xs/5 before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-2xl)-1px)] before:shadow-[0_1px_--theme(--color-black/4%)] dark:before:shadow-[0_-1px_--theme(--color-white/6%)]">
+    <section className="space-y-6">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-semibold text-foreground">{title}</h2>
+          {description ? <p className="mt-1 text-sm text-muted-foreground">{description}</p> : null}
+        </div>
+        {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
+      </div>
+      <div className="relative overflow-hidden rounded-xl border border-border/60 bg-card text-card-foreground">
         {children}
       </div>
     </section>
+  );
+}
+
+function SettingsNavSidebar({
+  items,
+  activeSection,
+  onSelect,
+}: {
+  items: SettingsNavItem[];
+  activeSection: SettingsSectionId;
+  onSelect: (id: SettingsSectionId) => void;
+}) {
+  return (
+    <nav className="flex w-52 shrink-0 flex-col gap-0.5 py-1" aria-label="Settings navigation">
+      {items
+        .filter((item) => !item.hidden)
+        .map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            className={cn(
+              "flex items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-colors",
+              activeSection === item.id
+                ? "bg-accent text-accent-foreground font-medium"
+                : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+            )}
+            onClick={() => onSelect(item.id)}
+            aria-current={activeSection === item.id ? "page" : undefined}
+          >
+            <span className="flex size-5 items-center justify-center opacity-70">{item.icon}</span>
+            {item.label}
+          </button>
+        ))}
+    </nav>
   );
 }
 
@@ -818,14 +900,23 @@ function SettingsRouteView() {
     setFontSizeOverrideState(null);
   }
 
+  const navItems = useSettingsNavItems();
+  const [activeSection, setActiveSection] = useState<SettingsSectionId>("general");
+  const activeSectionLabel = navItems.find((item) => item.id === activeSection)?.label ?? "General";
+
   return (
     <SidebarInset className="h-dvh min-h-0 overflow-hidden overscroll-y-none bg-background text-foreground isolate">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-background text-foreground">
+        {/* Header */}
         {!isElectron && (
-          <header className="border-b border-border px-3 py-2 sm:px-5">
-            <div className="flex items-center gap-2">
+          <header className="border-b border-border/60 px-4 py-2.5 sm:px-6">
+            <div className="flex items-center gap-3">
               <SidebarTrigger className="size-7 shrink-0" />
-              <span className="text-sm font-medium text-foreground">Settings</span>
+              <div className="flex items-center gap-1.5 text-sm">
+                <span className="font-medium text-foreground">Settings</span>
+                <span className="text-muted-foreground/50">/</span>
+                <span className="text-muted-foreground">{activeSectionLabel}</span>
+              </div>
               <div className="ms-auto flex items-center gap-2">
                 <Button
                   size="xs"
@@ -842,10 +933,12 @@ function SettingsRouteView() {
         )}
 
         {isElectron && (
-          <div className="drag-region flex h-[52px] shrink-0 items-center border-b border-border px-5">
-            <span className="text-xs font-medium tracking-wide text-muted-foreground/70">
-              Settings
-            </span>
+          <div className="drag-region flex h-[52px] shrink-0 items-center border-b border-border/60 px-5">
+            <div className="flex items-center gap-1.5 text-xs font-medium tracking-wide">
+              <span className="text-muted-foreground/70">Settings</span>
+              <span className="text-muted-foreground/40">/</span>
+              <span className="text-muted-foreground/70">{activeSectionLabel}</span>
+            </div>
             <div className="ms-auto flex items-center gap-2">
               <Button
                 size="xs"
@@ -860,1664 +953,1766 @@ function SettingsRouteView() {
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
-            <SettingsSection title="General">
-              <SettingsRow
-                title="Theme"
-                description="Choose how OK Code looks across the app."
-                resetAction={
-                  theme !== "system" ? (
-                    <SettingResetButton label="theme" onClick={() => setTheme("system")} />
-                  ) : null
-                }
-                control={
-                  <Select
-                    value={theme}
-                    onValueChange={(value) => {
-                      if (value !== "system" && value !== "light" && value !== "dark") return;
-                      setTheme(value);
-                    }}
-                  >
-                    <SelectTrigger className="w-full sm:w-40" aria-label="Theme preference">
-                      <SelectValue>
-                        {THEME_OPTIONS.find((option) => option.value === theme)?.label ?? "System"}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectPopup align="end" alignItemWithTrigger={false}>
-                      {THEME_OPTIONS.map((option) => (
-                        <SelectItem hideIndicator key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectPopup>
-                  </Select>
-                }
-              />
+        {/* Body: sidebar + content */}
+        <div className="flex min-h-0 flex-1">
+          {/* Settings sidebar navigation */}
+          <aside className="hidden w-56 shrink-0 border-r border-border/60 px-3 py-4 md:block overflow-y-auto">
+            <SettingsNavSidebar
+              items={navItems}
+              activeSection={activeSection}
+              onSelect={setActiveSection}
+            />
+          </aside>
 
-              <SettingsRow
-                title="Color theme"
-                description="Pick a color palette for light and dark modes."
-                resetAction={
-                  colorTheme !== DEFAULT_COLOR_THEME ? (
-                    <SettingResetButton
-                      label="color theme"
-                      onClick={() => {
-                        setColorTheme(DEFAULT_COLOR_THEME);
-                        clearStoredCustomTheme();
-                        removeCustomTheme();
-                      }}
-                    />
-                  ) : null
-                }
-                control={
-                  <div className="flex items-center gap-2">
-                    <Select
-                      value={colorTheme}
-                      onValueChange={(value) => {
-                        if (value === "custom") {
-                          // If no custom theme is stored, open the import dialog
-                          const existing = getStoredCustomTheme();
-                          if (!existing) {
-                            setCustomThemeDialogOpen(true);
-                            return;
-                          }
-                        }
-                        const match = COLOR_THEMES.find((t) => t.id === value);
-                        if (!match) return;
-                        setColorTheme(match.id);
-                      }}
-                    >
-                      <SelectTrigger className="w-full sm:w-40" aria-label="Color theme">
-                        <SelectValue>
-                          {COLOR_THEMES.find((t) => t.id === colorTheme)?.label ?? "Default"}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectPopup align="end" alignItemWithTrigger={false}>
-                        {COLOR_THEMES.filter(
-                          (t) => t.id !== "custom" || getStoredCustomTheme(),
-                        ).map((t) => (
-                          <SelectItem hideIndicator key={t.id} value={t.id}>
-                            {t.label}
-                          </SelectItem>
-                        ))}
-                      </SelectPopup>
-                    </Select>
-                    <Tooltip>
-                      <TooltipTrigger
-                        render={
-                          <Button
-                            size="xs"
-                            variant="outline"
-                            onClick={() => setCustomThemeDialogOpen(true)}
-                            aria-label="Import custom theme"
-                          >
-                            <ImportIcon className="size-3.5" />
-                          </Button>
-                        }
-                      />
-                      <TooltipPopup side="top">Import from tweakcn.com</TooltipPopup>
-                    </Tooltip>
-                  </div>
-                }
-              />
-
-              <SettingsRow
-                title="Border radius"
-                description="Adjust the corner roundness of UI elements."
-                resetAction={
-                  radiusOverride !== null ? (
-                    <SettingResetButton
-                      label="border radius"
-                      onClick={() => {
-                        clearRadiusOverride();
-                        setRadiusOverrideState(null);
-                      }}
-                    />
-                  ) : null
-                }
-                control={
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="range"
-                      min={0}
-                      max={1.5}
-                      step={0.0625}
-                      value={radiusOverride ?? 0.625}
-                      onChange={(e) => {
-                        const value = Number.parseFloat(e.target.value);
-                        setRadiusOverrideState(value);
-                        setStoredRadiusOverride(value);
-                      }}
-                      className="h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-muted accent-foreground sm:w-28"
-                      aria-label="Border radius"
-                    />
-                    <span className="w-12 text-right text-xs tabular-nums text-muted-foreground">
-                      {(radiusOverride ?? 0.625).toFixed(2)}rem
-                    </span>
-                  </div>
-                }
-              />
-
-              <SettingsRow
-                title="Font size"
-                description="Adjust the font size for code editors and terminal."
-                resetAction={
-                  fontSizeOverride !== null ? (
-                    <SettingResetButton
-                      label="font size"
-                      onClick={() => {
-                        clearFontSizeOverride();
-                        setFontSizeOverrideState(null);
-                      }}
-                    />
-                  ) : null
-                }
-                control={
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="range"
-                      min={10}
-                      max={20}
-                      step={1}
-                      value={fontSizeOverride ?? 12}
-                      onChange={(e) => {
-                        const value = Number.parseFloat(e.target.value);
-                        setFontSizeOverrideState(value);
-                        setStoredFontSizeOverride(value);
-                      }}
-                      className="h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-muted accent-foreground sm:w-28"
-                      aria-label="Font size"
-                    />
-                    <span className="w-12 text-right text-xs tabular-nums text-muted-foreground">
-                      {fontSizeOverride ?? 12}px
-                    </span>
-                  </div>
-                }
-              />
-
-              <SettingsRow
-                title="Font family"
-                description="Override the UI font. Use any Google Font name."
-                resetAction={
-                  fontOverride ? (
-                    <SettingResetButton
-                      label="font family"
-                      onClick={() => {
-                        clearFontOverride();
-                        setFontOverrideState("");
-                      }}
-                    />
-                  ) : null
-                }
-                control={
-                  <Input
-                    className="w-full sm:w-48"
-                    value={fontOverride}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setFontOverrideState(value);
-                      if (value.trim()) {
-                        setStoredFontOverride(value);
-                      } else {
-                        clearFontOverride();
-                      }
-                    }}
-                    placeholder="e.g. Inter, sans-serif"
-                    spellCheck={false}
-                    aria-label="Font family override"
-                  />
-                }
-              />
-
-              <CustomThemeDialog
-                open={customThemeDialogOpen}
-                onOpenChange={setCustomThemeDialogOpen}
-                onApply={(theme: CustomThemeData) => {
-                  applyCustomTheme(theme);
-                  setColorTheme("custom");
-                }}
-              />
-
-              <SettingsRow
-                title="Font"
-                description="Choose the typeface for the interface."
-                resetAction={
-                  fontFamily !== "inter" ? (
-                    <SettingResetButton label="font" onClick={() => setFontFamily("inter")} />
-                  ) : null
-                }
-                control={
-                  <Select
-                    value={fontFamily}
-                    onValueChange={(value) => {
-                      const match = FONT_FAMILIES.find((f) => f.id === value);
-                      if (!match) return;
-                      setFontFamily(match.id);
-                    }}
-                  >
-                    <SelectTrigger className="w-full sm:w-40" aria-label="Font family">
-                      <SelectValue>
-                        {FONT_FAMILIES.find((f) => f.id === fontFamily)?.label ?? "Inter"}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectPopup align="end" alignItemWithTrigger={false}>
-                      {FONT_FAMILIES.map((f) => (
-                        <SelectItem hideIndicator key={f.id} value={f.id}>
-                          {f.label}
-                        </SelectItem>
-                      ))}
-                    </SelectPopup>
-                  </Select>
-                }
-              />
-
-              <SettingsRow
-                title="Sidebar opacity"
-                description="Adjust the transparency of the side panel and project list."
-                resetAction={
-                  settings.sidebarOpacity !== defaults.sidebarOpacity ? (
-                    <SettingResetButton
-                      label="sidebar opacity"
-                      onClick={() => updateSettings({ sidebarOpacity: defaults.sidebarOpacity })}
-                    />
-                  ) : null
-                }
-                control={
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="range"
-                      min={30}
-                      max={100}
-                      value={Math.round(settings.sidebarOpacity * 100)}
-                      onChange={(e) => {
-                        const value = Number(e.target.value) / 100;
-                        updateSettings({ sidebarOpacity: value });
-                      }}
-                      className="h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-muted accent-foreground sm:w-28"
-                      aria-label="Sidebar opacity"
-                    />
-                    <span className="w-9 text-right text-xs tabular-nums text-muted-foreground">
-                      {Math.round(settings.sidebarOpacity * 100)}%
-                    </span>
-                  </div>
-                }
-              />
-
-              <BackgroundImageSettings
-                backgroundImageOpacity={settings.backgroundImageOpacity}
-                backgroundImageUrl={settings.backgroundImageUrl}
-                defaultBackgroundImageOpacity={defaults.backgroundImageOpacity}
-                defaultBackgroundImageUrl={defaults.backgroundImageUrl}
-                updateSettings={updateSettings}
-              />
-
-              <SettingsRow
-                title="Accent project names"
-                description="Use the theme's accent color for project names in the sidebar."
-                resetAction={
-                  settings.sidebarAccentProjectNames !== defaults.sidebarAccentProjectNames ? (
-                    <SettingResetButton
-                      label="accent project names"
-                      onClick={() =>
-                        updateSettings({
-                          sidebarAccentProjectNames: defaults.sidebarAccentProjectNames,
-                        })
-                      }
-                    />
-                  ) : null
-                }
-                control={
-                  <Switch
-                    checked={settings.sidebarAccentProjectNames}
-                    onCheckedChange={(checked) =>
-                      updateSettings({
-                        sidebarAccentProjectNames: Boolean(checked),
-                      })
-                    }
-                    aria-label="Accent project names"
-                  />
-                }
-              />
-
-              <SettingsRow
-                title="Accent color override"
-                description="Set a custom color for accented project names instead of the theme default."
-                resetAction={
-                  settings.sidebarAccentColorOverride ? (
-                    <SettingResetButton
-                      label="accent color override"
-                      onClick={() =>
-                        updateSettings({
-                          sidebarAccentColorOverride: undefined,
-                        })
-                      }
-                    />
-                  ) : null
-                }
-                control={
-                  <div className="flex items-center gap-2">
-                    <label
-                      className="relative size-8 shrink-0 cursor-pointer overflow-hidden rounded-md border border-border"
-                      style={{
-                        backgroundColor:
-                          settings.sidebarAccentColorOverride || "var(--accent-foreground)",
-                      }}
-                    >
-                      <input
-                        type="color"
-                        value={settings.sidebarAccentColorOverride || "#000000"}
-                        onChange={(e) =>
-                          updateSettings({
-                            sidebarAccentColorOverride: e.target.value,
-                          })
-                        }
-                        className="absolute inset-0 cursor-pointer opacity-0"
-                        aria-label="Accent color picker"
-                      />
-                    </label>
-                    <input
-                      type="text"
-                      value={settings.sidebarAccentColorOverride ?? ""}
-                      placeholder="Theme default"
-                      onChange={(e) => {
-                        const value = e.target.value.trim();
-                        updateSettings({
-                          sidebarAccentColorOverride: value || undefined,
-                        });
-                      }}
-                      className="h-8 w-28 rounded-md border border-border bg-background px-2 text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-ring sm:w-32"
-                      aria-label="Accent color value"
-                    />
-                  </div>
-                }
-              />
-
-              <SettingsRow
-                title="Accent background override"
-                description="Set a custom background color for project headers instead of the theme default."
-                resetAction={
-                  settings.sidebarAccentBgColorOverride ? (
-                    <SettingResetButton
-                      label="accent background override"
-                      onClick={() =>
-                        updateSettings({
-                          sidebarAccentBgColorOverride: undefined,
-                        })
-                      }
-                    />
-                  ) : null
-                }
-                control={
-                  <div className="flex items-center gap-2">
-                    <label
-                      className="relative size-8 shrink-0 cursor-pointer overflow-hidden rounded-md border border-border"
-                      style={{
-                        backgroundColor: settings.sidebarAccentBgColorOverride || "var(--accent)",
-                      }}
-                    >
-                      <input
-                        type="color"
-                        value={settings.sidebarAccentBgColorOverride || "#000000"}
-                        onChange={(e) =>
-                          updateSettings({
-                            sidebarAccentBgColorOverride: e.target.value,
-                          })
-                        }
-                        className="absolute inset-0 cursor-pointer opacity-0"
-                        aria-label="Accent background color picker"
-                      />
-                    </label>
-                    <input
-                      type="text"
-                      value={settings.sidebarAccentBgColorOverride ?? ""}
-                      placeholder="Theme default"
-                      onChange={(e) => {
-                        const value = e.target.value.trim();
-                        updateSettings({
-                          sidebarAccentBgColorOverride: value || undefined,
-                        });
-                      }}
-                      className="h-8 w-28 rounded-md border border-border bg-background px-2 text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-ring sm:w-32"
-                      aria-label="Accent background color value"
-                    />
-                  </div>
-                }
-              />
-
-              <SettingsRow
-                title="PR request changes button"
-                description="Choose how prominent the Request changes action looks in pull request review."
-                resetAction={
-                  settings.prReviewRequestChangesTone !== DEFAULT_PR_REVIEW_REQUEST_CHANGES_TONE ? (
-                    <SettingResetButton
-                      label="PR request changes button"
-                      onClick={() =>
-                        updateSettings({
-                          prReviewRequestChangesTone: DEFAULT_PR_REVIEW_REQUEST_CHANGES_TONE,
-                        })
-                      }
-                    />
-                  ) : null
-                }
-                control={
-                  <Select
-                    value={settings.prReviewRequestChangesTone}
-                    onValueChange={(value) => {
-                      if (value !== "warning" && value !== "neutral" && value !== "brand") {
-                        return;
-                      }
-                      updateSettings({
-                        prReviewRequestChangesTone: value,
-                      });
-                    }}
-                  >
-                    <SelectTrigger
-                      className="w-full sm:w-40"
-                      aria-label="PR request changes button"
-                    >
-                      <SelectValue>
-                        {PR_REVIEW_REQUEST_CHANGES_TONE_OPTIONS.find(
-                          (option) => option.value === settings.prReviewRequestChangesTone,
-                        )?.label ?? "Warning"}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectPopup align="end" alignItemWithTrigger={false}>
-                      {PR_REVIEW_REQUEST_CHANGES_TONE_OPTIONS.map((option) => (
-                        <SelectItem hideIndicator key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectPopup>
-                  </Select>
-                }
-              />
-
-              <SettingsRow
-                title="Time format"
-                description="System default follows your browser or OS clock preference."
-                resetAction={
-                  settings.timestampFormat !== defaults.timestampFormat ? (
-                    <SettingResetButton
-                      label="time format"
-                      onClick={() =>
-                        updateSettings({
-                          timestampFormat: defaults.timestampFormat,
-                        })
-                      }
-                    />
-                  ) : null
-                }
-                control={
-                  <Select
-                    value={settings.timestampFormat}
-                    onValueChange={(value) => {
-                      if (value !== "locale" && value !== "12-hour" && value !== "24-hour") {
-                        return;
-                      }
-                      updateSettings({
-                        timestampFormat: value,
-                      });
-                    }}
-                  >
-                    <SelectTrigger className="w-full sm:w-40" aria-label="Timestamp format">
-                      <SelectValue>{TIMESTAMP_FORMAT_LABELS[settings.timestampFormat]}</SelectValue>
-                    </SelectTrigger>
-                    <SelectPopup align="end" alignItemWithTrigger={false}>
-                      <SelectItem hideIndicator value="locale">
-                        {TIMESTAMP_FORMAT_LABELS.locale}
-                      </SelectItem>
-                      <SelectItem hideIndicator value="12-hour">
-                        {TIMESTAMP_FORMAT_LABELS["12-hour"]}
-                      </SelectItem>
-                      <SelectItem hideIndicator value="24-hour">
-                        {TIMESTAMP_FORMAT_LABELS["24-hour"]}
-                      </SelectItem>
-                    </SelectPopup>
-                  </Select>
-                }
-              />
-
-              <SettingsRow
-                title="Stitch border"
-                description="Show the decorative stitch border around the viewport."
-                resetAction={
-                  settings.showStitchBorder !== defaults.showStitchBorder ? (
-                    <SettingResetButton
-                      label="stitch border"
-                      onClick={() =>
-                        updateSettings({
-                          showStitchBorder: defaults.showStitchBorder,
-                        })
-                      }
-                    />
-                  ) : null
-                }
-                control={
-                  <Switch
-                    checked={settings.showStitchBorder}
-                    onCheckedChange={(checked) =>
-                      updateSettings({
-                        showStitchBorder: Boolean(checked),
-                      })
-                    }
-                    aria-label="Show stitch border"
-                  />
-                }
-              />
-
-              <SettingsRow
-                title="Assistant output"
-                description="Show token-by-token output while a response is in progress."
-                resetAction={
-                  settings.enableAssistantStreaming !== defaults.enableAssistantStreaming ? (
-                    <SettingResetButton
-                      label="assistant output"
-                      onClick={() =>
-                        updateSettings({
-                          enableAssistantStreaming: defaults.enableAssistantStreaming,
-                        })
-                      }
-                    />
-                  ) : null
-                }
-                control={
-                  <Switch
-                    checked={settings.enableAssistantStreaming}
-                    onCheckedChange={(checked) =>
-                      updateSettings({
-                        enableAssistantStreaming: Boolean(checked),
-                      })
-                    }
-                    aria-label="Stream assistant messages"
-                  />
-                }
-              />
-
-              <SettingsRow
-                title="Reasoning content"
-                description="Show reasoning/thinking content in the work log instead of just showing 'Reasoning update'."
-                resetAction={
-                  settings.showReasoningContent !== defaults.showReasoningContent ? (
-                    <SettingResetButton
-                      label="reasoning content"
-                      onClick={() =>
-                        updateSettings({
-                          showReasoningContent: defaults.showReasoningContent,
-                        })
-                      }
-                    />
-                  ) : null
-                }
-                control={
-                  <Switch
-                    checked={settings.showReasoningContent}
-                    onCheckedChange={(checked) =>
-                      updateSettings({
-                        showReasoningContent: Boolean(checked),
-                      })
-                    }
-                    aria-label="Show reasoning content in work log"
-                  />
-                }
-              />
-
-              <SettingsRow
-                title="Auth failure errors"
-                description="Show provider authentication failures in the thread error banner. Turn this off to keep login issues out of the main error state."
-                resetAction={
-                  settings.showAuthFailuresAsErrors !== defaults.showAuthFailuresAsErrors ? (
-                    <SettingResetButton
-                      label="auth failure errors"
-                      onClick={() =>
-                        updateSettings({
-                          showAuthFailuresAsErrors: defaults.showAuthFailuresAsErrors,
-                        })
-                      }
-                    />
-                  ) : null
-                }
-                control={
-                  <Switch
-                    checked={settings.showAuthFailuresAsErrors}
-                    onCheckedChange={(checked) =>
-                      updateSettings({
-                        showAuthFailuresAsErrors: Boolean(checked),
-                      })
-                    }
-                    aria-label="Show authentication failures as thread errors"
-                  />
-                }
-              />
-
-              <SettingsRow
-                title="Open links externally"
-                description="Open terminal URLs in your default browser instead of the embedded preview panel."
-                resetAction={
-                  settings.openLinksExternally !== defaults.openLinksExternally ? (
-                    <SettingResetButton
-                      label="open links externally"
-                      onClick={() =>
-                        updateSettings({
-                          openLinksExternally: defaults.openLinksExternally,
-                        })
-                      }
-                    />
-                  ) : null
-                }
-                control={
-                  <Switch
-                    checked={settings.openLinksExternally}
-                    onCheckedChange={(checked) =>
-                      updateSettings({
-                        openLinksExternally: Boolean(checked),
-                      })
-                    }
-                    aria-label="Open links externally"
-                  />
-                }
-              />
-
-              <SettingsRow
-                title="Code Preview Autosave"
-                description="Automatically save edits made in the built-in code preview after a short delay."
-                resetAction={
-                  settings.codeViewerAutosave !== defaults.codeViewerAutosave ? (
-                    <SettingResetButton
-                      label="code preview autosave"
-                      onClick={() =>
-                        updateSettings({
-                          codeViewerAutosave: defaults.codeViewerAutosave,
-                        })
-                      }
-                    />
-                  ) : null
-                }
-                control={
-                  <Switch
-                    checked={settings.codeViewerAutosave}
-                    onCheckedChange={(checked) =>
-                      updateSettings({
-                        codeViewerAutosave: Boolean(checked),
-                      })
-                    }
-                    aria-label="Enable code preview autosave"
-                  />
-                }
-              />
-
-              <SettingsRow
-                title="New threads"
-                description="Pick the default workspace mode for newly created draft threads."
-                resetAction={
-                  settings.defaultThreadEnvMode !== defaults.defaultThreadEnvMode ? (
-                    <SettingResetButton
-                      label="new threads"
-                      onClick={() =>
-                        updateSettings({
-                          defaultThreadEnvMode: defaults.defaultThreadEnvMode,
-                        })
-                      }
-                    />
-                  ) : null
-                }
-                control={
-                  <Select
-                    value={settings.defaultThreadEnvMode}
-                    onValueChange={(value) => {
-                      if (value !== "local" && value !== "worktree") return;
-                      updateSettings({
-                        defaultThreadEnvMode: value,
-                      });
-                    }}
-                  >
-                    <SelectTrigger className="w-full sm:w-44" aria-label="Default thread mode">
-                      <SelectValue>
-                        {settings.defaultThreadEnvMode === "worktree" ? "New worktree" : "Local"}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectPopup align="end" alignItemWithTrigger={false}>
-                      <SelectItem hideIndicator value="local">
-                        Local
-                      </SelectItem>
-                      <SelectItem hideIndicator value="worktree">
-                        New worktree
-                      </SelectItem>
-                    </SelectPopup>
-                  </Select>
-                }
-              />
-
-              <SettingsRow
-                title="New worktree base"
-                description="Refresh the selected base branch from its tracked remote before creating a new worktree, without changing your current checkout."
-                resetAction={
-                  settings.autoUpdateWorktreeBaseBranch !==
-                  defaults.autoUpdateWorktreeBaseBranch ? (
-                    <SettingResetButton
-                      label="new worktree base"
-                      onClick={() =>
-                        updateSettings({
-                          autoUpdateWorktreeBaseBranch: defaults.autoUpdateWorktreeBaseBranch,
-                        })
-                      }
-                    />
-                  ) : null
-                }
-                control={
-                  <Switch
-                    checked={settings.autoUpdateWorktreeBaseBranch}
-                    onCheckedChange={(checked) =>
-                      updateSettings({
-                        autoUpdateWorktreeBaseBranch: Boolean(checked),
-                      })
-                    }
-                    aria-label="Refresh base branch before creating new worktrees"
-                  />
-                }
-              />
-
-              <SettingsRow
-                title="Delete confirmation"
-                description="Ask before deleting a thread and its chat history."
-                resetAction={
-                  settings.confirmThreadDelete !== defaults.confirmThreadDelete ? (
-                    <SettingResetButton
-                      label="delete confirmation"
-                      onClick={() =>
-                        updateSettings({
-                          confirmThreadDelete: defaults.confirmThreadDelete,
-                        })
-                      }
-                    />
-                  ) : null
-                }
-                control={
-                  <Switch
-                    checked={settings.confirmThreadDelete}
-                    onCheckedChange={(checked) =>
-                      updateSettings({
-                        confirmThreadDelete: Boolean(checked),
-                      })
-                    }
-                    aria-label="Confirm thread deletion"
-                  />
-                }
-              />
-
-              <SettingsRow
-                title="Auto-delete after merge"
-                description="Automatically delete a thread after its associated PR is merged."
-                resetAction={
-                  settings.autoDeleteMergedThreads !== defaults.autoDeleteMergedThreads ? (
-                    <SettingResetButton
-                      label="auto-delete merged threads"
-                      onClick={() =>
-                        updateSettings({
-                          autoDeleteMergedThreads: defaults.autoDeleteMergedThreads,
-                        })
-                      }
-                    />
-                  ) : null
-                }
-                control={
-                  <Switch
-                    checked={settings.autoDeleteMergedThreads}
-                    onCheckedChange={(checked) =>
-                      updateSettings({
-                        autoDeleteMergedThreads: Boolean(checked),
-                      })
-                    }
-                    aria-label="Auto-delete merged threads"
-                  />
-                }
-              />
-
-              {settings.autoDeleteMergedThreads ? (
-                <SettingsRow
-                  title="Auto-delete delay"
-                  description="How long to wait after a PR merge before deleting the thread."
-                  resetAction={
-                    settings.autoDeleteMergedThreadsDelayMinutes !==
-                    defaults.autoDeleteMergedThreadsDelayMinutes ? (
-                      <SettingResetButton
-                        label="auto-delete delay"
-                        onClick={() =>
-                          updateSettings({
-                            autoDeleteMergedThreadsDelayMinutes:
-                              defaults.autoDeleteMergedThreadsDelayMinutes,
-                          })
-                        }
-                      />
-                    ) : null
-                  }
-                  control={
-                    <Select
-                      value={String(settings.autoDeleteMergedThreadsDelayMinutes)}
-                      onValueChange={(value) =>
-                        updateSettings({
-                          autoDeleteMergedThreadsDelayMinutes: Number(value),
-                        })
-                      }
-                    >
-                      <SelectTrigger className="w-32">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectPopup align="end" alignItemWithTrigger={false}>
-                        <SelectItem hideIndicator value="1">
-                          1 minute
-                        </SelectItem>
-                        <SelectItem hideIndicator value="2">
-                          2 minutes
-                        </SelectItem>
-                        <SelectItem hideIndicator value="5">
-                          5 minutes
-                        </SelectItem>
-                        <SelectItem hideIndicator value="10">
-                          10 minutes
-                        </SelectItem>
-                        <SelectItem hideIndicator value="15">
-                          15 minutes
-                        </SelectItem>
-                        <SelectItem hideIndicator value="30">
-                          30 minutes
-                        </SelectItem>
-                        <SelectItem hideIndicator value="60">
-                          1 hour
-                        </SelectItem>
-                      </SelectPopup>
-                    </Select>
-                  }
-                />
-              ) : null}
-            </SettingsSection>
-
-            <SettingsSection title="Environment">
-              <SettingsRow
-                title="Global variables"
-                description="Available to every provider session, terminal, Git command, and health check launched on this machine."
-                status={
-                  globalEnvironmentVariablesQuery.isError ? (
-                    <span className="block text-destructive">
-                      Failed to load saved variables:{" "}
-                      {getErrorMessage(globalEnvironmentVariablesQuery.error)}
-                    </span>
-                  ) : globalEnvironmentVariablesQuery.isFetching ? (
-                    <span className="block">Loading saved variables...</span>
-                  ) : globalEnvironmentVariablesQuery.data?.entries.length ? (
-                    <span className="block">
-                      {globalEnvironmentVariablesQuery.data.entries.length} saved variables
-                    </span>
-                  ) : (
-                    <span className="block">No global variables saved yet.</span>
-                  )
-                }
+          {/* Main content area */}
+          <div className="flex min-h-0 flex-1 flex-col">
+            {/* Mobile section selector (visible on small screens) */}
+            <div className="border-b border-border/60 px-4 py-2 md:hidden">
+              <Select
+                value={activeSection}
+                onValueChange={(value) => setActiveSection(value as SettingsSectionId)}
               >
-                <EnvironmentVariablesEditor
-                  description="Global values are encrypted locally and merged into every runtime environment."
-                  entries={globalEnvironmentVariablesQuery.data?.entries ?? []}
-                  emptyMessage={
-                    globalEnvironmentVariablesQuery.isFetching
-                      ? "Loading global variables..."
-                      : "No global variables saved yet."
-                  }
-                  saveButtonLabel="Save global"
-                  addButtonLabel="Add variable"
-                  onSave={saveGlobalEnvironmentVariables}
-                  disabled={
-                    globalEnvironmentVariablesQuery.isFetching ||
-                    globalEnvironmentVariablesQuery.isError
-                  }
-                />
-              </SettingsRow>
+                <SelectTrigger className="w-full" aria-label="Settings section">
+                  <SelectValue>{activeSectionLabel}</SelectValue>
+                </SelectTrigger>
+                <SelectPopup>
+                  {navItems
+                    .filter((item) => !item.hidden)
+                    .map((item) => (
+                      <SelectItem hideIndicator key={item.id} value={item.id}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                </SelectPopup>
+              </Select>
+            </div>
 
-              <SettingsRow
-                title="Project variables"
-                description="Saved per project and merged on top of the global set when that project launches a provider, terminal, or helper command."
-                status={
-                  selectedProject ? (
-                    <span className="block break-all font-mono text-[11px] text-foreground">
-                      {selectedProject.name} · {selectedProject.cwd}
-                    </span>
-                  ) : (
-                    <span className="block">Open a project to edit project variables.</span>
-                  )
-                }
-                control={
-                  projects.length > 0 ? (
-                    <Select
-                      value={activeProjectId ?? ""}
-                      onValueChange={(value) => {
-                        setSelectedProjectId(value as ProjectId);
-                      }}
-                    >
-                      <SelectTrigger className="w-full sm:w-64" aria-label="Project selector">
-                        <SelectValue>
-                          {selectedProject ? selectedProject.name : "Select project"}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectPopup align="end" alignItemWithTrigger={false}>
-                        {projects.map((project) => (
-                          <SelectItem hideIndicator key={project.id} value={project.id}>
-                            <div className="flex min-w-0 flex-col">
-                              <span className="truncate">{project.name}</span>
-                              <span className="truncate text-[11px] text-muted-foreground">
-                                {project.cwd}
-                              </span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectPopup>
-                    </Select>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">No projects available.</span>
-                  )
-                }
-              >
-                <EnvironmentVariablesEditor
-                  key={selectedProject?.id ?? "no-project"}
-                  description={
-                    selectedProject
-                      ? `Project values override global values for ${selectedProject.name}.`
-                      : "Open or create a project to edit project variables."
-                  }
-                  entries={activeProjectEnvironmentVariables ?? []}
-                  emptyMessage={
-                    selectedProjectEnvironmentVariablesQuery.isFetching
-                      ? "Loading project variables..."
-                      : selectedProject
-                        ? "No project variables saved yet."
-                        : "Open or create a project to edit project variables."
-                  }
-                  saveButtonLabel="Save project"
-                  addButtonLabel="Add variable"
-                  onSave={saveProjectEnvironmentVariables}
-                  disabled={
-                    !selectedProject ||
-                    selectedProjectEnvironmentVariablesQuery.isFetching ||
-                    selectedProjectEnvironmentVariablesQuery.isError
-                  }
-                />
-              </SettingsRow>
-            </SettingsSection>
-
-            <SettingsSection title="Git">
-              <SettingsRow
-                title="Rebase before commit"
-                description="Before commit actions run, rebase the current branch onto the repository default branch, usually main. OK Code uses autostash so your local edits can be restored after the rebase."
-                resetAction={
-                  settings.rebaseBeforeCommit !== defaults.rebaseBeforeCommit ? (
-                    <SettingResetButton
-                      label="rebase before commit"
-                      onClick={() =>
-                        updateSettings({
-                          rebaseBeforeCommit: defaults.rebaseBeforeCommit,
-                        })
-                      }
-                    />
-                  ) : null
-                }
-                control={
-                  <Switch
-                    checked={settings.rebaseBeforeCommit}
-                    onCheckedChange={(checked) =>
-                      updateSettings({
-                        rebaseBeforeCommit: Boolean(checked),
-                      })
-                    }
-                    aria-label="Rebase onto the default branch before committing"
-                  />
-                }
-              />
-            </SettingsSection>
-
-            <SettingsSection title="Models">
-              <SettingsRow
-                title="Git writing model"
-                description="Used for generated commit messages, PR titles, and branch names."
-                resetAction={
-                  isGitTextGenerationModelDirty ? (
-                    <SettingResetButton
-                      label="git writing model"
-                      onClick={() =>
-                        updateSettings({
-                          textGenerationModel: defaults.textGenerationModel,
-                        })
-                      }
-                    />
-                  ) : null
-                }
-                control={
-                  <Select
-                    value={currentGitTextGenerationModel}
-                    onValueChange={(value) => {
-                      if (!value) return;
-                      updateSettings({
-                        textGenerationModel: value,
-                      });
-                    }}
+            <div className="flex-1 overflow-y-auto">
+              <div className="mx-auto max-w-3xl p-6 sm:p-8">
+                {activeSection === "general" && (
+                  <SettingsSection
+                    title="General"
+                    description="Appearance, behavior, and UI preferences."
                   >
-                    <SelectTrigger
-                      className="w-full sm:w-52"
-                      aria-label="Git text generation model"
-                    >
-                      <SelectValue>{selectedGitTextGenerationModelLabel}</SelectValue>
-                    </SelectTrigger>
-                    <SelectPopup align="end" alignItemWithTrigger={false}>
-                      {gitTextGenerationModelOptions.map((option) => (
-                        <SelectItem hideIndicator key={option.slug} value={option.slug}>
-                          {option.name}
-                        </SelectItem>
-                      ))}
-                    </SelectPopup>
-                  </Select>
-                }
-              />
-
-              <SettingsRow
-                title="Custom models"
-                description="Add custom model slugs for Codex or Anthropic. The chat picker groups models by provider."
-                resetAction={
-                  totalCustomModels > 0 ? (
-                    <SettingResetButton
-                      label="custom models"
-                      onClick={() => {
-                        updateSettings({
-                          customCodexModels: defaults.customCodexModels,
-                          customClaudeModels: defaults.customClaudeModels,
-                        });
-                        setCustomModelErrorByProvider({});
-                        setShowAllCustomModels(false);
-                      }}
-                    />
-                  ) : null
-                }
-              >
-                <div className="mt-4 border-t border-border pt-4">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <Select
-                      value={selectedCustomModelProvider}
-                      onValueChange={(value) => {
-                        if (value !== "codex" && value !== "claudeAgent") {
-                          return;
-                        }
-                        setSelectedCustomModelProvider(value);
-                      }}
-                    >
-                      <SelectTrigger
-                        size="sm"
-                        className="w-full sm:w-40"
-                        aria-label="Custom model provider"
-                      >
-                        <SelectValue>{selectedCustomModelProviderSettings.title}</SelectValue>
-                      </SelectTrigger>
-                      <SelectPopup align="start" alignItemWithTrigger={false}>
-                        {MODEL_PROVIDER_SETTINGS.map((providerSettings) => (
-                          <SelectItem
-                            hideIndicator
-                            className="min-h-7 text-sm"
-                            key={providerSettings.provider}
-                            value={providerSettings.provider}
-                          >
-                            {providerSettings.title}
-                          </SelectItem>
-                        ))}
-                      </SelectPopup>
-                    </Select>
-                    <Input
-                      id="custom-model-slug"
-                      value={selectedCustomModelInput}
-                      onChange={(event) => {
-                        const value = event.target.value;
-                        setCustomModelInputByProvider((existing) => ({
-                          ...existing,
-                          [selectedCustomModelProvider]: value,
-                        }));
-                        if (selectedCustomModelError) {
-                          setCustomModelErrorByProvider((existing) => ({
-                            ...existing,
-                            [selectedCustomModelProvider]: null,
-                          }));
-                        }
-                      }}
-                      onKeyDown={(event) => {
-                        if (event.key !== "Enter") return;
-                        event.preventDefault();
-                        addCustomModel(selectedCustomModelProvider);
-                      }}
-                      placeholder={selectedCustomModelProviderSettings.example}
-                      spellCheck={false}
-                    />
-                    <Button
-                      className="shrink-0"
-                      variant="outline"
-                      onClick={() => addCustomModel(selectedCustomModelProvider)}
-                    >
-                      <PlusIcon className="size-3.5" />
-                      Add
-                    </Button>
-                  </div>
-
-                  {selectedCustomModelError ? (
-                    <p className="mt-2 text-xs text-destructive">{selectedCustomModelError}</p>
-                  ) : null}
-
-                  {totalCustomModels > 0 ? (
-                    <div className="mt-3">
-                      <div>
-                        {visibleCustomModelRows.map((row) => (
-                          <div
-                            key={row.key}
-                            className="group grid grid-cols-[minmax(5rem,6rem)_minmax(0,1fr)_auto] items-center gap-3 border-t border-border/60 px-4 py-2 first:border-t-0"
-                          >
-                            <span className="truncate text-xs text-muted-foreground">
-                              {row.providerTitle}
-                            </span>
-                            <code className="min-w-0 truncate text-sm text-foreground">
-                              {row.slug}
-                            </code>
-                            <button
-                              type="button"
-                              className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 hover:opacity-100"
-                              aria-label={`Remove ${row.slug}`}
-                              onClick={() => removeCustomModel(row.provider, row.slug)}
-                            >
-                              <XIcon className="size-3.5 text-muted-foreground hover:text-foreground" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-
-                      {savedCustomModelRows.length > 5 ? (
-                        <button
-                          type="button"
-                          className="mt-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
-                          onClick={() => setShowAllCustomModels((value) => !value)}
+                    <SettingsRow
+                      title="Theme"
+                      description="Choose how OK Code looks across the app."
+                      resetAction={
+                        theme !== "system" ? (
+                          <SettingResetButton label="theme" onClick={() => setTheme("system")} />
+                        ) : null
+                      }
+                      control={
+                        <Select
+                          value={theme}
+                          onValueChange={(value) => {
+                            if (value !== "system" && value !== "light" && value !== "dark") return;
+                            setTheme(value);
+                          }}
                         >
-                          {showAllCustomModels
-                            ? "Show less"
-                            : `Show more (${savedCustomModelRows.length - 5})`}
-                        </button>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </div>
-              </SettingsRow>
-            </SettingsSection>
-
-            {!isMobileShell && (
-              <SettingsSection title="Mobile Companion">
-                <SettingsRow
-                  title="Pair mobile device"
-                  description="Copy this pairing link and open it in the OK Code mobile app to pair your phone."
-                >
-                  <div className="mt-4 flex justify-center">
-                    <PairingLink />
-                  </div>
-                </SettingsRow>
-              </SettingsSection>
-            )}
-
-            <SettingsSection title="Advanced">
-              <SettingsRow
-                title="Provider installs"
-                description="Override the CLI binaries and auth homes used for new sessions."
-                resetAction={
-                  isInstallSettingsDirty ? (
-                    <SettingResetButton
-                      label="provider installs"
-                      onClick={() => {
-                        updateSettings({
-                          claudeBinaryPath: defaults.claudeBinaryPath,
-                          codexBinaryPath: defaults.codexBinaryPath,
-                          codexHomePath: defaults.codexHomePath,
-                        });
-                        setOpenInstallProviders({
-                          codex: false,
-                          claudeAgent: false,
-                          openclaw: false,
-                        });
-                      }}
+                          <SelectTrigger className="w-full sm:w-40" aria-label="Theme preference">
+                            <SelectValue>
+                              {THEME_OPTIONS.find((option) => option.value === theme)?.label ??
+                                "System"}
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectPopup align="end" alignItemWithTrigger={false}>
+                            {THEME_OPTIONS.map((option) => (
+                              <SelectItem hideIndicator key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectPopup>
+                        </Select>
+                      }
                     />
-                  ) : null
-                }
-              >
-                <div className="mt-4">
-                  <div className="space-y-2">
-                    {INSTALL_PROVIDER_SETTINGS.map((providerSettings) => {
-                      const isOpen = openInstallProviders[providerSettings.provider];
-                      const isDirty =
-                        providerSettings.provider === "codex"
-                          ? settings.codexBinaryPath !== defaults.codexBinaryPath ||
-                            settings.codexHomePath !== defaults.codexHomePath
-                          : settings.claudeBinaryPath !== defaults.claudeBinaryPath;
-                      const binaryPathValue =
-                        providerSettings.binaryPathKey === "claudeBinaryPath"
-                          ? claudeBinaryPath
-                          : codexBinaryPath;
 
-                      return (
-                        <Collapsible
-                          key={providerSettings.provider}
-                          open={isOpen}
-                          onOpenChange={(open) =>
-                            setOpenInstallProviders((existing) => ({
-                              ...existing,
-                              [providerSettings.provider]: open,
-                            }))
-                          }
-                        >
-                          <div className="overflow-hidden rounded-xl border border-border/70">
-                            <button
-                              type="button"
-                              className="flex w-full items-center gap-3 px-4 py-3 text-left"
-                              onClick={() =>
-                                setOpenInstallProviders((existing) => ({
-                                  ...existing,
-                                  [providerSettings.provider]: !existing[providerSettings.provider],
-                                }))
+                    <SettingsRow
+                      title="Color theme"
+                      description="Pick a color palette for light and dark modes."
+                      resetAction={
+                        colorTheme !== DEFAULT_COLOR_THEME ? (
+                          <SettingResetButton
+                            label="color theme"
+                            onClick={() => {
+                              setColorTheme(DEFAULT_COLOR_THEME);
+                              clearStoredCustomTheme();
+                              removeCustomTheme();
+                            }}
+                          />
+                        ) : null
+                      }
+                      control={
+                        <div className="flex items-center gap-2">
+                          <Select
+                            value={colorTheme}
+                            onValueChange={(value) => {
+                              if (value === "custom") {
+                                // If no custom theme is stored, open the import dialog
+                                const existing = getStoredCustomTheme();
+                                if (!existing) {
+                                  setCustomThemeDialogOpen(true);
+                                  return;
+                                }
                               }
-                            >
-                              <span className="min-w-0 flex-1 text-sm font-medium text-foreground">
-                                {providerSettings.title}
-                              </span>
-                              {isDirty ? (
-                                <span className="text-[11px] text-muted-foreground">Custom</span>
-                              ) : null}
-                              <ChevronDownIcon
-                                className={cn(
-                                  "size-4 shrink-0 text-muted-foreground transition-transform",
-                                  isOpen && "rotate-180",
-                                )}
-                              />
-                            </button>
-
-                            <CollapsibleContent>
-                              <div className="border-t border-border/70 px-4 py-4">
-                                <div className="space-y-3">
-                                  <label
-                                    htmlFor={`provider-install-${providerSettings.binaryPathKey}`}
-                                    className="block"
-                                  >
-                                    <span className="block text-xs font-medium text-foreground">
-                                      {providerSettings.title} binary path
-                                    </span>
-                                    <Input
-                                      id={`provider-install-${providerSettings.binaryPathKey}`}
-                                      className="mt-1"
-                                      value={binaryPathValue}
-                                      onChange={(event) =>
-                                        updateSettings(
-                                          providerSettings.binaryPathKey === "claudeBinaryPath"
-                                            ? { claudeBinaryPath: event.target.value }
-                                            : { codexBinaryPath: event.target.value },
-                                        )
-                                      }
-                                      placeholder={providerSettings.binaryPlaceholder}
-                                      spellCheck={false}
-                                    />
-                                    <span className="mt-1 block text-xs text-muted-foreground">
-                                      {providerSettings.binaryDescription}
-                                    </span>
-                                  </label>
-
-                                  {providerSettings.homePathKey ? (
-                                    <label
-                                      htmlFor={`provider-install-${providerSettings.homePathKey}`}
-                                      className="block"
-                                    >
-                                      <span className="block text-xs font-medium text-foreground">
-                                        CODEX_HOME path
-                                      </span>
-                                      <Input
-                                        id={`provider-install-${providerSettings.homePathKey}`}
-                                        className="mt-1"
-                                        value={codexHomePath}
-                                        onChange={(event) =>
-                                          updateSettings({
-                                            codexHomePath: event.target.value,
-                                          })
-                                        }
-                                        placeholder={providerSettings.homePlaceholder}
-                                        spellCheck={false}
-                                      />
-                                      {providerSettings.homeDescription ? (
-                                        <span className="mt-1 block text-xs text-muted-foreground">
-                                          {providerSettings.homeDescription}
-                                        </span>
-                                      ) : null}
-                                    </label>
-                                  ) : null}
-                                </div>
-                              </div>
-                            </CollapsibleContent>
-                          </div>
-                        </Collapsible>
-                      );
-                    })}
-                  </div>
-                </div>
-              </SettingsRow>
-
-              <SettingsRow
-                title="OpenClaw gateway"
-                description="Connect to an OpenClaw gateway for remote agent sessions."
-                resetAction={
-                  settings.openclawGatewayUrl !== defaults.openclawGatewayUrl ||
-                  settings.openclawPassword !== defaults.openclawPassword ? (
-                    <SettingResetButton
-                      label="OpenClaw gateway"
-                      onClick={() =>
-                        updateSettings({
-                          openclawGatewayUrl: defaults.openclawGatewayUrl,
-                          openclawPassword: defaults.openclawPassword,
-                        })
+                              const match = COLOR_THEMES.find((t) => t.id === value);
+                              if (!match) return;
+                              setColorTheme(match.id);
+                            }}
+                          >
+                            <SelectTrigger className="w-full sm:w-40" aria-label="Color theme">
+                              <SelectValue>
+                                {COLOR_THEMES.find((t) => t.id === colorTheme)?.label ?? "Default"}
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectPopup align="end" alignItemWithTrigger={false}>
+                              {COLOR_THEMES.filter(
+                                (t) => t.id !== "custom" || getStoredCustomTheme(),
+                              ).map((t) => (
+                                <SelectItem hideIndicator key={t.id} value={t.id}>
+                                  {t.label}
+                                </SelectItem>
+                              ))}
+                            </SelectPopup>
+                          </Select>
+                          <Tooltip>
+                            <TooltipTrigger
+                              render={
+                                <Button
+                                  size="xs"
+                                  variant="outline"
+                                  onClick={() => setCustomThemeDialogOpen(true)}
+                                  aria-label="Import custom theme"
+                                >
+                                  <ImportIcon className="size-3.5" />
+                                </Button>
+                              }
+                            />
+                            <TooltipPopup side="top">Import from tweakcn.com</TooltipPopup>
+                          </Tooltip>
+                        </div>
                       }
                     />
-                  ) : null
-                }
-              >
-                <div className="mt-4 space-y-3">
-                  <label htmlFor="openclaw-gateway-url" className="block">
-                    <span className="block text-xs font-medium text-foreground">Gateway URL</span>
-                    <Input
-                      id="openclaw-gateway-url"
-                      className="mt-1"
-                      value={settings.openclawGatewayUrl}
-                      onChange={(event) => {
-                        updateSettings({ openclawGatewayUrl: event.target.value });
-                        setOpenclawTestResult(null);
-                      }}
-                      placeholder="ws://localhost:8080"
-                      spellCheck={false}
-                    />
-                    <span className="mt-1 block text-xs text-muted-foreground">
-                      WebSocket URL of the OpenClaw gateway. Leave blank when not using OpenClaw.
-                    </span>
-                  </label>
-                  <label htmlFor="openclaw-password" className="block">
-                    <span className="block text-xs font-medium text-foreground">Password</span>
-                    <Input
-                      id="openclaw-password"
-                      className="mt-1"
-                      type="password"
-                      value={settings.openclawPassword}
-                      onChange={(event) => {
-                        updateSettings({ openclawPassword: event.target.value });
-                        setOpenclawTestResult(null);
-                      }}
-                      placeholder="Shared secret"
-                      spellCheck={false}
-                      autoComplete="off"
-                    />
-                    <span className="mt-1 block text-xs text-muted-foreground">
-                      Shared secret used to authenticate with the gateway.
-                    </span>
-                  </label>
 
-                  {/* Test Connection Button */}
-                  <div className="pt-1">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={!settings.openclawGatewayUrl || openclawTestLoading}
-                      onClick={testOpenclawGateway}
-                    >
-                      {openclawTestLoading ? (
-                        <>
-                          <Loader2Icon className="mr-1.5 size-3.5 animate-spin" />
-                          Testing…
-                        </>
-                      ) : (
-                        "Test Connection"
-                      )}
-                    </Button>
-                  </div>
-
-                  {/* Debug / Results Panel */}
-                  {openclawTestResult && (
-                    <div className="mt-3 rounded-md border border-border bg-muted/30 p-3">
-                      {/* Overall status header */}
-                      <div className="flex items-center gap-2">
-                        {openclawTestResult.success ? (
-                          <CheckCircle2Icon className="size-4 text-emerald-500" />
-                        ) : (
-                          <XCircleIcon className="size-4 text-red-500" />
-                        )}
-                        <span
-                          className={cn(
-                            "text-xs font-semibold",
-                            openclawTestResult.success ? "text-emerald-500" : "text-red-500",
-                          )}
-                        >
-                          {openclawTestResult.success
-                            ? "Connection successful"
-                            : "Connection failed"}
-                        </span>
-                        <span className="ml-auto text-[10px] tabular-nums text-muted-foreground">
-                          {openclawTestResult.totalDurationMs}ms total
-                        </span>
-                        <Button
-                          variant="ghost"
-                          size="xs"
-                          className="h-6 px-2 text-[10px]"
-                          onClick={handleCopyOpenclawDebugReport}
-                        >
-                          {openclawDebugReportCopied ? "Copied!" : "Copy debug report"}
-                        </Button>
-                      </div>
-
-                      {/* Step-by-step results */}
-                      {openclawTestResult.steps.length > 0 && (
-                        <div className="mt-2.5 space-y-1.5">
-                          {openclawTestResult.steps.map((step) => (
-                            <div
-                              key={`${step.name}-${step.status}-${step.durationMs}`}
-                              className="flex items-start gap-2 text-xs"
-                            >
-                              {step.status === "pass" && (
-                                <CheckCircle2Icon className="mt-px size-3.5 shrink-0 text-emerald-500" />
-                              )}
-                              {step.status === "fail" && (
-                                <XCircleIcon className="mt-px size-3.5 shrink-0 text-red-500" />
-                              )}
-                              {step.status === "skip" && (
-                                <SkipForwardIcon className="mt-px size-3.5 shrink-0 text-muted-foreground" />
-                              )}
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-baseline gap-2">
-                                  <span className="font-medium text-foreground">{step.name}</span>
-                                  <span className="tabular-nums text-muted-foreground text-[10px]">
-                                    {step.durationMs}ms
-                                  </span>
-                                </div>
-                                {step.detail && (
-                                  <span className="block break-all text-muted-foreground">
-                                    {step.detail}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Server info */}
-                      {openclawTestResult.serverInfo && (
-                        <div className="mt-2.5 border-t border-border pt-2">
-                          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                            Server Info
+                    <SettingsRow
+                      title="Border radius"
+                      description="Adjust the corner roundness of UI elements."
+                      resetAction={
+                        radiusOverride !== null ? (
+                          <SettingResetButton
+                            label="border radius"
+                            onClick={() => {
+                              clearRadiusOverride();
+                              setRadiusOverrideState(null);
+                            }}
+                          />
+                        ) : null
+                      }
+                      control={
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="range"
+                            min={0}
+                            max={1.5}
+                            step={0.0625}
+                            value={radiusOverride ?? 0.625}
+                            onChange={(e) => {
+                              const value = Number.parseFloat(e.target.value);
+                              setRadiusOverrideState(value);
+                              setStoredRadiusOverride(value);
+                            }}
+                            className="h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-muted accent-foreground sm:w-28"
+                            aria-label="Border radius"
+                          />
+                          <span className="w-12 text-right text-xs tabular-nums text-muted-foreground">
+                            {(radiusOverride ?? 0.625).toFixed(2)}rem
                           </span>
-                          <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
-                            {openclawTestResult.serverInfo.version && (
-                              <div>
-                                Version:{" "}
-                                <span className="font-mono text-foreground">
-                                  {openclawTestResult.serverInfo.version}
-                                </span>
-                              </div>
-                            )}
-                            {openclawTestResult.serverInfo.sessionId && (
-                              <div>
-                                Session:{" "}
-                                <span className="font-mono text-foreground">
-                                  {openclawTestResult.serverInfo.sessionId}
-                                </span>
-                              </div>
-                            )}
-                          </div>
                         </div>
-                      )}
+                      }
+                    />
 
-                      {openclawTestResult.diagnostics && (
-                        <div className="mt-2.5 border-t border-border pt-2">
-                          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                            Debugging Context
+                    <SettingsRow
+                      title="Font size"
+                      description="Adjust the font size for code editors and terminal."
+                      resetAction={
+                        fontSizeOverride !== null ? (
+                          <SettingResetButton
+                            label="font size"
+                            onClick={() => {
+                              clearFontSizeOverride();
+                              setFontSizeOverrideState(null);
+                            }}
+                          />
+                        ) : null
+                      }
+                      control={
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="range"
+                            min={10}
+                            max={20}
+                            step={1}
+                            value={fontSizeOverride ?? 12}
+                            onChange={(e) => {
+                              const value = Number.parseFloat(e.target.value);
+                              setFontSizeOverrideState(value);
+                              setStoredFontSizeOverride(value);
+                            }}
+                            className="h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-muted accent-foreground sm:w-28"
+                            aria-label="Font size"
+                          />
+                          <span className="w-12 text-right text-xs tabular-nums text-muted-foreground">
+                            {fontSizeOverride ?? 12}px
                           </span>
-                          <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
-                            {openclawTestResult.diagnostics.normalizedUrl && (
-                              <div>
-                                Endpoint:{" "}
-                                <span className="break-all font-mono text-foreground">
-                                  {openclawTestResult.diagnostics.normalizedUrl}
-                                </span>
-                              </div>
-                            )}
-                            {openclawTestResult.diagnostics.hostKind && (
-                              <div>
-                                Host type:{" "}
-                                <span className="text-foreground">
-                                  {describeOpenclawGatewayHostKind(
-                                    openclawTestResult.diagnostics.hostKind,
-                                  )}
-                                </span>
-                              </div>
-                            )}
-                            {openclawTestResult.diagnostics.resolvedAddresses.length > 0 && (
-                              <div>
-                                Resolved:{" "}
-                                <span className="break-all font-mono text-foreground">
-                                  {openclawTestResult.diagnostics.resolvedAddresses.join(", ")}
-                                </span>
-                              </div>
-                            )}
-                            {describeOpenclawGatewayHealthStatus(openclawTestResult) && (
-                              <div>
-                                Health probe:{" "}
-                                <span className="text-foreground">
-                                  {describeOpenclawGatewayHealthStatus(openclawTestResult)}
-                                </span>
-                                {openclawTestResult.diagnostics.healthUrl && (
-                                  <>
-                                    {" "}
-                                    at{" "}
-                                    <span className="break-all font-mono text-foreground">
-                                      {openclawTestResult.diagnostics.healthUrl}
-                                    </span>
-                                  </>
-                                )}
-                              </div>
-                            )}
-                            {openclawTestResult.diagnostics.socketCloseCode !== undefined && (
-                              <div>
-                                Socket close:{" "}
-                                <span className="text-foreground">
-                                  {openclawTestResult.diagnostics.socketCloseCode}
-                                  {openclawTestResult.diagnostics.socketCloseReason
-                                    ? ` (${openclawTestResult.diagnostics.socketCloseReason})`
-                                    : ""}
-                                </span>
-                              </div>
-                            )}
-                            {openclawTestResult.diagnostics.socketError && (
-                              <div>
-                                Socket error:{" "}
-                                <span className="break-all text-foreground">
-                                  {openclawTestResult.diagnostics.socketError}
-                                </span>
-                              </div>
-                            )}
-                            {openclawTestResult.diagnostics.observedNotifications.length > 0 && (
-                              <div>
-                                Gateway notifications:{" "}
-                                <span className="break-all font-mono text-foreground">
-                                  {openclawTestResult.diagnostics.observedNotifications.join(", ")}
-                                </span>
-                              </div>
-                            )}
-                          </div>
                         </div>
-                      )}
+                      }
+                    />
 
-                      {openclawTestResult.diagnostics &&
-                        openclawTestResult.diagnostics.hints.length > 0 && (
-                          <div className="mt-2.5 border-t border-border pt-2">
-                            <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                              Troubleshooting
-                            </span>
-                            <ul className="mt-1 space-y-1 text-xs text-muted-foreground">
-                              {openclawTestResult.diagnostics.hints.map((hint) => (
-                                <li key={hint} className="flex gap-2">
-                                  <span className="mt-[6px] size-1 shrink-0 rounded-full bg-muted-foreground/60" />
-                                  <span>{hint}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
+                    <SettingsRow
+                      title="Font family"
+                      description="Override the UI font. Use any Google Font name."
+                      resetAction={
+                        fontOverride ? (
+                          <SettingResetButton
+                            label="font family"
+                            onClick={() => {
+                              clearFontOverride();
+                              setFontOverrideState("");
+                            }}
+                          />
+                        ) : null
+                      }
+                      control={
+                        <Input
+                          className="w-full sm:w-48"
+                          value={fontOverride}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setFontOverrideState(value);
+                            if (value.trim()) {
+                              setStoredFontOverride(value);
+                            } else {
+                              clearFontOverride();
+                            }
+                          }}
+                          placeholder="e.g. Inter, sans-serif"
+                          spellCheck={false}
+                          aria-label="Font family override"
+                        />
+                      }
+                    />
 
-                      {/* Error summary */}
-                      {openclawTestResult.error &&
-                        !openclawTestResult.steps.some((s) => s.status === "fail") && (
-                          <div className="mt-2 text-xs text-red-500">
-                            {openclawTestResult.error}
-                          </div>
-                        )}
-                    </div>
-                  )}
-                </div>
-              </SettingsRow>
+                    <CustomThemeDialog
+                      open={customThemeDialogOpen}
+                      onOpenChange={setCustomThemeDialogOpen}
+                      onApply={(theme: CustomThemeData) => {
+                        applyCustomTheme(theme);
+                        setColorTheme("custom");
+                      }}
+                    />
 
-              <SettingsRow
-                title="Keybindings"
-                description="Open the persisted `keybindings.json` file to edit advanced bindings directly."
-                status={
-                  <>
-                    <span className="block break-all font-mono text-[11px] text-foreground">
-                      {keybindingsConfigPath ?? "Resolving keybindings path..."}
-                    </span>
-                    {openKeybindingsError ? (
-                      <span className="mt-1 block text-destructive">{openKeybindingsError}</span>
-                    ) : (
-                      <span className="mt-1 block">Opens in your preferred editor.</span>
-                    )}
-                  </>
-                }
-                control={
-                  <Button
-                    size="xs"
-                    variant="outline"
-                    disabled={!keybindingsConfigPath || isOpeningKeybindings}
-                    onClick={openKeybindingsFile}
-                  >
-                    {isOpeningKeybindings ? "Opening..." : "Open file"}
-                  </Button>
-                }
-              />
+                    <SettingsRow
+                      title="Font"
+                      description="Choose the typeface for the interface."
+                      resetAction={
+                        fontFamily !== "inter" ? (
+                          <SettingResetButton label="font" onClick={() => setFontFamily("inter")} />
+                        ) : null
+                      }
+                      control={
+                        <Select
+                          value={fontFamily}
+                          onValueChange={(value) => {
+                            const match = FONT_FAMILIES.find((f) => f.id === value);
+                            if (!match) return;
+                            setFontFamily(match.id);
+                          }}
+                        >
+                          <SelectTrigger className="w-full sm:w-40" aria-label="Font family">
+                            <SelectValue>
+                              {FONT_FAMILIES.find((f) => f.id === fontFamily)?.label ?? "Inter"}
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectPopup align="end" alignItemWithTrigger={false}>
+                            {FONT_FAMILIES.map((f) => (
+                              <SelectItem hideIndicator key={f.id} value={f.id}>
+                                {f.label}
+                              </SelectItem>
+                            ))}
+                          </SelectPopup>
+                        </Select>
+                      }
+                    />
 
-              <SettingsRow
-                title="Build"
-                description="Current app-shell and server build metadata."
-                control={
-                  <div className="grid w-full gap-3 text-left sm:max-w-xl sm:grid-cols-2 sm:gap-5">
-                    <BuildInfoBlock label="App" buildInfo={APP_BUILD_INFO} />
-                    {serverConfigQuery.data?.buildInfo ? (
-                      <BuildInfoBlock label="Server" buildInfo={serverConfigQuery.data.buildInfo} />
+                    <SettingsRow
+                      title="Sidebar opacity"
+                      description="Adjust the transparency of the side panel and project list."
+                      resetAction={
+                        settings.sidebarOpacity !== defaults.sidebarOpacity ? (
+                          <SettingResetButton
+                            label="sidebar opacity"
+                            onClick={() =>
+                              updateSettings({ sidebarOpacity: defaults.sidebarOpacity })
+                            }
+                          />
+                        ) : null
+                      }
+                      control={
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="range"
+                            min={30}
+                            max={100}
+                            value={Math.round(settings.sidebarOpacity * 100)}
+                            onChange={(e) => {
+                              const value = Number(e.target.value) / 100;
+                              updateSettings({ sidebarOpacity: value });
+                            }}
+                            className="h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-muted accent-foreground sm:w-28"
+                            aria-label="Sidebar opacity"
+                          />
+                          <span className="w-9 text-right text-xs tabular-nums text-muted-foreground">
+                            {Math.round(settings.sidebarOpacity * 100)}%
+                          </span>
+                        </div>
+                      }
+                    />
+
+                    <BackgroundImageSettings
+                      backgroundImageOpacity={settings.backgroundImageOpacity}
+                      backgroundImageUrl={settings.backgroundImageUrl}
+                      defaultBackgroundImageOpacity={defaults.backgroundImageOpacity}
+                      defaultBackgroundImageUrl={defaults.backgroundImageUrl}
+                      updateSettings={updateSettings}
+                    />
+
+                    <SettingsRow
+                      title="Accent project names"
+                      description="Use the theme's accent color for project names in the sidebar."
+                      resetAction={
+                        settings.sidebarAccentProjectNames !==
+                        defaults.sidebarAccentProjectNames ? (
+                          <SettingResetButton
+                            label="accent project names"
+                            onClick={() =>
+                              updateSettings({
+                                sidebarAccentProjectNames: defaults.sidebarAccentProjectNames,
+                              })
+                            }
+                          />
+                        ) : null
+                      }
+                      control={
+                        <Switch
+                          checked={settings.sidebarAccentProjectNames}
+                          onCheckedChange={(checked) =>
+                            updateSettings({
+                              sidebarAccentProjectNames: Boolean(checked),
+                            })
+                          }
+                          aria-label="Accent project names"
+                        />
+                      }
+                    />
+
+                    <SettingsRow
+                      title="Accent color override"
+                      description="Set a custom color for accented project names instead of the theme default."
+                      resetAction={
+                        settings.sidebarAccentColorOverride ? (
+                          <SettingResetButton
+                            label="accent color override"
+                            onClick={() =>
+                              updateSettings({
+                                sidebarAccentColorOverride: undefined,
+                              })
+                            }
+                          />
+                        ) : null
+                      }
+                      control={
+                        <div className="flex items-center gap-2">
+                          <label
+                            className="relative size-8 shrink-0 cursor-pointer overflow-hidden rounded-md border border-border"
+                            style={{
+                              backgroundColor:
+                                settings.sidebarAccentColorOverride || "var(--accent-foreground)",
+                            }}
+                          >
+                            <input
+                              type="color"
+                              value={settings.sidebarAccentColorOverride || "#000000"}
+                              onChange={(e) =>
+                                updateSettings({
+                                  sidebarAccentColorOverride: e.target.value,
+                                })
+                              }
+                              className="absolute inset-0 cursor-pointer opacity-0"
+                              aria-label="Accent color picker"
+                            />
+                          </label>
+                          <input
+                            type="text"
+                            value={settings.sidebarAccentColorOverride ?? ""}
+                            placeholder="Theme default"
+                            onChange={(e) => {
+                              const value = e.target.value.trim();
+                              updateSettings({
+                                sidebarAccentColorOverride: value || undefined,
+                              });
+                            }}
+                            className="h-8 w-28 rounded-md border border-border bg-background px-2 text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-ring sm:w-32"
+                            aria-label="Accent color value"
+                          />
+                        </div>
+                      }
+                    />
+
+                    <SettingsRow
+                      title="Accent background override"
+                      description="Set a custom background color for project headers instead of the theme default."
+                      resetAction={
+                        settings.sidebarAccentBgColorOverride ? (
+                          <SettingResetButton
+                            label="accent background override"
+                            onClick={() =>
+                              updateSettings({
+                                sidebarAccentBgColorOverride: undefined,
+                              })
+                            }
+                          />
+                        ) : null
+                      }
+                      control={
+                        <div className="flex items-center gap-2">
+                          <label
+                            className="relative size-8 shrink-0 cursor-pointer overflow-hidden rounded-md border border-border"
+                            style={{
+                              backgroundColor:
+                                settings.sidebarAccentBgColorOverride || "var(--accent)",
+                            }}
+                          >
+                            <input
+                              type="color"
+                              value={settings.sidebarAccentBgColorOverride || "#000000"}
+                              onChange={(e) =>
+                                updateSettings({
+                                  sidebarAccentBgColorOverride: e.target.value,
+                                })
+                              }
+                              className="absolute inset-0 cursor-pointer opacity-0"
+                              aria-label="Accent background color picker"
+                            />
+                          </label>
+                          <input
+                            type="text"
+                            value={settings.sidebarAccentBgColorOverride ?? ""}
+                            placeholder="Theme default"
+                            onChange={(e) => {
+                              const value = e.target.value.trim();
+                              updateSettings({
+                                sidebarAccentBgColorOverride: value || undefined,
+                              });
+                            }}
+                            className="h-8 w-28 rounded-md border border-border bg-background px-2 text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-ring sm:w-32"
+                            aria-label="Accent background color value"
+                          />
+                        </div>
+                      }
+                    />
+
+                    <SettingsRow
+                      title="PR request changes button"
+                      description="Choose how prominent the Request changes action looks in pull request review."
+                      resetAction={
+                        settings.prReviewRequestChangesTone !==
+                        DEFAULT_PR_REVIEW_REQUEST_CHANGES_TONE ? (
+                          <SettingResetButton
+                            label="PR request changes button"
+                            onClick={() =>
+                              updateSettings({
+                                prReviewRequestChangesTone: DEFAULT_PR_REVIEW_REQUEST_CHANGES_TONE,
+                              })
+                            }
+                          />
+                        ) : null
+                      }
+                      control={
+                        <Select
+                          value={settings.prReviewRequestChangesTone}
+                          onValueChange={(value) => {
+                            if (value !== "warning" && value !== "neutral" && value !== "brand") {
+                              return;
+                            }
+                            updateSettings({
+                              prReviewRequestChangesTone: value,
+                            });
+                          }}
+                        >
+                          <SelectTrigger
+                            className="w-full sm:w-40"
+                            aria-label="PR request changes button"
+                          >
+                            <SelectValue>
+                              {PR_REVIEW_REQUEST_CHANGES_TONE_OPTIONS.find(
+                                (option) => option.value === settings.prReviewRequestChangesTone,
+                              )?.label ?? "Warning"}
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectPopup align="end" alignItemWithTrigger={false}>
+                            {PR_REVIEW_REQUEST_CHANGES_TONE_OPTIONS.map((option) => (
+                              <SelectItem hideIndicator key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectPopup>
+                        </Select>
+                      }
+                    />
+
+                    <SettingsRow
+                      title="Time format"
+                      description="System default follows your browser or OS clock preference."
+                      resetAction={
+                        settings.timestampFormat !== defaults.timestampFormat ? (
+                          <SettingResetButton
+                            label="time format"
+                            onClick={() =>
+                              updateSettings({
+                                timestampFormat: defaults.timestampFormat,
+                              })
+                            }
+                          />
+                        ) : null
+                      }
+                      control={
+                        <Select
+                          value={settings.timestampFormat}
+                          onValueChange={(value) => {
+                            if (value !== "locale" && value !== "12-hour" && value !== "24-hour") {
+                              return;
+                            }
+                            updateSettings({
+                              timestampFormat: value,
+                            });
+                          }}
+                        >
+                          <SelectTrigger className="w-full sm:w-40" aria-label="Timestamp format">
+                            <SelectValue>
+                              {TIMESTAMP_FORMAT_LABELS[settings.timestampFormat]}
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectPopup align="end" alignItemWithTrigger={false}>
+                            <SelectItem hideIndicator value="locale">
+                              {TIMESTAMP_FORMAT_LABELS.locale}
+                            </SelectItem>
+                            <SelectItem hideIndicator value="12-hour">
+                              {TIMESTAMP_FORMAT_LABELS["12-hour"]}
+                            </SelectItem>
+                            <SelectItem hideIndicator value="24-hour">
+                              {TIMESTAMP_FORMAT_LABELS["24-hour"]}
+                            </SelectItem>
+                          </SelectPopup>
+                        </Select>
+                      }
+                    />
+
+                    <SettingsRow
+                      title="Stitch border"
+                      description="Show the decorative stitch border around the viewport."
+                      resetAction={
+                        settings.showStitchBorder !== defaults.showStitchBorder ? (
+                          <SettingResetButton
+                            label="stitch border"
+                            onClick={() =>
+                              updateSettings({
+                                showStitchBorder: defaults.showStitchBorder,
+                              })
+                            }
+                          />
+                        ) : null
+                      }
+                      control={
+                        <Switch
+                          checked={settings.showStitchBorder}
+                          onCheckedChange={(checked) =>
+                            updateSettings({
+                              showStitchBorder: Boolean(checked),
+                            })
+                          }
+                          aria-label="Show stitch border"
+                        />
+                      }
+                    />
+
+                    <SettingsRow
+                      title="Assistant output"
+                      description="Show token-by-token output while a response is in progress."
+                      resetAction={
+                        settings.enableAssistantStreaming !== defaults.enableAssistantStreaming ? (
+                          <SettingResetButton
+                            label="assistant output"
+                            onClick={() =>
+                              updateSettings({
+                                enableAssistantStreaming: defaults.enableAssistantStreaming,
+                              })
+                            }
+                          />
+                        ) : null
+                      }
+                      control={
+                        <Switch
+                          checked={settings.enableAssistantStreaming}
+                          onCheckedChange={(checked) =>
+                            updateSettings({
+                              enableAssistantStreaming: Boolean(checked),
+                            })
+                          }
+                          aria-label="Stream assistant messages"
+                        />
+                      }
+                    />
+
+                    <SettingsRow
+                      title="Reasoning content"
+                      description="Show reasoning/thinking content in the work log instead of just showing 'Reasoning update'."
+                      resetAction={
+                        settings.showReasoningContent !== defaults.showReasoningContent ? (
+                          <SettingResetButton
+                            label="reasoning content"
+                            onClick={() =>
+                              updateSettings({
+                                showReasoningContent: defaults.showReasoningContent,
+                              })
+                            }
+                          />
+                        ) : null
+                      }
+                      control={
+                        <Switch
+                          checked={settings.showReasoningContent}
+                          onCheckedChange={(checked) =>
+                            updateSettings({
+                              showReasoningContent: Boolean(checked),
+                            })
+                          }
+                          aria-label="Show reasoning content in work log"
+                        />
+                      }
+                    />
+
+                    <SettingsRow
+                      title="Auth failure errors"
+                      description="Show provider authentication failures in the thread error banner. Turn this off to keep login issues out of the main error state."
+                      resetAction={
+                        settings.showAuthFailuresAsErrors !== defaults.showAuthFailuresAsErrors ? (
+                          <SettingResetButton
+                            label="auth failure errors"
+                            onClick={() =>
+                              updateSettings({
+                                showAuthFailuresAsErrors: defaults.showAuthFailuresAsErrors,
+                              })
+                            }
+                          />
+                        ) : null
+                      }
+                      control={
+                        <Switch
+                          checked={settings.showAuthFailuresAsErrors}
+                          onCheckedChange={(checked) =>
+                            updateSettings({
+                              showAuthFailuresAsErrors: Boolean(checked),
+                            })
+                          }
+                          aria-label="Show authentication failures as thread errors"
+                        />
+                      }
+                    />
+
+                    <SettingsRow
+                      title="Open links externally"
+                      description="Open terminal URLs in your default browser instead of the embedded preview panel."
+                      resetAction={
+                        settings.openLinksExternally !== defaults.openLinksExternally ? (
+                          <SettingResetButton
+                            label="open links externally"
+                            onClick={() =>
+                              updateSettings({
+                                openLinksExternally: defaults.openLinksExternally,
+                              })
+                            }
+                          />
+                        ) : null
+                      }
+                      control={
+                        <Switch
+                          checked={settings.openLinksExternally}
+                          onCheckedChange={(checked) =>
+                            updateSettings({
+                              openLinksExternally: Boolean(checked),
+                            })
+                          }
+                          aria-label="Open links externally"
+                        />
+                      }
+                    />
+
+                    <SettingsRow
+                      title="Code Preview Autosave"
+                      description="Automatically save edits made in the built-in code preview after a short delay."
+                      resetAction={
+                        settings.codeViewerAutosave !== defaults.codeViewerAutosave ? (
+                          <SettingResetButton
+                            label="code preview autosave"
+                            onClick={() =>
+                              updateSettings({
+                                codeViewerAutosave: defaults.codeViewerAutosave,
+                              })
+                            }
+                          />
+                        ) : null
+                      }
+                      control={
+                        <Switch
+                          checked={settings.codeViewerAutosave}
+                          onCheckedChange={(checked) =>
+                            updateSettings({
+                              codeViewerAutosave: Boolean(checked),
+                            })
+                          }
+                          aria-label="Enable code preview autosave"
+                        />
+                      }
+                    />
+
+                    <SettingsRow
+                      title="New threads"
+                      description="Pick the default workspace mode for newly created draft threads."
+                      resetAction={
+                        settings.defaultThreadEnvMode !== defaults.defaultThreadEnvMode ? (
+                          <SettingResetButton
+                            label="new threads"
+                            onClick={() =>
+                              updateSettings({
+                                defaultThreadEnvMode: defaults.defaultThreadEnvMode,
+                              })
+                            }
+                          />
+                        ) : null
+                      }
+                      control={
+                        <Select
+                          value={settings.defaultThreadEnvMode}
+                          onValueChange={(value) => {
+                            if (value !== "local" && value !== "worktree") return;
+                            updateSettings({
+                              defaultThreadEnvMode: value,
+                            });
+                          }}
+                        >
+                          <SelectTrigger
+                            className="w-full sm:w-44"
+                            aria-label="Default thread mode"
+                          >
+                            <SelectValue>
+                              {settings.defaultThreadEnvMode === "worktree"
+                                ? "New worktree"
+                                : "Local"}
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectPopup align="end" alignItemWithTrigger={false}>
+                            <SelectItem hideIndicator value="local">
+                              Local
+                            </SelectItem>
+                            <SelectItem hideIndicator value="worktree">
+                              New worktree
+                            </SelectItem>
+                          </SelectPopup>
+                        </Select>
+                      }
+                    />
+
+                    <SettingsRow
+                      title="New worktree base"
+                      description="Refresh the selected base branch from its tracked remote before creating a new worktree, without changing your current checkout."
+                      resetAction={
+                        settings.autoUpdateWorktreeBaseBranch !==
+                        defaults.autoUpdateWorktreeBaseBranch ? (
+                          <SettingResetButton
+                            label="new worktree base"
+                            onClick={() =>
+                              updateSettings({
+                                autoUpdateWorktreeBaseBranch: defaults.autoUpdateWorktreeBaseBranch,
+                              })
+                            }
+                          />
+                        ) : null
+                      }
+                      control={
+                        <Switch
+                          checked={settings.autoUpdateWorktreeBaseBranch}
+                          onCheckedChange={(checked) =>
+                            updateSettings({
+                              autoUpdateWorktreeBaseBranch: Boolean(checked),
+                            })
+                          }
+                          aria-label="Refresh base branch before creating new worktrees"
+                        />
+                      }
+                    />
+
+                    <SettingsRow
+                      title="Delete confirmation"
+                      description="Ask before deleting a thread and its chat history."
+                      resetAction={
+                        settings.confirmThreadDelete !== defaults.confirmThreadDelete ? (
+                          <SettingResetButton
+                            label="delete confirmation"
+                            onClick={() =>
+                              updateSettings({
+                                confirmThreadDelete: defaults.confirmThreadDelete,
+                              })
+                            }
+                          />
+                        ) : null
+                      }
+                      control={
+                        <Switch
+                          checked={settings.confirmThreadDelete}
+                          onCheckedChange={(checked) =>
+                            updateSettings({
+                              confirmThreadDelete: Boolean(checked),
+                            })
+                          }
+                          aria-label="Confirm thread deletion"
+                        />
+                      }
+                    />
+
+                    <SettingsRow
+                      title="Auto-delete after merge"
+                      description="Automatically delete a thread after its associated PR is merged."
+                      resetAction={
+                        settings.autoDeleteMergedThreads !== defaults.autoDeleteMergedThreads ? (
+                          <SettingResetButton
+                            label="auto-delete merged threads"
+                            onClick={() =>
+                              updateSettings({
+                                autoDeleteMergedThreads: defaults.autoDeleteMergedThreads,
+                              })
+                            }
+                          />
+                        ) : null
+                      }
+                      control={
+                        <Switch
+                          checked={settings.autoDeleteMergedThreads}
+                          onCheckedChange={(checked) =>
+                            updateSettings({
+                              autoDeleteMergedThreads: Boolean(checked),
+                            })
+                          }
+                          aria-label="Auto-delete merged threads"
+                        />
+                      }
+                    />
+
+                    {settings.autoDeleteMergedThreads ? (
+                      <SettingsRow
+                        title="Auto-delete delay"
+                        description="How long to wait after a PR merge before deleting the thread."
+                        resetAction={
+                          settings.autoDeleteMergedThreadsDelayMinutes !==
+                          defaults.autoDeleteMergedThreadsDelayMinutes ? (
+                            <SettingResetButton
+                              label="auto-delete delay"
+                              onClick={() =>
+                                updateSettings({
+                                  autoDeleteMergedThreadsDelayMinutes:
+                                    defaults.autoDeleteMergedThreadsDelayMinutes,
+                                })
+                              }
+                            />
+                          ) : null
+                        }
+                        control={
+                          <Select
+                            value={String(settings.autoDeleteMergedThreadsDelayMinutes)}
+                            onValueChange={(value) =>
+                              updateSettings({
+                                autoDeleteMergedThreadsDelayMinutes: Number(value),
+                              })
+                            }
+                          >
+                            <SelectTrigger className="w-32">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectPopup align="end" alignItemWithTrigger={false}>
+                              <SelectItem hideIndicator value="1">
+                                1 minute
+                              </SelectItem>
+                              <SelectItem hideIndicator value="2">
+                                2 minutes
+                              </SelectItem>
+                              <SelectItem hideIndicator value="5">
+                                5 minutes
+                              </SelectItem>
+                              <SelectItem hideIndicator value="10">
+                                10 minutes
+                              </SelectItem>
+                              <SelectItem hideIndicator value="15">
+                                15 minutes
+                              </SelectItem>
+                              <SelectItem hideIndicator value="30">
+                                30 minutes
+                              </SelectItem>
+                              <SelectItem hideIndicator value="60">
+                                1 hour
+                              </SelectItem>
+                            </SelectPopup>
+                          </Select>
+                        }
+                      />
                     ) : null}
-                  </div>
-                }
-              />
-            </SettingsSection>
+                  </SettingsSection>
+                )}
+
+                {activeSection === "environment" && (
+                  <SettingsSection
+                    title="Environment"
+                    description="Global and per-project environment variables for sessions."
+                  >
+                    <SettingsRow
+                      title="Global variables"
+                      description="Available to every provider session, terminal, Git command, and health check launched on this machine."
+                      status={
+                        globalEnvironmentVariablesQuery.isError ? (
+                          <span className="block text-destructive">
+                            Failed to load saved variables:{" "}
+                            {getErrorMessage(globalEnvironmentVariablesQuery.error)}
+                          </span>
+                        ) : globalEnvironmentVariablesQuery.isFetching ? (
+                          <span className="block">Loading saved variables...</span>
+                        ) : globalEnvironmentVariablesQuery.data?.entries.length ? (
+                          <span className="block">
+                            {globalEnvironmentVariablesQuery.data.entries.length} saved variables
+                          </span>
+                        ) : (
+                          <span className="block">No global variables saved yet.</span>
+                        )
+                      }
+                    >
+                      <EnvironmentVariablesEditor
+                        description="Global values are encrypted locally and merged into every runtime environment."
+                        entries={globalEnvironmentVariablesQuery.data?.entries ?? []}
+                        emptyMessage={
+                          globalEnvironmentVariablesQuery.isFetching
+                            ? "Loading global variables..."
+                            : "No global variables saved yet."
+                        }
+                        saveButtonLabel="Save global"
+                        addButtonLabel="Add variable"
+                        onSave={saveGlobalEnvironmentVariables}
+                        disabled={
+                          globalEnvironmentVariablesQuery.isFetching ||
+                          globalEnvironmentVariablesQuery.isError
+                        }
+                      />
+                    </SettingsRow>
+
+                    <SettingsRow
+                      title="Project variables"
+                      description="Saved per project and merged on top of the global set when that project launches a provider, terminal, or helper command."
+                      status={
+                        selectedProject ? (
+                          <span className="block break-all font-mono text-[11px] text-foreground">
+                            {selectedProject.name} · {selectedProject.cwd}
+                          </span>
+                        ) : (
+                          <span className="block">Open a project to edit project variables.</span>
+                        )
+                      }
+                      control={
+                        projects.length > 0 ? (
+                          <Select
+                            value={activeProjectId ?? ""}
+                            onValueChange={(value) => {
+                              setSelectedProjectId(value as ProjectId);
+                            }}
+                          >
+                            <SelectTrigger className="w-full sm:w-64" aria-label="Project selector">
+                              <SelectValue>
+                                {selectedProject ? selectedProject.name : "Select project"}
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectPopup align="end" alignItemWithTrigger={false}>
+                              {projects.map((project) => (
+                                <SelectItem hideIndicator key={project.id} value={project.id}>
+                                  <div className="flex min-w-0 flex-col">
+                                    <span className="truncate">{project.name}</span>
+                                    <span className="truncate text-[11px] text-muted-foreground">
+                                      {project.cwd}
+                                    </span>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectPopup>
+                          </Select>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">
+                            No projects available.
+                          </span>
+                        )
+                      }
+                    >
+                      <EnvironmentVariablesEditor
+                        key={selectedProject?.id ?? "no-project"}
+                        description={
+                          selectedProject
+                            ? `Project values override global values for ${selectedProject.name}.`
+                            : "Open or create a project to edit project variables."
+                        }
+                        entries={activeProjectEnvironmentVariables ?? []}
+                        emptyMessage={
+                          selectedProjectEnvironmentVariablesQuery.isFetching
+                            ? "Loading project variables..."
+                            : selectedProject
+                              ? "No project variables saved yet."
+                              : "Open or create a project to edit project variables."
+                        }
+                        saveButtonLabel="Save project"
+                        addButtonLabel="Add variable"
+                        onSave={saveProjectEnvironmentVariables}
+                        disabled={
+                          !selectedProject ||
+                          selectedProjectEnvironmentVariablesQuery.isFetching ||
+                          selectedProjectEnvironmentVariablesQuery.isError
+                        }
+                      />
+                    </SettingsRow>
+                  </SettingsSection>
+                )}
+
+                {activeSection === "git" && (
+                  <SettingsSection
+                    title="Git"
+                    description="Version control behavior and commit preferences."
+                  >
+                    <SettingsRow
+                      title="Rebase before commit"
+                      description="Before commit actions run, rebase the current branch onto the repository default branch, usually main. OK Code uses autostash so your local edits can be restored after the rebase."
+                      resetAction={
+                        settings.rebaseBeforeCommit !== defaults.rebaseBeforeCommit ? (
+                          <SettingResetButton
+                            label="rebase before commit"
+                            onClick={() =>
+                              updateSettings({
+                                rebaseBeforeCommit: defaults.rebaseBeforeCommit,
+                              })
+                            }
+                          />
+                        ) : null
+                      }
+                      control={
+                        <Switch
+                          checked={settings.rebaseBeforeCommit}
+                          onCheckedChange={(checked) =>
+                            updateSettings({
+                              rebaseBeforeCommit: Boolean(checked),
+                            })
+                          }
+                          aria-label="Rebase onto the default branch before committing"
+                        />
+                      }
+                    />
+                  </SettingsSection>
+                )}
+
+                {activeSection === "models" && (
+                  <SettingsSection
+                    title="Models"
+                    description="Configure AI model providers and custom model slugs."
+                  >
+                    <SettingsRow
+                      title="Git writing model"
+                      description="Used for generated commit messages, PR titles, and branch names."
+                      resetAction={
+                        isGitTextGenerationModelDirty ? (
+                          <SettingResetButton
+                            label="git writing model"
+                            onClick={() =>
+                              updateSettings({
+                                textGenerationModel: defaults.textGenerationModel,
+                              })
+                            }
+                          />
+                        ) : null
+                      }
+                      control={
+                        <Select
+                          value={currentGitTextGenerationModel}
+                          onValueChange={(value) => {
+                            if (!value) return;
+                            updateSettings({
+                              textGenerationModel: value,
+                            });
+                          }}
+                        >
+                          <SelectTrigger
+                            className="w-full sm:w-52"
+                            aria-label="Git text generation model"
+                          >
+                            <SelectValue>{selectedGitTextGenerationModelLabel}</SelectValue>
+                          </SelectTrigger>
+                          <SelectPopup align="end" alignItemWithTrigger={false}>
+                            {gitTextGenerationModelOptions.map((option) => (
+                              <SelectItem hideIndicator key={option.slug} value={option.slug}>
+                                {option.name}
+                              </SelectItem>
+                            ))}
+                          </SelectPopup>
+                        </Select>
+                      }
+                    />
+
+                    <SettingsRow
+                      title="Custom models"
+                      description="Add custom model slugs for Codex or Anthropic. The chat picker groups models by provider."
+                      resetAction={
+                        totalCustomModels > 0 ? (
+                          <SettingResetButton
+                            label="custom models"
+                            onClick={() => {
+                              updateSettings({
+                                customCodexModels: defaults.customCodexModels,
+                                customClaudeModels: defaults.customClaudeModels,
+                              });
+                              setCustomModelErrorByProvider({});
+                              setShowAllCustomModels(false);
+                            }}
+                          />
+                        ) : null
+                      }
+                    >
+                      <div className="mt-4 border-t border-border pt-4">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                          <Select
+                            value={selectedCustomModelProvider}
+                            onValueChange={(value) => {
+                              if (value !== "codex" && value !== "claudeAgent") {
+                                return;
+                              }
+                              setSelectedCustomModelProvider(value);
+                            }}
+                          >
+                            <SelectTrigger
+                              size="sm"
+                              className="w-full sm:w-40"
+                              aria-label="Custom model provider"
+                            >
+                              <SelectValue>{selectedCustomModelProviderSettings.title}</SelectValue>
+                            </SelectTrigger>
+                            <SelectPopup align="start" alignItemWithTrigger={false}>
+                              {MODEL_PROVIDER_SETTINGS.map((providerSettings) => (
+                                <SelectItem
+                                  hideIndicator
+                                  className="min-h-7 text-sm"
+                                  key={providerSettings.provider}
+                                  value={providerSettings.provider}
+                                >
+                                  {providerSettings.title}
+                                </SelectItem>
+                              ))}
+                            </SelectPopup>
+                          </Select>
+                          <Input
+                            id="custom-model-slug"
+                            value={selectedCustomModelInput}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              setCustomModelInputByProvider((existing) => ({
+                                ...existing,
+                                [selectedCustomModelProvider]: value,
+                              }));
+                              if (selectedCustomModelError) {
+                                setCustomModelErrorByProvider((existing) => ({
+                                  ...existing,
+                                  [selectedCustomModelProvider]: null,
+                                }));
+                              }
+                            }}
+                            onKeyDown={(event) => {
+                              if (event.key !== "Enter") return;
+                              event.preventDefault();
+                              addCustomModel(selectedCustomModelProvider);
+                            }}
+                            placeholder={selectedCustomModelProviderSettings.example}
+                            spellCheck={false}
+                          />
+                          <Button
+                            className="shrink-0"
+                            variant="outline"
+                            onClick={() => addCustomModel(selectedCustomModelProvider)}
+                          >
+                            <PlusIcon className="size-3.5" />
+                            Add
+                          </Button>
+                        </div>
+
+                        {selectedCustomModelError ? (
+                          <p className="mt-2 text-xs text-destructive">
+                            {selectedCustomModelError}
+                          </p>
+                        ) : null}
+
+                        {totalCustomModels > 0 ? (
+                          <div className="mt-3">
+                            <div>
+                              {visibleCustomModelRows.map((row) => (
+                                <div
+                                  key={row.key}
+                                  className="group grid grid-cols-[minmax(5rem,6rem)_minmax(0,1fr)_auto] items-center gap-3 border-t border-border/60 px-4 py-2 first:border-t-0"
+                                >
+                                  <span className="truncate text-xs text-muted-foreground">
+                                    {row.providerTitle}
+                                  </span>
+                                  <code className="min-w-0 truncate text-sm text-foreground">
+                                    {row.slug}
+                                  </code>
+                                  <button
+                                    type="button"
+                                    className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 hover:opacity-100"
+                                    aria-label={`Remove ${row.slug}`}
+                                    onClick={() => removeCustomModel(row.provider, row.slug)}
+                                  >
+                                    <XIcon className="size-3.5 text-muted-foreground hover:text-foreground" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+
+                            {savedCustomModelRows.length > 5 ? (
+                              <button
+                                type="button"
+                                className="mt-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                                onClick={() => setShowAllCustomModels((value) => !value)}
+                              >
+                                {showAllCustomModels
+                                  ? "Show less"
+                                  : `Show more (${savedCustomModelRows.length - 5})`}
+                              </button>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </div>
+                    </SettingsRow>
+                  </SettingsSection>
+                )}
+
+                {activeSection === "mobile" && !isMobileShell && (
+                  <SettingsSection
+                    title="Mobile Companion"
+                    description="Pair your phone with the OK Code mobile app."
+                  >
+                    <SettingsRow
+                      title="Pair mobile device"
+                      description="Copy this pairing link and open it in the OK Code mobile app to pair your phone."
+                    >
+                      <div className="mt-4 flex justify-center">
+                        <PairingLink />
+                      </div>
+                    </SettingsRow>
+                  </SettingsSection>
+                )}
+
+                {activeSection === "advanced" && (
+                  <SettingsSection
+                    title="Advanced"
+                    description="Provider paths, keybindings, and build info."
+                  >
+                    <SettingsRow
+                      title="Provider installs"
+                      description="Override the CLI binaries and auth homes used for new sessions."
+                      resetAction={
+                        isInstallSettingsDirty ? (
+                          <SettingResetButton
+                            label="provider installs"
+                            onClick={() => {
+                              updateSettings({
+                                claudeBinaryPath: defaults.claudeBinaryPath,
+                                codexBinaryPath: defaults.codexBinaryPath,
+                                codexHomePath: defaults.codexHomePath,
+                              });
+                              setOpenInstallProviders({
+                                codex: false,
+                                claudeAgent: false,
+                                openclaw: false,
+                              });
+                            }}
+                          />
+                        ) : null
+                      }
+                    >
+                      <div className="mt-4">
+                        <div className="space-y-2">
+                          {INSTALL_PROVIDER_SETTINGS.map((providerSettings) => {
+                            const isOpen = openInstallProviders[providerSettings.provider];
+                            const isDirty =
+                              providerSettings.provider === "codex"
+                                ? settings.codexBinaryPath !== defaults.codexBinaryPath ||
+                                  settings.codexHomePath !== defaults.codexHomePath
+                                : settings.claudeBinaryPath !== defaults.claudeBinaryPath;
+                            const binaryPathValue =
+                              providerSettings.binaryPathKey === "claudeBinaryPath"
+                                ? claudeBinaryPath
+                                : codexBinaryPath;
+
+                            return (
+                              <Collapsible
+                                key={providerSettings.provider}
+                                open={isOpen}
+                                onOpenChange={(open) =>
+                                  setOpenInstallProviders((existing) => ({
+                                    ...existing,
+                                    [providerSettings.provider]: open,
+                                  }))
+                                }
+                              >
+                                <div className="overflow-hidden rounded-xl border border-border/70">
+                                  <button
+                                    type="button"
+                                    className="flex w-full items-center gap-3 px-4 py-3 text-left"
+                                    onClick={() =>
+                                      setOpenInstallProviders((existing) => ({
+                                        ...existing,
+                                        [providerSettings.provider]:
+                                          !existing[providerSettings.provider],
+                                      }))
+                                    }
+                                  >
+                                    <span className="min-w-0 flex-1 text-sm font-medium text-foreground">
+                                      {providerSettings.title}
+                                    </span>
+                                    {isDirty ? (
+                                      <span className="text-[11px] text-muted-foreground">
+                                        Custom
+                                      </span>
+                                    ) : null}
+                                    <ChevronDownIcon
+                                      className={cn(
+                                        "size-4 shrink-0 text-muted-foreground transition-transform",
+                                        isOpen && "rotate-180",
+                                      )}
+                                    />
+                                  </button>
+
+                                  <CollapsibleContent>
+                                    <div className="border-t border-border/70 px-4 py-4">
+                                      <div className="space-y-3">
+                                        <label
+                                          htmlFor={`provider-install-${providerSettings.binaryPathKey}`}
+                                          className="block"
+                                        >
+                                          <span className="block text-xs font-medium text-foreground">
+                                            {providerSettings.title} binary path
+                                          </span>
+                                          <Input
+                                            id={`provider-install-${providerSettings.binaryPathKey}`}
+                                            className="mt-1"
+                                            value={binaryPathValue}
+                                            onChange={(event) =>
+                                              updateSettings(
+                                                providerSettings.binaryPathKey ===
+                                                  "claudeBinaryPath"
+                                                  ? { claudeBinaryPath: event.target.value }
+                                                  : { codexBinaryPath: event.target.value },
+                                              )
+                                            }
+                                            placeholder={providerSettings.binaryPlaceholder}
+                                            spellCheck={false}
+                                          />
+                                          <span className="mt-1 block text-xs text-muted-foreground">
+                                            {providerSettings.binaryDescription}
+                                          </span>
+                                        </label>
+
+                                        {providerSettings.homePathKey ? (
+                                          <label
+                                            htmlFor={`provider-install-${providerSettings.homePathKey}`}
+                                            className="block"
+                                          >
+                                            <span className="block text-xs font-medium text-foreground">
+                                              CODEX_HOME path
+                                            </span>
+                                            <Input
+                                              id={`provider-install-${providerSettings.homePathKey}`}
+                                              className="mt-1"
+                                              value={codexHomePath}
+                                              onChange={(event) =>
+                                                updateSettings({
+                                                  codexHomePath: event.target.value,
+                                                })
+                                              }
+                                              placeholder={providerSettings.homePlaceholder}
+                                              spellCheck={false}
+                                            />
+                                            {providerSettings.homeDescription ? (
+                                              <span className="mt-1 block text-xs text-muted-foreground">
+                                                {providerSettings.homeDescription}
+                                              </span>
+                                            ) : null}
+                                          </label>
+                                        ) : null}
+                                      </div>
+                                    </div>
+                                  </CollapsibleContent>
+                                </div>
+                              </Collapsible>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </SettingsRow>
+
+                    <SettingsRow
+                      title="OpenClaw gateway"
+                      description="Connect to an OpenClaw gateway for remote agent sessions."
+                      resetAction={
+                        settings.openclawGatewayUrl !== defaults.openclawGatewayUrl ||
+                        settings.openclawPassword !== defaults.openclawPassword ? (
+                          <SettingResetButton
+                            label="OpenClaw gateway"
+                            onClick={() =>
+                              updateSettings({
+                                openclawGatewayUrl: defaults.openclawGatewayUrl,
+                                openclawPassword: defaults.openclawPassword,
+                              })
+                            }
+                          />
+                        ) : null
+                      }
+                    >
+                      <div className="mt-4 space-y-3">
+                        <label htmlFor="openclaw-gateway-url" className="block">
+                          <span className="block text-xs font-medium text-foreground">
+                            Gateway URL
+                          </span>
+                          <Input
+                            id="openclaw-gateway-url"
+                            className="mt-1"
+                            value={settings.openclawGatewayUrl}
+                            onChange={(event) => {
+                              updateSettings({ openclawGatewayUrl: event.target.value });
+                              setOpenclawTestResult(null);
+                            }}
+                            placeholder="ws://localhost:8080"
+                            spellCheck={false}
+                          />
+                          <span className="mt-1 block text-xs text-muted-foreground">
+                            WebSocket URL of the OpenClaw gateway. Leave blank when not using
+                            OpenClaw.
+                          </span>
+                        </label>
+                        <label htmlFor="openclaw-password" className="block">
+                          <span className="block text-xs font-medium text-foreground">
+                            Password
+                          </span>
+                          <Input
+                            id="openclaw-password"
+                            className="mt-1"
+                            type="password"
+                            value={settings.openclawPassword}
+                            onChange={(event) => {
+                              updateSettings({ openclawPassword: event.target.value });
+                              setOpenclawTestResult(null);
+                            }}
+                            placeholder="Shared secret"
+                            spellCheck={false}
+                            autoComplete="off"
+                          />
+                          <span className="mt-1 block text-xs text-muted-foreground">
+                            Shared secret used to authenticate with the gateway.
+                          </span>
+                        </label>
+
+                        {/* Test Connection Button */}
+                        <div className="pt-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={!settings.openclawGatewayUrl || openclawTestLoading}
+                            onClick={testOpenclawGateway}
+                          >
+                            {openclawTestLoading ? (
+                              <>
+                                <Loader2Icon className="mr-1.5 size-3.5 animate-spin" />
+                                Testing…
+                              </>
+                            ) : (
+                              "Test Connection"
+                            )}
+                          </Button>
+                        </div>
+
+                        {/* Debug / Results Panel */}
+                        {openclawTestResult && (
+                          <div className="mt-3 rounded-md border border-border bg-muted/30 p-3">
+                            {/* Overall status header */}
+                            <div className="flex items-center gap-2">
+                              {openclawTestResult.success ? (
+                                <CheckCircle2Icon className="size-4 text-emerald-500" />
+                              ) : (
+                                <XCircleIcon className="size-4 text-red-500" />
+                              )}
+                              <span
+                                className={cn(
+                                  "text-xs font-semibold",
+                                  openclawTestResult.success ? "text-emerald-500" : "text-red-500",
+                                )}
+                              >
+                                {openclawTestResult.success
+                                  ? "Connection successful"
+                                  : "Connection failed"}
+                              </span>
+                              <span className="ml-auto text-[10px] tabular-nums text-muted-foreground">
+                                {openclawTestResult.totalDurationMs}ms total
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="xs"
+                                className="h-6 px-2 text-[10px]"
+                                onClick={handleCopyOpenclawDebugReport}
+                              >
+                                {openclawDebugReportCopied ? "Copied!" : "Copy debug report"}
+                              </Button>
+                            </div>
+
+                            {/* Step-by-step results */}
+                            {openclawTestResult.steps.length > 0 && (
+                              <div className="mt-2.5 space-y-1.5">
+                                {openclawTestResult.steps.map((step) => (
+                                  <div
+                                    key={`${step.name}-${step.status}-${step.durationMs}`}
+                                    className="flex items-start gap-2 text-xs"
+                                  >
+                                    {step.status === "pass" && (
+                                      <CheckCircle2Icon className="mt-px size-3.5 shrink-0 text-emerald-500" />
+                                    )}
+                                    {step.status === "fail" && (
+                                      <XCircleIcon className="mt-px size-3.5 shrink-0 text-red-500" />
+                                    )}
+                                    {step.status === "skip" && (
+                                      <SkipForwardIcon className="mt-px size-3.5 shrink-0 text-muted-foreground" />
+                                    )}
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex items-baseline gap-2">
+                                        <span className="font-medium text-foreground">
+                                          {step.name}
+                                        </span>
+                                        <span className="tabular-nums text-muted-foreground text-[10px]">
+                                          {step.durationMs}ms
+                                        </span>
+                                      </div>
+                                      {step.detail && (
+                                        <span className="block break-all text-muted-foreground">
+                                          {step.detail}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Server info */}
+                            {openclawTestResult.serverInfo && (
+                              <div className="mt-2.5 border-t border-border pt-2">
+                                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                                  Server Info
+                                </span>
+                                <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                                  {openclawTestResult.serverInfo.version && (
+                                    <div>
+                                      Version:{" "}
+                                      <span className="font-mono text-foreground">
+                                        {openclawTestResult.serverInfo.version}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {openclawTestResult.serverInfo.sessionId && (
+                                    <div>
+                                      Session:{" "}
+                                      <span className="font-mono text-foreground">
+                                        {openclawTestResult.serverInfo.sessionId}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {openclawTestResult.diagnostics && (
+                              <div className="mt-2.5 border-t border-border pt-2">
+                                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                                  Debugging Context
+                                </span>
+                                <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                                  {openclawTestResult.diagnostics.normalizedUrl && (
+                                    <div>
+                                      Endpoint:{" "}
+                                      <span className="break-all font-mono text-foreground">
+                                        {openclawTestResult.diagnostics.normalizedUrl}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {openclawTestResult.diagnostics.hostKind && (
+                                    <div>
+                                      Host type:{" "}
+                                      <span className="text-foreground">
+                                        {describeOpenclawGatewayHostKind(
+                                          openclawTestResult.diagnostics.hostKind,
+                                        )}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {openclawTestResult.diagnostics.resolvedAddresses.length > 0 && (
+                                    <div>
+                                      Resolved:{" "}
+                                      <span className="break-all font-mono text-foreground">
+                                        {openclawTestResult.diagnostics.resolvedAddresses.join(
+                                          ", ",
+                                        )}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {describeOpenclawGatewayHealthStatus(openclawTestResult) && (
+                                    <div>
+                                      Health probe:{" "}
+                                      <span className="text-foreground">
+                                        {describeOpenclawGatewayHealthStatus(openclawTestResult)}
+                                      </span>
+                                      {openclawTestResult.diagnostics.healthUrl && (
+                                        <>
+                                          {" "}
+                                          at{" "}
+                                          <span className="break-all font-mono text-foreground">
+                                            {openclawTestResult.diagnostics.healthUrl}
+                                          </span>
+                                        </>
+                                      )}
+                                    </div>
+                                  )}
+                                  {openclawTestResult.diagnostics.socketCloseCode !== undefined && (
+                                    <div>
+                                      Socket close:{" "}
+                                      <span className="text-foreground">
+                                        {openclawTestResult.diagnostics.socketCloseCode}
+                                        {openclawTestResult.diagnostics.socketCloseReason
+                                          ? ` (${openclawTestResult.diagnostics.socketCloseReason})`
+                                          : ""}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {openclawTestResult.diagnostics.socketError && (
+                                    <div>
+                                      Socket error:{" "}
+                                      <span className="break-all text-foreground">
+                                        {openclawTestResult.diagnostics.socketError}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {openclawTestResult.diagnostics.observedNotifications.length >
+                                    0 && (
+                                    <div>
+                                      Gateway notifications:{" "}
+                                      <span className="break-all font-mono text-foreground">
+                                        {openclawTestResult.diagnostics.observedNotifications.join(
+                                          ", ",
+                                        )}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {openclawTestResult.diagnostics &&
+                              openclawTestResult.diagnostics.hints.length > 0 && (
+                                <div className="mt-2.5 border-t border-border pt-2">
+                                  <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                                    Troubleshooting
+                                  </span>
+                                  <ul className="mt-1 space-y-1 text-xs text-muted-foreground">
+                                    {openclawTestResult.diagnostics.hints.map((hint) => (
+                                      <li key={hint} className="flex gap-2">
+                                        <span className="mt-[6px] size-1 shrink-0 rounded-full bg-muted-foreground/60" />
+                                        <span>{hint}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+
+                            {/* Error summary */}
+                            {openclawTestResult.error &&
+                              !openclawTestResult.steps.some((s) => s.status === "fail") && (
+                                <div className="mt-2 text-xs text-red-500">
+                                  {openclawTestResult.error}
+                                </div>
+                              )}
+                          </div>
+                        )}
+                      </div>
+                    </SettingsRow>
+
+                    <SettingsRow
+                      title="Keybindings"
+                      description="Open the persisted `keybindings.json` file to edit advanced bindings directly."
+                      status={
+                        <>
+                          <span className="block break-all font-mono text-[11px] text-foreground">
+                            {keybindingsConfigPath ?? "Resolving keybindings path..."}
+                          </span>
+                          {openKeybindingsError ? (
+                            <span className="mt-1 block text-destructive">
+                              {openKeybindingsError}
+                            </span>
+                          ) : (
+                            <span className="mt-1 block">Opens in your preferred editor.</span>
+                          )}
+                        </>
+                      }
+                      control={
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          disabled={!keybindingsConfigPath || isOpeningKeybindings}
+                          onClick={openKeybindingsFile}
+                        >
+                          {isOpeningKeybindings ? "Opening..." : "Open file"}
+                        </Button>
+                      }
+                    />
+
+                    <SettingsRow
+                      title="Build"
+                      description="Current app-shell and server build metadata."
+                      control={
+                        <div className="grid w-full gap-3 text-left sm:max-w-xl sm:grid-cols-2 sm:gap-5">
+                          <BuildInfoBlock label="App" buildInfo={APP_BUILD_INFO} />
+                          {serverConfigQuery.data?.buildInfo ? (
+                            <BuildInfoBlock
+                              label="Server"
+                              buildInfo={serverConfigQuery.data.buildInfo}
+                            />
+                          ) : null}
+                        </div>
+                      }
+                    />
+                  </SettingsSection>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>

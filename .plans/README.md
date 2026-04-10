@@ -32,6 +32,7 @@
 - `web-i18n-rollout.md` - Multilingual i18n rollout *(in progress)*
 - `templates-community-system.md` - Community templates sharing, discovery, and customization
 - `workspace-file-tree.md` - Workspace file tree sidebar
+- `sidebar-branch-enhancements.md` - Sidebar thread enrichment & branch picker enhancements *(planned)*
 
 ## Archived (completed or superseded)
 

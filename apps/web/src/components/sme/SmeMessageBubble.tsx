@@ -1,7 +1,10 @@
+import { lazy, Suspense } from "react";
 import { UserIcon, SparklesIcon } from "lucide-react";
 import type { SmeMessage } from "@okcode/contracts";
 
 import { cn } from "~/lib/utils";
+
+const ChatMarkdown = lazy(() => import("~/components/ChatMarkdown"));
 
 interface SmeMessageBubbleProps {
   message: SmeMessage;
@@ -37,7 +40,19 @@ export function SmeMessageBubble({ message }: SmeMessageBubbleProps) {
             isUser ? "bg-primary text-primary-foreground" : "bg-muted/60 text-foreground",
           )}
         >
-          <div className="whitespace-pre-wrap break-words">{message.text}</div>
+          {isUser ? (
+            <div className="whitespace-pre-wrap break-words">{message.text}</div>
+          ) : (
+            <Suspense
+              fallback={<div className="whitespace-pre-wrap break-words">{message.text}</div>}
+            >
+              <ChatMarkdown
+                text={message.text}
+                cwd={undefined}
+                isStreaming={Boolean(message.isStreaming)}
+              />
+            </Suspense>
+          )}
 
           {/* Streaming cursor */}
           {message.isStreaming ? (

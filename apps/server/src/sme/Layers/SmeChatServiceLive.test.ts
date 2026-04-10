@@ -1,7 +1,12 @@
-import { ProjectId, SmeConversationId } from "@okcode/contracts";
-import { Effect, Layer, Option, Queue, Stream } from "effect";
-import { describe, expect, it } from "vitest";
+import { ProjectId, SmeConversationId, type EnvironmentVariableEntry } from "@okcode/contracts";
+import { Effect, Layer, Option, Stream } from "effect";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
+import {
+  EnvironmentVariables,
+  type EnvironmentVariablesShape,
+} from "../../persistence/Services/EnvironmentVariables.ts";
+import { OpenclawGatewayConfig } from "../../persistence/Services/OpenclawGatewayConfig.ts";
 import {
   SmeKnowledgeDocumentRepository,
   type SmeKnowledgeDocumentRepositoryShape,
@@ -27,6 +32,70 @@ import {
 } from "../../provider/Services/ProviderService.ts";
 import { SmeChatService } from "../Services/SmeChatService.ts";
 import { makeSmeChatServiceLive } from "./SmeChatServiceLive.ts";
+
+const originalAnthropicEnv = {
+  ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+  ANTHROPIC_AUTH_TOKEN: process.env.ANTHROPIC_AUTH_TOKEN,
+  ANTHROPIC_BASE_URL: process.env.ANTHROPIC_BASE_URL,
+};
+
+afterEach(() => {
+  restoreAnthropicEnv();
+});
+
+function restoreAnthropicEnv() {
+  for (const [key, value] of Object.entries(originalAnthropicEnv)) {
+    if (value === undefined) {
+      delete process.env[key];
+    } else {
+      process.env[key] = value;
+    }
+  }
+}
+
+function setAnthropicEnv(input: {
+  readonly apiKey?: string;
+  readonly authToken?: string;
+  readonly baseURL?: string;
+}) {
+  if (input.apiKey === undefined) {
+    delete process.env.ANTHROPIC_API_KEY;
+  } else {
+    process.env.ANTHROPIC_API_KEY = input.apiKey;
+  }
+
+  if (input.authToken === undefined) {
+    delete process.env.ANTHROPIC_AUTH_TOKEN;
+  } else {
+    process.env.ANTHROPIC_AUTH_TOKEN = input.authToken;
+  }
+
+  if (input.baseURL === undefined) {
+    delete process.env.ANTHROPIC_BASE_URL;
+  } else {
+    process.env.ANTHROPIC_BASE_URL = input.baseURL;
+  }
+}
+
+function toEntries(record: Record<string, string>): EnvironmentVariableEntry[] {
+  return Object.entries(record).map(([key, value]) => ({ key, value }));
+}
+
+function makeEnvironmentVariables(persistedEnv: Record<string, string>): EnvironmentVariablesShape {
+  const entries = toEntries(persistedEnv);
+
+  return {
+    getGlobal: () => Effect.succeed({ entries }),
+    saveGlobal: (input) => Effect.succeed({ entries: input.entries }),
+    getProject: (input) => Effect.succeed({ projectId: input.projectId, entries }),
+    saveProject: (input) =>
+      Effect.succeed({
+        projectId: input.projectId,
+        entries: input.entries,
+      }),
+    resolveEnvironment: () => Effect.succeed(persistedEnv),
+  };
+}
 
 function makeDocumentRepository(
   rows: ReadonlyArray<SmeKnowledgeDocumentRow> = [],
@@ -94,83 +163,10 @@ function makeMessageRepository() {
   return { repository, rowsByConversation };
 }
 
-function makeProviderHealth(
-  statuses: Array<{
-    readonly provider: "codex" | "claudeAgent" | "openclaw";
-    readonly status: "ready" | "warning" | "error";
-    readonly available: boolean;
-    readonly authStatus: "authenticated" | "unauthenticated" | "unknown";
-    readonly checkedAt: string;
-    readonly message?: string;
-  }>,
-): ProviderHealthShape {
+function makeProviderService(): ProviderServiceShape {
   return {
-    getStatuses: Effect.succeed(statuses),
-  };
-}
-
-function makeProviderService() {
-  const runtimeEvents = Effect.runSync(Queue.unbounded<any>());
-  const startedSessions: Array<unknown> = [];
-  const sentTurns: Array<unknown> = [];
-
-  const service: ProviderServiceShape = {
-    startSession: (threadId, input) =>
-      Effect.sync(() => {
-        startedSessions.push({ threadId, input });
-        return {
-          provider: input.provider ?? "claudeAgent",
-          status: "ready",
-          runtimeMode: input.runtimeMode,
-          threadId,
-          createdAt: "2026-01-01T00:00:00.000Z",
-          updatedAt: "2026-01-01T00:00:00.000Z",
-        } as never;
-      }),
-    sendTurn: (input) =>
-      Effect.gen(function* () {
-        sentTurns.push(input);
-        const turnId = "turn-1" as never;
-        yield* Queue.offer(runtimeEvents, {
-          eventId: "evt-1" as never,
-          provider: "claudeAgent",
-          threadId: input.threadId,
-          turnId,
-          createdAt: "2026-01-01T00:00:00.000Z",
-          type: "content.delta",
-          payload: {
-            streamKind: "assistant_text",
-            delta: "Hello",
-          },
-        } as never);
-        yield* Queue.offer(runtimeEvents, {
-          eventId: "evt-2" as never,
-          provider: "claudeAgent",
-          threadId: input.threadId,
-          turnId,
-          createdAt: "2026-01-01T00:00:00.000Z",
-          type: "content.delta",
-          payload: {
-            streamKind: "assistant_text",
-            delta: " world",
-          },
-        } as never);
-        yield* Queue.offer(runtimeEvents, {
-          eventId: "evt-3" as never,
-          provider: "claudeAgent",
-          threadId: input.threadId,
-          turnId,
-          createdAt: "2026-01-01T00:00:00.000Z",
-          type: "turn.completed",
-          payload: {
-            state: "completed",
-          },
-        } as never);
-        return {
-          threadId: input.threadId,
-          turnId,
-        } as never;
-      }),
+    startSession: () => Effect.die("unexpected provider startSession"),
+    sendTurn: () => Effect.die("unexpected provider sendTurn"),
     interruptTurn: () => Effect.void,
     respondToRequest: () => Effect.void,
     respondToUserInput: () => Effect.void,
@@ -178,14 +174,58 @@ function makeProviderService() {
     listSessions: () => Effect.succeed([]),
     getCapabilities: () => Effect.die("unexpected provider getCapabilities"),
     rollbackConversation: () => Effect.void,
-    streamEvents: Stream.fromQueue(runtimeEvents),
+    streamEvents: Stream.empty,
   };
+}
 
-  return { service, startedSessions, sentTurns };
+function makeOpenclawGatewayConfig() {
+  return {
+    getSummary: () =>
+      Effect.succeed({
+        gatewayUrl: null,
+        hasSharedSecret: false,
+        deviceId: null,
+        devicePublicKey: null,
+        deviceFingerprint: null,
+        hasDeviceToken: false,
+        deviceTokenRole: null,
+        deviceTokenScopes: [],
+        updatedAt: null,
+      }),
+    getStored: () => Effect.succeed(null),
+    save: () => Effect.die("unexpected openclaw save"),
+    resolveForConnect: () => Effect.succeed(null),
+    saveDeviceToken: () => Effect.void,
+    clearDeviceToken: () => Effect.void,
+    resetDeviceState: () =>
+      Effect.succeed({
+        gatewayUrl: null,
+        hasSharedSecret: false,
+        deviceId: null,
+        devicePublicKey: null,
+        deviceFingerprint: null,
+        hasDeviceToken: false,
+        deviceTokenRole: null,
+        deviceTokenScopes: [],
+        updatedAt: null,
+      }),
+  };
+}
+
+function makeProviderHealth(): ProviderHealthShape {
+  return {
+    getStatuses: Effect.succeed([]),
+  };
 }
 
 describe("SmeChatServiceLive", () => {
-  it("routes Claude conversations through the provider runtime and stores the reply", async () => {
+  it("uses persisted Anthropic credentials for a successful send and stores the final reply", async () => {
+    setAnthropicEnv({
+      apiKey: "process-key-that-should-not-win",
+      authToken: "process-token-that-should-not-win",
+      baseURL: "https://process-base.example",
+    });
+
     const projectId = ProjectId.makeUnsafe("project-1");
     const conversationId = SmeConversationId.makeUnsafe("conversation-1");
     const conversationRow: SmeConversationRow = {
@@ -193,37 +233,51 @@ describe("SmeChatServiceLive", () => {
       projectId,
       title: "Architecture Q&A",
       provider: "claudeAgent",
-      authMethod: "auto",
+      authMethod: "apiKey",
       model: "claude-sonnet-4-6",
       createdAt: "2026-01-01T00:00:00.000Z",
       updatedAt: "2026-01-01T00:00:00.000Z",
       deletedAt: null,
     };
+    const persistedEnv = {
+      ANTHROPIC_API_KEY: "project-api-key",
+      ANTHROPIC_BASE_URL: "https://project-base.example",
+    };
     const { repository: messageRepo, rowsByConversation } = makeMessageRepository();
-    const providerService = makeProviderService();
+    const capturedClientOptions: Array<unknown> = [];
+    const capturedRequests: Array<unknown> = [];
 
-    const layer = makeSmeChatServiceLive().pipe(
+    const createClient = vi.fn((options: unknown) => {
+      capturedClientOptions.push(options);
+      return {
+        messages: {
+          stream: async function* (request: unknown) {
+            capturedRequests.push(request);
+            yield {
+              type: "content_block_delta",
+              delta: { type: "text_delta", text: "Hello" },
+            };
+            yield {
+              type: "content_block_delta",
+              delta: { type: "text_delta", text: " world" },
+            };
+          },
+        },
+      } as never;
+    });
+
+    const layer = makeSmeChatServiceLive({ createClient }).pipe(
       Layer.provideMerge(
-        Layer.succeed(
-          ProviderHealth,
-          makeProviderHealth([
-            {
-              provider: "claudeAgent",
-              status: "ready",
-              available: true,
-              authStatus: "authenticated",
-              checkedAt: "2026-01-01T00:00:00.000Z",
-              message: "Claude Code CLI is ready.",
-            },
-          ]),
-        ),
+        Layer.succeed(EnvironmentVariables, makeEnvironmentVariables(persistedEnv)),
       ),
       Layer.provideMerge(Layer.succeed(SmeKnowledgeDocumentRepository, makeDocumentRepository())),
       Layer.provideMerge(
         Layer.succeed(SmeConversationRepository, makeConversationRepository([conversationRow])),
       ),
       Layer.provideMerge(Layer.succeed(SmeMessageRepository, messageRepo)),
-      Layer.provideMerge(Layer.succeed(ProviderService, providerService.service)),
+      Layer.provideMerge(Layer.succeed(OpenclawGatewayConfig, makeOpenclawGatewayConfig())),
+      Layer.provideMerge(Layer.succeed(ProviderHealth, makeProviderHealth())),
+      Layer.provideMerge(Layer.succeed(ProviderService, makeProviderService())),
     );
 
     const events: Array<unknown> = [];
@@ -234,13 +288,6 @@ describe("SmeChatServiceLive", () => {
           {
             conversationId,
             text: "What changed in the latest design?",
-            providerOptions: {
-              claudeAgent: {
-                binaryPath: "/usr/local/bin/claude",
-                permissionMode: "plan",
-                maxThinkingTokens: 12_000,
-              },
-            },
           },
           (event) => {
             events.push(event);
@@ -249,21 +296,22 @@ describe("SmeChatServiceLive", () => {
       }).pipe(Effect.provide(layer)),
     );
 
-    expect(providerService.startedSessions).toHaveLength(1);
-    expect(providerService.sentTurns).toHaveLength(1);
-    expect((providerService.startedSessions[0] as any).input.providerOptions).toEqual({
-      claudeAgent: {
-        binaryPath: "/usr/local/bin/claude",
-        permissionMode: "plan",
-        maxThinkingTokens: 12_000,
+    expect(createClient).toHaveBeenCalledTimes(1);
+    expect(capturedClientOptions).toEqual([
+      {
+        apiKey: "project-api-key",
+        authToken: null,
+        baseURL: "https://project-base.example",
       },
-    });
-    expect(providerService.sentTurns[0] as any).toEqual(
-      expect.objectContaining({
+    ]);
+    expect(capturedRequests).toEqual([
+      {
         model: "claude-sonnet-4-6",
-        input: expect.stringContaining("knowledgeable subject matter expert assistant"),
-      }),
-    );
+        max_tokens: 8192,
+        system: expect.stringContaining("knowledgeable subject matter expert assistant"),
+        messages: [{ role: "user", content: "What changed in the latest design?" }],
+      },
+    ]);
     expect(events).toEqual([
       {
         type: "sme.message.delta",
@@ -299,7 +347,9 @@ describe("SmeChatServiceLive", () => {
     ]);
   });
 
-  it("fails before sending when Claude Code CLI is unavailable", async () => {
+  it("fails before persisting messages when no Anthropic credentials are available", async () => {
+    setAnthropicEnv({});
+
     const projectId = ProjectId.makeUnsafe("project-2");
     const conversationId = SmeConversationId.makeUnsafe("conversation-2");
     const conversationRow: SmeConversationRow = {
@@ -307,37 +357,25 @@ describe("SmeChatServiceLive", () => {
       projectId,
       title: "Docs sync",
       provider: "claudeAgent",
-      authMethod: "auto",
+      authMethod: "apiKey",
       model: "claude-sonnet-4-6",
       createdAt: "2026-01-01T00:00:00.000Z",
       updatedAt: "2026-01-01T00:00:00.000Z",
       deletedAt: null,
     };
     const { repository: messageRepo, rowsByConversation } = makeMessageRepository();
-    const providerService = makeProviderService();
+    const createClient = vi.fn();
 
-    const layer = makeSmeChatServiceLive().pipe(
-      Layer.provideMerge(
-        Layer.succeed(
-          ProviderHealth,
-          makeProviderHealth([
-            {
-              provider: "claudeAgent",
-              status: "error",
-              available: false,
-              authStatus: "unknown",
-              checkedAt: "2026-01-01T00:00:00.000Z",
-              message: "Claude Code CLI (`claude`) is not installed or not on PATH.",
-            },
-          ]),
-        ),
-      ),
+    const layer = makeSmeChatServiceLive({ createClient }).pipe(
+      Layer.provideMerge(Layer.succeed(EnvironmentVariables, makeEnvironmentVariables({}))),
       Layer.provideMerge(Layer.succeed(SmeKnowledgeDocumentRepository, makeDocumentRepository())),
       Layer.provideMerge(
         Layer.succeed(SmeConversationRepository, makeConversationRepository([conversationRow])),
       ),
       Layer.provideMerge(Layer.succeed(SmeMessageRepository, messageRepo)),
-      Layer.provideMerge(Layer.succeed(ProviderService, providerService.service)),
+      Layer.provideMerge(Layer.succeed(OpenclawGatewayConfig, makeOpenclawGatewayConfig())),
+      Layer.provideMerge(Layer.succeed(ProviderHealth, makeProviderHealth())),
+      Layer.provideMerge(Layer.succeed(ProviderService, makeProviderService())),
     );
 
     await expect(
@@ -350,12 +388,9 @@ describe("SmeChatServiceLive", () => {
           });
         }).pipe(Effect.provide(layer)),
       ),
-    ).rejects.toThrow(
-      "SmeChatError in sendMessage:validate: Claude Code CLI (`claude`) is not installed or not on PATH.",
-    );
+    ).rejects.toThrow("SmeChatError in sendMessage:validate: Anthropic API key is missing.");
 
-    expect(providerService.startedSessions).toHaveLength(0);
-    expect(providerService.sentTurns).toHaveLength(0);
+    expect(createClient).not.toHaveBeenCalled();
     expect(rowsByConversation.get(conversationId)).toEqual([
       expect.objectContaining({
         role: "user",

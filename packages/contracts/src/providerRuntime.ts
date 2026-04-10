@@ -25,6 +25,8 @@ const RuntimeEventRawSource = Schema.Literals([
   "claude.sdk.permission",
   "codex.sdk.thread-event",
   "openclaw.gateway.notification",
+  "openclaw.gateway.event",
+  "openclaw.gateway.response",
 ]);
 export type RuntimeEventRawSource = typeof RuntimeEventRawSource.Type;
 

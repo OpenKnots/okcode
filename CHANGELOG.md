@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-04-09
+
+See [docs/releases/v0.22.0.md](docs/releases/v0.22.0.md) for full notes and [docs/releases/v0.22.0/assets.md](docs/releases/v0.22.0/assets.md) for release asset inventory.
+
+### Added
+
+- Add provider-aware SME conversation auth with persisted provider and auth method settings.
+- Add navigable settings sections and a dedicated SME conversation settings editor.
+
+### Changed
+
+- Refresh SME chat with a modern sidebar, composer, and message layout.
+- Restructure settings into section-specific panels with a mobile section picker.
+- Route SME conversation sends through provider-specific auth validation and runtime backends.
+
+### Fixed
+
+- Redact secrets from websocket errors across the server, transport, and UI paths.
+
 ## [0.21.0] - 2026-04-09
 
 See [docs/releases/v0.21.0.md](docs/releases/v0.21.0.md) for full notes and [docs/releases/v0.21.0/assets.md](docs/releases/v0.21.0/assets.md) for release asset inventory.
@@ -638,3 +657,4 @@ First public version tag. See [docs/releases/v0.0.1.md](docs/releases/v0.0.1.md)
 [0.18.0]: https://github.com/OpenKnots/okcode/releases/tag/v0.18.0
 [0.20.0]: https://github.com/OpenKnots/okcode/releases/tag/v0.20.0
 [0.21.0]: https://github.com/OpenKnots/okcode/releases/tag/v0.21.0
+[0.22.0]: https://github.com/OpenKnots/okcode/releases/tag/v0.22.0

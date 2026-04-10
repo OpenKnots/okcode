@@ -9,6 +9,7 @@ Use this directory for versioned release notes and asset manifests only:
 
 | Version              | Summary                                                                                        | Assets                        |
 | -------------------- | ---------------------------------------------------------------------------------------------- | ----------------------------- |
+| [0.22.0](v0.22.0.md) | Provider-aware SME auth, refreshed SME chat, settings navigation, and websocket redaction      | [manifest](v0.22.0/assets.md) |
 | [0.21.0](v0.21.0.md) | Terminal startup and project continuity improvements, SME auth recovery, and release alignment | [manifest](v0.21.0/assets.md) |
 | [0.20.0](v0.20.0.md) | Polish the sidebar app shell, stabilize SME chat and OpenCla                                   | [manifest](v0.20.0/assets.md) |
 | [0.19.0](v0.19.0.md) | Release workflow hardening, branch-handling fixes, and release-preflight cleanup               | [manifest](v0.19.0/assets.md) |

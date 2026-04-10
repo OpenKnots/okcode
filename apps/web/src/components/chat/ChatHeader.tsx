@@ -11,7 +11,7 @@ import { useThreadTitleEditor } from "~/hooks/useThreadTitleEditor";
 import { shortcutLabelsForCommand } from "~/keybindings";
 import type { ClientMode } from "~/lib/clientMode";
 import { gitStatusQueryOptions } from "~/lib/gitReactQuery";
-import { ensureNativeApi } from "~/nativeApi";
+import { openGitHubUrl } from "~/lib/openGitHubUrl";
 import type { PreviewDock } from "~/previewStateStore";
 import type { ProjectScriptDraft } from "~/projectScriptDefaults";
 import { EditableThreadTitle } from "../EditableThreadTitle";
@@ -19,6 +19,7 @@ import GitActionsControl from "../GitActionsControl";
 import ProjectScriptsControl, { type NewProjectScriptInput } from "../ProjectScriptsControl";
 import { Button } from "../ui/button";
 import { Kbd } from "../ui/kbd";
+import { toastManager } from "../ui/toast";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { HeaderPanelsMenu } from "./HeaderPanelsMenu";
 
@@ -58,7 +59,7 @@ interface ChatHeaderProps {
 export const ChatHeader = memo(function ChatHeader({
   activeThreadId,
   activeThreadTitle,
-  activeProjectId: _activeProjectId,
+  activeProjectId,
   activeProjectName,
   activeProjectCwd,
   isLocalDraftThread,
@@ -121,9 +122,22 @@ export const ChatHeader = memo(function ChatHeader({
   const pullRequestShortcutLabels = shortcutLabelsForCommand(keybindings, "git.pullRequest");
   const primaryPullRequestShortcutLabel = pullRequestShortcutLabels[0] ?? null;
 
-  const openPrLink = useCallback((url: string) => {
-    void ensureNativeApi().shell.openExternal(url);
-  }, []);
+  const openPrLink = useCallback(
+    (url: string) => {
+      void openGitHubUrl({
+        url,
+        projectId: activeProjectId ?? null,
+        threadId: activeThreadId,
+      }).catch((error) => {
+        toastManager.add({
+          type: "error",
+          title: "Unable to open PR link",
+          description: error instanceof Error ? error.message : "An error occurred.",
+        });
+      });
+    },
+    [activeProjectId, activeThreadId],
+  );
 
   return (
     <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -217,7 +231,11 @@ export const ChatHeader = memo(function ChatHeader({
           </Tooltip>
         )}
         {!isMobileCompanion && activeProjectName && (
-          <GitActionsControl gitCwd={gitCwd} activeThreadId={activeThreadId} />
+          <GitActionsControl
+            gitCwd={gitCwd}
+            activeThreadId={activeThreadId}
+            activeProjectId={activeProjectId ?? null}
+          />
         )}
         {/* Overflow menu: all panel toggles consolidated */}
         {!isMobileCompanion && (

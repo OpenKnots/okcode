@@ -28,6 +28,10 @@ import {
 } from "@okcode/contracts";
 import { getModelOptions, normalizeModelSlug } from "@okcode/shared/model";
 import {
+  DEFAULT_SIDEBAR_FONT_SIZE,
+  DEFAULT_SIDEBAR_PROJECT_ROW_HEIGHT,
+  DEFAULT_SIDEBAR_SPACING,
+  DEFAULT_SIDEBAR_THREAD_ROW_HEIGHT,
   DEFAULT_PR_REVIEW_REQUEST_CHANGES_TONE,
   getAppModelOptions,
   getCustomModelsForProvider,
@@ -35,6 +39,14 @@ import {
   MODEL_PROVIDER_SETTINGS,
   patchCustomModels,
   PrReviewRequestChangesTone,
+  SIDEBAR_FONT_SIZE_MAX,
+  SIDEBAR_FONT_SIZE_MIN,
+  SIDEBAR_PROJECT_ROW_HEIGHT_MAX,
+  SIDEBAR_PROJECT_ROW_HEIGHT_MIN,
+  SIDEBAR_SPACING_MAX,
+  SIDEBAR_SPACING_MIN,
+  SIDEBAR_THREAD_ROW_HEIGHT_MAX,
+  SIDEBAR_THREAD_ROW_HEIGHT_MIN,
   useAppSettings,
 } from "../appSettings";
 import { APP_BUILD_INFO } from "../branding";
@@ -738,9 +750,18 @@ function SettingsRouteView() {
     ...(settings.backgroundImageOpacity !== defaults.backgroundImageOpacity
       ? ["Background opacity"]
       : []),
+    ...(settings.sidebarOpacity !== defaults.sidebarOpacity ? ["Sidebar opacity"] : []),
+    ...(settings.sidebarProjectRowHeight !== defaults.sidebarProjectRowHeight
+      ? ["Project height"]
+      : []),
+    ...(settings.sidebarThreadRowHeight !== defaults.sidebarThreadRowHeight
+      ? ["Thread height"]
+      : []),
+    ...(settings.sidebarFontSize !== defaults.sidebarFontSize ? ["Sidebar font size"] : []),
+    ...(settings.sidebarSpacing !== defaults.sidebarSpacing ? ["Sidebar spacing"] : []),
     ...(radiusOverride !== null ? ["Border radius"] : []),
     ...(fontOverride ? ["Font family"] : []),
-    ...(fontSizeOverride !== null ? ["Font size"] : []),
+    ...(fontSizeOverride !== null ? ["Code font size"] : []),
   ];
 
   const openKeybindingsFile = useCallback(() => {
@@ -1155,12 +1176,12 @@ function SettingsRouteView() {
                     />
 
                     <SettingsRow
-                      title="Font size"
+                      title="Code font size"
                       description="Adjust the font size for code editors and terminal."
                       resetAction={
                         fontSizeOverride !== null ? (
                           <SettingResetButton
-                            label="font size"
+                            label="code font size"
                             onClick={() => {
                               clearFontSizeOverride();
                               setFontSizeOverrideState(null);
@@ -1182,7 +1203,7 @@ function SettingsRouteView() {
                               setStoredFontSizeOverride(value);
                             }}
                             className="h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-muted accent-foreground sm:w-28"
-                            aria-label="Font size"
+                            aria-label="Code font size"
                           />
                           <span className="w-12 text-right text-xs tabular-nums text-muted-foreground">
                             {fontSizeOverride ?? 12}px
@@ -1296,6 +1317,150 @@ function SettingsRouteView() {
                           />
                           <span className="w-9 text-right text-xs tabular-nums text-muted-foreground">
                             {Math.round(settings.sidebarOpacity * 100)}%
+                          </span>
+                        </div>
+                      }
+                    />
+
+                    <SettingsRow
+                      title="Project height"
+                      description="Adjust the height of project rows in the sidebar."
+                      resetAction={
+                        settings.sidebarProjectRowHeight !== defaults.sidebarProjectRowHeight ? (
+                          <SettingResetButton
+                            label="project height"
+                            onClick={() =>
+                              updateSettings({
+                                sidebarProjectRowHeight: DEFAULT_SIDEBAR_PROJECT_ROW_HEIGHT,
+                              })
+                            }
+                          />
+                        ) : null
+                      }
+                      control={
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="range"
+                            min={SIDEBAR_PROJECT_ROW_HEIGHT_MIN}
+                            max={SIDEBAR_PROJECT_ROW_HEIGHT_MAX}
+                            step={1}
+                            value={settings.sidebarProjectRowHeight}
+                            onChange={(e) => {
+                              updateSettings({
+                                sidebarProjectRowHeight: Number(e.target.value),
+                              });
+                            }}
+                            className="h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-muted accent-foreground sm:w-28"
+                            aria-label="Project height"
+                          />
+                          <span className="w-12 text-right text-xs tabular-nums text-muted-foreground">
+                            {settings.sidebarProjectRowHeight}px
+                          </span>
+                        </div>
+                      }
+                    />
+
+                    <SettingsRow
+                      title="Thread height"
+                      description="Adjust the height of thread rows in the sidebar."
+                      resetAction={
+                        settings.sidebarThreadRowHeight !== defaults.sidebarThreadRowHeight ? (
+                          <SettingResetButton
+                            label="thread height"
+                            onClick={() =>
+                              updateSettings({
+                                sidebarThreadRowHeight: DEFAULT_SIDEBAR_THREAD_ROW_HEIGHT,
+                              })
+                            }
+                          />
+                        ) : null
+                      }
+                      control={
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="range"
+                            min={SIDEBAR_THREAD_ROW_HEIGHT_MIN}
+                            max={SIDEBAR_THREAD_ROW_HEIGHT_MAX}
+                            step={1}
+                            value={settings.sidebarThreadRowHeight}
+                            onChange={(e) => {
+                              updateSettings({
+                                sidebarThreadRowHeight: Number(e.target.value),
+                              });
+                            }}
+                            className="h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-muted accent-foreground sm:w-28"
+                            aria-label="Thread height"
+                          />
+                          <span className="w-12 text-right text-xs tabular-nums text-muted-foreground">
+                            {settings.sidebarThreadRowHeight}px
+                          </span>
+                        </div>
+                      }
+                    />
+
+                    <SettingsRow
+                      title="Sidebar font size"
+                      description="Adjust the size of project and thread names in the sidebar."
+                      resetAction={
+                        settings.sidebarFontSize !== defaults.sidebarFontSize ? (
+                          <SettingResetButton
+                            label="sidebar font size"
+                            onClick={() =>
+                              updateSettings({ sidebarFontSize: DEFAULT_SIDEBAR_FONT_SIZE })
+                            }
+                          />
+                        ) : null
+                      }
+                      control={
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="range"
+                            min={SIDEBAR_FONT_SIZE_MIN}
+                            max={SIDEBAR_FONT_SIZE_MAX}
+                            step={1}
+                            value={settings.sidebarFontSize}
+                            onChange={(e) => {
+                              updateSettings({ sidebarFontSize: Number(e.target.value) });
+                            }}
+                            className="h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-muted accent-foreground sm:w-28"
+                            aria-label="Sidebar font size"
+                          />
+                          <span className="w-12 text-right text-xs tabular-nums text-muted-foreground">
+                            {settings.sidebarFontSize}px
+                          </span>
+                        </div>
+                      }
+                    />
+
+                    <SettingsRow
+                      title="Sidebar spacing"
+                      description="Adjust padding and row spacing in the project and thread list."
+                      resetAction={
+                        settings.sidebarSpacing !== defaults.sidebarSpacing ? (
+                          <SettingResetButton
+                            label="sidebar spacing"
+                            onClick={() =>
+                              updateSettings({ sidebarSpacing: DEFAULT_SIDEBAR_SPACING })
+                            }
+                          />
+                        ) : null
+                      }
+                      control={
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="range"
+                            min={SIDEBAR_SPACING_MIN}
+                            max={SIDEBAR_SPACING_MAX}
+                            step={1}
+                            value={settings.sidebarSpacing}
+                            onChange={(e) => {
+                              updateSettings({ sidebarSpacing: Number(e.target.value) });
+                            }}
+                            className="h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-muted accent-foreground sm:w-28"
+                            aria-label="Sidebar spacing"
+                          />
+                          <span className="w-12 text-right text-xs tabular-nums text-muted-foreground">
+                            {settings.sidebarSpacing}px
                           </span>
                         </div>
                       }

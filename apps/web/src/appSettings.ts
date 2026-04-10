@@ -20,6 +20,18 @@ const MAX_CUSTOM_MODEL_COUNT = 32;
 export const MAX_CUSTOM_MODEL_LENGTH = 256;
 const BACKGROUND_IMAGE_KEY = "okcode:background-image";
 const BACKGROUND_OPACITY_KEY = "okcode:background-opacity";
+export const SIDEBAR_PROJECT_ROW_HEIGHT_MIN = 24;
+export const SIDEBAR_PROJECT_ROW_HEIGHT_MAX = 44;
+export const DEFAULT_SIDEBAR_PROJECT_ROW_HEIGHT = 28;
+export const SIDEBAR_THREAD_ROW_HEIGHT_MIN = 24;
+export const SIDEBAR_THREAD_ROW_HEIGHT_MAX = 44;
+export const DEFAULT_SIDEBAR_THREAD_ROW_HEIGHT = 28;
+export const SIDEBAR_FONT_SIZE_MIN = 10;
+export const SIDEBAR_FONT_SIZE_MAX = 16;
+export const DEFAULT_SIDEBAR_FONT_SIZE = 12;
+export const SIDEBAR_SPACING_MIN = 4;
+export const SIDEBAR_SPACING_MAX = 12;
+export const DEFAULT_SIDEBAR_SPACING = 8;
 
 export const TimestampFormat = Schema.Literals(["locale", "12-hour", "24-hour"]);
 export type TimestampFormat = typeof TimestampFormat.Type;
@@ -92,6 +104,12 @@ export const AppSettingsSchema = Schema.Struct({
   ),
   timestampFormat: TimestampFormat.pipe(withDefaults(() => DEFAULT_TIMESTAMP_FORMAT)),
   sidebarOpacity: Schema.Number.pipe(withDefaults(() => 1)),
+  sidebarProjectRowHeight: Schema.Number.pipe(
+    withDefaults(() => DEFAULT_SIDEBAR_PROJECT_ROW_HEIGHT),
+  ),
+  sidebarThreadRowHeight: Schema.Number.pipe(withDefaults(() => DEFAULT_SIDEBAR_THREAD_ROW_HEIGHT)),
+  sidebarFontSize: Schema.Number.pipe(withDefaults(() => DEFAULT_SIDEBAR_FONT_SIZE)),
+  sidebarSpacing: Schema.Number.pipe(withDefaults(() => DEFAULT_SIDEBAR_SPACING)),
   sidebarHideFiles: Schema.Boolean.pipe(withDefaults(() => false)),
   sidebarAccentProjectNames: Schema.Boolean.pipe(withDefaults(() => true)),
   sidebarAccentColorOverride: Schema.optional(Schema.String.check(Schema.isMaxLength(64))),
@@ -185,12 +203,36 @@ function clampBackgroundOpacity(value: number): number {
   return Math.max(0.05, Math.min(1, value));
 }
 
+function clampSidebarProjectRowHeight(value: number): number {
+  return Math.round(
+    Math.max(SIDEBAR_PROJECT_ROW_HEIGHT_MIN, Math.min(SIDEBAR_PROJECT_ROW_HEIGHT_MAX, value)),
+  );
+}
+
+function clampSidebarThreadRowHeight(value: number): number {
+  return Math.round(
+    Math.max(SIDEBAR_THREAD_ROW_HEIGHT_MIN, Math.min(SIDEBAR_THREAD_ROW_HEIGHT_MAX, value)),
+  );
+}
+
+function clampSidebarFontSize(value: number): number {
+  return Math.round(Math.max(SIDEBAR_FONT_SIZE_MIN, Math.min(SIDEBAR_FONT_SIZE_MAX, value)));
+}
+
+function clampSidebarSpacing(value: number): number {
+  return Math.round(Math.max(SIDEBAR_SPACING_MIN, Math.min(SIDEBAR_SPACING_MAX, value)));
+}
+
 function normalizeAppSettings(settings: AppSettings): AppSettings {
   return {
     ...settings,
     backgroundImageUrl: settings.backgroundImageUrl.trim(),
     backgroundImageOpacity: clampBackgroundOpacity(settings.backgroundImageOpacity),
     sidebarOpacity: clampOpacity(settings.sidebarOpacity),
+    sidebarProjectRowHeight: clampSidebarProjectRowHeight(settings.sidebarProjectRowHeight),
+    sidebarThreadRowHeight: clampSidebarThreadRowHeight(settings.sidebarThreadRowHeight),
+    sidebarFontSize: clampSidebarFontSize(settings.sidebarFontSize),
+    sidebarSpacing: clampSidebarSpacing(settings.sidebarSpacing),
     customCodexModels: normalizeCustomModelSlugs(settings.customCodexModels, "codex"),
     customClaudeModels: normalizeCustomModelSlugs(settings.customClaudeModels, "claudeAgent"),
     customOpenClawModels: normalizeCustomModelSlugs(settings.customOpenClawModels, "openclaw"),

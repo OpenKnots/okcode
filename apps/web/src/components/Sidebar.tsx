@@ -48,7 +48,16 @@ import {
   XIcon,
   XCircleIcon,
 } from "lucide-react";
-import { type MouseEvent, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  type MouseEvent,
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { CloneRepositoryDialog } from "~/components/CloneRepositoryDialog";
 import { EditableThreadTitle } from "~/components/EditableThreadTitle";
 import { useClientMode } from "~/hooks/useClientMode";
@@ -139,6 +148,48 @@ const SIDEBAR_THREAD_SORT_LABELS: Record<SidebarThreadSortOrder, string> = {
 };
 const EMPTY_THREADS: readonly Thread[] = [];
 const EMPTY_THREAD_IDS: readonly ThreadIdType[] = [];
+
+type SidebarDensityStyle = CSSProperties & {
+  "--ok-sidebar-project-row-height": string;
+  "--ok-sidebar-thread-row-height": string;
+  "--ok-sidebar-font-size": string;
+  "--ok-sidebar-spacing": string;
+};
+
+const SIDEBAR_PROJECT_HEADER_STYLE: CSSProperties = {
+  gap: "calc(var(--ok-sidebar-spacing) * 0.5)",
+};
+
+const SIDEBAR_PROJECT_ROW_STYLE: CSSProperties = {
+  minHeight: "var(--ok-sidebar-project-row-height)",
+  paddingInline: "var(--ok-sidebar-spacing)",
+  paddingBlock: "calc(var(--ok-sidebar-spacing) * 0.75)",
+  fontSize: "var(--ok-sidebar-font-size)",
+};
+
+const SIDEBAR_PROJECT_TITLE_STYLE: CSSProperties = {
+  fontSize: "var(--ok-sidebar-font-size)",
+};
+
+const SIDEBAR_THREAD_LIST_STYLE: CSSProperties = {
+  gap: "calc(var(--ok-sidebar-spacing) * 0.25)",
+  paddingInline: "calc(var(--ok-sidebar-spacing) * 0.5)",
+};
+
+const SIDEBAR_THREAD_ROW_STYLE: CSSProperties = {
+  minHeight: "var(--ok-sidebar-thread-row-height)",
+  paddingInline: "var(--ok-sidebar-spacing)",
+  paddingBlock: "calc(var(--ok-sidebar-spacing) * 0.5)",
+  gap: "calc(var(--ok-sidebar-spacing) * 0.5)",
+  fontSize: "var(--ok-sidebar-font-size)",
+};
+
+const SIDEBAR_COLLAPSE_TOGGLE_STYLE: CSSProperties = {
+  minHeight: "calc(var(--ok-sidebar-thread-row-height) - 4px)",
+  paddingInline: "var(--ok-sidebar-spacing)",
+  fontSize: "calc(var(--ok-sidebar-font-size) - 2px)",
+};
+
 interface PrStatusIndicator {
   label: "PR open" | "PR closed" | "PR merged";
   colorClass: string;
@@ -381,13 +432,14 @@ const MemoizedThreadRow = memo(
           size="sm"
           isActive={isActive}
           className={cn(
-            "h-auto min-h-7 translate-x-0 items-center gap-2 rounded-md px-2 py-1 text-left",
+            "h-auto translate-x-0 items-center rounded-md text-left",
             isActive
               ? "bg-accent/60 text-foreground"
               : isSelected
                 ? "bg-accent/40 text-foreground"
                 : "text-muted-foreground hover:bg-accent/40 hover:text-foreground",
           )}
+          style={SIDEBAR_THREAD_ROW_STYLE}
           onClick={(event) => {
             handleThreadClick(event, thread.id, orderedProjectThreadIds);
           }}
@@ -422,15 +474,15 @@ const MemoizedThreadRow = memo(
           }}
         >
           <ThreadIcon className={cn("size-3.5 shrink-0", threadIconColor)} />
-          <div className="flex min-w-0 flex-1 items-center gap-1.5 text-left">
+          <div className="flex min-w-0 flex-1 items-center text-left">
             <EditableThreadTitle
               title={thread.title}
               isEditing={editingThreadId === thread.id}
               draftTitle={editingThreadTitle}
               inputRef={bindInputRef}
               containerClassName="min-w-0 flex-1"
-              titleClassName="min-w-0 flex-1 truncate text-xs"
-              inputClassName="h-6 px-1 text-xs"
+              titleClassName="min-w-0 flex-1 truncate leading-tight"
+              inputClassName="h-auto min-h-0 px-1 text-[length:var(--ok-sidebar-font-size)] leading-tight"
               onStartEditing={() => {
                 startEditing({
                   threadId: thread.id,
@@ -609,6 +661,21 @@ export default function Sidebar() {
   const sortedThreadsByProjectId = useMemo(
     () => sortThreadsByProjectIdForSidebar(sidebarThreads, appSettings.sidebarThreadSortOrder),
     [appSettings.sidebarThreadSortOrder, sidebarThreads],
+  );
+  const sidebarDensityStyle = useMemo(
+    () =>
+      ({
+        "--ok-sidebar-project-row-height": `${appSettings.sidebarProjectRowHeight}px`,
+        "--ok-sidebar-thread-row-height": `${appSettings.sidebarThreadRowHeight}px`,
+        "--ok-sidebar-font-size": `${appSettings.sidebarFontSize}px`,
+        "--ok-sidebar-spacing": `${appSettings.sidebarSpacing}px`,
+      }) as SidebarDensityStyle,
+    [
+      appSettings.sidebarFontSize,
+      appSettings.sidebarProjectRowHeight,
+      appSettings.sidebarSpacing,
+      appSettings.sidebarThreadRowHeight,
+    ],
   );
   const orderedThreadIdsByProjectId = useMemo(() => {
     const orderedThreadIds = new Map<ProjectId, ThreadIdType[]>();
@@ -1366,16 +1433,20 @@ export default function Sidebar() {
     return (
       <Collapsible className="group/collapsible" open={shouldShowThreadPanel}>
         <div
-          className="group/project-header relative flex items-center gap-1 rounded-md"
-          style={{ backgroundColor: isDark ? pColor.bgDark : pColor.bg }}
+          className="group/project-header relative flex items-center rounded-md"
+          style={{
+            ...SIDEBAR_PROJECT_HEADER_STYLE,
+            backgroundColor: isDark ? pColor.bgDark : pColor.bg,
+          }}
         >
           <SidebarMenuButton
             ref={isManualProjectSorting ? dragHandleProps?.setActivatorNodeRef : undefined}
             size="sm"
             className={cn(
-              "min-w-0 flex-1 gap-0 rounded-md px-2 py-1.5 text-left hover:bg-transparent",
+              "h-auto min-w-0 flex-1 gap-0 rounded-md text-left hover:bg-transparent",
               isManualProjectSorting ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
             )}
+            style={SIDEBAR_PROJECT_ROW_STYLE}
             {...(isManualProjectSorting && dragHandleProps ? dragHandleProps.attributes : {})}
             {...(isManualProjectSorting && dragHandleProps ? dragHandleProps.listeners : {})}
             onPointerDownCapture={handleProjectTitlePointerDownCapture}
@@ -1394,7 +1465,8 @@ export default function Sidebar() {
                 ref={bindProjectInputRef}
                 type="text"
                 value={draftProjectTitle}
-                className="min-w-0 flex-1 rounded border border-primary/40 bg-background px-1 text-xs font-medium outline-none focus:border-primary"
+                className="min-w-0 flex-1 rounded border border-primary/40 bg-background px-1 font-medium outline-none focus:border-primary"
+                style={SIDEBAR_PROJECT_TITLE_STYLE}
                 onChange={(e) => setDraftProjectTitle(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
@@ -1412,15 +1484,16 @@ export default function Sidebar() {
               <span className="min-w-0 flex-1">
                 <span
                   className={cn(
-                    "block truncate text-xs font-semibold",
+                    "block truncate font-semibold leading-tight",
                     projectNameTone === "mutedStrong" && "text-muted-foreground/72",
                     projectNameTone === "mutedSoft" && "text-muted-foreground/48",
                   )}
-                  style={
-                    projectNameTone === "project"
+                  style={{
+                    ...SIDEBAR_PROJECT_TITLE_STYLE,
+                    ...(projectNameTone === "project"
                       ? { color: isDark ? pColor.textDark : pColor.text }
-                      : undefined
-                  }
+                      : {}),
+                  }}
                 >
                   {project.name}
                 </span>
@@ -1452,7 +1525,10 @@ export default function Sidebar() {
         </div>
 
         <CollapsibleContent>
-          <SidebarMenuSub className="relative mx-0 my-0 w-auto translate-x-0 gap-0 border-none bg-transparent px-1 py-0">
+          <SidebarMenuSub
+            className="relative mx-0 my-0 w-auto translate-x-0 border-none bg-transparent py-0"
+            style={SIDEBAR_THREAD_LIST_STYLE}
+          >
             {renderedThreads.map((thread) => (
               <MemoizedThreadRow
                 key={thread.id}
@@ -1486,7 +1562,8 @@ export default function Sidebar() {
                   render={<button type="button" />}
                   data-thread-selection-safe
                   size="sm"
-                  className="h-6 w-full translate-x-0 justify-start px-2 text-left text-[10px] text-muted-foreground/60 hover:bg-accent hover:text-muted-foreground/80"
+                  className="h-auto w-full translate-x-0 justify-start text-left text-muted-foreground/60 hover:bg-accent hover:text-muted-foreground/80"
+                  style={SIDEBAR_COLLAPSE_TOGGLE_STYLE}
                   onClick={() => {
                     expandThreadListForProject(project.id);
                   }}
@@ -1501,7 +1578,8 @@ export default function Sidebar() {
                   render={<button type="button" />}
                   data-thread-selection-safe
                   size="sm"
-                  className="h-6 w-full translate-x-0 justify-start px-2 text-left text-[10px] text-muted-foreground/60 hover:bg-accent hover:text-muted-foreground/80"
+                  className="h-auto w-full translate-x-0 justify-start text-left text-muted-foreground/60 hover:bg-accent hover:text-muted-foreground/80"
+                  style={SIDEBAR_COLLAPSE_TOGGLE_STYLE}
                   onClick={() => {
                     collapseThreadListForProject(project.id);
                   }}
@@ -1972,7 +2050,7 @@ export default function Sidebar() {
             </SidebarMenu>
           </SidebarGroup>
         ) : null}
-        <SidebarGroup className="px-2 py-2">
+        <SidebarGroup className="px-2 py-2" style={sidebarDensityStyle}>
           <div className="mb-1 flex items-center justify-between px-2">
             <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
               Projects
@@ -2159,7 +2237,7 @@ export default function Sidebar() {
               onDragEnd={handleProjectDragEnd}
               onDragCancel={handleProjectDragCancel}
             >
-              <SidebarMenu>
+              <SidebarMenu style={{ gap: "calc(var(--ok-sidebar-spacing) * 0.25)" }}>
                 <SortableContext
                   items={sortedProjects.map((project) => project.id)}
                   strategy={verticalListSortingStrategy}
@@ -2173,7 +2251,7 @@ export default function Sidebar() {
               </SidebarMenu>
             </DndContext>
           ) : (
-            <SidebarMenu className="gap-0.5">
+            <SidebarMenu style={{ gap: "calc(var(--ok-sidebar-spacing) * 0.25)" }}>
               {sortedProjects.map((project, index) => (
                 <SidebarMenuItem key={project.id} className="rounded-md">
                   {renderProjectItem(project, null, index)}

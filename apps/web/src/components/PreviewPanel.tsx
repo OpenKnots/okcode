@@ -610,7 +610,7 @@ export function PreviewPanel({ projectId, threadId, onClose }: PreviewPanelProps
                 onBlur={commitCustomViewport}
                 onKeyDown={(e) => e.key === "Enter" && commitCustomViewport()}
                 aria-label="Viewport width"
-                className="h-5 w-14 text-center text-[10px] tabular-nums"
+                className="h-5 w-[4.5rem] text-center text-[10px] tabular-nums"
                 min={320}
                 max={3840}
               />
@@ -622,7 +622,7 @@ export function PreviewPanel({ projectId, threadId, onClose }: PreviewPanelProps
                 onBlur={commitCustomViewport}
                 onKeyDown={(e) => e.key === "Enter" && commitCustomViewport()}
                 aria-label="Viewport height"
-                className="h-5 w-14 text-center text-[10px] tabular-nums"
+                className="h-5 w-[4.5rem] text-center text-[10px] tabular-nums"
                 min={320}
                 max={2160}
               />

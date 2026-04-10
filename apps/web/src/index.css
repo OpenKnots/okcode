@@ -125,9 +125,9 @@
   --sidebar-accent-foreground: var(--accent-foreground);
   --sidebar-border: var(--border);
   --sidebar-ring: var(--ring);
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-  --font-serif: Georgia, Cambria, "Times New Roman", Times, serif;
-  --font-mono: "SF Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  --font-sans: Oxanium, sans-serif;
+  --font-serif: "Space Grotesk", serif;
+  --font-mono: Oxanium, sans-serif;
   --spacing: 0.25rem;
   --tracking-normal: 0em;
 
@@ -177,10 +177,7 @@
 }
 
 body {
-  font-family: var(
-    --font-ui,
-    var(--font-sans, "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif)
-  );
+  font-family: var(--font-ui, var(--font-sans, Oxanium, sans-serif));
   margin: 0;
   padding: 0;
   min-height: 100vh;
@@ -214,15 +211,7 @@ pre,
 code,
 textarea,
 input {
-  font-family: var(
-    --font-mono,
-    "SF Mono",
-    "SFMono-Regular",
-    Consolas,
-    "Liberation Mono",
-    Menlo,
-    monospace
-  );
+  font-family: var(--font-mono, Oxanium, sans-serif);
 }
 
 /* Window drag region (frameless titlebar) */

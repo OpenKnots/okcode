@@ -72,7 +72,6 @@ import { Open, resolveAvailableEditors } from "./open";
 import { ServerConfig } from "./config";
 import { GitCore } from "./git/Services/GitCore.ts";
 import { collectMergedWorktreeCleanupCandidates } from "./git/worktreeCleanup.ts";
-import { tryHandleProjectFaviconRequest } from "./projectFaviconRoute";
 import {
   ATTACHMENTS_ROUTE_PREFIX,
   normalizeAttachmentRelativePath,
@@ -104,6 +103,7 @@ import { TerminalRuntimeEnvResolver } from "./terminal/Services/RuntimeEnvResolv
 import { version as serverVersion } from "../package.json" with { type: "json" };
 import { serverBuildInfo } from "./buildInfo";
 import { runOpenclawGatewayTest } from "./openclawGatewayTest.ts";
+import { createApiRouter } from "./api/router.ts";
 
 // ── OpenClaw Gateway Connection Test ──────────────────────────────────
 
@@ -358,6 +358,12 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
   } = serverConfig;
   const availableEditors = resolveAvailableEditors();
   const tokenManager = new TokenManager(authToken);
+  const tryHandleApiRequest = createApiRouter({
+    authToken,
+    host,
+    port,
+    tokenManager,
+  });
 
   const gitManager = yield* GitManager;
   const terminalManager = yield* TerminalManager;
@@ -651,35 +657,7 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
     void Effect.runPromise(
       Effect.gen(function* () {
         const url = new URL(req.url ?? "/", `http://localhost:${port}`);
-        if (tryHandleProjectFaviconRequest(url, res)) {
-          return;
-        }
-
-        // ── Pairing API endpoint ──────────────────────────────────
-        if (url.pathname === "/api/pairing" && req.method === "GET") {
-          if (!authToken) {
-            respond(
-              200,
-              { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-              JSON.stringify({ error: "Auth is not enabled on this server." }),
-            );
-            return;
-          }
-
-          const ttlParam = url.searchParams.get("ttl");
-          const ttlSeconds = ttlParam ? Math.min(Math.max(Number(ttlParam), 30), 3600) : 300;
-          const record = tokenManager.generatePairingToken({ ttlSeconds, label: "http-api" });
-          const serverUrl = `http://${host ?? "localhost"}:${port}`;
-          const pairingUrl = `okcode://pair?server=${encodeURIComponent(serverUrl)}&token=${encodeURIComponent(record.tokenValue)}`;
-          respond(
-            200,
-            { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-            JSON.stringify({
-              pairingUrl,
-              expiresAt: record.expiresAt,
-              serverUrl,
-            }),
-          );
+        if (await tryHandleApiRequest(req, res, url)) {
           return;
         }
 

@@ -5,10 +5,10 @@ import {
   BookOpenIcon,
   Settings2Icon,
   SparklesIcon,
-  RefreshCcwIcon,
+  XIcon,
 } from "lucide-react";
 import type { SmeConversationId, SmeMessage, SmeMessageId } from "@okcode/contracts";
-import { useNavigate } from "@tanstack/react-router";
+import type { RegisteredRouter } from "@tanstack/react-router";
 
 import { getProviderStartOptions, useAppSettings } from "~/appSettings";
 import { ProviderHealthBanner } from "~/components/chat/ProviderHealthBanner";
@@ -62,6 +62,7 @@ export function SmeChatWorkspace({
   const [inputText, setInputText] = useState("");
   const [sending, setSending] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const serverConfigQuery = useQuery(serverConfigQueryOptions());
@@ -98,6 +99,10 @@ export function SmeChatWorkspace({
     sending ||
     validationQuery.isLoading ||
     (validationQuery.data ? !validationQuery.data.ok : false);
+
+  useEffect(() => {
+    setBannerDismissed(false);
+  }, [conversationId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -249,36 +254,34 @@ export function SmeChatWorkspace({
 
       <div className="px-4">
         <ProviderHealthBanner status={providerStatus} />
-        {validationQuery.data ? (
+        {validationQuery.data && !bannerDismissed ? (
           <div className="mx-auto max-w-3xl pt-3">
             <Alert variant={validationQuery.data.ok ? "default" : "error"}>
-              <AlertTitle>
-                {validationQuery.data.ok ? "Provider ready" : "Provider setup required"}
+              <AlertTitle className="flex items-center justify-between">
+                <span>
+                  {validationQuery.data.ok ? "Provider ready" : "Provider setup required"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setBannerDismissed(true)}
+                  className="rounded-md p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  aria-label="Dismiss"
+                >
+                  <XIcon className="size-3.5" />
+                </button>
               </AlertTitle>
               <AlertDescription className="flex items-center justify-between gap-3">
                 <span>{validationQuery.data.message}</span>
-                <span className="flex shrink-0 items-center gap-2">
+                {!validationQuery.data.ok ? (
                   <Button
                     type="button"
                     size="sm"
                     variant="outline"
-                    className="gap-1.5"
-                    onClick={() => void validationQuery.refetch()}
+                    onClick={() => setDialogOpen(true)}
                   >
-                    <RefreshCcwIcon className="size-3.5" />
-                    Test
+                    Settings
                   </Button>
-                  {!validationQuery.data.ok ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => void navigate({ to: "/settings" })}
-                    >
-                      Settings
-                    </Button>
-                  ) : null}
-                </span>
+                ) : null}
               </AlertDescription>
             </Alert>
           </div>

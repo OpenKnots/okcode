@@ -1,10 +1,17 @@
 import type { ProviderKind, SmeAuthMethod, SmeConversation } from "@okcode/contracts";
-import { useEffect, useMemo, useState } from "react";
-import { Settings2Icon } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  CheckCircle2Icon,
+  Loader2Icon,
+  RefreshCcwIcon,
+  Settings2Icon,
+  XCircleIcon,
+} from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 
 import {
   getCustomModelOptionsByProvider,
+  getProviderStartOptions,
   resolveAppModelSelection,
   useAppSettings,
 } from "~/appSettings";
@@ -52,6 +59,8 @@ export function SmeConversationDialog({
   const [authMethod, setAuthMethod] = useState<SmeAuthMethod>("apiKey");
   const [model, setModel] = useState("claude-sonnet-4-6");
   const [error, setError] = useState<string | null>(null);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
 
   const modelOptionsByProvider = useMemo(() => {
     const options = getCustomModelOptionsByProvider(settings);
@@ -93,6 +102,7 @@ export function SmeConversationDialog({
     setAuthMethod(nextAuthMethod);
     setModel(nextModel);
     setError(null);
+    setTestResult(null);
   }, [
     conversation,
     open,
@@ -101,8 +111,32 @@ export function SmeConversationDialog({
     settings.customOpenClawModels,
   ]);
 
+  const providerOptions = useMemo(() => getProviderStartOptions(settings), [settings]);
+
+  const handleTestConnection = useCallback(async () => {
+    if (!conversation || testing) return;
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const api = ensureNativeApi();
+      const result = await api.sme.validateSetup({
+        conversationId: conversation.conversationId,
+        providerOptions,
+      });
+      setTestResult(result);
+    } catch (cause) {
+      setTestResult({
+        ok: false,
+        message: cause instanceof Error ? cause.message : "Connection test failed.",
+      });
+    } finally {
+      setTesting(false);
+    }
+  }, [conversation, providerOptions, testing]);
+
   const handleProviderChange = (nextProvider: ProviderKind) => {
     setProvider(nextProvider);
+    setTestResult(null);
     const nextAuthMethod = getDefaultSmeAuthMethod(nextProvider);
     setAuthMethod(nextAuthMethod);
     setModel(
@@ -230,6 +264,45 @@ export function SmeConversationDialog({
                 <Settings2Icon className="size-3.5" />
                 Open Settings
               </Button>
+            </div>
+          ) : null}
+
+          {/* Test Connection */}
+          {conversation ? (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  disabled={testing}
+                  onClick={() => void handleTestConnection()}
+                >
+                  {testing ? (
+                    <Loader2Icon className="size-3.5 animate-spin" />
+                  ) : (
+                    <RefreshCcwIcon className="size-3.5" />
+                  )}
+                  {testing ? "Testing..." : "Test Connection"}
+                </Button>
+              </div>
+              {testResult ? (
+                <div
+                  className={`flex items-start gap-2 rounded-xl border px-3 py-2.5 text-xs ${
+                    testResult.ok
+                      ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400"
+                      : "border-destructive/30 bg-destructive/5 text-destructive"
+                  }`}
+                >
+                  {testResult.ok ? (
+                    <CheckCircle2Icon className="mt-px size-3.5 shrink-0" />
+                  ) : (
+                    <XCircleIcon className="mt-px size-3.5 shrink-0" />
+                  )}
+                  <span>{testResult.message}</span>
+                </div>
+              ) : null}
             </div>
           ) : null}
 

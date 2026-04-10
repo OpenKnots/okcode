@@ -9,29 +9,15 @@ import type {
   TestOpenclawGatewayStep,
   TestOpenclawGatewayStepStatus,
 } from "@okcode/contracts";
-import NodeWebSocket from "ws";
 import { serverBuildInfo } from "./buildInfo.ts";
+import { connectOpenClawGateway } from "./provider/Layers/OpenClawGatewayClient.ts";
 
 const OPENCLAW_TEST_CONNECT_TIMEOUT_MS = 10_000;
 const OPENCLAW_TEST_RPC_TIMEOUT_MS = 10_000;
 const OPENCLAW_TEST_HEALTH_TIMEOUT_MS = 2_500;
 const OPENCLAW_TEST_LOOKUP_TIMEOUT_MS = 1_500;
 const MAX_CAPTURED_NOTIFICATIONS = 5;
-const OPENCLAW_PROTOCOL_VERSION = 3;
 const OPENCLAW_OPERATOR_SCOPES = ["operator.read", "operator.write"] as const;
-
-type GatewayEnvelope = {
-  type?: unknown;
-  id?: unknown;
-  ok?: unknown;
-  event?: unknown;
-  payload?: unknown;
-  error?: {
-    code?: unknown;
-    message?: unknown;
-    details?: unknown;
-  };
-};
 
 interface GatewayHealthProbe {
   status: TestOpenclawGatewayStepStatus;
@@ -60,13 +46,10 @@ interface MutableGatewayDiagnostics {
   hints: string[];
 }
 
-interface ParsedGatewayError {
-  message: string;
-  code?: string;
-  detailCode?: string;
-  detailReason?: string;
-  recommendedNextStep?: string;
-  canRetryWithDeviceToken?: boolean;
+interface OpenClawGatewayErrorLike {
+  readonly message: string;
+  readonly code?: string;
+  readonly details?: Record<string, unknown>;
 }
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> {
@@ -92,110 +75,29 @@ function toMessage(cause: unknown, fallback: string): string {
   return fallback;
 }
 
-function bufferToString(data: NodeWebSocket.Data): string {
-  if (typeof data === "string") return data;
-  if (data instanceof ArrayBuffer) return Buffer.from(data).toString("utf8");
-  if (Array.isArray(data)) return Buffer.concat(data).toString("utf8");
-  return data.toString("utf8");
-}
-
-function parseGatewayEnvelope(data: NodeWebSocket.Data): GatewayEnvelope | null {
-  try {
-    const parsed = JSON.parse(bufferToString(data));
-    if (typeof parsed === "object" && parsed !== null) {
-      return parsed as GatewayEnvelope;
-    }
-  } catch {
-    // Ignore non-JSON websocket messages from intermediaries.
-  }
-  return null;
-}
-
 function readString(value: unknown): string | undefined {
   return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
-function readBoolean(value: unknown): boolean | undefined {
-  return typeof value === "boolean" ? value : undefined;
-}
-
-function parseGatewayError(error: GatewayEnvelope["error"]): ParsedGatewayError {
-  const details =
-    typeof error?.details === "object" && error.details !== null
-      ? (error.details as Record<string, unknown>)
-      : undefined;
-  const parsed: ParsedGatewayError = {
-    message: readString(error?.message) ?? "Gateway request failed.",
-  };
-  const code =
-    typeof error?.code === "string" || typeof error?.code === "number"
-      ? String(error.code)
-      : undefined;
-  const detailCode = readString(details?.code);
-  const detailReason = readString(details?.reason);
-  const recommendedNextStep = readString(details?.recommendedNextStep);
-  const canRetryWithDeviceToken = readBoolean(details?.canRetryWithDeviceToken);
-
-  if (code) {
-    parsed.code = code;
-  }
-  if (detailCode) {
-    parsed.detailCode = detailCode;
-  }
-  if (detailReason) {
-    parsed.detailReason = detailReason;
-  }
-  if (recommendedNextStep) {
-    parsed.recommendedNextStep = recommendedNextStep;
-  }
-  if (canRetryWithDeviceToken !== undefined) {
-    parsed.canRetryWithDeviceToken = canRetryWithDeviceToken;
-  }
-
-  return parsed;
-}
-
-function recordGatewayError(
+function applyGatewayError(
   diagnostics: MutableGatewayDiagnostics,
-  error: ParsedGatewayError | undefined,
+  error: OpenClawGatewayErrorLike | undefined,
 ): void {
-  if (error?.code) {
-    diagnostics.gatewayErrorCode = error.code;
-  } else {
-    delete diagnostics.gatewayErrorCode;
+  if (!error) {
+    return;
   }
-  if (error?.detailCode) {
-    diagnostics.gatewayErrorDetailCode = error.detailCode;
-  } else {
-    delete diagnostics.gatewayErrorDetailCode;
-  }
-  if (error?.detailReason) {
-    diagnostics.gatewayErrorDetailReason = error.detailReason;
-  } else {
-    delete diagnostics.gatewayErrorDetailReason;
-  }
-  if (error?.recommendedNextStep) {
-    diagnostics.gatewayRecommendedNextStep = error.recommendedNextStep;
-  } else {
-    delete diagnostics.gatewayRecommendedNextStep;
-  }
-  if (error?.canRetryWithDeviceToken !== undefined) {
-    diagnostics.gatewayCanRetryWithDeviceToken = error.canRetryWithDeviceToken;
-  } else {
-    delete diagnostics.gatewayCanRetryWithDeviceToken;
-  }
-}
 
-function formatGatewayError(error: ParsedGatewayError): string {
-  const detailParts = [
-    error.code ? `code ${error.code}` : null,
-    error.detailCode ? `detail ${error.detailCode}` : null,
-    error.detailReason ? `reason ${error.detailReason}` : null,
-    error.recommendedNextStep ? `next ${error.recommendedNextStep}` : null,
-    error.canRetryWithDeviceToken ? "device-token retry available" : null,
-  ].filter((part): part is string => part !== null);
-
-  return detailParts.length > 0 ? `${error.message} (${detailParts.join(", ")})` : error.message;
+  diagnostics.gatewayErrorCode = error.code;
+  const details = error.details ?? {};
+  diagnostics.gatewayErrorDetailCode = typeof details.code === "string" ? details.code : undefined;
+  diagnostics.gatewayErrorDetailReason =
+    typeof details.reason === "string" ? details.reason : undefined;
+  diagnostics.gatewayRecommendedNextStep =
+    typeof details.recommendedNextStep === "string" ? details.recommendedNextStep : undefined;
+  diagnostics.gatewayCanRetryWithDeviceToken =
+    typeof details.canRetryWithDeviceToken === "boolean"
+      ? details.canRetryWithDeviceToken
+      : undefined;
 }
 
 function pushUnique(items: string[], value: string): void {
@@ -346,21 +248,6 @@ async function probeHealth(parsedUrl: URL): Promise<GatewayHealthProbe> {
 function formatSocketClose(code: number | undefined, reason: string | undefined): string | null {
   if (code === undefined) return null;
   return reason && reason.length > 0 ? `code ${code}: ${reason}` : `code ${code}`;
-}
-
-function buildTimeoutDetail(subject: string, diagnostics: TestOpenclawGatewayDiagnostics): string {
-  const parts = [`${subject} timed out after ${OPENCLAW_TEST_RPC_TIMEOUT_MS}ms.`];
-  const closeDetail = formatSocketClose(diagnostics.socketCloseCode, diagnostics.socketCloseReason);
-  if (closeDetail) {
-    parts.push(`Socket closed with ${closeDetail}.`);
-  }
-  if (diagnostics.socketError) {
-    parts.push(`Last socket error: ${diagnostics.socketError}.`);
-  }
-  if (diagnostics.observedNotifications.length > 0) {
-    parts.push(`Observed gateway events: ${diagnostics.observedNotifications.join(", ")}.`);
-  }
-  return parts.join(" ");
 }
 
 function buildHints(
@@ -520,15 +407,12 @@ function createDiagnostics(): MutableGatewayDiagnostics {
 
 export async function runOpenclawGatewayTest(
   input: TestOpenclawGatewayInput,
+  options?: RunOpenclawGatewayTestOptions,
 ): Promise<TestOpenclawGatewayResult> {
   const overallStart = Date.now();
   const steps: TestOpenclawGatewayStep[] = [];
-  let ws: NodeWebSocket | null = null;
-  let rpcId = 1;
-  const serverInfo: { version?: string; sessionId?: string } = {};
   const diagnostics: MutableGatewayDiagnostics = createDiagnostics();
-  const earlyGatewayEvents: GatewayEnvelope[] = [];
-  let captureEarlyGatewayEvents = true;
+  let parsedUrlForHints: URL | null = null;
 
   const pushStep = (
     name: string,
@@ -571,241 +455,10 @@ export async function runOpenclawGatewayTest(
       success,
       steps,
       totalDurationMs: Date.now() - overallStart,
-      ...(Object.keys(serverInfo).length > 0 ? { serverInfo } : {}),
       diagnostics: diagnosticsResult,
       ...(error ? { error } : {}),
     };
   };
-
-  let parsedUrlForHints: URL | null = null;
-
-  const waitForGatewayEvent = (
-    socket: NodeWebSocket,
-    eventName: string,
-  ): Promise<Record<string, unknown> | undefined> =>
-    new Promise((resolve, reject) => {
-      const bufferedIndex = earlyGatewayEvents.findIndex(
-        (message) => message.type === "event" && message.event === eventName,
-      );
-      if (bufferedIndex >= 0) {
-        const [message] = earlyGatewayEvents.splice(bufferedIndex, 1);
-        resolve(
-          typeof message?.payload === "object" && message.payload !== null
-            ? (message.payload as Record<string, unknown>)
-            : undefined,
-        );
-        return;
-      }
-
-      let settled = false;
-      let timeout: ReturnType<typeof setTimeout> | undefined;
-
-      const cleanup = () => {
-        if (timeout) {
-          clearTimeout(timeout);
-        }
-        socket.off("message", onMessage);
-        socket.off("close", onClose);
-        socket.off("error", onError);
-      };
-
-      const settle = (callback: () => void) => {
-        if (settled) return;
-        settled = true;
-        cleanup();
-        callback();
-      };
-
-      const onMessage = (data: NodeWebSocket.Data) => {
-        const message = parseGatewayEnvelope(data);
-        if (!message) {
-          return;
-        }
-        if (message.type === "event" && typeof message.event === "string") {
-          pushUnique(diagnostics.observedNotifications, message.event);
-          if (message.event === eventName) {
-            settle(() =>
-              resolve(
-                typeof message.payload === "object" && message.payload !== null
-                  ? (message.payload as Record<string, unknown>)
-                  : undefined,
-              ),
-            );
-          }
-        }
-      };
-
-      const onClose = (code: number, reasonBuffer: Buffer) => {
-        diagnostics.socketCloseCode = code;
-        const reason = reasonBuffer.toString("utf8");
-        if (reason.length > 0) {
-          diagnostics.socketCloseReason = reason;
-        }
-        const closeDetail = formatSocketClose(code, reason);
-        settle(() =>
-          reject(
-            new Error(
-              `WebSocket closed before gateway event '${eventName}' arrived${
-                closeDetail ? ` (${closeDetail})` : ""
-              }.`,
-            ),
-          ),
-        );
-      };
-
-      const onError = (cause: Error) => {
-        diagnostics.socketError = toMessage(cause, "WebSocket error.");
-        settle(() =>
-          reject(
-            new Error(
-              `WebSocket error while waiting for gateway event '${eventName}': ${diagnostics.socketError}`,
-            ),
-          ),
-        );
-      };
-
-      socket.on("message", onMessage);
-      socket.on("close", onClose);
-      socket.on("error", onError);
-
-      timeout = setTimeout(() => {
-        settle(() =>
-          reject(new Error(buildTimeoutDetail(`Gateway event '${eventName}'`, diagnostics))),
-        );
-      }, OPENCLAW_TEST_RPC_TIMEOUT_MS);
-    });
-
-  const sendGatewayRequest = (
-    socket: NodeWebSocket,
-    method: string,
-    params?: Record<string, unknown>,
-  ): Promise<{ payload?: unknown; error?: ParsedGatewayError }> =>
-    new Promise((resolve, reject) => {
-      const id = String(rpcId++);
-      let settled = false;
-      let timeout: ReturnType<typeof setTimeout> | undefined;
-
-      const cleanup = () => {
-        if (timeout) {
-          clearTimeout(timeout);
-        }
-        socket.off("message", onMessage);
-        socket.off("close", onClose);
-        socket.off("error", onError);
-      };
-
-      const settle = (callback: () => void) => {
-        if (settled) return;
-        settled = true;
-        cleanup();
-        callback();
-      };
-
-      const onMessage = (data: NodeWebSocket.Data) => {
-        const message = parseGatewayEnvelope(data);
-        if (!message) {
-          return;
-        }
-        if (message.type === "event" && typeof message.event === "string") {
-          pushUnique(diagnostics.observedNotifications, message.event);
-          return;
-        }
-        if (message.type === "res" && message.id === id) {
-          if (message.ok === true) {
-            recordGatewayError(diagnostics, undefined);
-            settle(() =>
-              resolve(
-                message.payload !== undefined
-                  ? { payload: message.payload }
-                  : { payload: undefined },
-              ),
-            );
-            return;
-          }
-
-          const parsedError = parseGatewayError(message.error);
-          recordGatewayError(diagnostics, parsedError);
-          settle(() => resolve({ error: parsedError }));
-        }
-      };
-
-      const onClose = (code: number, reasonBuffer: Buffer) => {
-        diagnostics.socketCloseCode = code;
-        const reason = reasonBuffer.toString("utf8");
-        if (reason.length > 0) {
-          diagnostics.socketCloseReason = reason;
-        }
-        const closeDetail = formatSocketClose(code, reason);
-        settle(() =>
-          reject(
-            new Error(
-              `WebSocket closed before gateway request '${method}' completed${
-                closeDetail ? ` (${closeDetail})` : ""
-              }.`,
-            ),
-          ),
-        );
-      };
-
-      const onError = (cause: Error) => {
-        diagnostics.socketError = toMessage(cause, "WebSocket error.");
-        settle(() =>
-          reject(
-            new Error(
-              `WebSocket error during gateway request '${method}': ${diagnostics.socketError}`,
-            ),
-          ),
-        );
-      };
-
-      socket.on("message", onMessage);
-      socket.on("close", onClose);
-      socket.on("error", onError);
-
-      timeout = setTimeout(() => {
-        settle(() =>
-          reject(new Error(buildTimeoutDetail(`Gateway request '${method}'`, diagnostics))),
-        );
-      }, OPENCLAW_TEST_RPC_TIMEOUT_MS);
-
-      try {
-        socket.send(
-          JSON.stringify({
-            type: "req",
-            id,
-            method,
-            ...(params !== undefined ? { params } : {}),
-          }),
-        );
-      } catch (cause) {
-        diagnostics.socketError = toMessage(cause, "WebSocket send failed.");
-        settle(() => reject(cause instanceof Error ? cause : new Error(diagnostics.socketError)));
-      }
-    });
-
-  const buildConnectParams = (sharedSecret: string | undefined): Record<string, unknown> => ({
-    minProtocol: OPENCLAW_PROTOCOL_VERSION,
-    maxProtocol: OPENCLAW_PROTOCOL_VERSION,
-    client: {
-      id: "okcode",
-      version: serverBuildInfo.version,
-      platform:
-        process.platform === "darwin"
-          ? "macos"
-          : process.platform === "win32"
-            ? "windows"
-            : process.platform,
-      mode: "operator",
-    },
-    role: "operator",
-    scopes: [...OPENCLAW_OPERATOR_SCOPES],
-    caps: [],
-    commands: [],
-    permissions: {},
-    locale: Intl.DateTimeFormat().resolvedOptions().locale || "en-US",
-    userAgent: `okcode/${serverBuildInfo.version}`,
-    ...(sharedSecret ? { auth: { password: sharedSecret } } : {}),
-  });
 
   try {
     const urlStart = Date.now();
@@ -851,44 +504,33 @@ export async function runOpenclawGatewayTest(
     diagnostics.hostKind = classifyGatewayHost(parsedUrl.hostname, diagnostics.resolvedAddresses);
 
     const connectStart = Date.now();
+    let connection: Awaited<ReturnType<typeof connectOpenClawGateway>> | undefined;
     try {
-      ws = await new Promise<NodeWebSocket>((resolve, reject) => {
-        const socket = new NodeWebSocket(gatewayUrl);
-        socket.on("message", (data: NodeWebSocket.Data) => {
-          const message = parseGatewayEnvelope(data);
-          if (!message) {
-            return;
-          }
-          if (message.type === "event" && typeof message.event === "string") {
-            pushUnique(diagnostics.observedNotifications, message.event);
-          }
-          if (captureEarlyGatewayEvents) {
-            earlyGatewayEvents.push(message);
-          }
-        });
-        const timeout = setTimeout(() => {
-          socket.close();
-          reject(new Error(`Connection timed out after ${OPENCLAW_TEST_CONNECT_TIMEOUT_MS}ms`));
-        }, OPENCLAW_TEST_CONNECT_TIMEOUT_MS);
-
-        socket.on("open", () => {
-          clearTimeout(timeout);
-          resolve(socket);
-        });
-        socket.on("error", (cause) => {
-          clearTimeout(timeout);
-          reject(cause);
-        });
-      });
-      ws.on("close", (code: number, reasonBuffer: Buffer) => {
-        diagnostics.socketCloseCode = code;
-        const reason = reasonBuffer.toString("utf8");
-        if (reason.length > 0) {
-          diagnostics.socketCloseReason = reason;
-        }
-      });
-      ws.on("error", (cause: Error) => {
-        diagnostics.socketError = toMessage(cause, "WebSocket error.");
+      connection = await connectOpenClawGateway({
+        gatewayUrl,
+        stateDir: options?.stateDir,
+        sessionKey: "okcode:gateway-test",
+        role: "operator",
+        scopes: [...OPENCLAW_OPERATOR_SCOPES],
+        client: {
+          id: "okcode",
+          version: serverBuildInfo.version,
+          platform:
+            process.platform === "darwin"
+              ? "macos"
+              : process.platform === "win32"
+                ? "windows"
+                : process.platform,
+          mode: "operator",
+        },
+        userAgent: `okcode/${serverBuildInfo.version}`,
+        locale: Intl.DateTimeFormat().resolvedOptions().locale || "en-US",
+        password: sharedSecret,
+        onEvent: (event) => {
+          pushUnique(diagnostics.observedNotifications, event.event);
+        },
+        connectTimeoutMs: OPENCLAW_TEST_CONNECT_TIMEOUT_MS,
+        requestTimeoutMs: OPENCLAW_TEST_RPC_TIMEOUT_MS,
       });
       pushStep(
         "WebSocket connect",
@@ -897,6 +539,11 @@ export async function runOpenclawGatewayTest(
         `Connected in ${Date.now() - connectStart}ms`,
       );
     } catch (cause) {
+      const gatewayError =
+        cause instanceof Error
+          ? (cause as Error & { readonly gatewayError?: OpenClawGatewayErrorLike }).gatewayError
+          : undefined;
+      applyGatewayError(diagnostics, gatewayError);
       const detail = toMessage(cause, "Connection failed.");
       pushStep("WebSocket connect", "fail", Date.now() - connectStart, detail);
       applyHealthProbe(await healthPromise);
@@ -906,31 +553,13 @@ export async function runOpenclawGatewayTest(
     applyHealthProbe(await healthPromise);
 
     const handshakeStart = Date.now();
-    try {
-      await waitForGatewayEvent(ws, "connect.challenge");
-      captureEarlyGatewayEvents = false;
-      earlyGatewayEvents.length = 0;
-      const connectResult = await sendGatewayRequest(
-        ws,
-        "connect",
-        buildConnectParams(sharedSecret),
-      );
-      if (connectResult.error) {
-        const detail = formatGatewayError(connectResult.error);
-        pushStep("Gateway handshake", "fail", Date.now() - handshakeStart, detail);
-        return finalize(false, detail, "Gateway handshake");
-      }
-      pushStep("Gateway handshake", "pass", Date.now() - handshakeStart, "Connected.");
-    } catch (cause) {
-      const detail = toMessage(cause, "Gateway handshake failed.");
-      pushStep("Gateway handshake", "fail", Date.now() - handshakeStart, detail);
-      return finalize(false, detail, "Gateway handshake");
-    }
-
+    pushStep("Gateway handshake", "pass", Date.now() - handshakeStart, "Connected.");
     return finalize(true);
   } finally {
-    if (ws && ws.readyState === NodeWebSocket.OPEN) {
-      ws.close();
+    try {
+      await connection?.close();
+    } catch {
+      // ignore close errors during cleanup
     }
   }
 }

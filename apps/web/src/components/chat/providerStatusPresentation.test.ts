@@ -63,7 +63,7 @@ describe("provider auth copy", () => {
           authStatus: "unauthenticated",
         }),
       ),
-    ).toBe("Anthropic (Claude Code) needs authentication");
+    ).toBe("Claude Code needs authentication");
   });
 
   it("preserves explicit provider detail messages", () => {

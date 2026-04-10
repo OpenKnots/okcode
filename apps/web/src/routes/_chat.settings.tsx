@@ -298,9 +298,9 @@ const INSTALL_PROVIDER_SETTINGS: readonly InstallProviderSettings[] = [
   },
   {
     provider: "claudeAgent",
-    title: "Anthropic",
+    title: "Claude Code",
     binaryPathKey: "claudeBinaryPath",
-    binaryPlaceholder: "Claude binary path",
+    binaryPlaceholder: "Claude Code binary path",
     binaryDescription: (
       <>
         Leave blank to use <code>claude</code> from your PATH. Authentication uses{" "}
@@ -2094,7 +2094,7 @@ function SettingsRouteView() {
 
                     <SettingsRow
                       title="Custom models"
-                      description="Add custom model slugs for Codex or Anthropic. The chat picker groups models by provider."
+                      description="Add custom model slugs for Codex or Claude Code. The chat picker groups models by provider."
                       resetAction={
                         totalCustomModels > 0 ? (
                           <SettingResetButton

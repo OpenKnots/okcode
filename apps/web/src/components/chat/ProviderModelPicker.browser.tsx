@@ -51,7 +51,7 @@ describe("ProviderModelPicker", () => {
     document.body.innerHTML = "";
   });
 
-  it("shows both Codex and Anthropic model groups when provider switching is allowed", async () => {
+  it("shows both Codex and Claude Code model groups when provider switching is allowed", async () => {
     const mounted = await mountPicker({
       provider: "claudeAgent",
       model: "claude-opus-4-6",
@@ -64,7 +64,7 @@ describe("ProviderModelPicker", () => {
       await vi.waitFor(() => {
         const text = document.body.textContent ?? "";
         expect(text).toContain("Codex");
-        expect(text).toContain("Anthropic");
+        expect(text).toContain("Claude Code");
         expect(text).toContain("GPT-5 Codex");
         expect(text).toContain("Claude Sonnet 4.6");
         expect(text).toContain("Claude Haiku 4.5");

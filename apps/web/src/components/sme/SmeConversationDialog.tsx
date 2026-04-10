@@ -56,7 +56,9 @@ export function SmeConversationDialog({
   const [saving, setSaving] = useState(false);
   const [title, setTitle] = useState("New Conversation");
   const [provider, setProvider] = useState<ProviderKind>("claudeAgent");
-  const [authMethod, setAuthMethod] = useState<SmeAuthMethod>("apiKey");
+  const [authMethod, setAuthMethod] = useState<SmeAuthMethod>(
+    getDefaultSmeAuthMethod("claudeAgent"),
+  );
   const [model, setModel] = useState("claude-sonnet-4-6");
   const [error, setError] = useState<string | null>(null);
   const [testing, setTesting] = useState(false);

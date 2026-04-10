@@ -1,14 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import {
-  ArrowUpIcon,
-  BookOpenIcon,
-  Settings2Icon,
-  SparklesIcon,
-  XIcon,
-} from "lucide-react";
+import { ArrowUpIcon, BookOpenIcon, Settings2Icon, SparklesIcon, XIcon } from "lucide-react";
 import type { SmeConversationId, SmeMessage, SmeMessageId } from "@okcode/contracts";
-import type { RegisteredRouter } from "@tanstack/react-router";
 
 import { getProviderStartOptions, useAppSettings } from "~/appSettings";
 import { ProviderHealthBanner } from "~/components/chat/ProviderHealthBanner";
@@ -21,7 +14,7 @@ import { toastManager } from "~/components/ui/toast";
 
 import { SmeConversationDialog } from "./SmeConversationDialog";
 import { SmeMessageBubble } from "./SmeMessageBubble";
-import { SME_PROVIDER_LABELS } from "./smeConversationConfig";
+import { getSmeAuthMethodLabel, SME_PROVIDER_LABELS } from "./smeConversationConfig";
 
 const EMPTY_MESSAGES: SmeMessage[] = [];
 
@@ -36,7 +29,6 @@ export function SmeChatWorkspace({
   onToggleKnowledge,
   knowledgePanelOpen,
 }: SmeChatWorkspaceProps) {
-  const navigate = useNavigate();
   const { settings } = useAppSettings();
   const providerOptions = useMemo(() => getProviderStartOptions(settings), [settings]);
   const conversations = useSmeStore((state) => state.conversations);
@@ -222,7 +214,8 @@ export function SmeChatWorkspace({
         <div className="min-w-0">
           <h2 className="truncate text-sm font-semibold text-foreground">{conversation.title}</h2>
           <p className="truncate text-xs text-muted-foreground">
-            {SME_PROVIDER_LABELS[conversation.provider]} · {conversation.authMethod} ·{" "}
+            {SME_PROVIDER_LABELS[conversation.provider]} ·{" "}
+            {getSmeAuthMethodLabel(conversation.provider, conversation.authMethod)} ·{" "}
             {conversation.model}
           </p>
         </div>

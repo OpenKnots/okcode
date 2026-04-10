@@ -187,6 +187,7 @@ export function makeServerRuntimeServicesLayer() {
     TerminalRuntimeEnvResolverLive,
     KeybindingsLive,
     SkillServiceLive,
+    OpenclawGatewayConfigLive,
     smeChatLayer,
   ).pipe(Layer.provideMerge(NodeServices.layer));
 }

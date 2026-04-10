@@ -1640,6 +1640,11 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
         return yield* smeChatService.createConversation(body);
       }
 
+      case WS_METHODS.smeUpdateConversation: {
+        const body = stripRequestTag(request.body);
+        return yield* smeChatService.updateConversation(body);
+      }
+
       case WS_METHODS.smeDeleteConversation: {
         const body = stripRequestTag(request.body);
         return yield* smeChatService.deleteConversation(body);
@@ -1653,6 +1658,11 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
       case WS_METHODS.smeGetConversation: {
         const body = stripRequestTag(request.body);
         return yield* smeChatService.getConversation(body);
+      }
+
+      case WS_METHODS.smeValidateSetup: {
+        const body = stripRequestTag(request.body);
+        return yield* smeChatService.validateSetup(body);
       }
 
       case WS_METHODS.smeSendMessage: {

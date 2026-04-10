@@ -31,6 +31,7 @@ import Migration0016 from "./Migrations/016_ProjectionThreadsInteractionModeChat
 import Migration0017 from "./Migrations/017_EnvironmentVariables.ts";
 import Migration0018 from "./Migrations/018_ProjectionThreadsGithubRef.ts";
 import Migration0019 from "./Migrations/019_SmeKnowledgeBase.ts";
+import Migration0020 from "./Migrations/020_SmeConversationProviderAuth.ts";
 import { Effect } from "effect";
 
 /**
@@ -63,6 +64,7 @@ const loader = Migrator.fromRecord({
   "17_EnvironmentVariables": Migration0017,
   "18_ProjectionThreadsGithubRef": Migration0018,
   "19_SmeKnowledgeBase": Migration0019,
+  "20_SmeConversationProviderAuth": Migration0020,
 });
 
 /**

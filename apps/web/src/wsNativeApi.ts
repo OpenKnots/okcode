@@ -404,9 +404,11 @@ export function createWsNativeApi(): NativeApi {
       deleteDocument: (input) => transport.request(WS_METHODS.smeDeleteDocument, input),
       listDocuments: (input) => transport.request(WS_METHODS.smeListDocuments, input),
       createConversation: (input) => transport.request(WS_METHODS.smeCreateConversation, input),
+      updateConversation: (input) => transport.request(WS_METHODS.smeUpdateConversation, input),
       deleteConversation: (input) => transport.request(WS_METHODS.smeDeleteConversation, input),
       listConversations: (input) => transport.request(WS_METHODS.smeListConversations, input),
       getConversation: (input) => transport.request(WS_METHODS.smeGetConversation, input),
+      validateSetup: (input) => transport.request(WS_METHODS.smeValidateSetup, input),
       sendMessage: (input) =>
         transport.request(WS_METHODS.smeSendMessage, input, { timeoutMs: null }),
       interruptMessage: (input) => transport.request(WS_METHODS.smeInterruptMessage, input),

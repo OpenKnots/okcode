@@ -6,6 +6,7 @@ export interface SmeState {
   documents: SmeKnowledgeDocument[];
   activeConversationId: string | null;
   messagesByConversation: Record<string, SmeMessage[]>;
+  errorsByConversation: Record<string, string | undefined>;
   streamingConversationId: string | null;
   streamingMessageId: string | null;
   streamingText: string;
@@ -20,10 +21,12 @@ interface SmeActions {
   completeStream: (conversationId: string, messageId: string, text: string) => void;
   clearStream: () => void;
   addConversation: (conversation: SmeConversation) => void;
+  updateConversation: (conversation: SmeConversation) => void;
   removeConversation: (conversationId: string) => void;
   addDocument: (document: SmeKnowledgeDocument) => void;
   removeDocument: (documentId: string) => void;
   addUserMessage: (conversationId: string, message: SmeMessage) => void;
+  setConversationError: (conversationId: string, error: string | undefined) => void;
 }
 
 export const useSmeStore = create<SmeState & SmeActions>((set) => ({
@@ -31,6 +34,7 @@ export const useSmeStore = create<SmeState & SmeActions>((set) => ({
   documents: [],
   activeConversationId: null,
   messagesByConversation: {},
+  errorsByConversation: {},
   streamingConversationId: null,
   streamingMessageId: null,
   streamingText: "",
@@ -108,6 +112,13 @@ export const useSmeStore = create<SmeState & SmeActions>((set) => ({
       conversations: [conversation, ...state.conversations],
     })),
 
+  updateConversation: (conversation) =>
+    set((state) => ({
+      conversations: state.conversations.map((item) =>
+        item.conversationId === conversation.conversationId ? conversation : item,
+      ),
+    })),
+
   removeConversation: (conversationId) =>
     set((state) => ({
       conversations: state.conversations.filter((c) => c.conversationId !== conversationId),
@@ -130,6 +141,18 @@ export const useSmeStore = create<SmeState & SmeActions>((set) => ({
       messagesByConversation: {
         ...state.messagesByConversation,
         [conversationId]: [...(state.messagesByConversation[conversationId] ?? []), message],
+      },
+      errorsByConversation: {
+        ...state.errorsByConversation,
+        [conversationId]: undefined,
+      },
+    })),
+
+  setConversationError: (conversationId, error) =>
+    set((state) => ({
+      errorsByConversation: {
+        ...state.errorsByConversation,
+        [conversationId]: error,
       },
     })),
 }));

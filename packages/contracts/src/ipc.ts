@@ -133,7 +133,10 @@ import type {
   SmeMessage,
   SmeMessageEvent,
   SmeSendMessageInput,
+  SmeUpdateConversationInput,
   SmeUploadDocumentInput,
+  SmeValidateSetupInput,
+  SmeValidateSetupResult,
 } from "./sme";
 import { EditorId } from "./editor";
 
@@ -464,6 +467,7 @@ export interface NativeApi {
     deleteDocument: (input: SmeDeleteDocumentInput) => Promise<void>;
     listDocuments: (input: SmeListDocumentsInput) => Promise<ReadonlyArray<SmeKnowledgeDocument>>;
     createConversation: (input: SmeCreateConversationInput) => Promise<SmeConversation>;
+    updateConversation: (input: SmeUpdateConversationInput) => Promise<SmeConversation>;
     deleteConversation: (input: SmeDeleteConversationInput) => Promise<void>;
     listConversations: (
       input: SmeListConversationsInput,
@@ -471,6 +475,7 @@ export interface NativeApi {
     getConversation: (
       input: SmeGetConversationInput,
     ) => Promise<{ conversation: SmeConversation; messages: ReadonlyArray<SmeMessage> } | null>;
+    validateSetup: (input: SmeValidateSetupInput) => Promise<SmeValidateSetupResult>;
     sendMessage: (input: SmeSendMessageInput) => Promise<void>;
     interruptMessage: (input: SmeInterruptMessageInput) => Promise<void>;
     onMessageEvent: (callback: (event: SmeMessageEvent) => void) => () => void;

@@ -6,6 +6,10 @@ import type { Project } from "~/types";
 import { ensureNativeApi } from "~/nativeApi";
 import { useSmeStore } from "~/smeStore";
 import { cn } from "~/lib/utils";
+import { Badge } from "~/components/ui/badge";
+
+import { SmeConversationDialog } from "./SmeConversationDialog";
+import { SME_PROVIDER_LABELS } from "./smeConversationConfig";
 
 interface SmeConversationRailProps {
   project: Project;
@@ -23,26 +27,12 @@ export function SmeConversationRail({
   const conversations = useSmeStore((s) => s.conversations);
   const activeConversationId = useSmeStore((s) => s.activeConversationId);
   const setActiveConversationId = useSmeStore((s) => s.setActiveConversationId);
-  const addConversation = useSmeStore((s) => s.addConversation);
   const removeConversation = useSmeStore((s) => s.removeConversation);
-  const [creating, setCreating] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   const handleNewConversation = useCallback(async () => {
-    if (creating) return;
-    setCreating(true);
-    try {
-      const api = ensureNativeApi();
-      const conv = await api.sme.createConversation({
-        projectId: project.id,
-        title: "New Conversation",
-        model: "claude-sonnet-4-6",
-      });
-      addConversation(conv);
-      setActiveConversationId(conv.conversationId as string);
-    } finally {
-      setCreating(false);
-    }
-  }, [project.id, creating, addConversation, setActiveConversationId]);
+    setCreateDialogOpen(true);
+  }, []);
 
   const handleDeleteConversation = useCallback(
     async (e: React.MouseEvent, conversationId: string) => {
@@ -62,7 +52,6 @@ export function SmeConversationRail({
         <button
           type="button"
           onClick={handleNewConversation}
-          disabled={creating}
           className="flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
           title="New conversation"
         >
@@ -108,7 +97,17 @@ export function SmeConversationRail({
                     : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
                 )}
               >
-                <span className="min-w-0 flex-1 truncate">{conv.title}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate">{conv.title}</span>
+                  <span className="mt-0.5 flex items-center gap-1.5">
+                    <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
+                      {SME_PROVIDER_LABELS[conv.provider]}
+                    </Badge>
+                    <span className="truncate text-[10px] text-muted-foreground/80">
+                      {conv.model}
+                    </span>
+                  </span>
+                </span>
                 <button
                   type="button"
                   onClick={(e) => void handleDeleteConversation(e, conv.conversationId)}
@@ -121,6 +120,11 @@ export function SmeConversationRail({
           </div>
         )}
       </div>
+      <SmeConversationDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+        projectId={project.id}
+      />
     </div>
   );
 }

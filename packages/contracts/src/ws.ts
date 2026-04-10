@@ -93,12 +93,14 @@ import {
   SmeDeleteDocumentInput,
   SmeListDocumentsInput,
   SmeCreateConversationInput,
+  SmeUpdateConversationInput,
   SmeDeleteConversationInput,
   SmeListConversationsInput,
   SmeGetConversationInput,
   SmeSendMessageInput,
   SmeInterruptMessageInput,
   SmeMessageEvent,
+  SmeValidateSetupInput,
 } from "./sme";
 
 // ── WebSocket RPC Method Names ───────────────────────────────────────
@@ -202,9 +204,11 @@ export const WS_METHODS = {
   smeDeleteDocument: SME_WS_METHODS.deleteDocument,
   smeListDocuments: SME_WS_METHODS.listDocuments,
   smeCreateConversation: SME_WS_METHODS.createConversation,
+  smeUpdateConversation: SME_WS_METHODS.updateConversation,
   smeDeleteConversation: SME_WS_METHODS.deleteConversation,
   smeListConversations: SME_WS_METHODS.listConversations,
   smeGetConversation: SME_WS_METHODS.getConversation,
+  smeValidateSetup: SME_WS_METHODS.validateSetup,
   smeSendMessage: SME_WS_METHODS.sendMessage,
   smeInterruptMessage: SME_WS_METHODS.interruptMessage,
 } as const;
@@ -321,9 +325,11 @@ const WebSocketRequestBody = Schema.Union([
   tagRequestBody(WS_METHODS.smeDeleteDocument, SmeDeleteDocumentInput),
   tagRequestBody(WS_METHODS.smeListDocuments, SmeListDocumentsInput),
   tagRequestBody(WS_METHODS.smeCreateConversation, SmeCreateConversationInput),
+  tagRequestBody(WS_METHODS.smeUpdateConversation, SmeUpdateConversationInput),
   tagRequestBody(WS_METHODS.smeDeleteConversation, SmeDeleteConversationInput),
   tagRequestBody(WS_METHODS.smeListConversations, SmeListConversationsInput),
   tagRequestBody(WS_METHODS.smeGetConversation, SmeGetConversationInput),
+  tagRequestBody(WS_METHODS.smeValidateSetup, SmeValidateSetupInput),
   tagRequestBody(WS_METHODS.smeSendMessage, SmeSendMessageInput),
   tagRequestBody(WS_METHODS.smeInterruptMessage, SmeInterruptMessageInput),
 

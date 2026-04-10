@@ -5,7 +5,13 @@
  *
  * @module SmeConversationRepository
  */
-import { IsoDateTime, ProjectId, SmeConversationId } from "@okcode/contracts";
+import {
+  IsoDateTime,
+  ProjectId,
+  ProviderKind,
+  SmeAuthMethod,
+  SmeConversationId,
+} from "@okcode/contracts";
 import { Option, Schema, ServiceMap } from "effect";
 import type { Effect } from "effect";
 
@@ -15,6 +21,8 @@ export const SmeConversationRow = Schema.Struct({
   conversationId: SmeConversationId,
   projectId: ProjectId,
   title: Schema.String,
+  provider: ProviderKind,
+  authMethod: SmeAuthMethod,
   model: Schema.String,
   createdAt: IsoDateTime,
   updatedAt: IsoDateTime,

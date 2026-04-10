@@ -19,7 +19,10 @@ import type {
   SmeMessage,
   SmeMessageEvent,
   SmeSendMessageInput,
+  SmeUpdateConversationInput,
   SmeUploadDocumentInput,
+  SmeValidateSetupInput,
+  SmeValidateSetupResult,
 } from "@okcode/contracts";
 import { ServiceMap } from "effect";
 import type { Effect } from "effect";
@@ -50,6 +53,10 @@ export interface SmeChatServiceShape {
     input: SmeCreateConversationInput,
   ) => Effect.Effect<SmeConversation, SmeChatError>;
 
+  readonly updateConversation: (
+    input: SmeUpdateConversationInput,
+  ) => Effect.Effect<SmeConversation, SmeChatError>;
+
   readonly deleteConversation: (
     input: SmeDeleteConversationInput,
   ) => Effect.Effect<void, SmeChatError>;
@@ -64,6 +71,10 @@ export interface SmeChatServiceShape {
     { conversation: SmeConversation; messages: ReadonlyArray<SmeMessage> } | null,
     SmeChatError
   >;
+
+  readonly validateSetup: (
+    input: SmeValidateSetupInput,
+  ) => Effect.Effect<SmeValidateSetupResult, SmeChatError>;
 
   readonly sendMessage: (
     input: SmeSendMessageInput,

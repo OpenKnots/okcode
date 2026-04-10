@@ -1,26 +1,44 @@
 /**
  * SmeChatServiceLive - Live implementation for the SME chat service.
  *
- * Implements document management, conversation CRUD, and message sending
- * using the Anthropic Messages API for streaming completions.
+ * Implements document management, conversation CRUD, validation, and stateless
+ * provider-backed message sending for SME chat.
  *
  * @module SmeChatServiceLive
  */
 import Anthropic from "@anthropic-ai/sdk";
-import type { SmeConversation, SmeKnowledgeDocument, SmeMessage } from "@okcode/contracts";
+import type {
+  SmeAuthMethod,
+  SmeConversation,
+  SmeKnowledgeDocument,
+  SmeMessage,
+} from "@okcode/contracts";
 import {
+  SME_MAX_CONVERSATIONS_PER_PROJECT,
   SME_MAX_DOCUMENT_SIZE_BYTES,
   SME_MAX_DOCUMENTS_PER_PROJECT,
-  SME_MAX_CONVERSATIONS_PER_PROJECT,
 } from "@okcode/contracts";
-import { compactNodeProcessEnv } from "@okcode/shared/environment";
 import { DateTime, Effect, Layer, Option, Random, Ref } from "effect";
 import crypto from "node:crypto";
 
-import { SmeKnowledgeDocumentRepository } from "../../persistence/Services/SmeKnowledgeDocuments.ts";
-import { SmeConversationRepository } from "../../persistence/Services/SmeConversations.ts";
 import { EnvironmentVariables } from "../../persistence/Services/EnvironmentVariables.ts";
+import { SmeConversationRepository } from "../../persistence/Services/SmeConversations.ts";
+import { SmeKnowledgeDocumentRepository } from "../../persistence/Services/SmeKnowledgeDocuments.ts";
 import { SmeMessageRepository } from "../../persistence/Services/SmeMessages.ts";
+import { ProviderService } from "../../provider/Services/ProviderService.ts";
+import {
+  isValidSmeAuthMethod,
+  validateAnthropicSetup,
+  validateCodexSetup,
+  validateOpenClawSetup,
+} from "../authValidation.ts";
+import { sendSmeViaAnthropic, type ResolvedAnthropicClientOptions } from "../backends/anthropic.ts";
+import { sendSmeViaProviderRuntime } from "../backends/providerRuntime.ts";
+import {
+  buildSmeAnthropicMessages,
+  buildSmeCompiledPrompt,
+  buildSmeSystemPrompt,
+} from "../promptBuilder.ts";
 import {
   SmeChatError,
   SmeChatService,
@@ -29,56 +47,70 @@ import {
 
 type AnthropicMessagesClient = Pick<Anthropic, "messages">;
 
-interface ResolvedAnthropicClientOptions {
-  readonly apiKey: string | null;
-  readonly authToken: string | null;
-  readonly baseURL?: string;
-}
-
 export interface SmeChatServiceLiveOptions {
   readonly createClient?: (options: ResolvedAnthropicClientOptions) => AnthropicMessagesClient;
 }
 
-const SME_MISSING_ANTHROPIC_AUTH_MESSAGE =
-  "SME Chat requires ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN. Add one in Settings > Environment Variables (global or project), or launch OK Code with one set in the server environment.";
+type ActiveRequest = {
+  readonly interrupt: Effect.Effect<void, never>;
+};
 
-function normalizeOptionalEnvValue(value: string | undefined | null): string | null {
-  const trimmed = value?.trim();
-  return trimmed && trimmed.length > 0 ? trimmed : null;
+function ensureValidConversationAuth(
+  provider: SmeConversation["provider"],
+  authMethod: SmeAuthMethod,
+  operation: string,
+) {
+  return isValidSmeAuthMethod(provider, authMethod)
+    ? Effect.void
+    : Effect.fail(
+        new SmeChatError(
+          operation,
+          `Auth method '${authMethod}' is not valid for provider '${provider}'.`,
+        ),
+      );
 }
 
-function pickAnthropicCredential(env: Record<string, string>) {
-  const apiKey = normalizeOptionalEnvValue(env.ANTHROPIC_API_KEY);
-  const authToken = normalizeOptionalEnvValue(env.ANTHROPIC_AUTH_TOKEN);
-  if (apiKey !== null) {
-    return { apiKey, authToken: null } as const;
-  }
-  if (authToken !== null) {
-    return { apiKey: null, authToken } as const;
-  }
-  return null;
-}
-
-export function resolveAnthropicClientOptions(input: {
-  readonly persistedEnv: Record<string, string>;
-  readonly processEnv?: NodeJS.ProcessEnv;
-}): ResolvedAnthropicClientOptions | null {
-  const persistedCredential = pickAnthropicCredential(input.persistedEnv);
-  const processEnvRecord = compactNodeProcessEnv(input.processEnv ?? process.env);
-  const processCredential = pickAnthropicCredential(processEnvRecord);
-  const baseURL =
-    normalizeOptionalEnvValue(input.persistedEnv.ANTHROPIC_BASE_URL) ??
-    normalizeOptionalEnvValue(processEnvRecord.ANTHROPIC_BASE_URL) ??
-    undefined;
-
-  const credential = persistedCredential ?? processCredential;
-  if (credential === null) {
-    return null;
-  }
-
+function toConversation(row: {
+  readonly conversationId: string;
+  readonly projectId: string;
+  readonly title: string;
+  readonly provider: SmeConversation["provider"];
+  readonly authMethod: SmeAuthMethod;
+  readonly model: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+  readonly deletedAt: string | null;
+}): SmeConversation {
   return {
-    ...credential,
-    ...(baseURL ? { baseURL } : {}),
+    conversationId: row.conversationId as never,
+    projectId: row.projectId as never,
+    title: row.title,
+    provider: row.provider,
+    authMethod: row.authMethod,
+    model: row.model,
+    createdAt: row.createdAt as never,
+    updatedAt: row.updatedAt as never,
+    deletedAt: row.deletedAt as never,
+  };
+}
+
+function toMessage(message: {
+  readonly messageId: string;
+  readonly conversationId: string;
+  readonly role: SmeMessage["role"];
+  readonly text: string;
+  readonly isStreaming: boolean;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}): SmeMessage {
+  return {
+    messageId: message.messageId as never,
+    conversationId: message.conversationId as never,
+    role: message.role,
+    text: message.text,
+    isStreaming: message.isStreaming,
+    createdAt: message.createdAt as never,
+    updatedAt: message.updatedAt as never,
   };
 }
 
@@ -88,13 +120,13 @@ const makeSmeChatService = (options: SmeChatServiceLiveOptions = {}) =>
     const conversationRepo = yield* SmeConversationRepository;
     const messageRepo = yield* SmeMessageRepository;
     const environmentVariables = yield* EnvironmentVariables;
+    const providerService = yield* ProviderService;
     const createClient =
       options.createClient ??
       ((clientOptions: ResolvedAnthropicClientOptions): AnthropicMessagesClient =>
         new Anthropic(clientOptions));
 
-    // Track active streaming fibers per conversation for interruption
-    const activeStreams = yield* Ref.make(new Map<string, AbortController>());
+    const activeRequests = yield* Ref.make(new Map<string, ActiveRequest>());
 
     const generateId = () =>
       Effect.map(
@@ -104,11 +136,75 @@ const makeSmeChatService = (options: SmeChatServiceLiveOptions = {}) =>
 
     const now = () => Effect.map(DateTime.now, (dt) => DateTime.formatIso(dt));
 
-    // ── Document Operations ─────────────────────────────────────────────
+    const setInterrupt = (conversationId: string, interrupt: Effect.Effect<void, never>) =>
+      Ref.update(activeRequests, (map) => {
+        const next = new Map(map);
+        next.set(conversationId, { interrupt });
+        return next;
+      });
+
+    const clearInterrupt = (conversationId: string) =>
+      Ref.update(activeRequests, (map) => {
+        const next = new Map(map);
+        next.delete(conversationId);
+        return next;
+      });
+
+    const validateSetupForConversation = (
+      conversation: Pick<SmeConversation, "projectId" | "provider" | "authMethod">,
+      providerOptions?: Parameters<SmeChatServiceShape["validateSetup"]>[0]["providerOptions"],
+    ) =>
+      Effect.gen(function* () {
+        yield* ensureValidConversationAuth(
+          conversation.provider,
+          conversation.authMethod,
+          "validateSetup",
+        );
+
+        switch (conversation.provider) {
+          case "claudeAgent": {
+            const persistedEnv = yield* environmentVariables
+              .resolveEnvironment({
+                projectId: conversation.projectId,
+              })
+              .pipe(Effect.mapError((e) => new SmeChatError("validateSetup", e.message)));
+            return validateAnthropicSetup({
+              authMethod: conversation.authMethod as Extract<
+                SmeAuthMethod,
+                "auto" | "apiKey" | "authToken"
+              >,
+              persistedEnv,
+              processEnv: process.env,
+            });
+          }
+
+          case "codex":
+            return yield* Effect.tryPromise({
+              try: () =>
+                validateCodexSetup({
+                  authMethod: conversation.authMethod as Extract<
+                    SmeAuthMethod,
+                    "auto" | "apiKey" | "chatgpt" | "customProvider"
+                  >,
+                  providerOptions,
+                }),
+              catch: (cause) =>
+                new SmeChatError("validateSetup", "Failed to validate Codex setup.", cause),
+            });
+
+          case "openclaw":
+            return validateOpenClawSetup({
+              authMethod: conversation.authMethod as Extract<
+                SmeAuthMethod,
+                "auto" | "password" | "none"
+              >,
+              providerOptions,
+            });
+        }
+      });
 
     const uploadDocument: SmeChatServiceShape["uploadDocument"] = (input) =>
       Effect.gen(function* () {
-        // Check document count limit
         const existing = yield* documentRepo
           .listByProjectId({ projectId: input.projectId })
           .pipe(Effect.mapError((e) => new SmeChatError("uploadDocument", e.message)));
@@ -121,7 +217,6 @@ const makeSmeChatService = (options: SmeChatServiceLiveOptions = {}) =>
           );
         }
 
-        // Decode base64 content
         const contentBuffer = Buffer.from(input.contentBase64, "base64");
         if (contentBuffer.byteLength > SME_MAX_DOCUMENT_SIZE_BYTES) {
           return yield* Effect.fail(
@@ -134,40 +229,37 @@ const makeSmeChatService = (options: SmeChatServiceLiveOptions = {}) =>
 
         const contentText = contentBuffer.toString("utf-8");
         const contentHash = crypto.createHash("sha256").update(contentText).digest("hex");
-
         const documentId = yield* generateId();
         const timestamp = yield* now();
 
-        const row = {
-          documentId,
-          projectId: input.projectId,
-          title: input.title,
-          fileName: input.fileName,
-          mimeType: input.mimeType,
-          sizeBytes: contentBuffer.byteLength,
-          contentText,
-          contentHash,
-          createdAt: timestamp,
-          updatedAt: timestamp,
-          deletedAt: null,
-        };
-
         yield* documentRepo
-          .upsert(row as any)
+          .upsert({
+            documentId: documentId as never,
+            projectId: input.projectId,
+            title: input.title,
+            fileName: input.fileName,
+            mimeType: input.mimeType,
+            sizeBytes: contentBuffer.byteLength,
+            contentText,
+            contentHash,
+            createdAt: timestamp as never,
+            updatedAt: timestamp as never,
+            deletedAt: null,
+          } as any)
           .pipe(Effect.mapError((e) => new SmeChatError("uploadDocument", e.message)));
 
         return {
-          documentId,
+          documentId: documentId as never,
           projectId: input.projectId,
           title: input.title,
           fileName: input.fileName,
           mimeType: input.mimeType,
           sizeBytes: contentBuffer.byteLength,
           contentHash,
-          createdAt: timestamp,
-          updatedAt: timestamp,
+          createdAt: timestamp as never,
+          updatedAt: timestamp as never,
           deletedAt: null,
-        } as SmeKnowledgeDocument;
+        } satisfies SmeKnowledgeDocument;
       });
 
     const deleteDocument: SmeChatServiceShape["deleteDocument"] = (input) =>
@@ -179,28 +271,25 @@ const makeSmeChatService = (options: SmeChatServiceLiveOptions = {}) =>
       documentRepo.listByProjectId({ projectId: input.projectId }).pipe(
         Effect.mapError((e) => new SmeChatError("listDocuments", e.message)),
         Effect.map((rows) =>
-          rows.map(
-            (r) =>
-              ({
-                documentId: r.documentId,
-                projectId: r.projectId,
-                title: r.title,
-                fileName: r.fileName,
-                mimeType: r.mimeType,
-                sizeBytes: r.sizeBytes,
-                contentHash: r.contentHash,
-                createdAt: r.createdAt,
-                updatedAt: r.updatedAt,
-                deletedAt: r.deletedAt,
-              }) as SmeKnowledgeDocument,
-          ),
+          rows.map((row) => ({
+            documentId: row.documentId,
+            projectId: row.projectId,
+            title: row.title,
+            fileName: row.fileName,
+            mimeType: row.mimeType,
+            sizeBytes: row.sizeBytes,
+            contentHash: row.contentHash,
+            createdAt: row.createdAt,
+            updatedAt: row.updatedAt,
+            deletedAt: row.deletedAt,
+          })),
         ),
       );
 
-    // ── Conversation Operations ───────────────────────────────────────
-
     const createConversation: SmeChatServiceShape["createConversation"] = (input) =>
       Effect.gen(function* () {
+        yield* ensureValidConversationAuth(input.provider, input.authMethod, "createConversation");
+
         const existing = yield* conversationRepo
           .listByProjectId({ projectId: input.projectId })
           .pipe(Effect.mapError((e) => new SmeChatError("createConversation", e.message)));
@@ -215,14 +304,15 @@ const makeSmeChatService = (options: SmeChatServiceLiveOptions = {}) =>
 
         const conversationId = yield* generateId();
         const timestamp = yield* now();
-
         const row = {
-          conversationId,
+          conversationId: conversationId as never,
           projectId: input.projectId,
           title: input.title,
+          provider: input.provider,
+          authMethod: input.authMethod,
           model: input.model,
-          createdAt: timestamp,
-          updatedAt: timestamp,
+          createdAt: timestamp as never,
+          updatedAt: timestamp as never,
           deletedAt: null,
         };
 
@@ -230,7 +320,37 @@ const makeSmeChatService = (options: SmeChatServiceLiveOptions = {}) =>
           .upsert(row as any)
           .pipe(Effect.mapError((e) => new SmeChatError("createConversation", e.message)));
 
-        return row as SmeConversation;
+        return row satisfies SmeConversation;
+      });
+
+    const updateConversation: SmeChatServiceShape["updateConversation"] = (input) =>
+      Effect.gen(function* () {
+        yield* ensureValidConversationAuth(input.provider, input.authMethod, "updateConversation");
+        const existing = yield* conversationRepo
+          .getById({ conversationId: input.conversationId })
+          .pipe(Effect.mapError((e) => new SmeChatError("updateConversation", e.message)));
+        if (Option.isNone(existing)) {
+          return yield* Effect.fail(
+            new SmeChatError("updateConversation", "Conversation not found"),
+          );
+        }
+
+        const row = existing.value;
+        const timestamp = yield* now();
+        const updated = {
+          ...row,
+          title: input.title,
+          provider: input.provider,
+          authMethod: input.authMethod,
+          model: input.model,
+          updatedAt: timestamp as never,
+        };
+
+        yield* conversationRepo
+          .upsert(updated as any)
+          .pipe(Effect.mapError((e) => new SmeChatError("updateConversation", e.message)));
+
+        return toConversation(updated);
       });
 
     const deleteConversation: SmeChatServiceShape["deleteConversation"] = (input) =>
@@ -241,209 +361,205 @@ const makeSmeChatService = (options: SmeChatServiceLiveOptions = {}) =>
         yield* conversationRepo
           .deleteById({ conversationId: input.conversationId })
           .pipe(Effect.mapError((e) => new SmeChatError("deleteConversation", e.message)));
+        yield* clearInterrupt(input.conversationId);
       });
 
     const listConversations: SmeChatServiceShape["listConversations"] = (input) =>
       conversationRepo.listByProjectId({ projectId: input.projectId }).pipe(
         Effect.mapError((e) => new SmeChatError("listConversations", e.message)),
-        Effect.map((rows) =>
-          rows.map(
-            (r) =>
-              ({
-                conversationId: r.conversationId,
-                projectId: r.projectId,
-                title: r.title,
-                model: r.model,
-                createdAt: r.createdAt,
-                updatedAt: r.updatedAt,
-                deletedAt: r.deletedAt,
-              }) as SmeConversation,
-          ),
-        ),
+        Effect.map((rows) => rows.map(toConversation)),
       );
 
     const getConversation: SmeChatServiceShape["getConversation"] = (input) =>
       Effect.gen(function* () {
-        const optConv = yield* conversationRepo
+        const conversation = yield* conversationRepo
           .getById({ conversationId: input.conversationId })
           .pipe(Effect.mapError((e) => new SmeChatError("getConversation", e.message)));
-
-        if (Option.isNone(optConv)) return null;
-        const conv = optConv.value;
+        if (Option.isNone(conversation)) {
+          return null;
+        }
 
         const messages = yield* messageRepo
           .listByConversationId({ conversationId: input.conversationId })
           .pipe(Effect.mapError((e) => new SmeChatError("getConversation", e.message)));
 
         return {
-          conversation: {
-            conversationId: conv.conversationId,
-            projectId: conv.projectId,
-            title: conv.title,
-            model: conv.model,
-            createdAt: conv.createdAt,
-            updatedAt: conv.updatedAt,
-            deletedAt: conv.deletedAt,
-          } as SmeConversation,
-          messages: messages.map(
-            (m) =>
-              ({
-                messageId: m.messageId,
-                conversationId: m.conversationId,
-                role: m.role,
-                text: m.text,
-                isStreaming: m.isStreaming,
-                createdAt: m.createdAt,
-                updatedAt: m.updatedAt,
-              }) as SmeMessage,
-          ),
+          conversation: toConversation(conversation.value),
+          messages: messages.map((message) => toMessage(message as any)),
         };
       });
 
-    // ── Message Sending ───────────────────────────────────────────────
+    const validateSetup: SmeChatServiceShape["validateSetup"] = (input) =>
+      Effect.gen(function* () {
+        const conversation = yield* conversationRepo
+          .getById({ conversationId: input.conversationId })
+          .pipe(Effect.mapError((e) => new SmeChatError("validateSetup", e.message)));
+        if (Option.isNone(conversation)) {
+          return yield* Effect.fail(new SmeChatError("validateSetup", "Conversation not found"));
+        }
+        return yield* validateSetupForConversation(conversation.value, input.providerOptions);
+      });
 
     const sendMessage: SmeChatServiceShape["sendMessage"] = (input, onEvent) =>
       Effect.gen(function* () {
-        // 1. Resolve conversation
-        const optConv = yield* conversationRepo
+        const conversation = yield* conversationRepo
           .getById({ conversationId: input.conversationId })
           .pipe(Effect.mapError((e) => new SmeChatError("sendMessage", e.message)));
-        if (Option.isNone(optConv)) {
+        if (Option.isNone(conversation)) {
           return yield* Effect.fail(new SmeChatError("sendMessage", "Conversation not found"));
         }
-        const conv = optConv.value;
+        const conv = conversation.value;
 
-        // 2. Resolve Anthropic auth up front so auth failures do not persist
-        // speculative user/assistant messages.
-        const persistedEnv = yield* environmentVariables
-          .resolveEnvironment({ projectId: conv.projectId })
-          .pipe(Effect.mapError((e) => new SmeChatError("sendMessage:env", e.message)));
-        const anthropicOptions = resolveAnthropicClientOptions({
-          persistedEnv,
-          processEnv: process.env,
-        });
-        if (anthropicOptions === null) {
-          return yield* Effect.fail(
-            new SmeChatError("sendMessage:auth", SME_MISSING_ANTHROPIC_AUTH_MESSAGE),
-          );
-        }
-        const anthropic = createClient(anthropicOptions);
-
-        // 3. Load knowledge documents
         const docs = yield* documentRepo
           .listByProjectId({ projectId: conv.projectId })
           .pipe(Effect.mapError((e) => new SmeChatError("sendMessage", e.message)));
-
-        // 4. Load conversation history
         const existingMessages = yield* messageRepo
           .listByConversationId({ conversationId: input.conversationId })
           .pipe(Effect.mapError((e) => new SmeChatError("sendMessage", e.message)));
 
-        // 5. Persist user message
-        const userMessageId = yield* generateId();
         const timestamp = yield* now();
+        const userMessageId = yield* generateId();
+        const assistantMessageId = yield* generateId();
+
         yield* messageRepo
           .upsert({
-            messageId: userMessageId,
+            messageId: userMessageId as never,
             conversationId: input.conversationId,
             role: "user",
             text: input.text,
             isStreaming: false,
-            createdAt: timestamp,
-            updatedAt: timestamp,
+            createdAt: timestamp as never,
+            updatedAt: timestamp as never,
           } as any)
           .pipe(Effect.mapError((e) => new SmeChatError("sendMessage", e.message)));
 
-        // 6. Reserve an assistant message ID for streaming updates. We only
-        // persist the assistant message after a successful completion so failed
-        // requests do not leave behind blank "streaming" rows.
-        const assistantMessageId = yield* generateId();
-
-        // 7. Build messages array for the API
-        const systemPrompt = buildSystemPrompt(docs);
-        const apiMessages: Array<{ role: "user" | "assistant"; content: string }> = [];
-        for (const msg of existingMessages) {
-          if (msg.role === "user" || msg.role === "assistant") {
-            apiMessages.push({ role: msg.role as "user" | "assistant", content: msg.text });
-          }
+        const validation = yield* validateSetupForConversation(conv, input.providerOptions);
+        if (!validation.ok) {
+          onEvent?.({
+            type: "sme.message.error",
+            conversationId: input.conversationId,
+            messageId: assistantMessageId as never,
+            error: validation.message,
+          });
+          return yield* Effect.fail(new SmeChatError("sendMessage:validate", validation.message));
         }
-        apiMessages.push({ role: "user", content: input.text });
 
-        // 8. Stream completion via Anthropic Messages API
-        const abortController = new AbortController();
-        yield* Ref.update(activeStreams, (map) => {
-          const newMap = new Map(map);
-          newMap.set(input.conversationId, abortController);
-          return newMap;
+        const systemPrompt = buildSmeSystemPrompt(docs);
+        const promptHistory = existingMessages.map((message) => ({
+          role: message.role,
+          text: message.text,
+        }));
+        const anthropicMessages = buildSmeAnthropicMessages({
+          history: promptHistory,
+          userText: input.text,
+        });
+        const compiledPrompt = buildSmeCompiledPrompt({
+          docs,
+          history: promptHistory,
+          userText: input.text,
         });
 
-        const fullText = yield* Effect.tryPromise({
-          try: async () => {
-            let result = "";
-            const stream = anthropic.messages.stream(
-              {
-                model: conv.model,
-                max_tokens: 8192,
-                system: systemPrompt,
-                messages: apiMessages,
-              },
-              { signal: abortController.signal },
-            );
+        const sendEffect =
+          conv.provider === "claudeAgent"
+            ? Effect.gen(function* () {
+                const persistedEnv = yield* environmentVariables
+                  .resolveEnvironment({
+                    projectId: conv.projectId,
+                  })
+                  .pipe(Effect.mapError((e) => new SmeChatError("sendMessage:env", e.message)));
+                const anthropicSetup = validateAnthropicSetup({
+                  authMethod: conv.authMethod as Extract<
+                    SmeAuthMethod,
+                    "auto" | "apiKey" | "authToken"
+                  >,
+                  persistedEnv,
+                  processEnv: process.env,
+                });
+                if (!anthropicSetup.ok || !anthropicSetup.clientOptions) {
+                  return yield* Effect.fail(
+                    new SmeChatError("sendMessage:validate", anthropicSetup.message),
+                  );
+                }
 
-            for await (const event of stream) {
-              if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
-                result += event.delta.text;
-                onEvent?.({
-                  type: "sme.message.delta",
+                const controller = new AbortController();
+                yield* setInterrupt(
+                  input.conversationId,
+                  Effect.sync(() => {
+                    controller.abort();
+                  }),
+                );
+                return yield* sendSmeViaAnthropic({
+                  client: createClient(anthropicSetup.clientOptions),
                   conversationId: input.conversationId,
-                  messageId: assistantMessageId,
-                  text: event.delta.text,
-                } as any);
-              }
-            }
-            return result;
-          },
-          catch: (err) => new SmeChatError("sendMessage:stream", String(err), err),
-        }).pipe(
-          Effect.ensuring(
-            Ref.update(activeStreams, (map) => {
-              const newMap = new Map(map);
-              newMap.delete(input.conversationId);
-              return newMap;
+                  assistantMessageId,
+                  model: conv.model,
+                  systemPrompt,
+                  messages: anthropicMessages,
+                  ...(onEvent ? { onEvent } : {}),
+                  abortSignal: controller.signal,
+                }).pipe(Effect.ensuring(clearInterrupt(input.conversationId)));
+              })
+            : sendSmeViaProviderRuntime({
+                providerService,
+                provider: conv.provider,
+                conversationId: input.conversationId,
+                assistantMessageId,
+                model: conv.model,
+                compiledPrompt,
+                ...(input.providerOptions ? { providerOptions: input.providerOptions } : {}),
+                ...(onEvent ? { onEvent } : {}),
+                setInterruptEffect: (interrupt) => setInterrupt(input.conversationId, interrupt),
+                clearInterruptEffect: clearInterrupt(input.conversationId),
+              });
+
+        const responseText = yield* sendEffect.pipe(
+          Effect.mapError((cause) =>
+            cause instanceof SmeChatError
+              ? cause
+              : new SmeChatError("sendMessage", String(cause), cause),
+          ),
+          Effect.tapError((error) =>
+            Effect.sync(() => {
+              onEvent?.({
+                type: "sme.message.error",
+                conversationId: input.conversationId,
+                messageId: assistantMessageId as never,
+                error: error.detail,
+              });
             }),
           ),
         );
 
-        // 9. Finalize assistant message
         const finalTimestamp = yield* now();
         yield* messageRepo
           .upsert({
-            messageId: assistantMessageId,
+            messageId: assistantMessageId as never,
             conversationId: input.conversationId,
             role: "assistant",
-            text: fullText,
+            text: responseText,
             isStreaming: false,
-            createdAt: timestamp,
-            updatedAt: finalTimestamp,
+            createdAt: timestamp as never,
+            updatedAt: finalTimestamp as never,
           } as any)
           .pipe(Effect.mapError((e) => new SmeChatError("sendMessage:finalize", e.message)));
 
-        // 10. Emit completion event
         onEvent?.({
           type: "sme.message.complete",
           conversationId: input.conversationId,
-          messageId: assistantMessageId,
-          text: fullText,
-        } as any);
+          messageId: assistantMessageId as never,
+          text: responseText,
+        });
       });
 
     const interruptMessage: SmeChatServiceShape["interruptMessage"] = (input) =>
       Effect.gen(function* () {
-        const streams = yield* Ref.get(activeStreams);
-        const controller = streams.get(input.conversationId);
-        if (controller) {
-          controller.abort();
+        const active = yield* Ref.get(activeRequests);
+        const request = active.get(input.conversationId);
+        if (!request) {
+          return;
         }
+        yield* request.interrupt;
+        yield* clearInterrupt(input.conversationId);
       });
 
     return {
@@ -451,37 +567,15 @@ const makeSmeChatService = (options: SmeChatServiceLiveOptions = {}) =>
       deleteDocument,
       listDocuments,
       createConversation,
+      updateConversation,
       deleteConversation,
       listConversations,
       getConversation,
+      validateSetup,
       sendMessage,
       interruptMessage,
     } satisfies SmeChatServiceShape;
   });
-
-// ── Helpers ─────────────────────────────────────────────────────────────
-
-function buildSystemPrompt(
-  docs: ReadonlyArray<{ title: string; fileName: string; contentText: string }>,
-): string {
-  const parts = [
-    "You are a knowledgeable subject matter expert assistant. Your role is to provide clear, accurate, and helpful answers based on the reference documents provided and your general knowledge.",
-    "Focus on explanation, analysis, and guidance. Be conversational and thorough.",
-  ];
-
-  if (docs.length > 0) {
-    parts.push(
-      "\nThe following reference documents have been provided for this project. Use them to inform your answers when relevant:\n",
-    );
-    for (const doc of docs) {
-      parts.push(`<document title="${doc.title}" filename="${doc.fileName}">`);
-      parts.push(doc.contentText);
-      parts.push("</document>\n");
-    }
-  }
-
-  return parts.join("\n");
-}
 
 export const makeSmeChatServiceLive = (options: SmeChatServiceLiveOptions = {}) =>
   Layer.effect(SmeChatService, makeSmeChatService(options));

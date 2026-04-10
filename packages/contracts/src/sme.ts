@@ -8,6 +8,7 @@
  * @module sme
  */
 import { Schema } from "effect";
+import { ProviderKind, ProviderStartOptions } from "./orchestration";
 import {
   IsoDateTime,
   NonNegativeInt,
@@ -30,6 +31,23 @@ export const SME_MAX_MESSAGE_INPUT_CHARS = 60_000;
 export const SmeMessageRole = Schema.Literals(["user", "assistant", "system"]);
 export type SmeMessageRole = typeof SmeMessageRole.Type;
 
+export const SmeAuthMethod = Schema.Literals([
+  "auto",
+  "apiKey",
+  "authToken",
+  "chatgpt",
+  "customProvider",
+  "password",
+  "none",
+]);
+export type SmeAuthMethod = typeof SmeAuthMethod.Type;
+
+export const SmeValidationSeverity = Schema.Literals(["ready", "warning", "error"]);
+export type SmeValidationSeverity = typeof SmeValidationSeverity.Type;
+
+export const SmeResolvedAccountType = Schema.Literals(["apiKey", "chatgpt", "unknown"]);
+export type SmeResolvedAccountType = typeof SmeResolvedAccountType.Type;
+
 export const SmeKnowledgeDocument = Schema.Struct({
   documentId: SmeDocumentId,
   projectId: ProjectId,
@@ -48,6 +66,8 @@ export const SmeConversation = Schema.Struct({
   conversationId: SmeConversationId,
   projectId: ProjectId,
   title: TrimmedNonEmptyString,
+  provider: ProviderKind,
+  authMethod: SmeAuthMethod,
   model: TrimmedNonEmptyString,
   createdAt: IsoDateTime,
   updatedAt: IsoDateTime,
@@ -91,9 +111,20 @@ export type SmeListDocumentsInput = typeof SmeListDocumentsInput.Type;
 export const SmeCreateConversationInput = Schema.Struct({
   projectId: ProjectId,
   title: TrimmedNonEmptyString,
+  provider: ProviderKind,
+  authMethod: SmeAuthMethod,
   model: TrimmedNonEmptyString,
 });
 export type SmeCreateConversationInput = typeof SmeCreateConversationInput.Type;
+
+export const SmeUpdateConversationInput = Schema.Struct({
+  conversationId: SmeConversationId,
+  title: TrimmedNonEmptyString,
+  provider: ProviderKind,
+  authMethod: SmeAuthMethod,
+  model: TrimmedNonEmptyString,
+});
+export type SmeUpdateConversationInput = typeof SmeUpdateConversationInput.Type;
 
 export const SmeDeleteConversationInput = Schema.Struct({
   conversationId: SmeConversationId,
@@ -113,6 +144,7 @@ export type SmeGetConversationInput = typeof SmeGetConversationInput.Type;
 export const SmeSendMessageInput = Schema.Struct({
   conversationId: SmeConversationId,
   text: TrimmedNonEmptyString,
+  providerOptions: Schema.optional(ProviderStartOptions),
 });
 export type SmeSendMessageInput = typeof SmeSendMessageInput.Type;
 
@@ -121,6 +153,21 @@ export const SmeInterruptMessageInput = Schema.Struct({
 });
 export type SmeInterruptMessageInput = typeof SmeInterruptMessageInput.Type;
 
+export const SmeValidateSetupInput = Schema.Struct({
+  conversationId: SmeConversationId,
+  providerOptions: Schema.optional(ProviderStartOptions),
+});
+export type SmeValidateSetupInput = typeof SmeValidateSetupInput.Type;
+
+export const SmeValidateSetupResult = Schema.Struct({
+  ok: Schema.Boolean,
+  severity: SmeValidationSeverity,
+  message: TrimmedNonEmptyString,
+  resolvedAuthMethod: Schema.optional(SmeAuthMethod),
+  resolvedAccountType: Schema.optional(SmeResolvedAccountType),
+});
+export type SmeValidateSetupResult = typeof SmeValidateSetupResult.Type;
+
 // ── WS Method Constants ─────────────────────────────────────────────────
 
 export const SME_WS_METHODS = {
@@ -128,9 +175,11 @@ export const SME_WS_METHODS = {
   deleteDocument: "sme.deleteDocument",
   listDocuments: "sme.listDocuments",
   createConversation: "sme.createConversation",
+  updateConversation: "sme.updateConversation",
   deleteConversation: "sme.deleteConversation",
   listConversations: "sme.listConversations",
   getConversation: "sme.getConversation",
+  validateSetup: "sme.validateSetup",
   sendMessage: "sme.sendMessage",
   interruptMessage: "sme.interruptMessage",
 } as const;

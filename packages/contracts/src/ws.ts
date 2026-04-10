@@ -70,7 +70,10 @@ import {
 import { ProjectFileTreeChangedPayload } from "./project";
 import { OpenInEditorInput, OpenPathInput } from "./editor";
 import {
+  ExchangeCompanionBootstrapInput,
+  GenerateCompanionPairingBundleInput,
   GeneratePairingLinkInput,
+  RevokePairedDeviceInput,
   RevokeTokenInput,
   ServerConfigUpdatedPayload,
   TestOpenclawGatewayInput,
@@ -189,11 +192,17 @@ export const WS_METHODS = {
   serverUpsertKeybinding: "server.upsertKeybinding",
   serverPickFolder: "server.pickFolder",
 
-  // Token management
+  // Token management (legacy)
   serverGeneratePairingLink: "server.generatePairingLink",
   serverRotateToken: "server.rotateToken",
   serverRevokeToken: "server.revokeToken",
   serverListTokens: "server.listTokens",
+
+  // Companion pairing
+  serverGenerateCompanionPairingBundle: "server.generateCompanionPairingBundle",
+  serverExchangeCompanionBootstrap: "server.exchangeCompanionBootstrap",
+  serverListPairedDevices: "server.listPairedDevices",
+  serverRevokePairedDevice: "server.revokePairedDevice",
 
   // OpenClaw gateway
   serverTestOpenclawGateway: "server.testOpenclawGateway",
@@ -352,11 +361,20 @@ const WebSocketRequestBody = Schema.Union([
   tagRequestBody(WS_METHODS.serverUpsertKeybinding, KeybindingRule),
   tagRequestBody(WS_METHODS.serverPickFolder, Schema.Struct({})),
 
-  // Token management
+  // Token management (legacy)
   tagRequestBody(WS_METHODS.serverGeneratePairingLink, GeneratePairingLinkInput),
   tagRequestBody(WS_METHODS.serverRotateToken, Schema.Struct({})),
   tagRequestBody(WS_METHODS.serverRevokeToken, RevokeTokenInput),
   tagRequestBody(WS_METHODS.serverListTokens, Schema.Struct({})),
+
+  // Companion pairing
+  tagRequestBody(
+    WS_METHODS.serverGenerateCompanionPairingBundle,
+    GenerateCompanionPairingBundleInput,
+  ),
+  tagRequestBody(WS_METHODS.serverExchangeCompanionBootstrap, ExchangeCompanionBootstrapInput),
+  tagRequestBody(WS_METHODS.serverListPairedDevices, Schema.Struct({})),
+  tagRequestBody(WS_METHODS.serverRevokePairedDevice, RevokePairedDeviceInput),
 
   // OpenClaw gateway
   tagRequestBody(WS_METHODS.serverTestOpenclawGateway, TestOpenclawGatewayInput),

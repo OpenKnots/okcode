@@ -1,5 +1,5 @@
 import { Schema } from "effect";
-import { IsoDateTime, TrimmedNonEmptyString } from "./baseSchemas";
+import { DeviceId, IsoDateTime, PairingId, TrimmedNonEmptyString } from "./baseSchemas";
 import { BuildMetadata } from "./buildInfo";
 import { KeybindingRule, ResolvedKeybindingsConfig } from "./keybindings";
 import { EditorId } from "./editor";
@@ -134,6 +134,93 @@ export const ListTokensResult = Schema.Struct({
   tokens: Schema.Array(PairingTokenInfo),
 });
 export type ListTokensResult = typeof ListTokensResult.Type;
+
+// ── Companion Pairing (new model) ──────────────────────────────────
+// The companion pairing model replaces the single-token deep-link flow
+// with endpoint-aware bundles and device-scoped sessions. The legacy
+// `GeneratePairingLinkInput`/`GeneratePairingLinkResult` contracts above
+// remain supported during rollout.
+
+export const CompanionEndpointKind = Schema.Literals(["tailscale", "lan", "manual"]);
+export type CompanionEndpointKind = typeof CompanionEndpointKind.Type;
+
+export const CompanionEndpoint = Schema.Struct({
+  kind: CompanionEndpointKind,
+  url: TrimmedNonEmptyString,
+  label: Schema.optional(TrimmedNonEmptyString),
+  reachable: Schema.Boolean,
+});
+export type CompanionEndpoint = typeof CompanionEndpoint.Type;
+
+export const CompanionPairingBundle = Schema.Struct({
+  pairingId: PairingId,
+  expiresAt: IsoDateTime,
+  endpoints: Schema.Array(CompanionEndpoint),
+  bootstrapToken: TrimmedNonEmptyString,
+  passwordRequired: Schema.Boolean,
+  passwordHint: Schema.optional(TrimmedNonEmptyString),
+});
+export type CompanionPairingBundle = typeof CompanionPairingBundle.Type;
+
+export const PairedDeviceSession = Schema.Struct({
+  deviceId: DeviceId,
+  deviceName: TrimmedNonEmptyString,
+  serverUrl: TrimmedNonEmptyString,
+  sessionToken: TrimmedNonEmptyString,
+  issuedAt: IsoDateTime,
+  expiresAt: Schema.NullOr(IsoDateTime),
+  lastSeenAt: Schema.NullOr(IsoDateTime),
+});
+export type PairedDeviceSession = typeof PairedDeviceSession.Type;
+
+// ── Companion RPC Inputs/Outputs ───────────────────────────────────
+
+export const GenerateCompanionPairingBundleInput = Schema.Struct({
+  /** Lifetime in seconds for the bootstrap token. Defaults to 300 (5 min). */
+  ttlSeconds: Schema.optional(Schema.Number),
+  /** Desktop-advertised endpoints to include in the bundle. */
+  advertisedEndpoints: Schema.optional(Schema.Array(CompanionEndpoint)),
+});
+export type GenerateCompanionPairingBundleInput = typeof GenerateCompanionPairingBundleInput.Type;
+
+export const GenerateCompanionPairingBundleResult = CompanionPairingBundle;
+export type GenerateCompanionPairingBundleResult = typeof GenerateCompanionPairingBundleResult.Type;
+
+export const ExchangeCompanionBootstrapInput = Schema.Struct({
+  bootstrapToken: TrimmedNonEmptyString,
+  endpointUrl: TrimmedNonEmptyString,
+  password: Schema.optional(Schema.String),
+  deviceName: TrimmedNonEmptyString,
+});
+export type ExchangeCompanionBootstrapInput = typeof ExchangeCompanionBootstrapInput.Type;
+
+export const ExchangeCompanionBootstrapResult = PairedDeviceSession;
+export type ExchangeCompanionBootstrapResult = typeof ExchangeCompanionBootstrapResult.Type;
+
+export const ListPairedDevicesResult = Schema.Struct({
+  devices: Schema.Array(
+    Schema.Struct({
+      deviceId: DeviceId,
+      deviceName: TrimmedNonEmptyString,
+      issuedAt: IsoDateTime,
+      lastSeenAt: Schema.NullOr(IsoDateTime),
+      endpointKind: Schema.optional(CompanionEndpointKind),
+      revoked: Schema.Boolean,
+    }),
+  ),
+});
+export type ListPairedDevicesResult = typeof ListPairedDevicesResult.Type;
+
+export const RevokePairedDeviceInput = Schema.Struct({
+  deviceId: DeviceId,
+});
+export type RevokePairedDeviceInput = typeof RevokePairedDeviceInput.Type;
+
+export const RevokePairedDeviceResult = Schema.Struct({
+  deviceId: DeviceId,
+  revoked: Schema.Boolean,
+});
+export type RevokePairedDeviceResult = typeof RevokePairedDeviceResult.Type;
 
 // ── OpenClaw Gateway Test ───────────────────────────────────────────
 

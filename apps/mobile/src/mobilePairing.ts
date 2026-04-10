@@ -4,6 +4,20 @@ export interface ParsedMobilePairing {
   wsUrl: string;
 }
 
+/**
+ * Parsed representation of the new companion pairing bundle.
+ * This shape is forward-compatible with Milestone 2 where the mobile
+ * client will exchange the bootstrap token for a device-scoped session.
+ */
+export interface ParsedCompanionBundle {
+  pairingId: string;
+  bootstrapToken: string;
+  endpoints: Array<{ kind: string; url: string; label?: string; reachable: boolean }>;
+  expiresAt: string;
+  passwordRequired: boolean;
+  passwordHint?: string;
+}
+
 const PAIRING_SCHEME = "okcode:";
 
 function normalizeServerUrl(rawValue: string): URL {
@@ -65,4 +79,40 @@ export function parseMobilePairingInput(input: string): ParsedMobilePairing {
     token,
     wsUrl: createWsUrl(normalizedServerUrl, token),
   };
+}
+
+/**
+ * Attempt to parse a JSON companion pairing bundle.
+ * Returns `null` if the input is not valid JSON or does not match the
+ * expected shape, so callers can fall back to the legacy URL parser.
+ *
+ * This parser is intentionally lenient: it validates the minimal required
+ * fields and ignores unexpected properties so that older clients remain
+ * forward-compatible as the bundle schema evolves.
+ */
+export function tryParseCompanionBundle(input: string): ParsedCompanionBundle | null {
+  try {
+    const data = JSON.parse(input);
+    if (
+      typeof data !== "object" ||
+      data === null ||
+      typeof data.pairingId !== "string" ||
+      typeof data.bootstrapToken !== "string" ||
+      !Array.isArray(data.endpoints) ||
+      typeof data.expiresAt !== "string"
+    ) {
+      return null;
+    }
+
+    return {
+      pairingId: data.pairingId,
+      bootstrapToken: data.bootstrapToken,
+      endpoints: data.endpoints,
+      expiresAt: data.expiresAt,
+      passwordRequired: data.passwordRequired === true,
+      passwordHint: typeof data.passwordHint === "string" ? data.passwordHint : undefined,
+    };
+  } catch {
+    return null;
+  }
 }

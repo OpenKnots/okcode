@@ -33,7 +33,6 @@ import {
   ChevronsDownUpIcon,
   ChevronsUpDownIcon,
   CircleDotIcon,
-  CloudUploadIcon,
   ExternalLinkIcon,
   FolderIcon,
   GitBranchIcon,
@@ -46,6 +45,7 @@ import {
   SettingsIcon,
   TriangleAlertIcon,
   UserIcon,
+  XIcon,
   XCircleIcon,
 } from "lucide-react";
 import { type MouseEvent, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -319,6 +319,7 @@ interface MemoizedThreadRowProps {
     position: { x: number; y: number },
   ) => Promise<void>;
   handleMultiSelectContextMenu: (position: { x: number; y: number }) => Promise<void>;
+  closeDraftThread: (threadId: ThreadIdType) => void;
 }
 
 const MemoizedThreadRow = memo(
@@ -343,6 +344,7 @@ const MemoizedThreadRow = memo(
     handleThreadClick,
     handleThreadContextMenu,
     handleMultiSelectContextMenu,
+    closeDraftThread,
   }: MemoizedThreadRowProps) {
     const threadStatus = resolveThreadStatusPill({
       thread,
@@ -441,7 +443,21 @@ const MemoizedThreadRow = memo(
               onCancel={cancelEditing}
             />
           </div>
-          <CloudUploadIcon className="size-3.5 shrink-0 text-muted-foreground/30" />
+          {isDraft ? (
+            <button
+              type="button"
+              aria-label="Close draft thread"
+              title="Close draft thread"
+              className="inline-flex size-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground/40 transition-colors hover:bg-accent hover:text-foreground"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                closeDraftThread(thread.id);
+              }}
+            >
+              <XIcon className="size-3" />
+            </button>
+          ) : null}
         </SidebarMenuSubButton>
       </SidebarMenuSubItem>
     );
@@ -942,6 +958,13 @@ export default function Sidebar() {
       sidebarThreads,
       threadById,
     ],
+  );
+
+  const closeDraftThread = useCallback(
+    (threadId: ThreadId) => {
+      void deleteThread(threadId);
+    },
+    [deleteThread],
   );
 
   const { copyToClipboard: copyThreadIdToClipboard } = useCopyToClipboard<{
@@ -1453,6 +1476,7 @@ export default function Sidebar() {
                 handleThreadClick={handleThreadClick}
                 handleThreadContextMenu={handleThreadContextMenu}
                 handleMultiSelectContextMenu={handleMultiSelectContextMenu}
+                closeDraftThread={closeDraftThread}
               />
             ))}
 

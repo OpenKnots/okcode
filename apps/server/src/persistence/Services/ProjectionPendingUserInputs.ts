@@ -27,7 +27,8 @@ export type GetProjectionPendingUserInputInput = typeof GetProjectionPendingUser
 export const DeleteProjectionPendingUserInputInput = Schema.Struct({
   requestId: ApprovalRequestId,
 });
-export type DeleteProjectionPendingUserInputInput = typeof DeleteProjectionPendingUserInputInput.Type;
+export type DeleteProjectionPendingUserInputInput =
+  typeof DeleteProjectionPendingUserInputInput.Type;
 
 export interface ProjectionPendingUserInputRepositoryShape {
   readonly upsert: (

@@ -5,9 +5,9 @@ import type { Effect } from "effect";
 import type { ProjectionRepositoryError } from "../../persistence/Errors.ts";
 
 export interface ProjectionThreadDetailQueryShape {
-  readonly getThreadDetail: (
-    input: { readonly threadId: ThreadId },
-  ) => Effect.Effect<OrchestrationThread | null, ProjectionRepositoryError>;
+  readonly getThreadDetail: (input: {
+    readonly threadId: ThreadId;
+  }) => Effect.Effect<OrchestrationThread | null, ProjectionRepositoryError>;
 }
 
 export class ProjectionThreadDetailQuery extends ServiceMap.Service<

@@ -765,11 +765,7 @@ export const ThreadCreatedPayload = Schema.Struct({
   updatedAt: IsoDateTime,
 });
 
-export const ThreadDeletedReason = Schema.Literals([
-  "manual",
-  "limit-eviction",
-  "project-deleted",
-]);
+export const ThreadDeletedReason = Schema.Literals(["manual", "limit-eviction", "project-deleted"]);
 export type ThreadDeletedReason = typeof ThreadDeletedReason.Type;
 
 export const ThreadDeletedPayload = Schema.Struct({

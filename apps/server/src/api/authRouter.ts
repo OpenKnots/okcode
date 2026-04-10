@@ -3,7 +3,7 @@ import type { TokenManager } from "../tokenManager.ts";
 
 const PAIRING_PATHS = new Set(["/api/pairing", "/api/auth/pairing"]);
 const ANTHROPIC_PROXY_PREFIX = "/api/auth/anthropic";
-const ANTHROPIC_MESSAGES_PATH_PREFIX = `${ANTHROPIC_PROXY_PREFIX}/v1/messages`;
+const ANTHROPIC_MESSAGES_PATH = `${ANTHROPIC_PROXY_PREFIX}/v1/messages`;
 const CLAUDE_CODE_BETA = "claude-code-20250219";
 const CLAUDE_CODE_SYSTEM_PROMPT = "You are Claude Code, Anthropic's official CLI for Claude.";
 const DEFAULT_ANTHROPIC_VERSION = "2023-06-01";
@@ -158,7 +158,7 @@ export function createAuthApiRouter(options: AuthApiRouterOptions) {
       return true;
     }
 
-    if (req.method !== "POST" || !url.pathname.startsWith(ANTHROPIC_MESSAGES_PATH_PREFIX)) {
+    if (req.method !== "POST" || url.pathname !== ANTHROPIC_MESSAGES_PATH) {
       return false;
     }
 
@@ -182,8 +182,9 @@ export function createAuthApiRouter(options: AuthApiRouterOptions) {
     }
 
     const proxiedBody = injectClaudeCodeSystemPrompt(body);
-    const upstreamPath = `${url.pathname.slice(ANTHROPIC_PROXY_PREFIX.length)}${url.search}`;
-    const upstreamUrl = new URL(upstreamPath, anthropicBaseUrl);
+    const upstreamUrl = new URL(anthropicBaseUrl);
+    upstreamUrl.pathname = "/v1/messages";
+    upstreamUrl.search = "";
     const payload = JSON.stringify(proxiedBody);
     const headers = new Headers({
       "content-type": "application/json",

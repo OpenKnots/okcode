@@ -146,7 +146,7 @@ describe("createApiRouter", () => {
       const url = new URL(req.url ?? "/", "http://127.0.0.1");
       void tryHandleApiRequest(req, res, url);
     }, async (baseUrl) => {
-      const response = await request(baseUrl, "/api/auth/anthropic/v1/messages?beta=true", {
+      const response = await request(baseUrl, "/api/auth/anthropic/v1/messages", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

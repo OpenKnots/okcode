@@ -1671,6 +1671,32 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
         return { tokens };
       }
 
+      // ── Companion pairing (placeholder) ─────────────────────────────
+      // These handlers are wired for type-exhaustiveness but return
+      // stub responses until the full companion session manager is built.
+
+      case WS_METHODS.serverGenerateCompanionPairingBundle: {
+        return yield* new RouteRequestError({
+          message: "Companion pairing bundle generation is not yet implemented.",
+        });
+      }
+
+      case WS_METHODS.serverExchangeCompanionBootstrap: {
+        return yield* new RouteRequestError({
+          message: "Companion bootstrap exchange is not yet implemented.",
+        });
+      }
+
+      case WS_METHODS.serverListPairedDevices: {
+        return { devices: [] };
+      }
+
+      case WS_METHODS.serverRevokePairedDevice: {
+        return yield* new RouteRequestError({
+          message: "Companion device revocation is not yet implemented.",
+        });
+      }
+
       // ── OpenClaw gateway test ────────────────────────────────────────
       case WS_METHODS.serverTestOpenclawGateway: {
         const body = stripRequestTag(request.body);

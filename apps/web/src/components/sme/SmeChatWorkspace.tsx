@@ -1,14 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import {
-  ArrowUpIcon,
-  BookOpenIcon,
-  Settings2Icon,
-  SparklesIcon,
-  XIcon,
-} from "lucide-react";
+import { ArrowUpIcon, BookOpenIcon, Settings2Icon, SparklesIcon, XIcon } from "lucide-react";
 import type { SmeConversationId, SmeMessage, SmeMessageId } from "@okcode/contracts";
-import type { RegisteredRouter } from "@tanstack/react-router";
 
 import { getProviderStartOptions, useAppSettings } from "~/appSettings";
 import { ProviderHealthBanner } from "~/components/chat/ProviderHealthBanner";
@@ -36,7 +29,6 @@ export function SmeChatWorkspace({
   onToggleKnowledge,
   knowledgePanelOpen,
 }: SmeChatWorkspaceProps) {
-  const navigate = useNavigate();
   const { settings } = useAppSettings();
   const providerOptions = useMemo(() => getProviderStartOptions(settings), [settings]);
   const conversations = useSmeStore((state) => state.conversations);

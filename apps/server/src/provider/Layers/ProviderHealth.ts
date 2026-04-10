@@ -14,20 +14,12 @@ import type {
   ServerProviderStatus,
   ServerProviderStatusState,
 } from "@okcode/contracts";
-import {
-  Array,
-  Data,
-  Effect,
-  Fiber,
-  FileSystem,
-  Layer,
-  Option,
-  Path,
-  Result,
-  Stream,
-} from "effect";
+import { Array, Data, Effect, FileSystem, Layer, Option, Path, Result, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
+import { serverBuildInfo } from "../../buildInfo.ts";
+import { OpenclawGatewayClient, OpenclawGatewayClientError } from "../../openclaw/GatewayClient.ts";
+import { OpenclawGatewayConfig } from "../../persistence/Services/OpenclawGatewayConfig.ts";
 import {
   formatCodexCliUpgradeMessage,
   isCodexCliVersionSupported,
@@ -42,6 +34,14 @@ const CLAUDE_AGENT_PROVIDER = "claudeAgent" as const;
 class OpenClawHealthProbeError extends Data.TaggedError("OpenClawHealthProbeError")<{
   cause: unknown;
 }> {}
+
+const OPENCLAW_HEALTH_REQUIRED_METHODS = [
+  "sessions.create",
+  "sessions.get",
+  "sessions.send",
+  "sessions.abort",
+  "sessions.messages.subscribe",
+] as const;
 
 // ── Pure helpers ────────────────────────────────────────────────────
 
@@ -608,93 +608,149 @@ export const checkClaudeProviderStatus: Effect.Effect<
 
 const OPENCLAW_PROVIDER = "openclaw" as const;
 
-const checkOpenClawProviderStatus: Effect.Effect<ServerProviderStatus, never, never> = Effect.gen(
-  function* () {
-    const checkedAt = new Date().toISOString();
-    const gatewayUrl = process.env.OPENCLAW_GATEWAY_URL;
+const checkOpenClawProviderStatus: Effect.Effect<
+  ServerProviderStatus,
+  never,
+  OpenclawGatewayConfig
+> = Effect.gen(function* () {
+  const checkedAt = new Date().toISOString();
+  const gatewayConfig = yield* OpenclawGatewayConfig;
+  const resolvedConfig = yield* gatewayConfig
+    .resolveForConnect()
+    .pipe(Effect.orElseSucceed(() => null));
 
-    if (!gatewayUrl) {
-      return {
-        provider: OPENCLAW_PROVIDER,
-        status: "warning" as const,
-        available: false,
-        authStatus: "unknown" as const,
-        checkedAt,
-        message:
-          "OpenClaw gateway URL is not configured. Set OPENCLAW_GATEWAY_URL or configure in settings.",
-      } satisfies ServerProviderStatus;
-    }
+  if (!resolvedConfig) {
+    return {
+      provider: OPENCLAW_PROVIDER,
+      status: "error" as const,
+      available: false,
+      authStatus: "unauthenticated" as const,
+      checkedAt,
+      message: "OpenClaw gateway URL is not configured. Save it in Settings to enable OpenClaw.",
+    } satisfies ServerProviderStatus;
+  }
 
-    // Derive HTTP health URL from the gateway URL (replace ws:// with http://).
-    const healthUrl = gatewayUrl
-      .replace(/^ws:\/\//, "http://")
-      .replace(/^wss:\/\//, "https://")
-      .replace(/\/$/, "")
-      .concat("/health");
-
-    const probeResult = yield* Effect.tryPromise({
-      try: async () => {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
-        try {
-          const response = await fetch(healthUrl, {
-            signal: controller.signal,
-          });
-          return { ok: response.ok, status: response.status };
-        } finally {
-          clearTimeout(timeout);
+  const connectResult = yield* Effect.tryPromise({
+    try: async () => {
+      const connection = await OpenclawGatewayClient.connect({
+        url: resolvedConfig.gatewayUrl,
+        identity: {
+          deviceId: resolvedConfig.deviceId,
+          deviceFingerprint: resolvedConfig.deviceFingerprint,
+          publicKey: resolvedConfig.devicePublicKey,
+          privateKeyPem: resolvedConfig.devicePrivateKeyPem,
+        },
+        ...(resolvedConfig.sharedSecret ? { sharedSecret: resolvedConfig.sharedSecret } : {}),
+        ...(resolvedConfig.deviceToken ? { deviceToken: resolvedConfig.deviceToken } : {}),
+        ...(resolvedConfig.deviceTokenRole
+          ? { deviceTokenRole: resolvedConfig.deviceTokenRole }
+          : {}),
+        ...(resolvedConfig.deviceTokenScopes.length > 0
+          ? { deviceTokenScopes: resolvedConfig.deviceTokenScopes }
+          : {}),
+        clientId: "okcode",
+        clientVersion: serverBuildInfo.version,
+        clientPlatform:
+          process.platform === "darwin"
+            ? "macos"
+            : process.platform === "win32"
+              ? "windows"
+              : process.platform,
+        clientMode: "operator",
+        locale: Intl.DateTimeFormat().resolvedOptions().locale || "en-US",
+        userAgent: `okcode/${serverBuildInfo.version}`,
+        role: "operator",
+        scopes: ["operator.read", "operator.write"],
+        requiredMethods: OPENCLAW_HEALTH_REQUIRED_METHODS,
+      });
+      try {
+        const deviceToken = connection.connect.auth?.deviceToken;
+        if (deviceToken && deviceToken !== resolvedConfig.deviceToken) {
+          await Effect.runPromise(
+            gatewayConfig.saveDeviceToken({
+              deviceToken,
+              ...(connection.connect.auth?.role ? { role: connection.connect.auth.role } : {}),
+              ...(connection.connect.auth?.scopes.length
+                ? { scopes: connection.connect.auth.scopes }
+                : {}),
+            }),
+          );
         }
-      },
-      catch: (cause) => new OpenClawHealthProbeError({ cause }),
-    }).pipe(Effect.result);
+      } finally {
+        await connection.client.close();
+      }
+      return connection.connect;
+    },
+    catch: (cause) => new OpenClawHealthProbeError({ cause }),
+  }).pipe(Effect.result);
 
-    if (Result.isFailure(probeResult)) {
-      return {
-        provider: OPENCLAW_PROVIDER,
-        status: "warning" as const,
-        available: false,
-        authStatus: "unknown" as const,
-        checkedAt,
-        message: `Cannot reach OpenClaw gateway at ${gatewayUrl}. Check the URL and ensure the gateway is running.`,
-      } satisfies ServerProviderStatus;
-    }
-
-    const probe = probeResult.success;
-    if (!probe.ok) {
-      return {
-        provider: OPENCLAW_PROVIDER,
-        status: "warning" as const,
-        available: false,
-        authStatus: "unknown" as const,
-        checkedAt,
-        message: `OpenClaw gateway at ${gatewayUrl} returned HTTP ${probe.status}.`,
-      } satisfies ServerProviderStatus;
-    }
-
+  if (Result.isSuccess(connectResult)) {
     return {
       provider: OPENCLAW_PROVIDER,
       status: "ready" as const,
       available: true,
-      authStatus: "unknown" as const,
+      authStatus: "authenticated" as const,
       checkedAt,
     } satisfies ServerProviderStatus;
-  },
-);
+  }
+
+  const cause = connectResult.failure.cause;
+  if (cause instanceof OpenClawHealthProbeError) {
+    const error = cause.cause;
+    if (error instanceof OpenclawGatewayClientError) {
+      const detailCode = error.gatewayError?.detailCode;
+      const gatewayMessage = error.gatewayError?.message ?? error.message;
+      if (
+        detailCode === "PAIRING_REQUIRED" ||
+        detailCode === "AUTH_TOKEN_MISSING" ||
+        detailCode === "AUTH_TOKEN_MISMATCH" ||
+        detailCode === "AUTH_DEVICE_TOKEN_MISMATCH" ||
+        detailCode?.startsWith("DEVICE_AUTH_")
+      ) {
+        return {
+          provider: OPENCLAW_PROVIDER,
+          status: "error" as const,
+          available: false,
+          authStatus: "unauthenticated" as const,
+          checkedAt,
+          message: gatewayMessage,
+        } satisfies ServerProviderStatus;
+      }
+    }
+  }
+
+  return {
+    provider: OPENCLAW_PROVIDER,
+    status: "warning" as const,
+    available: false,
+    authStatus: "unknown" as const,
+    checkedAt,
+    message: `Cannot complete the OpenClaw gateway handshake at ${resolvedConfig.gatewayUrl}. Check connectivity, proxying, and pairing/device auth state.`,
+  } satisfies ServerProviderStatus;
+});
 
 // ── Layer ───────────────────────────────────────────────────────────
 
 export const ProviderHealthLive = Layer.effect(
   ProviderHealth,
   Effect.gen(function* () {
-    const statusesFiber = yield* Effect.all(
-      [checkCodexProviderStatus, checkClaudeProviderStatus, checkOpenClawProviderStatus],
-      {
-        concurrency: "unbounded",
-      },
-    ).pipe(Effect.forkScoped);
+    const fileSystem = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+    const openclawGatewayConfig = yield* OpenclawGatewayConfig;
 
     return {
-      getStatuses: Fiber.join(statusesFiber),
+      getStatuses: Effect.all(
+        [checkCodexProviderStatus, checkClaudeProviderStatus, checkOpenClawProviderStatus],
+        {
+          concurrency: "unbounded",
+        },
+      ).pipe(
+        Effect.provideService(FileSystem.FileSystem, fileSystem),
+        Effect.provideService(Path.Path, path),
+        Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
+        Effect.provideService(OpenclawGatewayConfig, openclawGatewayConfig),
+      ),
     } satisfies ProviderHealthShape;
   }),
 );

@@ -22,9 +22,11 @@ import { DateTime, Effect, Layer, Option, Random, Ref } from "effect";
 import crypto from "node:crypto";
 
 import { EnvironmentVariables } from "../../persistence/Services/EnvironmentVariables.ts";
+import { OpenclawGatewayConfig } from "../../persistence/Services/OpenclawGatewayConfig.ts";
 import { SmeConversationRepository } from "../../persistence/Services/SmeConversations.ts";
 import { SmeKnowledgeDocumentRepository } from "../../persistence/Services/SmeKnowledgeDocuments.ts";
 import { SmeMessageRepository } from "../../persistence/Services/SmeMessages.ts";
+import { ProviderHealth } from "../../provider/Services/ProviderHealth.ts";
 import { ProviderService } from "../../provider/Services/ProviderService.ts";
 import {
   isValidSmeAuthMethod,
@@ -120,6 +122,8 @@ const makeSmeChatService = (options: SmeChatServiceLiveOptions = {}) =>
     const conversationRepo = yield* SmeConversationRepository;
     const messageRepo = yield* SmeMessageRepository;
     const environmentVariables = yield* EnvironmentVariables;
+    const openclawGatewayConfig = yield* OpenclawGatewayConfig;
+    const providerHealth = yield* ProviderHealth;
     const providerService = yield* ProviderService;
     const createClient =
       options.createClient ??
@@ -193,12 +197,21 @@ const makeSmeChatService = (options: SmeChatServiceLiveOptions = {}) =>
             });
 
           case "openclaw":
+            const openclawSummary = yield* openclawGatewayConfig
+              .getSummary()
+              .pipe(Effect.mapError((e) => new SmeChatError("validateSetup", e.message)));
+            const openclawStatus = (yield* providerHealth.getStatuses).find(
+              (status) => status.provider === "openclaw",
+            );
             return validateOpenClawSetup({
               authMethod: conversation.authMethod as Extract<
                 SmeAuthMethod,
                 "auto" | "password" | "none"
               >,
-              providerOptions,
+              gatewayUrl: openclawSummary.gatewayUrl,
+              hasSharedSecret: openclawSummary.hasSharedSecret,
+              hasDeviceToken: openclawSummary.hasDeviceToken,
+              ...(openclawStatus ? { providerStatus: openclawStatus } : {}),
             });
         }
       });

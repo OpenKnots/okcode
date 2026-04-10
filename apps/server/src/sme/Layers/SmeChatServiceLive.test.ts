@@ -6,6 +6,7 @@ import {
   EnvironmentVariables,
   type EnvironmentVariablesShape,
 } from "../../persistence/Services/EnvironmentVariables.ts";
+import { OpenclawGatewayConfig } from "../../persistence/Services/OpenclawGatewayConfig.ts";
 import {
   SmeKnowledgeDocumentRepository,
   type SmeKnowledgeDocumentRepositoryShape,
@@ -21,6 +22,10 @@ import {
   type SmeMessageRepositoryShape,
   type SmeMessageRow,
 } from "../../persistence/Services/SmeMessages.ts";
+import {
+  ProviderHealth,
+  type ProviderHealthShape,
+} from "../../provider/Services/ProviderHealth.ts";
 import {
   ProviderService,
   type ProviderServiceShape,
@@ -173,6 +178,46 @@ function makeProviderService(): ProviderServiceShape {
   };
 }
 
+function makeOpenclawGatewayConfig() {
+  return {
+    getSummary: () =>
+      Effect.succeed({
+        gatewayUrl: null,
+        hasSharedSecret: false,
+        deviceId: null,
+        devicePublicKey: null,
+        deviceFingerprint: null,
+        hasDeviceToken: false,
+        deviceTokenRole: null,
+        deviceTokenScopes: [],
+        updatedAt: null,
+      }),
+    getStored: () => Effect.succeed(null),
+    save: () => Effect.die("unexpected openclaw save"),
+    resolveForConnect: () => Effect.succeed(null),
+    saveDeviceToken: () => Effect.void,
+    clearDeviceToken: () => Effect.void,
+    resetDeviceState: () =>
+      Effect.succeed({
+        gatewayUrl: null,
+        hasSharedSecret: false,
+        deviceId: null,
+        devicePublicKey: null,
+        deviceFingerprint: null,
+        hasDeviceToken: false,
+        deviceTokenRole: null,
+        deviceTokenScopes: [],
+        updatedAt: null,
+      }),
+  };
+}
+
+function makeProviderHealth(): ProviderHealthShape {
+  return {
+    getStatuses: Effect.succeed([]),
+  };
+}
+
 describe("SmeChatServiceLive", () => {
   it("uses persisted Anthropic credentials for a successful send and stores the final reply", async () => {
     setAnthropicEnv({
@@ -230,6 +275,8 @@ describe("SmeChatServiceLive", () => {
         Layer.succeed(SmeConversationRepository, makeConversationRepository([conversationRow])),
       ),
       Layer.provideMerge(Layer.succeed(SmeMessageRepository, messageRepo)),
+      Layer.provideMerge(Layer.succeed(OpenclawGatewayConfig, makeOpenclawGatewayConfig())),
+      Layer.provideMerge(Layer.succeed(ProviderHealth, makeProviderHealth())),
       Layer.provideMerge(Layer.succeed(ProviderService, makeProviderService())),
     );
 
@@ -326,6 +373,8 @@ describe("SmeChatServiceLive", () => {
         Layer.succeed(SmeConversationRepository, makeConversationRepository([conversationRow])),
       ),
       Layer.provideMerge(Layer.succeed(SmeMessageRepository, messageRepo)),
+      Layer.provideMerge(Layer.succeed(OpenclawGatewayConfig, makeOpenclawGatewayConfig())),
+      Layer.provideMerge(Layer.succeed(ProviderHealth, makeProviderHealth())),
       Layer.provideMerge(Layer.succeed(ProviderService, makeProviderService())),
     );
 

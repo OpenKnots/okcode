@@ -7,8 +7,6 @@
  *
  * @module EnvironmentVariables
  */
-import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
-import fs from "node:fs/promises";
 import path from "node:path";
 
 import {
@@ -32,6 +30,7 @@ import {
   toPersistenceDecodeError,
   toPersistenceSqlError,
 } from "../Errors.ts";
+import { decodeVaultPayload, encodeVaultPayload, readOrCreateVaultKey } from "../vault.ts";
 
 export interface EnvironmentVariablesShape {
   readonly getGlobal: () => Effect.Effect<
@@ -61,10 +60,6 @@ export type EnvironmentVariablesError =
   | PersistenceSqlError
   | PersistenceDecodeError
   | PersistenceCryptoError;
-
-const SECRET_PAYLOAD_VERSION = "v1";
-const SECRET_KEY_BYTES = 32;
-const SECRET_IV_BYTES = 12;
 
 const GlobalEnvironmentVariableRow = Schema.Struct({
   key: Schema.String,
@@ -111,18 +106,11 @@ function encodeSecretPayload(input: {
   readonly envKey: string;
   readonly value: string;
 }): string {
-  const iv = randomBytes(SECRET_IV_BYTES);
-  const cipher = createCipheriv("aes-256-gcm", input.key, iv);
-  cipher.setAAD(Buffer.from([input.scope, input.projectId ?? "", input.envKey].join("\0"), "utf8"));
-
-  const ciphertext = Buffer.concat([cipher.update(input.value, "utf8"), cipher.final()]);
-  const authTag = cipher.getAuthTag();
-  return [
-    SECRET_PAYLOAD_VERSION,
-    iv.toString("base64"),
-    authTag.toString("base64"),
-    ciphertext.toString("base64"),
-  ].join(":");
+  return encodeVaultPayload({
+    key: input.key,
+    aad: [input.scope, input.projectId ?? "", input.envKey],
+    value: input.value,
+  });
 }
 
 function decodeSecretPayload(input: {
@@ -132,63 +120,11 @@ function decodeSecretPayload(input: {
   readonly envKey: string;
   readonly encryptedValue: string;
 }): string {
-  const parts = input.encryptedValue.split(":");
-  if (parts.length !== 4 || parts[0] !== SECRET_PAYLOAD_VERSION) {
-    throw new Error("Unsupported secret payload version.");
-  }
-
-  const [, ivRaw, authTagRaw, ciphertextRaw] = parts;
-  const iv = Buffer.from(ivRaw ?? "", "base64");
-  const authTag = Buffer.from(authTagRaw ?? "", "base64");
-  const ciphertext = Buffer.from(ciphertextRaw ?? "", "base64");
-  if (iv.byteLength !== SECRET_IV_BYTES || authTag.byteLength !== 16) {
-    throw new Error("Invalid encrypted payload.");
-  }
-
-  const decipher = createDecipheriv("aes-256-gcm", input.key, iv);
-  decipher.setAAD(
-    Buffer.from([input.scope, input.projectId ?? "", input.envKey].join("\0"), "utf8"),
-  );
-  decipher.setAuthTag(authTag);
-  return `${decipher.update(ciphertext, undefined, "utf8")}${decipher.final("utf8")}`;
-}
-
-async function readOrCreateSecretKey(secretKeyPath: string): Promise<Buffer> {
-  try {
-    const existing = await fs.readFile(secretKeyPath, "utf8");
-    const decoded = Buffer.from(existing.trim(), "base64");
-    if (decoded.byteLength !== SECRET_KEY_BYTES) {
-      throw new Error("Invalid vault key length.");
-    }
-    return decoded;
-  } catch (error) {
-    const code = (error as NodeJS.ErrnoException | undefined)?.code;
-    if (code !== "ENOENT") {
-      throw error;
-    }
-
-    await fs.mkdir(path.dirname(secretKeyPath), { recursive: true });
-    const key = randomBytes(SECRET_KEY_BYTES);
-    try {
-      await fs.writeFile(secretKeyPath, `${key.toString("base64")}\n`, {
-        encoding: "utf8",
-        flag: "wx",
-        mode: 0o600,
-      });
-      return key;
-    } catch (writeError) {
-      const writeCode = (writeError as NodeJS.ErrnoException | undefined)?.code;
-      if (writeCode === "EEXIST") {
-        const existing = await fs.readFile(secretKeyPath, "utf8");
-        const decoded = Buffer.from(existing.trim(), "base64");
-        if (decoded.byteLength !== SECRET_KEY_BYTES) {
-          throw new Error("Invalid vault key length.", { cause: writeError });
-        }
-        return decoded;
-      }
-      throw writeError;
-    }
-  }
+  return decodeVaultPayload({
+    key: input.key,
+    aad: [input.scope, input.projectId ?? "", input.envKey],
+    encryptedValue: input.encryptedValue,
+  });
 }
 
 function toEnvironmentError(operation: string, error: unknown): EnvironmentVariablesError {
@@ -221,7 +157,7 @@ export const EnvironmentVariablesLive = Layer.effect(
 
     const getSecretKey = () => {
       if (!secretKeyPromise) {
-        secretKeyPromise = readOrCreateSecretKey(secretKeyPath).catch((error) => {
+        secretKeyPromise = readOrCreateVaultKey(secretKeyPath).catch((error) => {
           secretKeyPromise = null;
           throw error;
         });

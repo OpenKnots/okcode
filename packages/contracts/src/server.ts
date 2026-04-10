@@ -135,10 +135,37 @@ export const ListTokensResult = Schema.Struct({
 });
 export type ListTokensResult = typeof ListTokensResult.Type;
 
+// ── OpenClaw Gateway Config ─────────────────────────────────────────
+
+export const OpenclawGatewayConfigSummary = Schema.Struct({
+  gatewayUrl: Schema.NullOr(TrimmedNonEmptyString),
+  hasSharedSecret: Schema.Boolean,
+  deviceId: Schema.NullOr(TrimmedNonEmptyString),
+  devicePublicKey: Schema.NullOr(TrimmedNonEmptyString),
+  deviceFingerprint: Schema.NullOr(TrimmedNonEmptyString),
+  hasDeviceToken: Schema.Boolean,
+  deviceTokenRole: Schema.NullOr(TrimmedNonEmptyString),
+  deviceTokenScopes: Schema.Array(TrimmedNonEmptyString),
+  updatedAt: Schema.NullOr(IsoDateTime),
+});
+export type OpenclawGatewayConfigSummary = typeof OpenclawGatewayConfigSummary.Type;
+
+export const SaveOpenclawGatewayConfigInput = Schema.Struct({
+  gatewayUrl: TrimmedNonEmptyString,
+  sharedSecret: Schema.optional(Schema.String),
+  clearSharedSecret: Schema.optional(Schema.Boolean),
+});
+export type SaveOpenclawGatewayConfigInput = typeof SaveOpenclawGatewayConfigInput.Type;
+
+export const ResetOpenclawGatewayDeviceStateInput = Schema.Struct({
+  regenerateIdentity: Schema.optional(Schema.Boolean),
+});
+export type ResetOpenclawGatewayDeviceStateInput = typeof ResetOpenclawGatewayDeviceStateInput.Type;
+
 // ── OpenClaw Gateway Test ───────────────────────────────────────────
 
 export const TestOpenclawGatewayInput = Schema.Struct({
-  gatewayUrl: Schema.String,
+  gatewayUrl: Schema.optional(Schema.String),
   password: Schema.optional(Schema.String),
 });
 export type TestOpenclawGatewayInput = typeof TestOpenclawGatewayInput.Type;

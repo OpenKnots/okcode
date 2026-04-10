@@ -70,7 +70,14 @@ import type {
   GitHubPostCommentInput,
   GitHubPostCommentResult,
 } from "./github";
-import type { ServerConfig, TestOpenclawGatewayInput, TestOpenclawGatewayResult } from "./server";
+import type {
+  OpenclawGatewayConfigSummary,
+  ResetOpenclawGatewayDeviceStateInput,
+  SaveOpenclawGatewayConfigInput,
+  ServerConfig,
+  TestOpenclawGatewayInput,
+  TestOpenclawGatewayResult,
+} from "./server";
 import type {
   GlobalEnvironmentVariablesResult,
   ProjectEnvironmentVariablesInput,
@@ -450,6 +457,13 @@ export interface NativeApi {
       input: SaveProjectEnvironmentVariablesInput,
     ) => Promise<ProjectEnvironmentVariablesResult>;
     upsertKeybinding: (input: ServerUpsertKeybindingInput) => Promise<ServerUpsertKeybindingResult>;
+    getOpenclawGatewayConfig: () => Promise<OpenclawGatewayConfigSummary>;
+    saveOpenclawGatewayConfig: (
+      input: SaveOpenclawGatewayConfigInput,
+    ) => Promise<OpenclawGatewayConfigSummary>;
+    resetOpenclawGatewayDeviceState: (
+      input?: ResetOpenclawGatewayDeviceStateInput,
+    ) => Promise<OpenclawGatewayConfigSummary>;
     testOpenclawGateway: (input: TestOpenclawGatewayInput) => Promise<TestOpenclawGatewayResult>;
   };
   orchestration: {

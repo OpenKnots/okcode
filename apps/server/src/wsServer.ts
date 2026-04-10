@@ -95,6 +95,7 @@ import { PrReview } from "./prReview/Services/PrReview.ts";
 import { GitHub } from "./github/Services/GitHub.ts";
 import { GitActionExecutionError } from "./git/Errors.ts";
 import { EnvironmentVariables } from "./persistence/Services/EnvironmentVariables.ts";
+import { OpenclawGatewayConfig } from "./persistence/Services/OpenclawGatewayConfig.ts";
 import { SkillService } from "./skills/SkillService.ts";
 import { SmeChatService } from "./sme/Services/SmeChatService.ts";
 import { TokenManager } from "./tokenManager.ts";
@@ -317,7 +318,8 @@ export type ServerRuntimeServices =
   | SkillService
   | SmeChatService
   | Open
-  | EnvironmentVariables;
+  | EnvironmentVariables
+  | OpenclawGatewayConfig;
 
 export class ServerLifecycleError extends Schema.TaggedErrorClass<ServerLifecycleError>()(
   "ServerLifecycleError",
@@ -355,6 +357,7 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
   const terminalManager = yield* TerminalManager;
   const keybindingsManager = yield* Keybindings;
   const providerHealth = yield* ProviderHealth;
+  const openclawGatewayConfig = yield* OpenclawGatewayConfig;
   const git = yield* GitCore;
   const fileSystem = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -368,8 +371,6 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
       }),
     ),
   );
-
-  const providerStatuses = yield* providerHealth.getStatuses;
 
   const clients = yield* Ref.make(new Set<WebSocket>());
   const logger = createLogger("ws");
@@ -774,6 +775,19 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
   const skillService = yield* SkillService;
   const smeChatService = yield* SmeChatService;
 
+  const loadProviderStatuses = () => providerHealth.getStatuses;
+
+  const publishServerConfigUpdated = () =>
+    Effect.gen(function* () {
+      const keybindingsConfig = yield* keybindingsManager.loadConfigState;
+      const providers = yield* loadProviderStatuses();
+      yield* pushBus.publishAll(WS_CHANNELS.serverConfigUpdated, {
+        issues: keybindingsConfig.issues,
+        providers,
+      });
+      return providers;
+    });
+
   const subscriptionsScope = yield* Scope.make("sequential");
   yield* Effect.addFinalizer(() => Scope.close(subscriptionsScope, Exit.void));
 
@@ -782,9 +796,12 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
   ).pipe(Effect.forkIn(subscriptionsScope));
 
   yield* Stream.runForEach(keybindingsManager.streamChanges, (event) =>
-    pushBus.publishAll(WS_CHANNELS.serverConfigUpdated, {
-      issues: event.issues,
-      providers: providerStatuses,
+    Effect.gen(function* () {
+      const providers = yield* loadProviderStatuses();
+      yield* pushBus.publishAll(WS_CHANNELS.serverConfigUpdated, {
+        issues: event.issues,
+        providers,
+      });
     }),
   ).pipe(Effect.forkIn(subscriptionsScope));
 
@@ -1476,7 +1493,7 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
           keybindingsConfigPath,
           keybindings: keybindingsConfig.keybindings,
           issues: keybindingsConfig.issues,
-          providers: providerStatuses,
+          providers: yield* loadProviderStatuses(),
           availableEditors,
           buildInfo: serverBuildInfo,
         };
@@ -1564,10 +1581,43 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
         return { tokens };
       }
 
+      case WS_METHODS.serverGetOpenclawGatewayConfig:
+        return yield* openclawGatewayConfig.getSummary();
+
+      case WS_METHODS.serverSaveOpenclawGatewayConfig: {
+        const body = stripRequestTag(request.body);
+        const summary = yield* openclawGatewayConfig.save(body);
+        yield* publishServerConfigUpdated();
+        return summary;
+      }
+
+      case WS_METHODS.serverResetOpenclawGatewayDeviceState: {
+        const body = stripRequestTag(request.body);
+        const summary = yield* openclawGatewayConfig.resetDeviceState(body);
+        yield* publishServerConfigUpdated();
+        return summary;
+      }
+
       // ── OpenClaw gateway test ────────────────────────────────────────
       case WS_METHODS.serverTestOpenclawGateway: {
         const body = stripRequestTag(request.body);
-        return yield* testOpenclawGateway(body);
+        const resolvedConfig = yield* openclawGatewayConfig.resolveForConnect({
+          ...(body.gatewayUrl ? { gatewayUrl: body.gatewayUrl } : {}),
+          ...(body.password ? { sharedSecret: body.password } : {}),
+          allowEphemeralIdentity: body.gatewayUrl !== undefined,
+        });
+        if (!resolvedConfig) {
+          return yield* new RouteRequestError({
+            message:
+              "OpenClaw gateway URL is not configured. Save it in Settings or provide a test override.",
+          });
+        }
+        const result = yield* testOpenclawGateway({
+          gatewayUrl: resolvedConfig.gatewayUrl,
+          password: body.password ?? resolvedConfig.sharedSecret,
+        });
+        yield* publishServerConfigUpdated();
+        return result;
       }
 
       // ── Connection health ───────────────────────────────────────────

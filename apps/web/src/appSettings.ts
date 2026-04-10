@@ -296,14 +296,7 @@ export function getCustomModelOptionsByProvider(
 }
 
 export function getProviderStartOptions(
-  settings: Pick<
-    AppSettings,
-    | "claudeBinaryPath"
-    | "codexBinaryPath"
-    | "codexHomePath"
-    | "openclawGatewayUrl"
-    | "openclawPassword"
-  >,
+  settings: Pick<AppSettings, "claudeBinaryPath" | "codexBinaryPath" | "codexHomePath">,
 ): ProviderStartOptions | undefined {
   const providerOptions: ProviderStartOptions = {
     ...(settings.codexBinaryPath || settings.codexHomePath
@@ -318,14 +311,6 @@ export function getProviderStartOptions(
       ? {
           claudeAgent: {
             binaryPath: settings.claudeBinaryPath,
-          },
-        }
-      : {}),
-    ...(settings.openclawGatewayUrl || settings.openclawPassword
-      ? {
-          openclaw: {
-            ...(settings.openclawGatewayUrl ? { gatewayUrl: settings.openclawGatewayUrl } : {}),
-            ...(settings.openclawPassword ? { password: settings.openclawPassword } : {}),
           },
         }
       : {}),

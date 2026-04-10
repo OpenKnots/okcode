@@ -20,12 +20,14 @@ import { ProviderUnsupportedError } from "./provider/Errors";
 import { makeClaudeAdapterLive } from "./provider/Layers/ClaudeAdapter";
 import { makeCodexAdapterLive } from "./provider/Layers/CodexAdapter";
 import { makeOpenClawAdapterLive } from "./provider/Layers/OpenClawAdapter";
+import { ProviderHealthLive } from "./provider/Layers/ProviderHealth";
 import { ProviderAdapterRegistryLive } from "./provider/Layers/ProviderAdapterRegistry";
 import { makeProviderServiceLive } from "./provider/Layers/ProviderService";
 import { ProviderSessionDirectoryLive } from "./provider/Layers/ProviderSessionDirectory";
 import { ProviderService } from "./provider/Services/ProviderService";
 import { makeEventNdjsonLogger } from "./provider/Layers/EventNdjsonLogger";
 import { EnvironmentVariablesLive } from "./persistence/Services/EnvironmentVariables";
+import { OpenclawGatewayConfigLive } from "./persistence/Layers/OpenclawGatewayConfig";
 
 import { TerminalManagerLive } from "./terminal/Layers/Manager";
 import { TerminalRuntimeEnvResolverLive } from "./terminal/Layers/RuntimeEnvResolver";
@@ -94,7 +96,7 @@ export function makeServerProviderLayer(): Layer.Layer<
     );
     const openclawAdapterLayer = makeOpenClawAdapterLive(
       nativeEventLogger ? { nativeEventLogger } : undefined,
-    );
+    ).pipe(Layer.provideMerge(OpenclawGatewayConfigLive));
     const adapterRegistryLayer = ProviderAdapterRegistryLive.pipe(
       Layer.provide(codexAdapterLayer),
       Layer.provide(claudeAdapterLayer),
@@ -124,6 +126,7 @@ export function makeServerRuntimeServicesLayer() {
 
   const runtimeServicesLayer = Layer.empty.pipe(
     Layer.provideMerge(EnvironmentVariablesLive),
+    Layer.provideMerge(OpenclawGatewayConfigLive),
     Layer.provideMerge(OrchestrationProjectionSnapshotQueryLive),
     Layer.provideMerge(orchestrationLayer),
     Layer.provideMerge(checkpointStoreLayer),
@@ -167,6 +170,8 @@ export function makeServerRuntimeServicesLayer() {
 
   const smeChatLayer = SmeChatServiceLive.pipe(
     Layer.provideMerge(EnvironmentVariablesLive),
+    Layer.provideMerge(OpenclawGatewayConfigLive),
+    Layer.provideMerge(ProviderHealthLive.pipe(Layer.provideMerge(OpenclawGatewayConfigLive))),
     Layer.provide(SmeKnowledgeDocumentRepositoryLive),
     Layer.provide(SmeConversationRepositoryLive),
     Layer.provide(SmeMessageRepositoryLive),

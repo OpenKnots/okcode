@@ -809,7 +809,7 @@ export async function runOpenclawGatewayTest(
 
   try {
     const urlStart = Date.now();
-    const gatewayUrl = input.gatewayUrl.trim();
+    const gatewayUrl = input.gatewayUrl?.trim() ?? "";
     const sharedSecret = input.password?.trim() || undefined;
     if (!gatewayUrl) {
       pushStep("URL validation", "fail", Date.now() - urlStart, "Gateway URL is empty.");

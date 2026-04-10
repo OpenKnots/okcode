@@ -79,7 +79,11 @@ import {
   setStoredRadiusOverride,
   type CustomThemeData,
 } from "../lib/customTheme";
-import { serverConfigQueryOptions } from "../lib/serverReactQuery";
+import {
+  openclawGatewayConfigQueryOptions,
+  serverConfigQueryOptions,
+  serverQueryKeys,
+} from "../lib/serverReactQuery";
 import { cn } from "../lib/utils";
 import { ensureNativeApi, readNativeApi } from "../nativeApi";
 import { useStore } from "../store";
@@ -572,6 +576,7 @@ function SettingsRouteView() {
   const { theme, setTheme, colorTheme, setColorTheme, fontFamily, setFontFamily } = useTheme();
   const { settings, defaults, updateSettings, resetSettings } = useAppSettings();
   const serverConfigQuery = useQuery(serverConfigQueryOptions());
+  const openclawGatewayConfigQuery = useQuery(openclawGatewayConfigQueryOptions());
   const queryClient = useQueryClient();
   const projects = useStore((state) => state.projects);
   const [selectedProjectId, setSelectedProjectId] = useState<ProjectId | null>(
@@ -611,6 +616,12 @@ function SettingsRouteView() {
     null,
   );
   const [openclawTestLoading, setOpenclawTestLoading] = useState(false);
+  const [openclawGatewayDraft, setOpenclawGatewayDraft] = useState<string | null>(null);
+  const [openclawSharedSecretDraft, setOpenclawSharedSecretDraft] = useState("");
+  const [openclawSaveLoading, setOpenclawSaveLoading] = useState(false);
+  const [openclawResetLoading, setOpenclawResetLoading] = useState<"token" | "identity" | null>(
+    null,
+  );
   const { copyToClipboard: copyOpenclawDebugReport, isCopied: openclawDebugReportCopied } =
     useCopyToClipboard();
 
@@ -676,9 +687,14 @@ function SettingsRouteView() {
     settings.claudeBinaryPath !== defaults.claudeBinaryPath ||
     settings.codexBinaryPath !== defaults.codexBinaryPath ||
     settings.codexHomePath !== defaults.codexHomePath;
+  const savedOpenclawGatewayUrl = openclawGatewayConfigQuery.data?.gatewayUrl ?? "";
+  const savedOpenclawHasSharedSecret = openclawGatewayConfigQuery.data?.hasSharedSecret ?? false;
+  const effectiveOpenclawGatewayUrl = openclawGatewayDraft ?? savedOpenclawGatewayUrl;
   const isOpenClawSettingsDirty =
-    settings.openclawGatewayUrl !== defaults.openclawGatewayUrl ||
-    settings.openclawPassword !== defaults.openclawPassword;
+    (openclawGatewayDraft !== null && openclawGatewayDraft !== savedOpenclawGatewayUrl) ||
+    openclawSharedSecretDraft.length > 0;
+  const canImportLegacyOpenclawSettings =
+    !savedOpenclawGatewayUrl && Boolean(settings.openclawGatewayUrl || settings.openclawPassword);
   const changedSettingLabels = [
     ...(theme !== "system" ? ["Theme"] : []),
     ...(colorTheme !== DEFAULT_COLOR_THEME ? ["Color theme"] : []),
@@ -792,9 +808,11 @@ function SettingsRouteView() {
     setOpenclawTestResult(null);
     try {
       const api = ensureNativeApi();
+      const gatewayUrl = effectiveOpenclawGatewayUrl.trim();
+      const sharedSecret = openclawSharedSecretDraft.trim();
       const result = await api.server.testOpenclawGateway({
-        gatewayUrl: settings.openclawGatewayUrl,
-        password: settings.openclawPassword || undefined,
+        ...(gatewayUrl ? { gatewayUrl } : {}),
+        ...(sharedSecret ? { password: sharedSecret } : {}),
       });
       setOpenclawTestResult(result);
     } catch (err) {
@@ -807,12 +825,110 @@ function SettingsRouteView() {
     } finally {
       setOpenclawTestLoading(false);
     }
-  }, [openclawTestLoading, settings.openclawGatewayUrl, settings.openclawPassword]);
+  }, [effectiveOpenclawGatewayUrl, openclawSharedSecretDraft, openclawTestLoading]);
 
   const handleCopyOpenclawDebugReport = useCallback(() => {
     if (!openclawTestResult) return;
     copyOpenclawDebugReport(formatOpenclawGatewayDebugReport(openclawTestResult), undefined);
   }, [copyOpenclawDebugReport, openclawTestResult]);
+
+  const saveOpenclawGatewayConfig = useCallback(async () => {
+    if (openclawSaveLoading) return;
+    const gatewayUrl = effectiveOpenclawGatewayUrl.trim();
+    if (!gatewayUrl) {
+      throw new Error("Gateway URL is required.");
+    }
+    setOpenclawSaveLoading(true);
+    try {
+      const api = ensureNativeApi();
+      const sharedSecret = openclawSharedSecretDraft.trim();
+      const summary = await api.server.saveOpenclawGatewayConfig({
+        gatewayUrl,
+        ...(sharedSecret ? { sharedSecret } : {}),
+      });
+      queryClient.setQueryData(serverQueryKeys.openclawGatewayConfig(), summary);
+      void queryClient.invalidateQueries({ queryKey: serverQueryKeys.all });
+      setOpenclawGatewayDraft(null);
+      setOpenclawSharedSecretDraft("");
+      setOpenclawTestResult(null);
+    } finally {
+      setOpenclawSaveLoading(false);
+    }
+  }, [effectiveOpenclawGatewayUrl, openclawSaveLoading, openclawSharedSecretDraft, queryClient]);
+
+  const clearSavedOpenclawSharedSecret = useCallback(async () => {
+    const gatewayUrl = effectiveOpenclawGatewayUrl.trim();
+    if (!gatewayUrl) {
+      throw new Error("Gateway URL is required.");
+    }
+    setOpenclawSaveLoading(true);
+    try {
+      const api = ensureNativeApi();
+      const summary = await api.server.saveOpenclawGatewayConfig({
+        gatewayUrl,
+        clearSharedSecret: true,
+      });
+      queryClient.setQueryData(serverQueryKeys.openclawGatewayConfig(), summary);
+      void queryClient.invalidateQueries({ queryKey: serverQueryKeys.all });
+      setOpenclawSharedSecretDraft("");
+      setOpenclawTestResult(null);
+    } finally {
+      setOpenclawSaveLoading(false);
+    }
+  }, [effectiveOpenclawGatewayUrl, queryClient]);
+
+  const resetOpenclawDeviceState = useCallback(
+    async (regenerateIdentity: boolean) => {
+      if (openclawResetLoading) return;
+      setOpenclawResetLoading(regenerateIdentity ? "identity" : "token");
+      try {
+        const api = ensureNativeApi();
+        const summary = await api.server.resetOpenclawGatewayDeviceState({
+          regenerateIdentity,
+        });
+        queryClient.setQueryData(serverQueryKeys.openclawGatewayConfig(), summary);
+        void queryClient.invalidateQueries({ queryKey: serverQueryKeys.all });
+        setOpenclawTestResult(null);
+      } finally {
+        setOpenclawResetLoading(null);
+      }
+    },
+    [openclawResetLoading, queryClient],
+  );
+
+  const importLegacyOpenclawSettings = useCallback(async () => {
+    const gatewayUrl = settings.openclawGatewayUrl.trim();
+    if (!gatewayUrl) {
+      throw new Error("Legacy OpenClaw settings do not contain a gateway URL.");
+    }
+    setOpenclawSaveLoading(true);
+    try {
+      const api = ensureNativeApi();
+      const sharedSecret = settings.openclawPassword.trim();
+      const summary = await api.server.saveOpenclawGatewayConfig({
+        gatewayUrl,
+        ...(sharedSecret ? { sharedSecret } : {}),
+      });
+      queryClient.setQueryData(serverQueryKeys.openclawGatewayConfig(), summary);
+      void queryClient.invalidateQueries({ queryKey: serverQueryKeys.all });
+      updateSettings({
+        openclawGatewayUrl: defaults.openclawGatewayUrl,
+        openclawPassword: defaults.openclawPassword,
+      });
+      setOpenclawGatewayDraft(null);
+      setOpenclawSharedSecretDraft("");
+      setOpenclawTestResult(null);
+    } finally {
+      setOpenclawSaveLoading(false);
+    }
+  }, [
+    defaults.openclawGatewayUrl,
+    defaults.openclawPassword,
+    queryClient,
+    settings.openclawGatewayUrl,
+    settings.openclawPassword,
+    updateSettings,
+  ]);
 
   const addCustomModel = useCallback(
     (provider: ProviderKind) => {
@@ -2395,21 +2511,40 @@ function SettingsRouteView() {
                       title="OpenClaw gateway"
                       description="Connect to an OpenClaw gateway for remote agent sessions."
                       resetAction={
-                        settings.openclawGatewayUrl !== defaults.openclawGatewayUrl ||
-                        settings.openclawPassword !== defaults.openclawPassword ? (
+                        isOpenClawSettingsDirty ? (
                           <SettingResetButton
                             label="OpenClaw gateway"
-                            onClick={() =>
-                              updateSettings({
-                                openclawGatewayUrl: defaults.openclawGatewayUrl,
-                                openclawPassword: defaults.openclawPassword,
-                              })
-                            }
+                            onClick={() => {
+                              setOpenclawGatewayDraft(null);
+                              setOpenclawSharedSecretDraft("");
+                              setOpenclawTestResult(null);
+                            }}
                           />
                         ) : null
                       }
                     >
                       <div className="mt-4 space-y-3">
+                        {canImportLegacyOpenclawSettings ? (
+                          <div className="rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                              <span>
+                                Legacy browser-local OpenClaw settings were found. Import them to
+                                the server to make them active.
+                              </span>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={openclawSaveLoading}
+                                onClick={() => {
+                                  void importLegacyOpenclawSettings();
+                                }}
+                              >
+                                <ImportIcon className="mr-1.5 size-3.5" />
+                                Import legacy settings
+                              </Button>
+                            </div>
+                          </div>
+                        ) : null}
                         <label htmlFor="openclaw-gateway-url" className="block">
                           <span className="block text-xs font-medium text-foreground">
                             Gateway URL
@@ -2417,9 +2552,9 @@ function SettingsRouteView() {
                           <Input
                             id="openclaw-gateway-url"
                             className="mt-1"
-                            value={settings.openclawGatewayUrl}
+                            value={effectiveOpenclawGatewayUrl}
                             onChange={(event) => {
-                              updateSettings({ openclawGatewayUrl: event.target.value });
+                              setOpenclawGatewayDraft(event.target.value);
                               setOpenclawTestResult(null);
                             }}
                             placeholder="ws://localhost:8080"
@@ -2432,33 +2567,89 @@ function SettingsRouteView() {
                         </label>
                         <label htmlFor="openclaw-password" className="block">
                           <span className="block text-xs font-medium text-foreground">
-                            Password
+                            Shared secret
                           </span>
                           <Input
                             id="openclaw-password"
                             className="mt-1"
                             type="password"
-                            value={settings.openclawPassword}
+                            value={openclawSharedSecretDraft}
                             onChange={(event) => {
-                              updateSettings({ openclawPassword: event.target.value });
+                              setOpenclawSharedSecretDraft(event.target.value);
                               setOpenclawTestResult(null);
                             }}
-                            placeholder="Shared secret"
+                            placeholder={
+                              savedOpenclawHasSharedSecret
+                                ? "Leave blank to keep existing secret"
+                                : "Shared secret"
+                            }
                             spellCheck={false}
                             autoComplete="off"
                           />
                           <span className="mt-1 block text-xs text-muted-foreground">
-                            Shared secret used to authenticate with the gateway.
+                            Shared secret used for gateway auth. Leave blank to keep the saved
+                            secret unchanged.
                           </span>
                         </label>
 
-                        {/* Test Connection Button */}
-                        <div className="pt-1">
+                        <div className="rounded-md border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
+                          <div>
+                            Saved URL:{" "}
+                            <span className="font-mono text-foreground">
+                              {openclawGatewayConfigQuery.data?.gatewayUrl ?? "Not saved"}
+                            </span>
+                          </div>
+                          <div>
+                            Saved shared secret:{" "}
+                            <span className="text-foreground">
+                              {savedOpenclawHasSharedSecret ? "Configured" : "Not configured"}
+                            </span>
+                          </div>
+                          <div>
+                            Device fingerprint:{" "}
+                            <span className="font-mono text-foreground">
+                              {openclawGatewayConfigQuery.data?.deviceFingerprint ?? "Not created"}
+                            </span>
+                          </div>
+                          <div>
+                            Cached device token:{" "}
+                            <span className="text-foreground">
+                              {openclawGatewayConfigQuery.data?.hasDeviceToken
+                                ? "Present"
+                                : "Not cached"}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          <Button
+                            variant="default"
+                            size="sm"
+                            disabled={!effectiveOpenclawGatewayUrl.trim() || openclawSaveLoading}
+                            onClick={() => {
+                              void saveOpenclawGatewayConfig();
+                            }}
+                          >
+                            {openclawSaveLoading ? (
+                              <>
+                                <Loader2Icon className="mr-1.5 size-3.5 animate-spin" />
+                                Saving…
+                              </>
+                            ) : (
+                              "Save gateway config"
+                            )}
+                          </Button>
                           <Button
                             variant="outline"
                             size="sm"
-                            disabled={!settings.openclawGatewayUrl || openclawTestLoading}
-                            onClick={testOpenclawGateway}
+                            disabled={
+                              (!effectiveOpenclawGatewayUrl.trim() &&
+                                !openclawGatewayConfigQuery.data?.gatewayUrl) ||
+                              openclawTestLoading
+                            }
+                            onClick={() => {
+                              void testOpenclawGateway();
+                            }}
                           >
                             {openclawTestLoading ? (
                               <>
@@ -2468,6 +2659,46 @@ function SettingsRouteView() {
                             ) : (
                               "Test Connection"
                             )}
+                          </Button>
+                          {savedOpenclawHasSharedSecret ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={!effectiveOpenclawGatewayUrl.trim() || openclawSaveLoading}
+                              onClick={() => {
+                                void clearSavedOpenclawSharedSecret();
+                              }}
+                            >
+                              Clear saved secret
+                            </Button>
+                          ) : null}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={
+                              !openclawGatewayConfigQuery.data?.gatewayUrl ||
+                              Boolean(openclawResetLoading)
+                            }
+                            onClick={() => {
+                              void resetOpenclawDeviceState(false);
+                            }}
+                          >
+                            {openclawResetLoading === "token" ? "Resetting token…" : "Reset token"}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={
+                              !openclawGatewayConfigQuery.data?.gatewayUrl ||
+                              Boolean(openclawResetLoading)
+                            }
+                            onClick={() => {
+                              void resetOpenclawDeviceState(true);
+                            }}
+                          >
+                            {openclawResetLoading === "identity"
+                              ? "Regenerating identity…"
+                              : "Regenerate identity"}
                           </Button>
                         </div>
 

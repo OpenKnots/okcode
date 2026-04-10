@@ -285,6 +285,7 @@ export function createWsNativeApi(): NativeApi {
       cloneRepository: (input) =>
         transport.request(WS_METHODS.gitCloneRepository, input, { timeoutMs: null }),
       pull: (input) => transport.request(WS_METHODS.gitPull, input),
+      stopAction: (input) => transport.request(WS_METHODS.gitStopAction, input),
       status: (input) => transport.request(WS_METHODS.gitStatus, input),
       runStackedAction: (input) =>
         transport.request(WS_METHODS.gitRunStackedAction, input, { timeoutMs: null }),

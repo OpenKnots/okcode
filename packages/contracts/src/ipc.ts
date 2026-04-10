@@ -22,6 +22,7 @@ import type {
   GitResolvePullRequestResult,
   GitRunStackedActionInput,
   GitRunStackedActionResult,
+  GitStopActionInput,
   GitWorktreeCleanupCandidate,
   GitStatusInput,
   GitStatusResult,
@@ -388,6 +389,7 @@ export interface NativeApi {
     ) => Promise<GitPreparePullRequestThreadResult>;
     // Stacked action API
     pull: (input: GitPullInput) => Promise<GitPullResult>;
+    stopAction: (input: GitStopActionInput) => Promise<void>;
     status: (input: GitStatusInput) => Promise<GitStatusResult>;
     runStackedAction: (input: GitRunStackedActionInput) => Promise<GitRunStackedActionResult>;
     onActionProgress: (callback: (event: GitActionProgressEvent) => void) => () => void;

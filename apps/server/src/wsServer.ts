@@ -38,6 +38,7 @@ import {
   Effect,
   Exit,
   FileSystem,
+  Fiber,
   Layer,
   Path,
   Ref,
@@ -331,6 +332,13 @@ class RouteRequestError extends Schema.TaggedErrorClass<RouteRequestError>()("Ro
   message: Schema.String,
 }) {}
 
+class GitActionStoppedError extends Schema.TaggedErrorClass<GitActionStoppedError>()(
+  "GitActionStoppedError",
+  {
+    message: Schema.String,
+  },
+) {}
+
 export const createServer = Effect.fn(function* (): Effect.fn.Return<
   http.Server,
   ServerLifecycleError,
@@ -374,6 +382,89 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
   const clients = yield* Ref.make(new Set<WebSocket>());
   const logger = createLogger("ws");
   const readiness = yield* makeServerReadiness;
+  type ActiveGitRequestKind = "pull" | "stacked_action";
+  type ActiveGitRequestHandle = {
+    readonly kind: ActiveGitRequestKind;
+    readonly cwd: string;
+    readonly actionId: string | null;
+    readonly fiber: Fiber.Fiber<unknown, unknown>;
+  };
+  const activeGitRequests = new WeakMap<WebSocket, Set<ActiveGitRequestHandle>>();
+
+  const registerActiveGitRequest = (ws: WebSocket, handle: ActiveGitRequestHandle) =>
+    Effect.sync(() => {
+      const handles = activeGitRequests.get(ws) ?? new Set<ActiveGitRequestHandle>();
+      handles.add(handle);
+      activeGitRequests.set(ws, handles);
+    });
+
+  const unregisterActiveGitRequest = (ws: WebSocket, handle: ActiveGitRequestHandle) =>
+    Effect.sync(() => {
+      const handles = activeGitRequests.get(ws);
+      if (!handles) {
+        return;
+      }
+      handles.delete(handle);
+      if (handles.size === 0) {
+        activeGitRequests.delete(ws);
+      }
+    });
+
+  const interruptActiveGitRequests = (ws: WebSocket) =>
+    Effect.gen(function* () {
+      const handles = Array.from(activeGitRequests.get(ws) ?? []);
+      activeGitRequests.delete(ws);
+      for (const handle of handles) {
+        yield* Fiber.interrupt(handle.fiber).pipe(Effect.ignore);
+      }
+    });
+
+  const stopActiveGitRequest = (
+    ws: WebSocket,
+    input: { cwd: string; actionId?: string | undefined },
+  ) =>
+    Effect.gen(function* () {
+      const handles = Array.from(activeGitRequests.get(ws) ?? []);
+      const handle =
+        input.actionId != null
+          ? handles.find(
+              (candidate) => candidate.cwd === input.cwd && candidate.actionId === input.actionId,
+            )
+          : handles.find((candidate) => candidate.cwd === input.cwd);
+
+      if (!handle) {
+        return;
+      }
+
+      yield* Fiber.interrupt(handle.fiber);
+    });
+
+  const runTrackedGitRequest = <A, E>(
+    ws: WebSocket,
+    meta: { kind: ActiveGitRequestKind; cwd: string; actionId?: string | undefined },
+    effect: Effect.Effect<A, E, never>,
+    interruptedMessage: string,
+  ): Effect.Effect<A, E | GitActionStoppedError> =>
+    Effect.gen(function* () {
+      const fiber = yield* Effect.forkScoped(effect);
+      const handle: ActiveGitRequestHandle = {
+        kind: meta.kind,
+        cwd: meta.cwd,
+        actionId: meta.actionId ?? null,
+        fiber,
+      };
+      yield* registerActiveGitRequest(ws, handle);
+      const exit = yield* Fiber.await(fiber).pipe(
+        Effect.ensuring(unregisterActiveGitRequest(ws, handle)),
+      );
+      if (Exit.isSuccess(exit)) {
+        return exit.value;
+      }
+      if (Cause.hasInterruptsOnly(exit.cause)) {
+        return yield* new GitActionStoppedError({ message: interruptedMessage });
+      }
+      return yield* Effect.failCause(exit.cause as Cause.Cause<E>);
+    }) as Effect.Effect<A, E | GitActionStoppedError, never>;
 
   function logOutgoingPush(push: WsPushEnvelopeBase, recipients: number) {
     if (!logWebSocketEvents) return;
@@ -1117,24 +1208,40 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
         const body = stripRequestTag(request.body);
         const snapshot = yield* projectionReadModelQuery.getSnapshot();
         const gitEnv = yield* resolveRuntimeEnvironment({ cwd: body.cwd, readModel: snapshot });
-        return yield* git
-          .syncCurrentBranch(body.cwd)
-          .pipe(Effect.provideService(RuntimeEnv, gitEnv));
+        return yield* runTrackedGitRequest(
+          ws,
+          { kind: "pull", cwd: body.cwd },
+          git.syncCurrentBranch(body.cwd).pipe(Effect.provideService(RuntimeEnv, gitEnv)),
+          "Git pull stopped.",
+        );
+      }
+
+      case WS_METHODS.gitStopAction: {
+        const body = stripRequestTag(request.body);
+        yield* stopActiveGitRequest(ws, body);
+        return {};
       }
 
       case WS_METHODS.gitRunStackedAction: {
         const body = stripRequestTag(request.body);
         const snapshot = yield* projectionReadModelQuery.getSnapshot();
         const gitEnv = yield* resolveRuntimeEnvironment({ cwd: body.cwd, readModel: snapshot });
-        return yield* gitManager
-          .runStackedAction(body, {
-            actionId: body.actionId,
-            progressReporter: {
-              publish: (event) =>
-                pushBus.publishClient(ws, WS_CHANNELS.gitActionProgress, event).pipe(Effect.asVoid),
-            },
-          })
-          .pipe(Effect.provideService(RuntimeEnv, gitEnv));
+        return yield* runTrackedGitRequest(
+          ws,
+          { kind: "stacked_action", cwd: body.cwd, actionId: body.actionId },
+          gitManager
+            .runStackedAction(body, {
+              actionId: body.actionId,
+              progressReporter: {
+                publish: (event) =>
+                  pushBus
+                    .publishClient(ws, WS_CHANNELS.gitActionProgress, event)
+                    .pipe(Effect.asVoid),
+              },
+            })
+            .pipe(Effect.provideService(RuntimeEnv, gitEnv)),
+          "Git action stopped.",
+        );
       }
 
       case WS_METHODS.gitResolvePullRequest: {
@@ -1702,6 +1809,17 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
       };
     }
 
+    if (
+      (request.body._tag === WS_METHODS.gitRunStackedAction ||
+        request.body._tag === WS_METHODS.gitPull) &&
+      Schema.is(GitActionStoppedError)(squashed)
+    ) {
+      return {
+        message: redactSensitiveText(squashed.message),
+        code: "git_action_stopped",
+      };
+    }
+
     if (squashed instanceof Error) {
       return { message: redactSensitiveText(squashed.message) };
     }
@@ -1798,19 +1916,25 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
 
     ws.on("close", () => {
       void runPromise(
-        Ref.update(clients, (clients) => {
-          clients.delete(ws);
-          return clients;
-        }),
+        Effect.all([
+          interruptActiveGitRequests(ws),
+          Ref.update(clients, (clients) => {
+            clients.delete(ws);
+            return clients;
+          }),
+        ]).pipe(Effect.asVoid),
       );
     });
 
     ws.on("error", () => {
       void runPromise(
-        Ref.update(clients, (clients) => {
-          clients.delete(ws);
-          return clients;
-        }),
+        Effect.all([
+          interruptActiveGitRequests(ws),
+          Ref.update(clients, (clients) => {
+            clients.delete(ws);
+            return clients;
+          }),
+        ]).pipe(Effect.asVoid),
       );
     });
   });

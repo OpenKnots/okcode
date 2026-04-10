@@ -27,6 +27,7 @@ import {
   GitPruneWorktreesInput,
   GitRemoveWorktreeInput,
   GitRunStackedActionInput,
+  GitStopActionInput,
   GitStatusInput,
 } from "./git";
 import {
@@ -123,6 +124,7 @@ export const WS_METHODS = {
 
   // Git methods
   gitPull: "git.pull",
+  gitStopAction: "git.stopAction",
   gitStatus: "git.status",
   gitRunStackedAction: "git.runStackedAction",
   gitListBranches: "git.listBranches",
@@ -263,6 +265,7 @@ const WebSocketRequestBody = Schema.Union([
 
   // Git methods
   tagRequestBody(WS_METHODS.gitPull, GitPullInput),
+  tagRequestBody(WS_METHODS.gitStopAction, GitStopActionInput),
   tagRequestBody(WS_METHODS.gitStatus, GitStatusInput),
   tagRequestBody(WS_METHODS.gitRunStackedAction, GitRunStackedActionInput),
   tagRequestBody(WS_METHODS.gitListBranches, GitListBranchesInput),

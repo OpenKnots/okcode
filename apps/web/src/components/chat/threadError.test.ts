@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { humanizeThreadError, isAuthenticationThreadError } from "./threadError";
+import {
+  buildThreadErrorDiagnosticsCopy,
+  humanizeThreadError,
+  isAuthenticationThreadError,
+} from "./threadError";
 
 describe("humanizeThreadError", () => {
   it("summarizes worktree creation failures into a user-facing message", () => {
@@ -51,5 +55,35 @@ describe("humanizeThreadError", () => {
 
   it("does not classify unrelated failures as authentication errors", () => {
     expect(isAuthenticationThreadError("Provider crashed while starting.")).toBe(false);
+  });
+
+  it("builds redacted diagnostics copy without optional tips by default", () => {
+    expect(
+      buildThreadErrorDiagnosticsCopy(
+        "Git command failed in GitCore.createWorktree: OPENAI_API_KEY=sk-proj-secret (/repo) - token=abc123",
+      ),
+    ).toBe(
+      [
+        "Message: Worktree thread could not start: token=[REDACTED]",
+        "",
+        "Technical details:",
+        "Git command failed in GitCore.createWorktree: OPENAI_API_KEY=[REDACTED] (/repo) - token=[REDACTED]",
+      ].join("\n"),
+    );
+  });
+
+  it("adds troubleshooting tips when requested", () => {
+    expect(
+      buildThreadErrorDiagnosticsCopy(
+        "Codex CLI is not authenticated. Run `codex login` and try again.",
+        { includeTips: true },
+      ),
+    ).toContain("Troubleshooting:");
+    expect(
+      buildThreadErrorDiagnosticsCopy(
+        "Codex CLI is not authenticated. Run `codex login` and try again.",
+        { includeTips: true },
+      ),
+    ).toContain("Run `codex login` and retry the turn.");
   });
 });

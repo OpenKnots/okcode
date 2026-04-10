@@ -697,6 +697,12 @@ function SettingsRouteView() {
     ...(settings.showAuthFailuresAsErrors !== defaults.showAuthFailuresAsErrors
       ? ["Auth failure errors"]
       : []),
+    ...(settings.showNotificationDetails !== defaults.showNotificationDetails
+      ? ["Notification details"]
+      : []),
+    ...(settings.includeDiagnosticsTipsInCopy !== defaults.includeDiagnosticsTipsInCopy
+      ? ["Diagnostics copy tips"]
+      : []),
     ...(settings.openLinksExternally !== defaults.openLinksExternally
       ? ["Open links externally"]
       : []),
@@ -1642,6 +1648,63 @@ function SettingsRouteView() {
                             })
                           }
                           aria-label="Show authentication failures as thread errors"
+                        />
+                      }
+                    />
+
+                    <SettingsRow
+                      title="Notification details"
+                      description="Open the chat notification bar expanded by default so the error text is visible without an extra click."
+                      resetAction={
+                        settings.showNotificationDetails !== defaults.showNotificationDetails ? (
+                          <SettingResetButton
+                            label="notification details"
+                            onClick={() =>
+                              updateSettings({
+                                showNotificationDetails: defaults.showNotificationDetails,
+                              })
+                            }
+                          />
+                        ) : null
+                      }
+                      control={
+                        <Switch
+                          checked={settings.showNotificationDetails}
+                          onCheckedChange={(checked) =>
+                            updateSettings({
+                              showNotificationDetails: Boolean(checked),
+                            })
+                          }
+                          aria-label="Show notification details by default"
+                        />
+                      }
+                    />
+
+                    <SettingsRow
+                      title="Diagnostics copy tips"
+                      description="Include short troubleshooting tips when copying notification diagnostics. Leave this off to keep copied text smaller."
+                      resetAction={
+                        settings.includeDiagnosticsTipsInCopy !==
+                        defaults.includeDiagnosticsTipsInCopy ? (
+                          <SettingResetButton
+                            label="diagnostics copy tips"
+                            onClick={() =>
+                              updateSettings({
+                                includeDiagnosticsTipsInCopy: defaults.includeDiagnosticsTipsInCopy,
+                              })
+                            }
+                          />
+                        ) : null
+                      }
+                      control={
+                        <Switch
+                          checked={settings.includeDiagnosticsTipsInCopy}
+                          onCheckedChange={(checked) =>
+                            updateSettings({
+                              includeDiagnosticsTipsInCopy: Boolean(checked),
+                            })
+                          }
+                          aria-label="Include diagnostics tips in copied text"
                         />
                       }
                     />

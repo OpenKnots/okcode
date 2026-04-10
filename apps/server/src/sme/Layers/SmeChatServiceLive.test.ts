@@ -1,5 +1,5 @@
 import { ProjectId, SmeConversationId, type EnvironmentVariableEntry } from "@okcode/contracts";
-import { Effect, Layer, Option } from "effect";
+import { Effect, Layer, Option, Stream } from "effect";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -21,6 +21,10 @@ import {
   type SmeMessageRepositoryShape,
   type SmeMessageRow,
 } from "../../persistence/Services/SmeMessages.ts";
+import {
+  ProviderService,
+  type ProviderServiceShape,
+} from "../../provider/Services/ProviderService.ts";
 import { SmeChatService } from "../Services/SmeChatService.ts";
 import { makeSmeChatServiceLive } from "./SmeChatServiceLive.ts";
 
@@ -154,6 +158,21 @@ function makeMessageRepository() {
   return { repository, rowsByConversation };
 }
 
+function makeProviderService(): ProviderServiceShape {
+  return {
+    startSession: () => Effect.die("unexpected provider startSession"),
+    sendTurn: () => Effect.die("unexpected provider sendTurn"),
+    interruptTurn: () => Effect.void,
+    respondToRequest: () => Effect.void,
+    respondToUserInput: () => Effect.void,
+    stopSession: () => Effect.void,
+    listSessions: () => Effect.succeed([]),
+    getCapabilities: () => Effect.die("unexpected provider getCapabilities"),
+    rollbackConversation: () => Effect.void,
+    streamEvents: Stream.empty,
+  };
+}
+
 describe("SmeChatServiceLive", () => {
   it("uses persisted Anthropic credentials for a successful send and stores the final reply", async () => {
     setAnthropicEnv({
@@ -168,6 +187,8 @@ describe("SmeChatServiceLive", () => {
       conversationId,
       projectId,
       title: "Architecture Q&A",
+      provider: "claudeAgent",
+      authMethod: "apiKey",
       model: "claude-sonnet-4-6",
       createdAt: "2026-01-01T00:00:00.000Z",
       updatedAt: "2026-01-01T00:00:00.000Z",
@@ -209,6 +230,7 @@ describe("SmeChatServiceLive", () => {
         Layer.succeed(SmeConversationRepository, makeConversationRepository([conversationRow])),
       ),
       Layer.provideMerge(Layer.succeed(SmeMessageRepository, messageRepo)),
+      Layer.provideMerge(Layer.succeed(ProviderService, makeProviderService())),
     );
 
     const events: Array<unknown> = [];
@@ -287,6 +309,8 @@ describe("SmeChatServiceLive", () => {
       conversationId,
       projectId,
       title: "Docs sync",
+      provider: "claudeAgent",
+      authMethod: "apiKey",
       model: "claude-sonnet-4-6",
       createdAt: "2026-01-01T00:00:00.000Z",
       updatedAt: "2026-01-01T00:00:00.000Z",
@@ -302,6 +326,7 @@ describe("SmeChatServiceLive", () => {
         Layer.succeed(SmeConversationRepository, makeConversationRepository([conversationRow])),
       ),
       Layer.provideMerge(Layer.succeed(SmeMessageRepository, messageRepo)),
+      Layer.provideMerge(Layer.succeed(ProviderService, makeProviderService())),
     );
 
     await expect(
@@ -314,11 +339,15 @@ describe("SmeChatServiceLive", () => {
           });
         }).pipe(Effect.provide(layer)),
       ),
-    ).rejects.toThrow(
-      "SmeChatError in sendMessage:auth: SME Chat requires ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN.",
-    );
+    ).rejects.toThrow("SmeChatError in sendMessage:validate: Anthropic API key is missing.");
 
     expect(createClient).not.toHaveBeenCalled();
-    expect(rowsByConversation.get(conversationId) ?? []).toEqual([]);
+    expect(rowsByConversation.get(conversationId)).toEqual([
+      expect.objectContaining({
+        role: "user",
+        text: "Can you summarize the docs?",
+        isStreaming: false,
+      }),
+    ]);
   });
 });

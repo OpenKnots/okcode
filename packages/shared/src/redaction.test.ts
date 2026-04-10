@@ -4,8 +4,9 @@ import { redactSensitiveText, redactSensitiveValue } from "./redaction";
 
 describe("redactSensitiveText", () => {
   it("redacts OpenAI-style secret keys", () => {
-    expect(redactSensitiveText("OpenAI failed with sk-proj-abc123_secret-token"))
-      .toBe("OpenAI failed with [REDACTED]");
+    expect(redactSensitiveText("OpenAI failed with sk-proj-abc123_secret-token")).toBe(
+      "OpenAI failed with [REDACTED]",
+    );
   });
 
   it("redacts environment variable assignments", () => {
@@ -13,9 +14,7 @@ describe("redactSensitiveText", () => {
       redactSensitiveText(
         "Command failed with OPENAI_API_KEY=sk-proj-abc123 SECRET_TOKEN=hunter2 PATH=/tmp/bin",
       ),
-    ).toBe(
-      "Command failed with OPENAI_API_KEY=[REDACTED] SECRET_TOKEN=[REDACTED] PATH=[REDACTED]",
-    );
+    ).toBe("Command failed with OPENAI_API_KEY=[REDACTED] SECRET_TOKEN=[REDACTED] PATH=[REDACTED]");
   });
 
   it("redacts sensitive JSON-like fields and query params", () => {

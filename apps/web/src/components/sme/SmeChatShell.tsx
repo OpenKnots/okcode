@@ -30,6 +30,7 @@ export function SmeChatShell({
   const appendStreamDelta = useSmeStore((s) => s.appendStreamDelta);
   const completeStream = useSmeStore((s) => s.completeStream);
   const clearStream = useSmeStore((s) => s.clearStream);
+  const setConversationError = useSmeStore((s) => s.setConversationError);
 
   // Load conversations and documents when project changes
   useEffect(() => {
@@ -66,10 +67,14 @@ export function SmeChatShell({
         appendStreamDelta(event.conversationId, event.messageId, event.text);
       } else if (event.type === "sme.message.complete") {
         completeStream(event.conversationId, event.messageId, event.text);
+        setConversationError(event.conversationId, undefined);
+      } else if (event.type === "sme.message.error") {
+        clearStream();
+        setConversationError(event.conversationId, event.error);
       }
     });
     return unsubscribe;
-  }, [appendStreamDelta, completeStream]);
+  }, [appendStreamDelta, clearStream, completeStream, setConversationError]);
 
   return (
     <div className="flex min-h-0 flex-1 overflow-hidden">

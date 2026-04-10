@@ -28,16 +28,18 @@ const makeSmeConversationRepository = Effect.gen(function* () {
     execute: (row) =>
       sql`
         INSERT INTO sme_conversations (
-          conversation_id, project_id, title, model,
+          conversation_id, project_id, title, provider, auth_method, model,
           created_at, updated_at, deleted_at
         )
         VALUES (
-          ${row.conversationId}, ${row.projectId}, ${row.title}, ${row.model},
+          ${row.conversationId}, ${row.projectId}, ${row.title}, ${row.provider}, ${row.authMethod}, ${row.model},
           ${row.createdAt}, ${row.updatedAt}, ${row.deletedAt}
         )
         ON CONFLICT (conversation_id)
         DO UPDATE SET
           title = excluded.title,
+          provider = excluded.provider,
+          auth_method = excluded.auth_method,
           model = excluded.model,
           updated_at = excluded.updated_at,
           deleted_at = excluded.deleted_at
@@ -53,6 +55,8 @@ const makeSmeConversationRepository = Effect.gen(function* () {
           conversation_id AS "conversationId",
           project_id AS "projectId",
           title,
+          provider,
+          auth_method AS "authMethod",
           model,
           created_at AS "createdAt",
           updated_at AS "updatedAt",
@@ -71,6 +75,8 @@ const makeSmeConversationRepository = Effect.gen(function* () {
           conversation_id AS "conversationId",
           project_id AS "projectId",
           title,
+          provider,
+          auth_method AS "authMethod",
           model,
           created_at AS "createdAt",
           updated_at AS "updatedAt",

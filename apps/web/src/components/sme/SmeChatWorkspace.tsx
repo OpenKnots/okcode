@@ -1,11 +1,27 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { BookOpenIcon, ArrowUpIcon, SparklesIcon } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import {
+  ArrowUpIcon,
+  BookOpenIcon,
+  Settings2Icon,
+  SparklesIcon,
+  RefreshCcwIcon,
+} from "lucide-react";
 import type { SmeConversationId, SmeMessage, SmeMessageId } from "@okcode/contracts";
+import { useNavigate } from "@tanstack/react-router";
+
+import { getProviderStartOptions, useAppSettings } from "~/appSettings";
+import { ProviderHealthBanner } from "~/components/chat/ProviderHealthBanner";
+import { Button } from "~/components/ui/button";
 import { ensureNativeApi } from "~/nativeApi";
 import { useSmeStore } from "~/smeStore";
+import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
+import { serverConfigQueryOptions } from "~/lib/serverReactQuery";
 import { toastManager } from "~/components/ui/toast";
 
+import { SmeConversationDialog } from "./SmeConversationDialog";
 import { SmeMessageBubble } from "./SmeMessageBubble";
+import { SME_PROVIDER_LABELS } from "./smeConversationConfig";
 
 const EMPTY_MESSAGES: SmeMessage[] = [];
 
@@ -20,26 +36,73 @@ export function SmeChatWorkspace({
   onToggleKnowledge,
   knowledgePanelOpen,
 }: SmeChatWorkspaceProps) {
-  const messages = useSmeStore((s) =>
-    conversationId ? (s.messagesByConversation[conversationId] ?? EMPTY_MESSAGES) : EMPTY_MESSAGES,
+  const navigate = useNavigate();
+  const { settings } = useAppSettings();
+  const providerOptions = useMemo(() => getProviderStartOptions(settings), [settings]);
+  const conversations = useSmeStore((state) => state.conversations);
+  const conversation = useMemo(
+    () => conversations.find((item) => item.conversationId === conversationId) ?? null,
+    [conversationId, conversations],
   );
-  const streamingConversationId = useSmeStore((s) => s.streamingConversationId);
-  const streamingMessageId = useSmeStore((s) => s.streamingMessageId);
-  const streamingText = useSmeStore((s) => s.streamingText);
-  const addUserMessage = useSmeStore((s) => s.addUserMessage);
-  const clearStream = useSmeStore((s) => s.clearStream);
-  const setMessages = useSmeStore((s) => s.setMessages);
+  const messages = useSmeStore((state) =>
+    conversationId
+      ? (state.messagesByConversation[conversationId] ?? EMPTY_MESSAGES)
+      : EMPTY_MESSAGES,
+  );
+  const conversationError = useSmeStore((state) =>
+    conversationId ? state.errorsByConversation[conversationId] : undefined,
+  );
+  const streamingConversationId = useSmeStore((state) => state.streamingConversationId);
+  const streamingMessageId = useSmeStore((state) => state.streamingMessageId);
+  const streamingText = useSmeStore((state) => state.streamingText);
+  const addUserMessage = useSmeStore((state) => state.addUserMessage);
+  const clearStream = useSmeStore((state) => state.clearStream);
+  const setMessages = useSmeStore((state) => state.setMessages);
+  const setConversationError = useSmeStore((state) => state.setConversationError);
   const [inputText, setInputText] = useState("");
   const [sending, setSending] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const serverConfigQuery = useQuery(serverConfigQueryOptions());
+  const validationQuery = useQuery({
+    queryKey: [
+      "sme",
+      "validateSetup",
+      conversation?.conversationId ?? null,
+      conversation?.provider ?? null,
+      conversation?.authMethod ?? null,
+      conversation?.model ?? null,
+      providerOptions ?? null,
+    ],
+    enabled: conversation !== null,
+    queryFn: async () => {
+      const api = ensureNativeApi();
+      return api.sme.validateSetup({
+        conversationId: conversation!.conversationId,
+        providerOptions,
+      });
+    },
+  });
 
-  // Auto-scroll to bottom when messages change
+  const providerStatus = useMemo(
+    () =>
+      conversation
+        ? (serverConfigQuery.data?.providers.find(
+            (status) => status.provider === conversation.provider,
+          ) ?? null)
+        : null,
+    [conversation, serverConfigQuery.data?.providers],
+  );
+  const sendDisabled =
+    sending ||
+    validationQuery.isLoading ||
+    (validationQuery.data ? !validationQuery.data.ok : false);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streamingText]);
 
-  // Auto-resize textarea
   useEffect(() => {
     const textarea = textareaRef.current;
     if (!textarea) return;
@@ -48,14 +111,16 @@ export function SmeChatWorkspace({
   }, [inputText]);
 
   const handleSend = useCallback(async () => {
-    if (!conversationId || !inputText.trim() || sending) return;
+    if (!conversationId || !conversation || !inputText.trim() || sendDisabled) {
+      return;
+    }
 
     const text = inputText.trim();
     setInputText("");
     setSending(true);
+    setConversationError(conversationId, undefined);
     const previousMessages = messages;
 
-    // Optimistically add user message
     addUserMessage(conversationId, {
       messageId: `temp-${Date.now()}` as SmeMessageId,
       conversationId: conversationId as SmeConversationId,
@@ -68,12 +133,16 @@ export function SmeChatWorkspace({
 
     try {
       const api = ensureNativeApi();
-      await api.sme.sendMessage({ conversationId: conversationId as SmeConversationId, text });
+      await api.sme.sendMessage({
+        conversationId: conversationId as SmeConversationId,
+        text,
+        providerOptions,
+      });
       const result = await api.sme.getConversation({
         conversationId: conversationId as SmeConversationId,
       });
       if (result) {
-        setMessages(conversationId, result.messages as any[]);
+        setMessages(conversationId, result.messages as SmeMessage[]);
       }
     } catch (error) {
       clearStream();
@@ -84,7 +153,7 @@ export function SmeChatWorkspace({
           conversationId: conversationId as SmeConversationId,
         });
         if (result) {
-          setMessages(conversationId, result.messages as any[]);
+          setMessages(conversationId, result.messages as SmeMessage[]);
         } else {
           setMessages(conversationId, previousMessages);
         }
@@ -92,27 +161,40 @@ export function SmeChatWorkspace({
         setMessages(conversationId, previousMessages);
       }
 
+      const description = error instanceof Error ? error.message : "Unknown SME Chat error.";
+      setConversationError(conversationId, description);
       toastManager.add({
         type: "error",
         title: "SME Chat send failed",
-        description: error instanceof Error ? error.message : "Unknown SME Chat error.",
+        description,
       });
     } finally {
       setSending(false);
     }
-  }, [conversationId, inputText, sending, messages, addUserMessage, clearStream, setMessages]);
+  }, [
+    addUserMessage,
+    clearStream,
+    conversation,
+    conversationId,
+    inputText,
+    messages,
+    providerOptions,
+    sendDisabled,
+    setConversationError,
+    setMessages,
+  ]);
 
   const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
+    (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
         void handleSend();
       }
     },
     [handleSend],
   );
 
-  if (!conversationId) {
+  if (!conversationId || !conversation) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4">
         <div className="flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5">
@@ -131,27 +213,90 @@ export function SmeChatWorkspace({
 
   return (
     <div className="flex h-full flex-col bg-background">
-      {/* Minimal Header */}
-      <div className="flex items-center justify-end px-4 py-2">
-        <button
-          type="button"
-          onClick={onToggleKnowledge}
-          className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-            knowledgePanelOpen
-              ? "bg-primary/10 text-primary"
-              : "text-muted-foreground hover:bg-muted hover:text-foreground"
-          }`}
-        >
-          <BookOpenIcon className="size-3.5" />
-          <span>Knowledge Base</span>
-        </button>
+      <div className="flex items-center justify-between gap-3 px-4 py-3">
+        <div className="min-w-0">
+          <h2 className="truncate text-sm font-semibold text-foreground">{conversation.title}</h2>
+          <p className="truncate text-xs text-muted-foreground">
+            {SME_PROVIDER_LABELS[conversation.provider]} · {conversation.authMethod} ·{" "}
+            {conversation.model}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => setDialogOpen(true)}
+          >
+            <Settings2Icon className="size-3.5" />
+            Settings
+          </Button>
+          <button
+            type="button"
+            onClick={onToggleKnowledge}
+            className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+              knowledgePanelOpen
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
+          >
+            <BookOpenIcon className="size-3.5" />
+            <span>Knowledge Base</span>
+          </button>
+        </div>
       </div>
 
-      {/* Messages */}
+      <div className="px-4">
+        <ProviderHealthBanner status={providerStatus} />
+        {validationQuery.data ? (
+          <div className="mx-auto max-w-3xl pt-3">
+            <Alert variant={validationQuery.data.ok ? "default" : "error"}>
+              <AlertTitle>
+                {validationQuery.data.ok ? "Provider ready" : "Provider setup required"}
+              </AlertTitle>
+              <AlertDescription className="flex items-center justify-between gap-3">
+                <span>{validationQuery.data.message}</span>
+                <span className="flex shrink-0 items-center gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5"
+                    onClick={() => void validationQuery.refetch()}
+                  >
+                    <RefreshCcwIcon className="size-3.5" />
+                    Test
+                  </Button>
+                  {!validationQuery.data.ok ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void navigate({ to: "/settings" })}
+                    >
+                      Settings
+                    </Button>
+                  ) : null}
+                </span>
+              </AlertDescription>
+            </Alert>
+          </div>
+        ) : null}
+        {conversationError ? (
+          <div className="mx-auto max-w-3xl pt-3">
+            <Alert variant="error">
+              <AlertTitle>Latest send failed</AlertTitle>
+              <AlertDescription>{conversationError}</AlertDescription>
+            </Alert>
+          </div>
+        ) : null}
+      </div>
+
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-3xl">
-          {messages.map((msg) => (
-            <SmeMessageBubble key={msg.messageId} message={msg} />
+          {messages.map((message) => (
+            <SmeMessageBubble key={message.messageId} message={message} />
           ))}
           {streamingConversationId === conversationId && streamingText ? (
             <SmeMessageBubble
@@ -190,14 +335,13 @@ export function SmeChatWorkspace({
         </div>
       </div>
 
-      {/* Modern Composer */}
       <div className="px-4 pb-4 pt-2">
         <div className="mx-auto max-w-3xl">
           <div className="relative flex items-end rounded-2xl border border-border bg-muted/30 shadow-sm transition-colors focus-within:border-ring focus-within:bg-muted/50">
             <textarea
               ref={textareaRef}
               value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
+              onChange={(event) => setInputText(event.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Message your SME..."
               rows={1}
@@ -207,7 +351,7 @@ export function SmeChatWorkspace({
               <button
                 type="button"
                 onClick={() => void handleSend()}
-                disabled={!inputText.trim() || sending}
+                disabled={!inputText.trim() || sendDisabled}
                 className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground transition-all hover:bg-primary/90 disabled:bg-muted-foreground/20 disabled:text-muted-foreground/40"
               >
                 <ArrowUpIcon className="size-4" />
@@ -219,6 +363,13 @@ export function SmeChatWorkspace({
           </p>
         </div>
       </div>
+
+      <SmeConversationDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        projectId={conversation.projectId}
+        conversation={conversation}
+      />
     </div>
   );
 }

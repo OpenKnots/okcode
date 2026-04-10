@@ -12,10 +12,7 @@ export function SmeMessageBubble({ message }: SmeMessageBubbleProps) {
 
   return (
     <div
-      className={cn(
-        "group flex w-full gap-4 px-4 py-5",
-        isUser ? "flex-row-reverse" : "flex-row",
-      )}
+      className={cn("group flex w-full gap-4 px-4 py-5", isUser ? "flex-row-reverse" : "flex-row")}
     >
       {/* Avatar */}
       <div
@@ -37,9 +34,7 @@ export function SmeMessageBubble({ message }: SmeMessageBubbleProps) {
         <div
           className={cn(
             "rounded-2xl px-4 py-3 text-sm leading-relaxed",
-            isUser
-              ? "bg-primary text-primary-foreground"
-              : "bg-muted/60 text-foreground",
+            isUser ? "bg-primary text-primary-foreground" : "bg-muted/60 text-foreground",
           )}
         >
           <div className="whitespace-pre-wrap break-words">{message.text}</div>

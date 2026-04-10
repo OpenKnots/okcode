@@ -33,6 +33,11 @@ See [docs/releases/v0.22.1.md](docs/releases/v0.22.1.md) for full notes and [doc
 - Ignore expected redacted auth shutdown noise in Codex logs.
 - Normalize React language ids for syntax highlighting.
 - Defer the empty diff guard until after hook setup.
+- Restore orchestration snapshot and thread-detail compatibility across shared contracts and WebSocket wiring.
+- Backfill the pending user input projection table for already-upgraded state directories.
+- Improve OpenClaw gateway handshake diagnostics and connection-stage reporting.
+- Isolate CLI test state directories to avoid SQLite lock contention during release validation.
+- Tune long user-message timeline height estimation so browser layout stays aligned with validated rendering.
 
 ## [0.22.0] - 2026-04-09
 

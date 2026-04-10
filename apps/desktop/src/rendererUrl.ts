@@ -1,4 +1,5 @@
 export interface DesktopRendererUrlInput {
+  readonly baseUrl?: string | undefined;
   readonly isDevelopment: boolean;
   readonly devServerUrl?: string | undefined;
   readonly scheme: string;
@@ -22,6 +23,10 @@ function applyQuery(url: URL, query: DesktopRendererUrlInput["query"]): URL {
 }
 
 export function resolveDesktopRendererUrl(input: DesktopRendererUrlInput): string {
+  if (input.baseUrl) {
+    return applyQuery(new URL(input.baseUrl), input.query).toString();
+  }
+
   if (input.isDevelopment) {
     const devServerUrl = input.devServerUrl;
     if (!devServerUrl) {

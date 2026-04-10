@@ -46,6 +46,16 @@ import {
   PrSubmitReviewInput,
 } from "./prReview";
 import {
+  DECISION_WS_CHANNELS,
+  DECISION_WS_METHODS,
+  DecisionExecuteRecommendationInput,
+  DecisionGetWorkspaceInput,
+  DecisionListCasesInput,
+  DecisionRequestConsultationInput,
+  DecisionRespondConsultationInput,
+  DecisionUpdatedPayload,
+} from "./decision";
+import {
   TerminalClearInput,
   TerminalCloseInput,
   TerminalEvent,
@@ -163,6 +173,14 @@ export const WS_METHODS = {
   prReviewRunWorkflowStep: "prReview.runWorkflowStep",
   prReviewSubmitReview: "prReview.submitReview",
 
+  // Decision workspace methods
+  decisionListCases: DECISION_WS_METHODS.listCases,
+  decisionGetWorkspace: DECISION_WS_METHODS.getWorkspace,
+  decisionReanalyze: DECISION_WS_METHODS.reanalyze,
+  decisionRequestConsultation: DECISION_WS_METHODS.requestConsultation,
+  decisionRespondConsultation: DECISION_WS_METHODS.respondConsultation,
+  decisionExecuteRecommendation: DECISION_WS_METHODS.executeRecommendation,
+
   // Terminal methods
   terminalOpen: "terminal.open",
   terminalWrite: "terminal.write",
@@ -230,6 +248,7 @@ export const WS_CHANNELS = {
   gitActionProgress: "git.actionProgress",
   prReviewSyncUpdated: "prReview.syncUpdated",
   prReviewRepoConfigUpdated: "prReview.repoConfigUpdated",
+  decisionUpdated: DECISION_WS_CHANNELS.updated,
   terminalEvent: "terminal.event",
   serverWelcome: "server.welcome",
   serverConfigUpdated: "server.configUpdated",
@@ -312,6 +331,14 @@ const WebSocketRequestBody = Schema.Union([
   tagRequestBody(WS_METHODS.prReviewApplyConflictResolution, PrReviewApplyConflictResolutionInput),
   tagRequestBody(WS_METHODS.prReviewRunWorkflowStep, PrReviewRunWorkflowStepInput),
   tagRequestBody(WS_METHODS.prReviewSubmitReview, PrSubmitReviewInput),
+
+  // Decision workspace methods
+  tagRequestBody(WS_METHODS.decisionListCases, DecisionListCasesInput),
+  tagRequestBody(WS_METHODS.decisionGetWorkspace, DecisionGetWorkspaceInput),
+  tagRequestBody(WS_METHODS.decisionReanalyze, DecisionGetWorkspaceInput),
+  tagRequestBody(WS_METHODS.decisionRequestConsultation, DecisionRequestConsultationInput),
+  tagRequestBody(WS_METHODS.decisionRespondConsultation, DecisionRespondConsultationInput),
+  tagRequestBody(WS_METHODS.decisionExecuteRecommendation, DecisionExecuteRecommendationInput),
 
   // Terminal methods
   tagRequestBody(WS_METHODS.terminalOpen, TerminalOpenInput),
@@ -420,6 +447,7 @@ export interface WsPushPayloadByChannel {
   readonly [WS_CHANNELS.gitActionProgress]: typeof GitActionProgressEvent.Type;
   readonly [WS_CHANNELS.prReviewSyncUpdated]: typeof PrReviewSyncUpdatedPayload.Type;
   readonly [WS_CHANNELS.prReviewRepoConfigUpdated]: typeof PrReviewRepoConfigUpdatedPayload.Type;
+  readonly [WS_CHANNELS.decisionUpdated]: typeof DecisionUpdatedPayload.Type;
   readonly [WS_CHANNELS.terminalEvent]: typeof TerminalEvent.Type;
   readonly [WS_CHANNELS.projectFileTreeChanged]: typeof ProjectFileTreeChangedPayload.Type;
   readonly [ORCHESTRATION_WS_CHANNELS.domainEvent]: OrchestrationEvent;
@@ -457,6 +485,10 @@ export const WsPushPrReviewRepoConfigUpdated = makeWsPushSchema(
   WS_CHANNELS.prReviewRepoConfigUpdated,
   PrReviewRepoConfigUpdatedPayload,
 );
+export const WsPushDecisionUpdated = makeWsPushSchema(
+  WS_CHANNELS.decisionUpdated,
+  DecisionUpdatedPayload,
+);
 export const WsPushTerminalEvent = makeWsPushSchema(WS_CHANNELS.terminalEvent, TerminalEvent);
 export const WsPushProjectFileTreeChanged = makeWsPushSchema(
   WS_CHANNELS.projectFileTreeChanged,
@@ -475,6 +507,7 @@ export const WsPushChannelSchema = Schema.Literals([
   WS_CHANNELS.gitActionProgress,
   WS_CHANNELS.prReviewSyncUpdated,
   WS_CHANNELS.prReviewRepoConfigUpdated,
+  WS_CHANNELS.decisionUpdated,
   WS_CHANNELS.serverWelcome,
   WS_CHANNELS.serverConfigUpdated,
   WS_CHANNELS.terminalEvent,
@@ -490,6 +523,7 @@ export const WsPush = Schema.Union([
   WsPushGitActionProgress,
   WsPushPrReviewSyncUpdated,
   WsPushPrReviewRepoConfigUpdated,
+  WsPushDecisionUpdated,
   WsPushTerminalEvent,
   WsPushProjectFileTreeChanged,
   WsPushOrchestrationDomainEvent,

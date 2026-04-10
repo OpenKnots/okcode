@@ -124,6 +124,17 @@ import type {
   OrchestrationThread,
 } from "./orchestration";
 import type {
+  DecisionCaseSummary,
+  DecisionExecuteRecommendationInput,
+  DecisionExecutionResult,
+  DecisionGetWorkspaceInput,
+  DecisionListCasesInput,
+  DecisionRequestConsultationInput,
+  DecisionRespondConsultationInput,
+  DecisionUpdatedPayload,
+  DecisionWorkspace,
+} from "./decision";
+import type {
   SmeConversation,
   SmeCreateConversationInput,
   SmeDeleteConversationInput,
@@ -421,6 +432,17 @@ export interface NativeApi {
     onRepoConfigUpdated: (
       callback: (payload: PrReviewRepoConfigUpdatedPayload) => void,
     ) => () => void;
+  };
+  decision: {
+    listCases: (input: DecisionListCasesInput) => Promise<ReadonlyArray<DecisionCaseSummary>>;
+    getWorkspace: (input: DecisionGetWorkspaceInput) => Promise<DecisionWorkspace>;
+    reanalyze: (input: DecisionGetWorkspaceInput) => Promise<DecisionWorkspace>;
+    requestConsultation: (input: DecisionRequestConsultationInput) => Promise<DecisionWorkspace>;
+    respondConsultation: (input: DecisionRespondConsultationInput) => Promise<DecisionWorkspace>;
+    executeRecommendation: (
+      input: DecisionExecuteRecommendationInput,
+    ) => Promise<DecisionExecutionResult>;
+    onUpdated: (callback: (payload: DecisionUpdatedPayload) => void) => () => void;
   };
   skills: {
     list: (input?: SkillListInput) => Promise<SkillListResult>;

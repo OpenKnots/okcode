@@ -4859,6 +4859,8 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
       <ErrorNotificationBar
         threadError={activeThread.error}
         showAuthFailuresAsErrors={settings.showAuthFailuresAsErrors}
+        showNotificationDetails={settings.showNotificationDetails}
+        includeDiagnosticsTipsInCopy={settings.includeDiagnosticsTipsInCopy}
         onDismissThreadError={() => setThreadError(activeThread.id, null)}
         providerStatus={activeProviderStatus}
         transportState={transportState}

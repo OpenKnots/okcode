@@ -80,6 +80,8 @@ export const AppSettingsSchema = Schema.Struct({
   rebaseBeforeCommit: Schema.Boolean.pipe(withDefaults(() => false)),
   enableAssistantStreaming: Schema.Boolean.pipe(withDefaults(() => false)),
   showAuthFailuresAsErrors: Schema.Boolean.pipe(withDefaults(() => true)),
+  showNotificationDetails: Schema.Boolean.pipe(withDefaults(() => false)),
+  includeDiagnosticsTipsInCopy: Schema.Boolean.pipe(withDefaults(() => false)),
   locale: AppLocale.pipe(withDefaults(() => DEFAULT_APP_LOCALE)),
   openLinksExternally: Schema.Boolean.pipe(withDefaults(() => false)),
   sidebarProjectSortOrder: SidebarProjectSortOrder.pipe(

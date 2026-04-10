@@ -55,6 +55,13 @@ The iOS build is uploaded directly to App Store Connect / TestFlight by the coor
 | Marketing version | `0.22.0`                      |
 | Build number      | Set from `GITHUB_RUN_NUMBER`  |
 
+## Rollout documentation
+
+| Document                                     | Purpose                                                           |
+| -------------------------------------------- | ----------------------------------------------------------------- |
+| [rollout-checklist.md](rollout-checklist.md) | Step-by-step release playbook from preflight through post-release |
+| [soak-test-plan.md](soak-test-plan.md)       | Structured release validation for the highest-risk surfaces       |
+
 ## Checksums
 
 SHA-256 checksums are not committed in-repo. Verify downloads through the GitHub release UI or with `gh release download` followed by local checksum generation if needed.

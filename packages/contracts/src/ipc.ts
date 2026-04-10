@@ -116,10 +116,12 @@ import type {
   ClientOrchestrationCommand,
   OrchestrationGetFullThreadDiffInput,
   OrchestrationGetFullThreadDiffResult,
+  OrchestrationGetThreadDetailInput,
   OrchestrationGetTurnDiffInput,
   OrchestrationGetTurnDiffResult,
   OrchestrationEvent,
-  OrchestrationReadModel,
+  OrchestrationOverviewSnapshot,
+  OrchestrationThread,
 } from "./orchestration";
 import type {
   SmeConversation,
@@ -455,7 +457,8 @@ export interface NativeApi {
     testOpenclawGateway: (input: TestOpenclawGatewayInput) => Promise<TestOpenclawGatewayResult>;
   };
   orchestration: {
-    getSnapshot: () => Promise<OrchestrationReadModel>;
+    getSnapshot: () => Promise<OrchestrationOverviewSnapshot>;
+    getThreadDetail: (input: OrchestrationGetThreadDetailInput) => Promise<OrchestrationThread | null>;
     dispatchCommand: (command: ClientOrchestrationCommand) => Promise<{ sequence: number }>;
     getTurnDiff: (input: OrchestrationGetTurnDiffInput) => Promise<OrchestrationGetTurnDiffResult>;
     getFullThreadDiff: (

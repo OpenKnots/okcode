@@ -14,6 +14,8 @@ import { OrchestrationReactorLive } from "./orchestration/Layers/OrchestrationRe
 import { ProviderCommandReactorLive } from "./orchestration/Layers/ProviderCommandReactor";
 import { OrchestrationProjectionPipelineLive } from "./orchestration/Layers/ProjectionPipeline";
 import { OrchestrationProjectionSnapshotQueryLive } from "./orchestration/Layers/ProjectionSnapshotQuery";
+import { OrchestrationProjectionOverviewQueryLive } from "./orchestration/Layers/ProjectionOverviewQuery";
+import { OrchestrationProjectionThreadDetailQueryLive } from "./orchestration/Layers/ProjectionThreadDetailQuery";
 import { ProviderRuntimeIngestionLive } from "./orchestration/Layers/ProviderRuntimeIngestion";
 import { RuntimeReceiptBusLive } from "./orchestration/Layers/RuntimeReceiptBus";
 import { ProviderUnsupportedError } from "./provider/Errors";
@@ -85,12 +87,16 @@ export function makeServerProviderLayer(): Layer.Layer<
     ).pipe(
       Layer.provideMerge(EnvironmentVariablesLive),
       Layer.provideMerge(OrchestrationProjectionSnapshotQueryLive),
+      Layer.provideMerge(OrchestrationProjectionOverviewQueryLive),
+      Layer.provideMerge(OrchestrationProjectionThreadDetailQueryLive),
     );
     const claudeAdapterLayer = makeClaudeAdapterLive(
       nativeEventLogger ? { nativeEventLogger } : undefined,
     ).pipe(
       Layer.provideMerge(EnvironmentVariablesLive),
       Layer.provideMerge(OrchestrationProjectionSnapshotQueryLive),
+      Layer.provideMerge(OrchestrationProjectionOverviewQueryLive),
+      Layer.provideMerge(OrchestrationProjectionThreadDetailQueryLive),
     );
     const openclawAdapterLayer = makeOpenClawAdapterLive(
       nativeEventLogger ? { nativeEventLogger } : undefined,
@@ -125,6 +131,8 @@ export function makeServerRuntimeServicesLayer() {
   const runtimeServicesLayer = Layer.empty.pipe(
     Layer.provideMerge(EnvironmentVariablesLive),
     Layer.provideMerge(OrchestrationProjectionSnapshotQueryLive),
+    Layer.provideMerge(OrchestrationProjectionOverviewQueryLive),
+    Layer.provideMerge(OrchestrationProjectionThreadDetailQueryLive),
     Layer.provideMerge(orchestrationLayer),
     Layer.provideMerge(checkpointStoreLayer),
     Layer.provideMerge(checkpointDiffQueryLayer),

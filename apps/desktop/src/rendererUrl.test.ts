@@ -24,6 +24,19 @@ describe("resolveDesktopRendererUrl", () => {
     ).toBe("okcode://app/index.html?popout=true");
   });
 
+  it("preserves the current packaged renderer hash route when a base URL is provided", () => {
+    expect(
+      resolveDesktopRendererUrl({
+        baseUrl: "okcode://app/index.html#/thread-123",
+        isDevelopment: false,
+        scheme: "okcode",
+        query: {
+          popout: true,
+        },
+      }),
+    ).toBe("okcode://app/index.html?popout=true#/thread-123");
+  });
+
   it("adds query parameters to the dev server URL", () => {
     expect(
       resolveDesktopRendererUrl({
@@ -48,6 +61,20 @@ describe("resolveDesktopRendererUrl", () => {
         },
       }),
     ).toBe("http://127.0.0.1:5173/?client=desktop&popout=true");
+  });
+
+  it("preserves the current dev renderer hash route when a base URL is provided", () => {
+    expect(
+      resolveDesktopRendererUrl({
+        baseUrl: "http://127.0.0.1:5173/?client=desktop#/thread-123",
+        isDevelopment: true,
+        devServerUrl: "http://127.0.0.1:5173/",
+        scheme: "okcode",
+        query: {
+          popout: true,
+        },
+      }),
+    ).toBe("http://127.0.0.1:5173/?client=desktop&popout=true#/thread-123");
   });
 
   it("requires a dev server URL in development mode", () => {

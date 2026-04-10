@@ -119,6 +119,7 @@ let backendLogSink: RotatingFileSink | null = null;
 let restoreStdIoCapture: (() => void) | null = null;
 const previewControllers = new WeakMap<BrowserWindow, DesktopPreviewController>();
 const popOutWindows = new Map<BrowserWindow, BrowserWindow>();
+const popOutParents = new WeakMap<BrowserWindow, BrowserWindow>();
 
 let destructiveMenuIconCache: Electron.NativeImage | null | undefined;
 const desktopRuntimeInfo = resolveDesktopRuntimeInfo({
@@ -787,6 +788,10 @@ function resolvePreviewWindow(sender: Electron.WebContents): BrowserWindow | nul
   );
 }
 
+function resolvePreviewParentWindow(window: BrowserWindow): BrowserWindow {
+  return popOutParents.get(window) ?? window;
+}
+
 function setUpdateState(patch: Partial<DesktopUpdateState>): void {
   updateState = { ...updateState, ...patch };
   emitUpdateState();
@@ -1409,8 +1414,9 @@ function registerIpcHandlers(): void {
 
   ipcMain.removeHandler(PREVIEW_POP_OUT_CHANNEL);
   ipcMain.handle(PREVIEW_POP_OUT_CHANNEL, async (event) => {
-    const parentWindow = resolvePreviewWindow(event.sender);
-    if (!parentWindow) return;
+    const sourceWindow = resolvePreviewWindow(event.sender);
+    if (!sourceWindow) return;
+    const parentWindow = resolvePreviewParentWindow(sourceWindow);
 
     // If there is already a pop-out window for this parent, focus it.
     const existing = popOutWindows.get(parentWindow);
@@ -1445,6 +1451,7 @@ function registerIpcHandlers(): void {
     });
     previewControllers.set(popOut, popOutController);
     popOutWindows.set(parentWindow, popOut);
+    popOutParents.set(popOut, parentWindow);
 
     // Transfer tabs from parent to pop-out.
     parentController.transferTo(popOutController);
@@ -1497,13 +1504,15 @@ function registerIpcHandlers(): void {
         popOutController.transferTo(parentController);
         emitPreviewState(parentWindow, parentController.getState());
       }
+      popOutParents.delete(popOut);
       previewControllers.delete(popOut);
     });
 
-    // Load the same app URL but with a query parameter so the renderer
-    // can detect pop-out mode and render a simplified UI if needed.
+    // Preserve the active chat route so the pop-out window keeps the same
+    // thread-scoped preview chrome and actions as the attached renderer.
     void popOut.loadURL(
       resolveDesktopRendererUrl({
+        baseUrl: event.sender.getURL(),
         isDevelopment,
         devServerUrl: process.env.VITE_DEV_SERVER_URL,
         scheme: DESKTOP_SCHEME,
@@ -1514,8 +1523,9 @@ function registerIpcHandlers(): void {
 
   ipcMain.removeHandler(PREVIEW_POP_IN_CHANNEL);
   ipcMain.handle(PREVIEW_POP_IN_CHANNEL, async (event) => {
-    const parentWindow = resolvePreviewWindow(event.sender);
-    if (!parentWindow) return;
+    const sourceWindow = resolvePreviewWindow(event.sender);
+    if (!sourceWindow) return;
+    const parentWindow = resolvePreviewParentWindow(sourceWindow);
 
     const popOut = popOutWindows.get(parentWindow);
     if (popOut && !popOut.isDestroyed()) {

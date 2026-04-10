@@ -5,7 +5,7 @@ const BEARER_TOKEN_PATTERN = /\b(Bearer\s+)([^\s,;]+)/gi;
 const SENSITIVE_QUERY_PARAM_PATTERN =
   /([?&](?:access[_-]?token|api[_-]?key|auth(?:orization)?|client[_-]?secret|password|refresh[_-]?token|secret|session[_-]?token|token)=)([^&#\s]+)/gi;
 const SENSITIVE_FIELD_PATTERN =
-  /((?:"|')?(?:access[_-]?token|api[_-]?key|auth(?:orization)?|client[_-]?secret|password|refresh[_-]?token|secret|session[_-]?token|token)(?:"|')?\s*[:=]\s*)(["'`]?)([^"'`\s,}]+)(\2)/gi;
+  /((?:"|')?(?:access[_-]?token|api[_-]?key|auth(?:orization)?|client[_-]?secret|password|refresh[_-]?token|secret|session[_-]?token|token)(?:"|')?\s*[:=]\s*)(["'`]?)(?!Bearer\b)([^"'`\s,&}]+)(\2)/gi;
 const PROCESS_ENV_PATTERN =
   /\b((?:process\.)?env\.[A-Za-z_][A-Za-z0-9_]*\s*(?:=|:)\s*)(["'`]?)([^"'`\s,}]+)(\2)/g;
 const ENV_ASSIGNMENT_PATTERN = /\b([A-Z][A-Z0-9_]{1,63}\s*=\s*)(["'`]?)([^"'`\s]+)(\2)/g;

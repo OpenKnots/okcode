@@ -236,6 +236,11 @@ interface ComposerDraftStoreState {
   setTerminalContexts: (threadId: ThreadId, contexts: TerminalContextDraft[]) => void;
   setProvider: (threadId: ThreadId, provider: ProviderKind | null | undefined) => void;
   setModel: (threadId: ThreadId, model: string | null | undefined) => void;
+  setProviderAndModel: (
+    threadId: ThreadId,
+    provider: ProviderKind | null | undefined,
+    model: string | null | undefined,
+  ) => void;
   setModelOptions: (
     threadId: ThreadId,
     modelOptions: ProviderModelOptions | null | undefined,
@@ -396,7 +401,9 @@ function shouldRemoveDraft(draft: ComposerThreadDraftState): boolean {
 }
 
 function normalizeProviderKind(value: unknown): ProviderKind | null {
-  return value === "codex" || value === "claudeAgent" ? value : null;
+  return value === "codex" || value === "claudeAgent" || value === "copilot" || value === "openclaw"
+    ? value
+    : null;
 }
 
 function normalizePromptEnhancement(value: unknown): PromptEnhancementId | null {
@@ -1500,6 +1507,37 @@ export const useComposerDraftStore = create<ComposerDraftStoreState>()(
           }
           const nextDraft: ComposerThreadDraftState = {
             ...base,
+            model: normalizedModel,
+          };
+          const nextDraftsByThreadId = { ...state.draftsByThreadId };
+          if (shouldRemoveDraft(nextDraft)) {
+            delete nextDraftsByThreadId[threadId];
+          } else {
+            nextDraftsByThreadId[threadId] = nextDraft;
+          }
+          return { draftsByThreadId: nextDraftsByThreadId };
+        });
+      },
+      setProviderAndModel: (threadId, provider, model) => {
+        if (threadId.length === 0) {
+          return;
+        }
+        const normalizedProvider = normalizeProviderKind(provider);
+        set((state) => {
+          const existing = state.draftsByThreadId[threadId];
+          const base = existing ?? createEmptyThreadDraft();
+          const normalizedModel =
+            normalizedProvider === null
+              ? null
+              : (normalizeModelSlug(model, normalizedProvider) ?? null);
+
+          if (base.provider === normalizedProvider && base.model === normalizedModel) {
+            return state;
+          }
+
+          const nextDraft: ComposerThreadDraftState = {
+            ...base,
+            provider: normalizedProvider,
             model: normalizedModel,
           };
           const nextDraftsByThreadId = { ...state.draftsByThreadId };

@@ -881,6 +881,26 @@ describe("composerDraftStore setModel", () => {
   });
 });
 
+describe("composerDraftStore setProviderAndModel", () => {
+  const threadId = ThreadId.makeUnsafe("thread-provider-model");
+
+  beforeEach(() => {
+    resetComposerDraftStore();
+  });
+
+  it("normalizes the model against the incoming provider in one write", () => {
+    const store = useComposerDraftStore.getState();
+
+    store.setProvider(threadId, "codex");
+    store.setProviderAndModel(threadId, "claudeAgent", "claude-sonnet-4-6");
+
+    expect(useComposerDraftStore.getState().draftsByThreadId[threadId]).toMatchObject({
+      provider: "claudeAgent",
+      model: "claude-sonnet-4-6",
+    });
+  });
+});
+
 describe("composerDraftStore sticky composer settings", () => {
   beforeEach(() => {
     resetComposerDraftStore();

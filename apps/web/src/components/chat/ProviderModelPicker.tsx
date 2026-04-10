@@ -1,19 +1,10 @@
 import { type ModelSlug, type ProviderKind } from "@okcode/contracts";
 import { resolveSelectableModel } from "@okcode/shared/model";
-import { memo, useState } from "react";
+import { memo, useCallback, useRef, useState } from "react";
 import { type ProviderPickerKind, PROVIDER_OPTIONS } from "../../session-logic";
-import { ChevronDownIcon } from "lucide-react";
+import { CheckIcon, ChevronDownIcon } from "lucide-react";
 import { Button } from "../ui/button";
-import {
-  Menu,
-  MenuGroup,
-  MenuItem,
-  MenuPopup,
-  MenuRadioGroup,
-  MenuRadioItem,
-  MenuSeparator as MenuDivider,
-  MenuTrigger,
-} from "../ui/menu";
+import { Menu, MenuPopup, MenuTrigger } from "../ui/menu";
 import {
   ClaudeAI,
   CursorIcon,
@@ -77,6 +68,11 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
   const [activeMenuProvider, setActiveMenuProvider] = useState<ProviderKind>(
     props.lockedProvider ?? props.provider,
   );
+  const menuJustOpenedRef = useRef(false);
+  const setActiveMenuProviderFromInteraction = useCallback((provider: ProviderKind) => {
+    if (menuJustOpenedRef.current) return;
+    setActiveMenuProvider(provider);
+  }, []);
   const activeProvider = props.lockedProvider ?? props.provider;
   const selectedProviderOptions = props.modelOptionsByProvider[activeProvider];
   const selectedModelLabel =
@@ -112,6 +108,7 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
         }
         if (open) {
           setActiveMenuProvider(props.lockedProvider ?? props.provider);
+          menuJustOpenedRef.current = true;
         }
         setIsMenuOpen(open);
       }}
@@ -157,55 +154,70 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
               Providers
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-1 pb-1">
-              <MenuRadioGroup
+              <div
                 aria-label="Providers"
-                value={previewProvider}
-                onValueChange={(value) => {
-                  if (props.lockedProvider !== null) return;
-                  setActiveMenuProvider(value as ProviderKind);
+                className="space-y-0.5"
+                role="list"
+                onPointerMove={() => {
+                  menuJustOpenedRef.current = false;
                 }}
               >
                 {providerList.map((option) => {
                   const OptionIcon = PROVIDER_ICON_BY_PROVIDER[option.value];
                   const isCurrentProvider = props.provider === option.value;
+                  const isPreviewProvider = previewProvider === option.value;
                   return (
-                    <MenuRadioItem
+                    <button
                       key={option.value}
-                      value={option.value}
-                      closeOnClick={false}
-                      className="pe-2"
-                      onFocus={() => setActiveMenuProvider(option.value)}
-                      onMouseEnter={() => setActiveMenuProvider(option.value)}
+                      type="button"
+                      className={cn(
+                        "flex min-h-8 w-full items-center gap-2 rounded-sm px-2 py-1 text-left text-base text-foreground outline-none transition-colors sm:min-h-7 sm:text-sm",
+                        isPreviewProvider
+                          ? "bg-accent text-accent-foreground"
+                          : "hover:bg-accent/60",
+                      )}
+                      onClick={() => {
+                        if (props.lockedProvider !== null) return;
+                        setActiveMenuProvider(option.value);
+                      }}
+                      onFocus={() => setActiveMenuProviderFromInteraction(option.value)}
+                      onMouseEnter={() => setActiveMenuProviderFromInteraction(option.value)}
                     >
-                      <span className="flex min-w-0 items-center gap-2">
-                        <OptionIcon
-                          aria-hidden="true"
-                          className={cn(
-                            "size-4 shrink-0",
-                            providerIconClassName(option.value, "text-muted-foreground/85"),
-                          )}
-                        />
-                        <span className="min-w-0 flex-1 truncate">{option.label}</span>
-                        {isCurrentProvider ? (
-                          <span className="rounded-full border border-border/80 px-1.5 py-0.5 text-[10px] uppercase tracking-[0.08em] text-muted-foreground/75">
-                            Current
-                          </span>
-                        ) : null}
-                      </span>
-                    </MenuRadioItem>
+                      <OptionIcon
+                        aria-hidden="true"
+                        className={cn(
+                          "size-4 shrink-0",
+                          providerIconClassName(
+                            option.value,
+                            isPreviewProvider
+                              ? "text-accent-foreground/85"
+                              : "text-muted-foreground/85",
+                          ),
+                        )}
+                      />
+                      <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                      {isCurrentProvider ? (
+                        <span className="rounded-full border border-border/80 px-1.5 py-0.5 text-[10px] uppercase tracking-[0.08em] text-muted-foreground/75">
+                          Current
+                        </span>
+                      ) : null}
+                    </button>
                   );
                 })}
-              </MenuRadioGroup>
+              </div>
               {props.lockedProvider === null ? (
                 <>
-                  <MenuDivider className="mx-2 my-2" />
+                  <div className="mx-2 my-2 h-px bg-border" />
                   {[...UNAVAILABLE_PROVIDER_OPTIONS, ...COMING_SOON_PROVIDER_OPTIONS].map(
                     (option) => {
                       const OptionIcon =
                         "value" in option ? PROVIDER_ICON_BY_PROVIDER[option.value] : option.icon;
                       const key = "value" in option ? option.value : option.id;
                       return (
-                        <MenuItem key={key} disabled className="pe-2">
+                        <div
+                          key={key}
+                          className="flex min-h-8 items-center gap-2 rounded-sm px-2 py-1 text-base text-foreground/72 opacity-64 sm:min-h-7 sm:text-sm"
+                        >
                           <OptionIcon
                             aria-hidden="true"
                             className="size-4 shrink-0 text-muted-foreground/85 opacity-80"
@@ -214,7 +226,7 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
                           <span className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground/75">
                             Soon
                           </span>
-                        </MenuItem>
+                        </div>
                       );
                     },
                   )}
@@ -249,22 +261,32 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto p-1">
               {previewProviderOptions.length > 0 ? (
-                <MenuGroup>
-                  <MenuRadioGroup
-                    aria-label={`${getProviderLabel(previewProvider)} models`}
-                    value={props.provider === previewProvider ? props.model : ""}
-                    onValueChange={(value) => handleModelChange(previewProvider, value)}
-                  >
-                    {previewProviderOptions.map((modelOption) => (
-                      <MenuRadioItem
+                <div
+                  aria-label={`${getProviderLabel(previewProvider)} models`}
+                  className="space-y-0.5"
+                  role="list"
+                >
+                  {previewProviderOptions.map((modelOption) => {
+                    const isSelected =
+                      props.provider === previewProvider && props.model === modelOption.slug;
+                    return (
+                      <button
                         key={`${previewProvider}:${modelOption.slug}`}
-                        value={modelOption.slug}
+                        type="button"
+                        className={cn(
+                          "grid min-h-8 w-full grid-cols-[1rem_1fr] items-center gap-2 rounded-sm py-1 ps-2 pe-4 text-left text-base text-foreground outline-none transition-colors sm:min-h-7 sm:text-sm",
+                          isSelected ? "bg-accent text-accent-foreground" : "hover:bg-accent/60",
+                        )}
+                        onClick={() => handleModelChange(previewProvider, modelOption.slug)}
                       >
-                        {modelOption.name}
-                      </MenuRadioItem>
-                    ))}
-                  </MenuRadioGroup>
-                </MenuGroup>
+                        <span className="col-start-1 flex items-center justify-center">
+                          {isSelected ? <CheckIcon aria-hidden="true" className="size-4" /> : null}
+                        </span>
+                        <span className="col-start-2">{modelOption.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               ) : (
                 <div className="flex h-full min-h-32 items-center justify-center px-4 py-8 text-center text-sm text-muted-foreground/80">
                   No models are available for this provider yet.

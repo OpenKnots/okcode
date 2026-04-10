@@ -73,7 +73,7 @@ describe("ProviderModelPicker", () => {
         expect(text).not.toContain("GPT-5 Codex");
       });
 
-      await page.getByRole("menuitemradio", { name: /Codex/ }).click();
+      await page.getByRole("button", { name: /Codex/ }).click();
 
       await vi.waitFor(() => {
         const text = document.body.textContent ?? "";
@@ -116,8 +116,8 @@ describe("ProviderModelPicker", () => {
 
     try {
       await page.getByRole("button").click();
-      await page.getByRole("menuitemradio", { name: /Codex/ }).click();
-      await page.getByRole("menuitemradio", { name: "GPT-5 Codex" }).click();
+      await page.getByRole("button", { name: /Codex/ }).click();
+      await page.getByRole("button", { name: "GPT-5 Codex" }).click();
 
       expect(mounted.onProviderModelChange).toHaveBeenCalledWith("codex", "gpt-5-codex");
     } finally {

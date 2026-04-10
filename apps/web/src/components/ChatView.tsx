@@ -490,8 +490,9 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
   const setComposerDraftPromptEnhancementState = useComposerDraftStore(
     (store) => store.setPromptEnhancementState,
   );
-  const setComposerDraftProvider = useComposerDraftStore((store) => store.setProvider);
-  const setComposerDraftModel = useComposerDraftStore((store) => store.setModel);
+  const setComposerDraftProviderAndModel = useComposerDraftStore(
+    (store) => store.setProviderAndModel,
+  );
   const setComposerDraftRuntimeMode = useComposerDraftStore((store) => store.setRuntimeMode);
   const setComposerDraftInteractionMode = useComposerDraftStore(
     (store) => store.setInteractionMode,
@@ -4251,8 +4252,7 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
         return;
       }
       const resolvedModel = resolveAppModelSelection(provider, customModelsByProvider, model);
-      setComposerDraftProvider(activeThread.id, provider);
-      setComposerDraftModel(activeThread.id, resolvedModel);
+      setComposerDraftProviderAndModel(activeThread.id, provider, resolvedModel);
       setStickyComposerModel(resolvedModel);
       scheduleComposerFocus();
     },
@@ -4260,8 +4260,7 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
       activeThread,
       lockedProvider,
       scheduleComposerFocus,
-      setComposerDraftModel,
-      setComposerDraftProvider,
+      setComposerDraftProviderAndModel,
       setStickyComposerModel,
       customModelsByProvider,
     ],

@@ -348,6 +348,52 @@ it.layer(NodeServices.layer)("keybindings", (it) => {
     }).pipe(Effect.provide(makeKeybindingsLayer())),
   );
 
+  it.effect("replaces every rule for a command and restores defaults when cleared", () =>
+    Effect.gen(function* () {
+      const { keybindingsConfigPath } = yield* ServerConfig;
+      yield* writeKeybindingsConfig(keybindingsConfigPath, [
+        { key: "mod+j", command: "terminal.toggle" },
+        { key: "ctrl+`", command: "terminal.toggle" },
+        { key: "mod+r", command: "script.run-tests.run" },
+      ]);
+
+      const keybindings = yield* Keybindings;
+      const replaced = yield* keybindings.replaceKeybindingRules("terminal.toggle", [
+        { key: "mod+shift+t", command: "terminal.toggle" },
+        { key: "ctrl+shift+`", command: "terminal.toggle" },
+      ]);
+
+      const persistedAfterReplace = yield* readKeybindingsConfig(keybindingsConfigPath);
+      assert.deepEqual(
+        persistedAfterReplace.map(({ key, command }) => ({ key, command })),
+        [
+          { key: "mod+r", command: "script.run-tests.run" },
+          { key: "mod+shift+t", command: "terminal.toggle" },
+          { key: "ctrl+shift+`", command: "terminal.toggle" },
+        ],
+      );
+      assert.deepEqual(
+        replaced
+          .filter((entry) => entry.command === "terminal.toggle")
+          .map((entry) => Schema.encodeSync(ResolvedKeybindingFromConfig)(entry).key),
+        ["mod+shift+t", "ctrl+shift+`"],
+      );
+
+      const restored = yield* keybindings.replaceKeybindingRules("terminal.toggle", []);
+      const persistedAfterRestore = yield* readKeybindingsConfig(keybindingsConfigPath);
+      assert.deepEqual(
+        persistedAfterRestore.map(({ key, command }) => ({ key, command })),
+        [{ key: "mod+r", command: "script.run-tests.run" }],
+      );
+      assert.deepEqual(
+        restored
+          .filter((entry) => entry.command === "terminal.toggle")
+          .map((entry) => Schema.encodeSync(ResolvedKeybindingFromConfig)(entry).key),
+        ["mod+j", "ctrl+`"],
+      );
+    }).pipe(Effect.provide(makeKeybindingsLayer())),
+  );
+
   it.effect("refuses to overwrite malformed keybindings config", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;

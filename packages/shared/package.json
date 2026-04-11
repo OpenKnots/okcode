@@ -55,6 +55,10 @@
     "./redaction": {
       "types": "./src/redaction.ts",
       "import": "./src/redaction.ts"
+    },
+    "./keybindings": {
+      "types": "./src/keybindings.ts",
+      "import": "./src/keybindings.ts"
     }
   },
   "scripts": {

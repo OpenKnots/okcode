@@ -1620,6 +1620,15 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
         return { keybindings: keybindingsConfig, issues: [] };
       }
 
+      case WS_METHODS.serverReplaceKeybindingRules: {
+        const body = stripRequestTag(request.body);
+        const keybindingsConfig = yield* keybindingsManager.replaceKeybindingRules(
+          body.command,
+          body.rules,
+        );
+        return { keybindings: keybindingsConfig, issues: [] };
+      }
+
       case WS_METHODS.serverGetGlobalEnvironmentVariables:
         return yield* environmentVariables.getGlobal();
 

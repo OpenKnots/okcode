@@ -90,6 +90,8 @@ import type {
   TerminalWriteInput,
 } from "./terminal";
 import type {
+  ServerReplaceKeybindingRulesInput,
+  ServerReplaceKeybindingRulesResult,
   ServerUpsertKeybindingInput,
   ServerUpsertKeybindingResult,
   ServerUpdateInfo,
@@ -476,6 +478,9 @@ export interface NativeApi {
       input: SaveProjectEnvironmentVariablesInput,
     ) => Promise<ProjectEnvironmentVariablesResult>;
     upsertKeybinding: (input: ServerUpsertKeybindingInput) => Promise<ServerUpsertKeybindingResult>;
+    replaceKeybindingRules: (
+      input: ServerReplaceKeybindingRulesInput,
+    ) => Promise<ServerReplaceKeybindingRulesResult>;
     testOpenclawGateway: (input: TestOpenclawGatewayInput) => Promise<TestOpenclawGatewayResult>;
   };
   orchestration: {

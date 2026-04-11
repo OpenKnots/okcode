@@ -6,6 +6,7 @@ import {
   CpuIcon,
   GitBranchIcon,
   ImportIcon,
+  KeyboardIcon,
   Loader2Icon,
   PaletteIcon,
   PlusIcon,
@@ -22,6 +23,8 @@ import { type ReactNode, useCallback, useEffect, useState } from "react";
 import type { TestOpenclawGatewayHostKind, TestOpenclawGatewayResult } from "@okcode/contracts";
 import {
   type BuildMetadata,
+  type KeybindingCommand,
+  type KeybindingRule,
   type ProjectId,
   type ProviderKind,
   DEFAULT_GIT_TEXT_GENERATION_MODEL,
@@ -53,6 +56,7 @@ import { APP_BUILD_INFO } from "../branding";
 import { Button } from "../components/ui/button";
 import { Collapsible, CollapsibleContent } from "../components/ui/collapsible";
 import { EnvironmentVariablesEditor } from "../components/EnvironmentVariablesEditor";
+import { HotkeysSettingsSection } from "../components/settings/HotkeysSettingsSection";
 import { Input } from "../components/ui/input";
 import {
   Select,
@@ -91,7 +95,7 @@ import {
   setStoredRadiusOverride,
   type CustomThemeData,
 } from "../lib/customTheme";
-import { serverConfigQueryOptions } from "../lib/serverReactQuery";
+import { serverConfigQueryOptions, serverQueryKeys } from "../lib/serverReactQuery";
 import { cn } from "../lib/utils";
 import { ensureNativeApi, readNativeApi } from "../nativeApi";
 import { useStore } from "../store";
@@ -100,7 +104,14 @@ import { PairingLink } from "../components/mobile/PairingLink";
 // ---------------------------------------------------------------------------
 // Settings navigation sections
 // ---------------------------------------------------------------------------
-type SettingsSectionId = "general" | "environment" | "git" | "models" | "mobile" | "advanced";
+type SettingsSectionId =
+  | "general"
+  | "hotkeys"
+  | "environment"
+  | "git"
+  | "models"
+  | "mobile"
+  | "advanced";
 
 interface SettingsNavItem {
   id: SettingsSectionId;
@@ -112,6 +123,7 @@ interface SettingsNavItem {
 function useSettingsNavItems(): SettingsNavItem[] {
   return [
     { id: "general", label: "General", icon: <PaletteIcon className="size-4" /> },
+    { id: "hotkeys", label: "Hotkeys", icon: <KeyboardIcon className="size-4" /> },
     { id: "environment", label: "Environment", icon: <VariableIcon className="size-4" /> },
     { id: "git", label: "Git", icon: <GitBranchIcon className="size-4" /> },
     { id: "models", label: "Models", icon: <CpuIcon className="size-4" /> },
@@ -786,6 +798,15 @@ function SettingsRouteView() {
         setIsOpeningKeybindings(false);
       });
   }, [availableEditors, keybindingsConfigPath]);
+
+  const replaceKeybindingRules = useCallback(
+    async (command: KeybindingCommand, rules: readonly KeybindingRule[]) => {
+      const api = ensureNativeApi();
+      await api.server.replaceKeybindingRules({ command, rules: [...rules] });
+      await queryClient.invalidateQueries({ queryKey: serverQueryKeys.all });
+    },
+    [queryClient],
+  );
 
   const saveGlobalEnvironmentVariables = useCallback(
     async (entries: ReadonlyArray<{ key: string; value: string }>) => {
@@ -2122,6 +2143,18 @@ function SettingsRouteView() {
                   </SettingsSection>
                 )}
 
+                {activeSection === "hotkeys" && (
+                  <HotkeysSettingsSection
+                    keybindings={serverConfigQuery.data?.keybindings ?? []}
+                    issues={serverConfigQuery.data?.issues ?? []}
+                    keybindingsConfigPath={keybindingsConfigPath}
+                    isOpeningKeybindings={isOpeningKeybindings}
+                    openKeybindingsError={openKeybindingsError}
+                    onOpenKeybindingsFile={openKeybindingsFile}
+                    onReplaceKeybindingRules={replaceKeybindingRules}
+                  />
+                )}
+
                 {activeSection === "environment" && (
                   <SettingsSection
                     title="Environment"
@@ -2473,7 +2506,7 @@ function SettingsRouteView() {
                 {activeSection === "advanced" && (
                   <SettingsSection
                     title="Advanced"
-                    description="Provider paths, keybindings, and build info."
+                    description="Provider paths, gateway diagnostics, and build info."
                   >
                     <SettingsRow
                       title="Provider installs"
@@ -2953,35 +2986,6 @@ function SettingsRouteView() {
                         )}
                       </div>
                     </SettingsRow>
-
-                    <SettingsRow
-                      title="Keybindings"
-                      description="Open the persisted `keybindings.json` file to edit advanced bindings directly."
-                      status={
-                        <>
-                          <span className="block break-all font-mono text-[11px] text-foreground">
-                            {keybindingsConfigPath ?? "Resolving keybindings path..."}
-                          </span>
-                          {openKeybindingsError ? (
-                            <span className="mt-1 block text-destructive">
-                              {openKeybindingsError}
-                            </span>
-                          ) : (
-                            <span className="mt-1 block">Opens in your preferred editor.</span>
-                          )}
-                        </>
-                      }
-                      control={
-                        <Button
-                          size="xs"
-                          variant="outline"
-                          disabled={!keybindingsConfigPath || isOpeningKeybindings}
-                          onClick={openKeybindingsFile}
-                        >
-                          {isOpeningKeybindings ? "Opening..." : "Open file"}
-                        </Button>
-                      }
-                    />
 
                     <SettingsRow
                       title="Build"

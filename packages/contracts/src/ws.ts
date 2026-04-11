@@ -87,6 +87,7 @@ import {
   RevokePairedDeviceInput,
   RevokeTokenInput,
   ServerConfigUpdatedPayload,
+  ServerReplaceKeybindingRulesInput,
   TestOpenclawGatewayInput,
 } from "./server";
 import { GitHubGetIssueInput, GitHubListIssuesInput, GitHubPostCommentInput } from "./github";
@@ -209,6 +210,7 @@ export const WS_METHODS = {
   serverGetProjectEnvironmentVariables: "server.getProjectEnvironmentVariables",
   serverSaveProjectEnvironmentVariables: "server.saveProjectEnvironmentVariables",
   serverUpsertKeybinding: "server.upsertKeybinding",
+  serverReplaceKeybindingRules: "server.replaceKeybindingRules",
   serverPickFolder: "server.pickFolder",
 
   // Token management (legacy)
@@ -390,6 +392,7 @@ const WebSocketRequestBody = Schema.Union([
     SaveProjectEnvironmentVariablesInput,
   ),
   tagRequestBody(WS_METHODS.serverUpsertKeybinding, KeybindingRule),
+  tagRequestBody(WS_METHODS.serverReplaceKeybindingRules, ServerReplaceKeybindingRulesInput),
   tagRequestBody(WS_METHODS.serverPickFolder, Schema.Struct({})),
 
   // Token management (legacy)

@@ -396,6 +396,8 @@ export function createWsNativeApi(): NativeApi {
       saveProjectEnvironmentVariables: (input) =>
         transport.request(WS_METHODS.serverSaveProjectEnvironmentVariables, input),
       upsertKeybinding: (input) => transport.request(WS_METHODS.serverUpsertKeybinding, input),
+      replaceKeybindingRules: (input) =>
+        transport.request(WS_METHODS.serverReplaceKeybindingRules, input),
       testOpenclawGateway: (input) =>
         transport.request(WS_METHODS.serverTestOpenclawGateway, input),
     },

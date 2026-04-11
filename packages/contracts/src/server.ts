@@ -1,7 +1,12 @@
 import { Schema } from "effect";
 import { DeviceId, IsoDateTime, PairingId, TrimmedNonEmptyString } from "./baseSchemas";
 import { BuildMetadata } from "./buildInfo";
-import { KeybindingRule, ResolvedKeybindingsConfig } from "./keybindings";
+import {
+  KeybindingCommand,
+  KeybindingRule,
+  MAX_KEYBINDINGS_COUNT,
+  ResolvedKeybindingsConfig,
+} from "./keybindings";
 import { EditorId } from "./editor";
 import { ProviderKind } from "./orchestration";
 
@@ -65,6 +70,15 @@ export const ServerUpsertKeybindingResult = Schema.Struct({
   issues: ServerConfigIssues,
 });
 export type ServerUpsertKeybindingResult = typeof ServerUpsertKeybindingResult.Type;
+
+export const ServerReplaceKeybindingRulesInput = Schema.Struct({
+  command: KeybindingCommand,
+  rules: Schema.Array(KeybindingRule).check(Schema.isMaxLength(MAX_KEYBINDINGS_COUNT)),
+});
+export type ServerReplaceKeybindingRulesInput = typeof ServerReplaceKeybindingRulesInput.Type;
+
+export const ServerReplaceKeybindingRulesResult = ServerUpsertKeybindingResult;
+export type ServerReplaceKeybindingRulesResult = typeof ServerReplaceKeybindingRulesResult.Type;
 
 export const ServerConfigUpdatedPayload = Schema.Struct({
   issues: ServerConfigIssues,

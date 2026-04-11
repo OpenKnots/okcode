@@ -1979,8 +1979,12 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
           })
         : null;
 
-      if (isElectron && keybindingRule) {
-        await api.server.upsertKeybinding(keybindingRule);
+      if (isElectron && input.keybindingCommand) {
+        await api.server.replaceKeybindingRules(
+          keybindingRule
+            ? { command: input.keybindingCommand, rules: [keybindingRule] }
+            : { command: input.keybindingCommand, rules: [] },
+        );
         await queryClient.invalidateQueries({ queryKey: serverQueryKeys.all });
       }
     },

@@ -14,7 +14,7 @@ import {
   SettingsIcon,
   WrenchIcon,
 } from "lucide-react";
-import React, { type FormEvent, type KeyboardEvent, useCallback, useMemo, useState } from "react";
+import React, { type FormEvent, useCallback, useMemo, useState } from "react";
 
 import { ensureNativeApi } from "~/nativeApi";
 import {
@@ -35,7 +35,6 @@ import {
   resolvePackageManagerResolution,
 } from "~/projectScriptDefaults";
 import { shortcutLabelForCommand } from "~/keybindings";
-import { isMacPlatform } from "~/lib/utils";
 import {
   AlertDialog,
   AlertDialogClose,
@@ -46,6 +45,7 @@ import {
   AlertDialogTitle,
 } from "./ui/alert-dialog";
 import { Button } from "./ui/button";
+import { KeybindingRecorderField } from "./KeybindingRecorderField";
 import {
   Dialog,
   DialogDescription,
@@ -108,57 +108,6 @@ interface ProjectScriptsControlProps {
   onImportScripts: (scripts: ProjectScriptDraft[]) => Promise<void> | void;
 }
 
-function normalizeShortcutKeyToken(key: string): string | null {
-  const normalized = key.toLowerCase();
-  if (
-    normalized === "meta" ||
-    normalized === "control" ||
-    normalized === "ctrl" ||
-    normalized === "shift" ||
-    normalized === "alt" ||
-    normalized === "option"
-  ) {
-    return null;
-  }
-  if (normalized === " ") return "space";
-  if (normalized === "escape") return "esc";
-  if (normalized === "arrowup") return "arrowup";
-  if (normalized === "arrowdown") return "arrowdown";
-  if (normalized === "arrowleft") return "arrowleft";
-  if (normalized === "arrowright") return "arrowright";
-  if (normalized.length === 1) return normalized;
-  if (normalized.startsWith("f") && normalized.length <= 3) return normalized;
-  if (normalized === "enter" || normalized === "tab" || normalized === "backspace") {
-    return normalized;
-  }
-  if (normalized === "delete" || normalized === "home" || normalized === "end") {
-    return normalized;
-  }
-  if (normalized === "pageup" || normalized === "pagedown") return normalized;
-  return null;
-}
-
-function keybindingFromEvent(event: KeyboardEvent<HTMLInputElement>): string | null {
-  const keyToken = normalizeShortcutKeyToken(event.key);
-  if (!keyToken) return null;
-
-  const parts: string[] = [];
-  if (isMacPlatform(navigator.platform)) {
-    if (event.metaKey) parts.push("mod");
-    if (event.ctrlKey) parts.push("ctrl");
-  } else {
-    if (event.ctrlKey) parts.push("mod");
-    if (event.metaKey) parts.push("meta");
-  }
-  if (event.altKey) parts.push("alt");
-  if (event.shiftKey) parts.push("shift");
-  if (parts.length === 0) {
-    return null;
-  }
-  parts.push(keyToken);
-  return parts.join("+");
-}
-
 export default function ProjectScriptsControl({
   projectCwd,
   scripts,
@@ -209,18 +158,6 @@ export default function ProjectScriptsControl({
       packageManager: selectedPackageManager,
     });
   }, [importInventory, selectedPackageManager]);
-
-  const captureKeybinding = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "Tab") return;
-    event.preventDefault();
-    if (event.key === "Backspace" || event.key === "Delete") {
-      setKeybinding("");
-      return;
-    }
-    const next = keybindingFromEvent(event);
-    if (!next) return;
-    setKeybinding(next);
-  };
 
   const submitAddScript = async (event: FormEvent) => {
     event.preventDefault();
@@ -523,15 +460,14 @@ export default function ProjectScriptsControl({
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="script-keybinding">Keybinding</Label>
-                <Input
+                <KeybindingRecorderField
                   id="script-keybinding"
-                  placeholder="Press shortcut"
                   value={keybinding}
-                  readOnly
-                  onKeyDown={captureKeybinding}
+                  onChange={setKeybinding}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Press a shortcut. Use <code>Backspace</code> to clear.
+                  Focus the field and press a shortcut. Use at least one modifier. Plain{" "}
+                  <code>Backspace</code> or <code>Delete</code> clears it.
                 </p>
               </div>
               <div className="space-y-1.5">

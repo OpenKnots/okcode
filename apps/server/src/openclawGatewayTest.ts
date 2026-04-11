@@ -10,7 +10,11 @@ import type {
   TestOpenclawGatewayStepStatus,
 } from "@okcode/contracts";
 import { serverBuildInfo } from "./buildInfo.ts";
-import { connectOpenClawGateway } from "./provider/Layers/OpenClawGatewayClient.ts";
+import {
+  OPENCLAW_GATEWAY_CLIENT_IDS,
+  OPENCLAW_GATEWAY_CLIENT_MODES,
+  connectOpenClawGateway,
+} from "./provider/Layers/OpenClawGatewayClient.ts";
 
 const OPENCLAW_TEST_CONNECT_TIMEOUT_MS = 10_000;
 const OPENCLAW_TEST_RPC_TIMEOUT_MS = 10_000;
@@ -372,6 +376,17 @@ function buildHints(
   }
 
   if (
+    errorLower.includes("/client/id") ||
+    errorLower.includes("/client/mode") ||
+    errorLower.includes("client id") ||
+    errorLower.includes("client mode")
+  ) {
+    hints.push(
+      "The gateway rejected the advertised client identity. That usually means the gateway expects a newer OpenClaw `connect.params.client` allowlist than this OK Code build is using.",
+    );
+  }
+
+  if (
     diagnostics.hostKind === "tailscale" &&
     (detailCode === "PAIRING_REQUIRED" ||
       detailCode?.startsWith("DEVICE_AUTH_") ||
@@ -523,7 +538,8 @@ export async function runOpenclawGatewayTest(
         role: "operator",
         scopes: [...OPENCLAW_OPERATOR_SCOPES],
         client: {
-          id: "okcode",
+          id: OPENCLAW_GATEWAY_CLIENT_IDS.GATEWAY_CLIENT,
+          displayName: "OK Code gateway test",
           version: serverBuildInfo.version,
           platform:
             process.platform === "darwin"
@@ -531,7 +547,8 @@ export async function runOpenclawGatewayTest(
               : process.platform === "win32"
                 ? "windows"
                 : process.platform,
-          mode: "operator",
+          deviceFamily: "server",
+          mode: OPENCLAW_GATEWAY_CLIENT_MODES.BACKEND,
         },
         userAgent: `okcode/${serverBuildInfo.version}`,
         locale: Intl.DateTimeFormat().resolvedOptions().locale || "en-US",

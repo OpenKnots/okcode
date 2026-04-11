@@ -9,7 +9,31 @@ type GatewayRequestFrame = {
   type?: unknown;
   id?: unknown;
   method?: unknown;
+  params?: {
+    client?: {
+      id?: unknown;
+      displayName?: unknown;
+      mode?: unknown;
+      deviceFamily?: unknown;
+    };
+    auth?: {
+      password?: unknown;
+      token?: unknown;
+      deviceToken?: unknown;
+    };
+    device?: {
+      id?: unknown;
+      publicKey?: unknown;
+      signature?: unknown;
+      signedAt?: unknown;
+      nonce?: unknown;
+    };
+  };
 };
+
+function isBase64Url(value: unknown): value is string {
+  return typeof value === "string" && /^[A-Za-z0-9_-]+$/.test(value);
+}
 
 afterEach(async () => {
   await Promise.all(
@@ -82,11 +106,14 @@ describe("runOpenclawGatewayTest", () => {
   });
 
   it("passes when the modern connect handshake succeeds", async () => {
+    let connectParams: GatewayRequestFrame["params"];
+
     const gateway = await createGatewayServer((socket) => {
       sendChallenge(socket);
       socket.on("message", (data) => {
         const message = JSON.parse(data.toString()) as GatewayRequestFrame;
         if (message.type === "req" && message.method === "connect") {
+          connectParams = message.params;
           socket.send(
             JSON.stringify({
               type: "res",
@@ -108,6 +135,21 @@ describe("runOpenclawGatewayTest", () => {
     expect(result.steps.find((step) => step.name === "WebSocket connect")?.status).toBe("pass");
     expect(result.steps.find((step) => step.name === "Gateway handshake")?.status).toBe("pass");
     expect(result.diagnostics?.observedNotifications).toContain("connect.challenge");
+
+    expect(connectParams?.client?.id).toBe("gateway-client");
+    expect(connectParams?.client?.mode).toBe("backend");
+    expect(connectParams?.client?.displayName).toBe("OK Code gateway test");
+    expect(connectParams?.client?.deviceFamily).toBe("server");
+    expect(connectParams?.auth?.password).toBe("topsecret");
+    expect(connectParams?.auth?.token).toBeUndefined();
+    expect(connectParams?.auth?.deviceToken).toBeUndefined();
+    expect(connectParams?.device?.id).toMatch(/^[a-f0-9]{64}$/);
+    expect(connectParams?.device?.id).not.toMatch(/^device_/);
+    expect(isBase64Url(connectParams?.device?.publicKey)).toBe(true);
+    expect(String(connectParams?.device?.publicKey)).not.toContain("BEGIN");
+    expect(isBase64Url(connectParams?.device?.signature)).toBe(true);
+    expect(connectParams?.device?.nonce).toBe("nonce-123");
+    expect(typeof connectParams?.device?.signedAt).toBe("number");
   });
 
   it("reports pairing-required detail codes from the connect handshake", async () => {

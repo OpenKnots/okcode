@@ -15,12 +15,49 @@ const OPENCLAW_PROTOCOL_VERSION = 3;
 const DEFAULT_CONNECT_TIMEOUT_MS = 10_000;
 const DEFAULT_REQUEST_TIMEOUT_MS = 10_000;
 const AUTH_STATE_FILE_NAME = "openclaw-gateway-auth.json";
+const ED25519_SPKI_PREFIX = Buffer.from("302a300506032b6570032100", "hex");
+
+export const OPENCLAW_GATEWAY_CLIENT_IDS = {
+  WEBCHAT_UI: "webchat-ui",
+  CONTROL_UI: "openclaw-control-ui",
+  TUI: "openclaw-tui",
+  WEBCHAT: "webchat",
+  CLI: "cli",
+  GATEWAY_CLIENT: "gateway-client",
+  MACOS_APP: "openclaw-macos",
+  IOS_APP: "openclaw-ios",
+  ANDROID_APP: "openclaw-android",
+  NODE_HOST: "node-host",
+  TEST: "test",
+  FINGERPRINT: "fingerprint",
+  PROBE: "openclaw-probe",
+} as const;
+
+export type OpenClawGatewayClientId =
+  (typeof OPENCLAW_GATEWAY_CLIENT_IDS)[keyof typeof OPENCLAW_GATEWAY_CLIENT_IDS];
+
+export const OPENCLAW_GATEWAY_CLIENT_MODES = {
+  WEBCHAT: "webchat",
+  CLI: "cli",
+  UI: "ui",
+  BACKEND: "backend",
+  NODE: "node",
+  PROBE: "probe",
+  TEST: "test",
+} as const;
+
+export type OpenClawGatewayClientMode =
+  (typeof OPENCLAW_GATEWAY_CLIENT_MODES)[keyof typeof OPENCLAW_GATEWAY_CLIENT_MODES];
 
 export interface OpenClawGatewayClientInfo {
-  readonly id: string;
+  readonly id: OpenClawGatewayClientId;
+  readonly displayName?: string | undefined;
   readonly version: string;
   readonly platform: string;
-  readonly mode: "operator" | "node";
+  readonly deviceFamily?: string | undefined;
+  readonly modelIdentifier?: string | undefined;
+  readonly mode: OpenClawGatewayClientMode;
+  readonly instanceId?: string | undefined;
 }
 
 export interface OpenClawGatewayConnectOptions {
@@ -150,17 +187,35 @@ function exportPrivateKeyPem(privateKey: ReturnType<typeof createPrivateKey>): s
   return privateKey.export({ format: "pem", type: "pkcs8" }).toString();
 }
 
-function fingerprintPublicKey(publicKeyPem: string): string {
+function base64UrlEncode(buf: Buffer): string {
+  return buf.toString("base64").replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/g, "");
+}
+
+function derivePublicKeyRaw(publicKeyPem: string): Buffer {
   const publicKey = createPublicKey(publicKeyPem);
-  const publicKeyDer = publicKey.export({ format: "der", type: "spki" }) as Buffer;
-  return createHash("sha256").update(publicKeyDer).digest("hex");
+  const spki = publicKey.export({ format: "der", type: "spki" }) as Buffer;
+  if (
+    spki.length === ED25519_SPKI_PREFIX.length + 32 &&
+    spki.subarray(0, ED25519_SPKI_PREFIX.length).equals(ED25519_SPKI_PREFIX)
+  ) {
+    return spki.subarray(ED25519_SPKI_PREFIX.length);
+  }
+  return spki;
+}
+
+function publicKeyRawBase64UrlFromPem(publicKeyPem: string): string {
+  return base64UrlEncode(derivePublicKeyRaw(publicKeyPem));
+}
+
+function fingerprintPublicKey(publicKeyPem: string): string {
+  return createHash("sha256").update(derivePublicKeyRaw(publicKeyPem)).digest("hex");
 }
 
 function makeDeviceIdentity(): OpenClawDeviceIdentity {
   const { privateKey, publicKey } = generateKeyPairSync("ed25519");
   const privateKeyPem = exportPrivateKeyPem(privateKey);
   const publicKeyPem = exportPublicKeyPem(publicKey);
-  const deviceId = `device_${fingerprintPublicKey(publicKeyPem)}`;
+  const deviceId = fingerprintPublicKey(publicKeyPem);
   return {
     id: deviceId,
     privateKeyPem,
@@ -168,34 +223,46 @@ function makeDeviceIdentity(): OpenClawDeviceIdentity {
   };
 }
 
-function buildSignaturePayload(input: {
-  readonly nonce: string;
-  readonly signedAt: number;
+function normalizeDeviceMetadataForAuth(value?: string | undefined): string {
+  const trimmed = value?.trim() ?? "";
+  return trimmed.replace(/[A-Z]/g, (char) => String.fromCharCode(char.charCodeAt(0) + 32));
+}
+
+function buildDeviceAuthPayloadV3(input: {
+  readonly deviceId: string;
   readonly client: OpenClawGatewayClientInfo;
   readonly role: "operator" | "node";
   readonly scopes: ReadonlyArray<string>;
-  readonly authValue?: string | undefined;
-  readonly deviceFamily: string;
+  readonly signedAtMs: number;
+  readonly token?: string | undefined;
+  readonly nonce: string;
 }): string {
-  return JSON.stringify({
-    version: 3,
-    nonce: input.nonce,
-    signedAt: input.signedAt,
-    client: input.client,
-    role: input.role,
-    scopes: input.scopes,
-    authValue: input.authValue ?? null,
-    deviceFamily: input.deviceFamily,
-  });
+  return [
+    "v3",
+    input.deviceId,
+    input.client.id,
+    input.client.mode,
+    input.role,
+    input.scopes.join(","),
+    String(input.signedAtMs),
+    input.token ?? "",
+    input.nonce,
+    normalizeDeviceMetadataForAuth(input.client.platform),
+    normalizeDeviceMetadataForAuth(input.client.deviceFamily),
+  ].join("|");
 }
 
-function signChallenge(
+function signDevicePayload(
   identity: OpenClawDeviceIdentity,
-  input: Parameters<typeof buildSignaturePayload>[0],
+  input: Parameters<typeof buildDeviceAuthPayloadV3>[0],
 ): string {
   const privateKey = createPrivateKey(identity.privateKeyPem);
-  const signature = cryptoSign(null, Buffer.from(buildSignaturePayload(input)), privateKey);
-  return signature.toString("base64");
+  const signature = cryptoSign(
+    null,
+    Buffer.from(buildDeviceAuthPayloadV3(input), "utf8"),
+    privateKey,
+  );
+  return base64UrlEncode(signature);
 }
 
 async function readAuthState(stateDir: string): Promise<PersistedOpenClawGatewayAuthState | null> {
@@ -239,6 +306,26 @@ async function writeAuthState(
   await writeFile(getAuthStatePath(stateDir), `${JSON.stringify(state, null, 2)}\n`, "utf8");
 }
 
+function normalizePersistedAuthState(
+  state: PersistedOpenClawGatewayAuthState,
+): PersistedOpenClawGatewayAuthState {
+  try {
+    const normalizedDeviceId = fingerprintPublicKey(state.device.publicKeyPem);
+    if (normalizedDeviceId === state.device.id) {
+      return state;
+    }
+    return {
+      ...state,
+      device: {
+        ...state.device,
+        id: normalizedDeviceId,
+      },
+    };
+  } catch {
+    return state;
+  }
+}
+
 class OpenClawGatewayAuthStore {
   private cachedState: PersistedOpenClawGatewayAuthState | undefined;
 
@@ -249,13 +336,17 @@ class OpenClawGatewayAuthStore {
       return this.cachedState;
     }
 
-    const loaded = (await readAuthState(this.stateDir)) ?? {
-      version: 1,
-      device: makeDeviceIdentity(),
-      deviceTokens: {},
-    };
+    const storedState = await readAuthState(this.stateDir);
+    const loaded: PersistedOpenClawGatewayAuthState =
+      storedState !== null
+        ? normalizePersistedAuthState(storedState)
+        : {
+            version: 1 as const,
+            device: makeDeviceIdentity(),
+            deviceTokens: {},
+          };
     this.cachedState = loaded;
-    if ((await readAuthState(this.stateDir)) === null) {
+    if (storedState === null || storedState.device.id !== loaded.device.id) {
       await writeAuthState(this.stateDir, loaded);
     }
     return loaded;
@@ -340,50 +431,55 @@ function buildConnectParams(input: {
   readonly caps?: ReadonlyArray<string> | undefined;
   readonly commands?: ReadonlyArray<string> | undefined;
   readonly permissions?: Record<string, boolean> | undefined;
-  readonly deviceFamily: string;
 }): Record<string, unknown> {
-  const signedAt = Date.now();
-  const authValue =
-    input.auth.kind === "password" || input.auth.kind === "deviceToken"
-      ? input.auth.value
-      : undefined;
+  const signedAtMs = Date.now();
+  const auth =
+    input.auth.kind === "password"
+      ? {
+          password: input.auth.value,
+        }
+      : input.auth.kind === "deviceToken"
+        ? {
+            // Legacy compatibility: device-token auth keeps `token` populated too.
+            token: input.auth.value,
+            deviceToken: input.auth.value,
+          }
+        : undefined;
+  const signatureToken = input.auth.kind === "deviceToken" ? input.auth.value : undefined;
   return {
     minProtocol: OPENCLAW_PROTOCOL_VERSION,
     maxProtocol: OPENCLAW_PROTOCOL_VERSION,
-    client: input.client,
+    client: {
+      id: input.client.id,
+      ...(input.client.displayName ? { displayName: input.client.displayName } : {}),
+      version: input.client.version,
+      platform: input.client.platform,
+      ...(input.client.deviceFamily ? { deviceFamily: input.client.deviceFamily } : {}),
+      ...(input.client.modelIdentifier ? { modelIdentifier: input.client.modelIdentifier } : {}),
+      mode: input.client.mode,
+      ...(input.client.instanceId ? { instanceId: input.client.instanceId } : {}),
+    },
     role: input.role,
     scopes: [...input.scopes],
     caps: [...(input.caps ?? [])],
     commands: [...(input.commands ?? [])],
     permissions: { ...input.permissions },
-    ...(input.auth.kind === "password"
-      ? {
-          auth: {
-            password: input.auth.value,
-          },
-        }
-      : input.auth.kind === "deviceToken"
-        ? {
-            auth: {
-              deviceToken: input.auth.value,
-            },
-          }
-        : {}),
+    ...(auth ? { auth } : {}),
     locale: input.locale ?? (Intl.DateTimeFormat().resolvedOptions().locale || "en-US"),
     userAgent: input.userAgent,
     device: {
       id: input.deviceIdentity.id,
-      publicKey: input.deviceIdentity.publicKeyPem,
-      signature: signChallenge(input.deviceIdentity, {
-        nonce: input.challengeNonce,
-        signedAt,
+      publicKey: publicKeyRawBase64UrlFromPem(input.deviceIdentity.publicKeyPem),
+      signature: signDevicePayload(input.deviceIdentity, {
+        deviceId: input.deviceIdentity.id,
         client: input.client,
         role: input.role,
         scopes: input.scopes,
-        ...(authValue !== undefined ? { authValue } : {}),
-        deviceFamily: input.deviceFamily,
+        signedAtMs,
+        ...(signatureToken !== undefined ? { token: signatureToken } : {}),
+        nonce: input.challengeNonce,
       }),
-      signedAt,
+      signedAt: signedAtMs,
       nonce: input.challengeNonce,
     },
   };
@@ -414,7 +510,6 @@ export async function connectOpenClawGateway(
   const deviceIdentity = await authStore.getDeviceIdentity();
   const requestTimeoutMs = options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
   const connectTimeoutMs = options.connectTimeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS;
-  const deviceFamily = "server";
 
   const candidateAuthSelections: OpenClawGatewayAuthSelection[] = [];
   if (options.password && options.password.length > 0) {
@@ -456,7 +551,6 @@ export async function connectOpenClawGateway(
         caps: options.caps,
         commands: options.commands,
         permissions: options.permissions,
-        deviceFamily,
         sessionKey: options.sessionKey ?? `okcode:${normalizePathSegments(options.client.id)}`,
       });
       return connection;
@@ -498,7 +592,6 @@ async function connectOnce(input: {
   readonly caps?: ReadonlyArray<string> | undefined;
   readonly commands?: ReadonlyArray<string> | undefined;
   readonly permissions?: Record<string, boolean> | undefined;
-  readonly deviceFamily: string;
   readonly sessionKey: string;
 }): Promise<OpenClawGatewayConnection> {
   return await new Promise<OpenClawGatewayConnection>((resolve, reject) => {
@@ -713,7 +806,6 @@ async function connectOnce(input: {
                 caps: input.caps,
                 commands: input.commands,
                 permissions: input.permissions,
-                deviceFamily: input.deviceFamily,
               }),
             }),
           );

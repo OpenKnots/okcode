@@ -157,7 +157,7 @@ interface ClaudeSessionContext {
   readonly query: ClaudeQueryRuntime;
   streamFiber: Fiber.Fiber<void, Error> | undefined;
   readonly startedAt: string;
-  readonly basePermissionMode: PermissionMode | undefined;
+  readonly basePermissionMode: PermissionMode;
   resumeSessionId: string | undefined;
   readonly pendingApprovals: Map<ApprovalRequestId, PendingApproval>;
   readonly pendingUserInputs: Map<ApprovalRequestId, PendingUserInput>;
@@ -2790,6 +2790,7 @@ function makeClaudeAdapter(options?: ClaudeAdapterLiveOptions) {
         const permissionMode =
           toPermissionMode(providerOptions?.permissionMode) ??
           (input.runtimeMode === "full-access" ? "bypassPermissions" : undefined);
+        const basePermissionMode = permissionMode ?? "default";
         const settings = {
           ...(typeof thinking === "boolean" ? { alwaysThinkingEnabled: thinking } : {}),
           ...(fastMode ? { fastMode: true } : {}),
@@ -2859,7 +2860,7 @@ function makeClaudeAdapter(options?: ClaudeAdapterLiveOptions) {
           query: queryRuntime,
           streamFiber: undefined,
           startedAt,
-          basePermissionMode: permissionMode,
+          basePermissionMode,
           resumeSessionId: sessionId,
           pendingApprovals,
           pendingUserInputs,
@@ -2965,8 +2966,7 @@ function makeClaudeAdapter(options?: ClaudeAdapterLiveOptions) {
           });
         } else if (input.interactionMode === "chat" || input.interactionMode === "code") {
           yield* Effect.tryPromise({
-            try: () =>
-              context.query.setPermissionMode(context.basePermissionMode ?? "bypassPermissions"),
+            try: () => context.query.setPermissionMode(context.basePermissionMode),
             catch: (cause) => toRequestError(input.threadId, "turn/setPermissionMode", cause),
           });
         }

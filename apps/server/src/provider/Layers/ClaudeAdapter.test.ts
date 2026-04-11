@@ -2473,6 +2473,57 @@ describe("ClaudeAdapterLive", () => {
     );
   });
 
+  it.effect(
+    "restores default permission mode on sendTurn when interactionMode is chat for approval-required sessions",
+    () => {
+      const harness = makeHarness();
+      return Effect.gen(function* () {
+        const adapter = yield* ClaudeAdapter;
+
+        const session = yield* adapter.startSession({
+          threadId: THREAD_ID,
+          provider: "claudeAgent",
+          runtimeMode: "approval-required",
+        });
+
+        yield* adapter.sendTurn({
+          threadId: session.threadId,
+          input: "plan this",
+          interactionMode: "plan",
+          attachments: [],
+        });
+
+        const turnCompletedFiber = yield* Stream.filter(
+          adapter.streamEvents,
+          (event) => event.type === "turn.completed",
+        ).pipe(Stream.runHead, Effect.forkChild);
+
+        harness.query.emit({
+          type: "result",
+          subtype: "success",
+          is_error: false,
+          errors: [],
+          session_id: "sdk-session-approval-plan-restore",
+          uuid: "result-approval-plan",
+        } as unknown as SDKMessage);
+
+        yield* Fiber.join(turnCompletedFiber);
+
+        yield* adapter.sendTurn({
+          threadId: session.threadId,
+          input: "now answer directly",
+          interactionMode: "chat",
+          attachments: [],
+        });
+
+        assert.deepEqual(harness.query.setPermissionModeCalls, ["plan", "default"]);
+      }).pipe(
+        Effect.provideService(Random.Random, makeDeterministicRandomService()),
+        Effect.provide(harness.layer),
+      );
+    },
+  );
+
   it.effect("does not call setPermissionMode when interactionMode is absent", () => {
     const harness = makeHarness();
     return Effect.gen(function* () {

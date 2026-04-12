@@ -2,7 +2,7 @@ import type { DesktopBridge, NativeApi, ProjectId, ThreadId } from "@okcode/cont
 
 import { readDesktopPreviewBridge } from "~/desktopPreview";
 import { readNativeApi } from "~/nativeApi";
-import { usePreviewStateStore } from "~/previewStateStore";
+import { openUrlInAppBrowser } from "~/lib/openUrlInAppBrowser";
 
 export interface OpenGitHubUrlInput {
   url: string;
@@ -36,17 +36,15 @@ export function canOpenGitHubUrlInPreview(input: OpenGitHubUrlInput): boolean {
 }
 
 export async function openGitHubUrl(input: OpenGitHubUrlInput): Promise<"preview" | "external"> {
-  const previewBridge = input.previewBridge ?? readDesktopPreviewBridge();
-  const setPreviewOpen = input.setPreviewOpen ?? usePreviewStateStore.getState().setProjectOpen;
-
-  if (
-    isGitHubHttpUrl(input.url) &&
-    previewBridge !== null &&
-    input.projectId !== null &&
-    input.threadId !== null
-  ) {
-    setPreviewOpen(input.projectId, true);
-    await previewBridge.createTab({ url: input.url, threadId: input.threadId });
+  if (isGitHubHttpUrl(input.url) && input.projectId !== null && input.threadId !== null) {
+    await openUrlInAppBrowser({
+      url: input.url,
+      projectId: input.projectId,
+      threadId: input.threadId,
+      previewBridge: input.previewBridge ?? readDesktopPreviewBridge(),
+      setPreviewOpen: input.setPreviewOpen,
+      nativeApi: input.nativeApi,
+    });
     return "preview";
   }
 

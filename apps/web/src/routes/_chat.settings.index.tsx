@@ -77,12 +77,19 @@ import {
   getProviderStatusDescription,
   getProviderStatusHeading,
 } from "../components/chat/providerStatusPresentation";
+import { APP_LOCALE_PREFERENCES } from "../i18n/types";
+import { useT } from "../i18n/useI18n";
 
-const TIMESTAMP_FORMAT_LABELS = {
-  locale: "System default",
-  "12-hour": "12-hour",
-  "24-hour": "24-hour",
-} as const;
+const TIMESTAMP_FORMAT_OPTIONS = [
+  { value: "locale", labelKey: "settings.general.timeFormat.option.locale" },
+  { value: "12-hour", labelKey: "settings.general.timeFormat.option.12Hour" },
+  { value: "24-hour", labelKey: "settings.general.timeFormat.option.24Hour" },
+] as const;
+
+const LANGUAGE_OPTIONS = APP_LOCALE_PREFERENCES.map((value) => ({
+  value,
+  labelKey: `settings.general.language.option.${value}` as const,
+}));
 
 const PR_REVIEW_REQUEST_CHANGES_TONE_OPTIONS: ReadonlyArray<{
   value: PrReviewRequestChangesTone;
@@ -435,6 +442,7 @@ function BuildInfoBlock({ label, buildInfo }: { label: string; buildInfo: BuildM
 }
 
 function SettingsRouteView() {
+  const { t } = useT();
   const navigate = useNavigate();
   const {
     settingsState: { settings, defaults, updateSettings },
@@ -709,6 +717,15 @@ function SettingsRouteView() {
     [settings, updateSettings],
   );
 
+  const languageOptionLabel = (value: (typeof APP_LOCALE_PREFERENCES)[number]) =>
+    t(`settings.general.language.option.${value}`);
+
+  const timestampFormatOptionLabel = (value: (typeof TIMESTAMP_FORMAT_OPTIONS)[number]["value"]) =>
+    t(
+      TIMESTAMP_FORMAT_OPTIONS.find((option) => option.value === value)?.labelKey ??
+        "settings.general.timeFormat.option.locale",
+    );
+
   return (
     <SettingsShell
       activeItem={activeSection}
@@ -733,6 +750,50 @@ function SettingsRouteView() {
                 >
                   Open style settings
                 </Button>
+              }
+            />
+
+            <SettingsRow
+              title={t("settings.general.language.title")}
+              description={t("settings.general.language.description")}
+              resetAction={
+                settings.locale !== defaults.locale ? (
+                  <SettingResetButton
+                    label="language"
+                    onClick={() =>
+                      updateSettings({
+                        locale: defaults.locale,
+                      })
+                    }
+                  />
+                ) : null
+              }
+              control={
+                <Select
+                  value={settings.locale}
+                  onValueChange={(value) => {
+                    if (!LANGUAGE_OPTIONS.some((option) => option.value === value)) {
+                      return;
+                    }
+                    updateSettings({
+                      locale: value as (typeof APP_LOCALE_PREFERENCES)[number],
+                    });
+                  }}
+                >
+                  <SelectTrigger
+                    className="w-full sm:w-40"
+                    aria-label={t("settings.general.language.aria")}
+                  >
+                    <SelectValue>{languageOptionLabel(settings.locale)}</SelectValue>
+                  </SelectTrigger>
+                  <SelectPopup align="end" alignItemWithTrigger={false}>
+                    {LANGUAGE_OPTIONS.map((option) => (
+                      <SelectItem hideIndicator key={option.value} value={option.value}>
+                        {languageOptionLabel(option.value)}
+                      </SelectItem>
+                    ))}
+                  </SelectPopup>
+                </Select>
               }
             />
 
@@ -800,27 +861,25 @@ function SettingsRouteView() {
                 <Select
                   value={settings.timestampFormat}
                   onValueChange={(value) => {
-                    if (value !== "locale" && value !== "12-hour" && value !== "24-hour") {
+                    if (!TIMESTAMP_FORMAT_OPTIONS.some((option) => option.value === value)) {
                       return;
                     }
                     updateSettings({
-                      timestampFormat: value,
+                      timestampFormat: value as (typeof TIMESTAMP_FORMAT_OPTIONS)[number]["value"],
                     });
                   }}
                 >
                   <SelectTrigger className="w-full sm:w-40" aria-label="Timestamp format">
-                    <SelectValue>{TIMESTAMP_FORMAT_LABELS[settings.timestampFormat]}</SelectValue>
+                    <SelectValue>
+                      {timestampFormatOptionLabel(settings.timestampFormat)}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectPopup align="end" alignItemWithTrigger={false}>
-                    <SelectItem hideIndicator value="locale">
-                      {TIMESTAMP_FORMAT_LABELS.locale}
-                    </SelectItem>
-                    <SelectItem hideIndicator value="12-hour">
-                      {TIMESTAMP_FORMAT_LABELS["12-hour"]}
-                    </SelectItem>
-                    <SelectItem hideIndicator value="24-hour">
-                      {TIMESTAMP_FORMAT_LABELS["24-hour"]}
-                    </SelectItem>
+                    {TIMESTAMP_FORMAT_OPTIONS.map((option) => (
+                      <SelectItem hideIndicator key={option.value} value={option.value}>
+                        {timestampFormatOptionLabel(option.value)}
+                      </SelectItem>
+                    ))}
                   </SelectPopup>
                 </Select>
               }

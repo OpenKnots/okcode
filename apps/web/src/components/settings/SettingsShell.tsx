@@ -17,6 +17,7 @@ import { Button } from "../ui/button";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { SidebarInset, SidebarTrigger } from "../ui/sidebar";
 import { cn } from "../../lib/utils";
+import { useT } from "../../i18n/useI18n";
 
 export type SettingsSectionId =
   | "general"
@@ -104,6 +105,7 @@ export function SettingsShell({
   children: ReactNode;
 }) {
   const navigate = useNavigate();
+  const { t } = useT();
   const activeItemLabel = useMemo(
     () => SETTINGS_NAV_ITEMS.find((item) => item.id === activeItem)?.label ?? "Settings",
     [activeItem],
@@ -142,7 +144,7 @@ export function SettingsShell({
                   disabled={changedSettingLabels.length === 0}
                   onClick={() => void onRestoreDefaults()}
                 >
-                  Restore defaults
+                  {t("common.actions.restoreDefaults")}
                 </Button>
               </div>
             </div>
@@ -163,7 +165,7 @@ export function SettingsShell({
                 disabled={changedSettingLabels.length === 0}
                 onClick={() => void onRestoreDefaults()}
               >
-                Restore defaults
+                {t("common.actions.restoreDefaults")}
               </Button>
             </div>
           </div>

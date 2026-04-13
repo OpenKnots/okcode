@@ -33,6 +33,7 @@ import { MobileConnectionBanner } from "../components/mobile/MobileConnectionBan
 import { MobilePairingScreen } from "../components/mobile/MobilePairingScreen";
 import { useMobilePairingState } from "../hooks/useMobilePairingState";
 import { I18nProvider } from "../i18n/I18nProvider";
+import { useT } from "../i18n/useI18n";
 import { VoodooStitches } from "../components/VoodooStitches";
 
 export const Route = createRootRouteWithContext<{
@@ -57,13 +58,16 @@ function RootRouteView() {
 }
 
 function RootRouteContent() {
+  const { t } = useT();
   const { isMobileShell, isLoading, pairingState } = useMobilePairingState();
 
   if (isMobileShell && isLoading) {
     return (
       <div className="flex h-screen flex-col bg-background text-foreground">
         <div className="flex flex-1 items-center justify-center">
-          <p className="text-sm text-muted-foreground">Restoring mobile pairing...</p>
+          <p className="text-sm text-muted-foreground">
+            {t("root.loading.restoringMobilePairing")}
+          </p>
         </div>
       </div>
     );
@@ -78,7 +82,7 @@ function RootRouteContent() {
       <div className="flex h-screen flex-col bg-background text-foreground">
         <div className="flex flex-1 items-center justify-center">
           <p className="text-sm text-muted-foreground">
-            Connecting to {APP_DISPLAY_NAME} server...
+            {t("root.loading.connectingServer", { appName: APP_DISPLAY_NAME })}
           </p>
         </div>
       </div>
@@ -107,6 +111,7 @@ function RootRouteErrorView({ error, reset }: ErrorComponentProps) {
 }
 
 function RootRouteErrorContent({ error, reset }: ErrorComponentProps) {
+  const { t } = useT();
   const message = errorMessage(error);
   const details = errorDetails(error);
 
@@ -122,23 +127,23 @@ function RootRouteErrorContent({ error, reset }: ErrorComponentProps) {
           {APP_DISPLAY_NAME}
         </p>
         <h1 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
-          Something went wrong.
+          {t("root.error.title")}
         </h1>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{message}</p>
 
         <div className="mt-5 flex flex-wrap gap-2">
           <Button size="sm" onClick={() => reset()}>
-            Try again
+            {t("common.actions.tryAgain")}
           </Button>
           <Button size="sm" variant="outline" onClick={() => window.location.reload()}>
-            Reload app
+            {t("common.actions.reloadApp")}
           </Button>
         </div>
 
         <details className="group mt-5 overflow-hidden rounded-lg border border-border/70 bg-background/55">
           <summary className="cursor-pointer list-none px-3 py-2 text-xs font-medium text-muted-foreground">
-            <span className="group-open:hidden">Show error details</span>
-            <span className="hidden group-open:inline">Hide error details</span>
+            <span className="group-open:hidden">{t("root.error.showDetails")}</span>
+            <span className="hidden group-open:inline">{t("root.error.hideDetails")}</span>
           </summary>
           <pre className="max-h-56 overflow-auto border-t border-border/70 bg-background/80 px-3 py-2 text-xs text-foreground/85">
             {details}

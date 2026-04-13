@@ -647,7 +647,7 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
   });
 
   // HTTP server — serves static files or redirects to Vite dev server
-  const httpServer = http.createServer((req, res) => {
+  const httpServer = http.createServer(async (req, res) => {
     const respond = (
       statusCode: number,
       headers: Record<string, string>,
@@ -660,7 +660,7 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
     void Effect.runPromise(
       Effect.gen(function* () {
         const url = new URL(req.url ?? "/", `http://localhost:${port}`);
-        if (await tryHandleApiRequest(req, res, url)) {
+        if (yield* Effect.promise(() => tryHandleApiRequest(req, res, url))) {
           return;
         }
 

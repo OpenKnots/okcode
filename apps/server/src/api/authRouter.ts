@@ -26,7 +26,7 @@ function respondJson(
 ): void {
   res.writeHead(statusCode, {
     "Content-Type": "application/json",
-    ...(headers ?? {}),
+    ...headers,
   });
   res.end(JSON.stringify(body));
 }
@@ -52,7 +52,9 @@ function mergeAnthropicBetaHeader(value: string | null): string {
   return parts.join(",");
 }
 
-async function readJsonRequestBody(req: http.IncomingMessage): Promise<Record<string, unknown> | null> {
+async function readJsonRequestBody(
+  req: http.IncomingMessage,
+): Promise<Record<string, unknown> | null> {
   const chunks: Buffer[] = [];
   for await (const chunk of req) {
     chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : Buffer.from(chunk));

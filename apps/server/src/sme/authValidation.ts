@@ -18,11 +18,6 @@ import {
 
 const OPENAI_MODEL_PROVIDERS = new Set(["openai"]);
 
-function normalizeOptionalValue(value: string | undefined | null): string | null {
-  const trimmed = value?.trim();
-  return trimmed && trimmed.length > 0 ? trimmed : null;
-}
-
 export function getAllowedSmeAuthMethods(provider: ProviderKind): readonly SmeAuthMethod[] {
   switch (provider) {
     case "claudeAgent":

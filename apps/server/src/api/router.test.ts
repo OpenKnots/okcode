@@ -87,21 +87,24 @@ describe("createApiRouter", () => {
       tokenManager,
     });
 
-    await withServer((req, res) => {
-      const url = new URL(req.url ?? "/", "http://127.0.0.1");
-      void tryHandleApiRequest(req, res, url);
-    }, async (baseUrl) => {
-      const response = await request(baseUrl, "/api/pairing?ttl=300");
-      const body = JSON.parse(response.body) as {
-        pairingUrl: string;
-        serverUrl: string;
-        expiresAt: string;
-      };
-      expect(response.statusCode).toBe(200);
-      expect(body.serverUrl).toBe("http://127.0.0.1:31337");
-      expect(body.pairingUrl).toContain("okcode://pair?server=");
-      expect(body.expiresAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
-    });
+    await withServer(
+      (req, res) => {
+        const url = new URL(req.url ?? "/", "http://127.0.0.1");
+        void tryHandleApiRequest(req, res, url);
+      },
+      async (baseUrl) => {
+        const response = await request(baseUrl, "/api/pairing?ttl=300");
+        const body = JSON.parse(response.body) as {
+          pairingUrl: string;
+          serverUrl: string;
+          expiresAt: string;
+        };
+        expect(response.statusCode).toBe(200);
+        expect(body.serverUrl).toBe("http://127.0.0.1:31337");
+        expect(body.pairingUrl).toContain("okcode://pair?server=");
+        expect(body.expiresAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+      },
+    );
   });
 
   it("proxies Anthropic message requests with the Claude Code envelope", async () => {
@@ -142,49 +145,50 @@ describe("createApiRouter", () => {
       anthropicBaseUrl: `http://127.0.0.1:${upstreamAddress.port}`,
     });
 
-    await withServer((req, res) => {
-      const url = new URL(req.url ?? "/", "http://127.0.0.1");
-      void tryHandleApiRequest(req, res, url);
-    }, async (baseUrl) => {
-      const response = await request(baseUrl, "/api/auth/anthropic/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": "test-key",
-          "anthropic-version": "2023-06-01",
-          "anthropic-beta": "tools-2024-04-04",
-        },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 64,
-          system: "Original system prompt",
-          messages: [{ role: "user", content: "Hello" }],
-          stream: true,
-        }),
-      });
+    await withServer(
+      (req, res) => {
+        const url = new URL(req.url ?? "/", "http://127.0.0.1");
+        void tryHandleApiRequest(req, res, url);
+      },
+      async (baseUrl) => {
+        const response = await request(baseUrl, "/api/auth/anthropic/v1/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": "test-key",
+            "anthropic-version": "2023-06-01",
+            "anthropic-beta": "tools-2024-04-04",
+          },
+          body: JSON.stringify({
+            model: "claude-sonnet-4-20250514",
+            max_tokens: 64,
+            system: "Original system prompt",
+            messages: [{ role: "user", content: "Hello" }],
+            stream: true,
+          }),
+        });
 
-      expect(response.statusCode).toBe(200);
-      expect(JSON.parse(response.body)).toEqual({ ok: true, proxied: true });
-      expect(upstreamHeaders?.["x-api-key"]).toBe("test-key");
-      expect(upstreamHeaders?.["anthropic-version"]).toBe("2023-06-01");
-      expect(upstreamHeaders?.["anthropic-beta"]).toBe(
-        "claude-code-20250219,tools-2024-04-04",
-      );
-      expect(upstreamBody).toMatchObject({
-        model: "claude-sonnet-4-20250514",
-        stream: true,
-      });
-      expect(upstreamBody?.system).toEqual([
-        {
-          type: "text",
-          text: "You are Claude Code, Anthropic's official CLI for Claude.",
-        },
-        {
-          type: "text",
-          text: "Original system prompt",
-        },
-      ]);
-    });
+        expect(response.statusCode).toBe(200);
+        expect(JSON.parse(response.body)).toEqual({ ok: true, proxied: true });
+        expect(upstreamHeaders?.["x-api-key"]).toBe("test-key");
+        expect(upstreamHeaders?.["anthropic-version"]).toBe("2023-06-01");
+        expect(upstreamHeaders?.["anthropic-beta"]).toBe("claude-code-20250219,tools-2024-04-04");
+        expect(upstreamBody).toMatchObject({
+          model: "claude-sonnet-4-20250514",
+          stream: true,
+        });
+        expect(upstreamBody?.system).toEqual([
+          {
+            type: "text",
+            text: "You are Claude Code, Anthropic's official CLI for Claude.",
+          },
+          {
+            type: "text",
+            text: "Original system prompt",
+          },
+        ]);
+      },
+    );
   });
 
   it("returns a JSON 404 for unknown API routes", async () => {
@@ -195,13 +199,16 @@ describe("createApiRouter", () => {
       tokenManager: new TokenManager(undefined),
     });
 
-    await withServer((req, res) => {
-      const url = new URL(req.url ?? "/", "http://127.0.0.1");
-      void tryHandleApiRequest(req, res, url);
-    }, async (baseUrl) => {
-      const response = await request(baseUrl, "/api/unknown");
-      expect(response.statusCode).toBe(404);
-      expect(JSON.parse(response.body)).toEqual({ error: "Not Found" });
-    });
+    await withServer(
+      (req, res) => {
+        const url = new URL(req.url ?? "/", "http://127.0.0.1");
+        void tryHandleApiRequest(req, res, url);
+      },
+      async (baseUrl) => {
+        const response = await request(baseUrl, "/api/unknown");
+        expect(response.statusCode).toBe(404);
+        expect(JSON.parse(response.body)).toEqual({ error: "Not Found" });
+      },
+    );
   });
 });

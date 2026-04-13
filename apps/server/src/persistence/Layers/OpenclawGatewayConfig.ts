@@ -68,7 +68,7 @@ function normalizeScopes(scopes: ReadonlyArray<string> | undefined): string[] {
       unique.add(trimmed);
     }
   }
-  return [...unique].sort((left, right) => left.localeCompare(right));
+  return [...unique].toSorted((left, right) => left.localeCompare(right));
 }
 
 function fromGeneratedIdentity(identity: ReturnType<typeof generateOpenclawDeviceIdentity>) {

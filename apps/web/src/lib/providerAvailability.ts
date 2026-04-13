@@ -29,6 +29,7 @@ export function isProviderReadyForThreadSelection(input: {
   provider: ProviderKind;
   statuses: ReadonlyArray<ServerProviderStatus>;
   openclawGatewayUrl?: string | null | undefined;
+  claudeAuthTokenHelperCommand?: string | null | undefined;
 }): boolean {
   const status = getProviderStatusByKind(input.statuses, input.provider);
 
@@ -43,18 +44,29 @@ export function isProviderReadyForThreadSelection(input: {
     return false;
   }
 
+  if (
+    input.provider === "claudeAgent" &&
+    (input.claudeAuthTokenHelperCommand ?? "").trim().length > 0 &&
+    status.available &&
+    status.authStatus === "unauthenticated"
+  ) {
+    return true;
+  }
+
   return status.available && status.status === "ready" && status.authStatus !== "unauthenticated";
 }
 
 export function getSelectableThreadProviders(input: {
   statuses: ReadonlyArray<ServerProviderStatus>;
   openclawGatewayUrl?: string | null | undefined;
+  claudeAuthTokenHelperCommand?: string | null | undefined;
 }): ProviderKind[] {
   return THREAD_PROVIDER_ORDER.filter((provider) =>
     isProviderReadyForThreadSelection({
       provider,
       statuses: input.statuses,
       openclawGatewayUrl: input.openclawGatewayUrl,
+      claudeAuthTokenHelperCommand: input.claudeAuthTokenHelperCommand,
     }),
   );
 }

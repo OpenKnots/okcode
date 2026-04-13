@@ -133,7 +133,7 @@
   "settings.advanced.keybindings.opening": "Opening...",
   "settings.advanced.keybindings.resolvingPath": "Resolving keybindings path...",
   "settings.advanced.keybindings.title": "Keybindings",
-  "settings.advanced.providerInstalls.claude.binaryDescription": "Leave blank to use <code>claude</code> from your PATH. Authentication uses <code>claude auth login</code>.",
+  "settings.advanced.providerInstalls.claude.binaryDescription": "Leave blank to use <code>claude</code> from your PATH. Claude Code needs <code>ANTHROPIC_API_KEY</code> or <code>ANTHROPIC_AUTH_TOKEN</code> in the runtime environment.",
   "settings.advanced.providerInstalls.claude.binaryPathLabel": "Claude Code binary path",
   "settings.advanced.providerInstalls.claude.binaryPlaceholder": "Claude Code binary path",
   "settings.advanced.providerInstalls.codex.binaryDescription": "Leave blank to use <code>codex</code> from your PATH. Authentication normally uses <code>codex login</code> unless your Codex config points at a custom model provider.",

@@ -484,7 +484,7 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
             if (joined === "--version") return { stdout: "1.0.0\n", stderr: "", code: 0 };
             if (joined === "auth status")
               return {
-                stdout: '{"loggedIn":true,"authMethod":"claude.ai"}\n',
+                stdout: '{"loggedIn":true,"authMethod":"apiKey"}\n',
                 stderr: "",
                 code: 0,
               };
@@ -535,7 +535,7 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
         assert.strictEqual(status.authStatus, "unauthenticated");
         assert.strictEqual(
           status.message,
-          "Claude is not authenticated. Run `claude auth login` and try again.",
+          "Claude is not configured with a supported Anthropic credential. Set ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN and try again.",
         );
       }).pipe(
         Effect.provide(
@@ -547,6 +547,34 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
                 stdout: '{"loggedIn":false}\n',
                 stderr: "",
                 code: 1,
+              };
+            throw new Error(`Unexpected args: ${joined}`);
+          }),
+        ),
+      ),
+    );
+
+    it.effect("returns unauthenticated when auth status reports oauth auth", () =>
+      Effect.gen(function* () {
+        const status = yield* checkClaudeProviderStatus;
+        assert.strictEqual(status.provider, "claudeAgent");
+        assert.strictEqual(status.status, "error");
+        assert.strictEqual(status.available, true);
+        assert.strictEqual(status.authStatus, "unauthenticated");
+        assert.strictEqual(
+          status.message,
+          "Claude Code is signed in with OAuth, which is not supported here. Set ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN and try again.",
+        );
+      }).pipe(
+        Effect.provide(
+          mockSpawnerLayer((args) => {
+            const joined = args.join(" ");
+            if (joined === "--version") return { stdout: "1.0.0\n", stderr: "", code: 0 };
+            if (joined === "auth status")
+              return {
+                stdout: '{"loggedIn":true,"authMethod":"claude.ai"}\n',
+                stderr: "",
+                code: 0,
               };
             throw new Error(`Unexpected args: ${joined}`);
           }),
@@ -613,8 +641,12 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
         stderr: "",
         code: 0,
       });
-      assert.strictEqual(parsed.status, "ready");
-      assert.strictEqual(parsed.authStatus, "authenticated");
+      assert.strictEqual(parsed.status, "error");
+      assert.strictEqual(parsed.authStatus, "unauthenticated");
+      assert.strictEqual(
+        parsed.message,
+        "Claude Code is signed in with OAuth, which is not supported here. Set ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN and try again.",
+      );
     });
 
     it("JSON with loggedIn=false is unauthenticated", () => {

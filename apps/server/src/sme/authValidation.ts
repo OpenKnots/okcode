@@ -80,7 +80,7 @@ export function validateAnthropicSetup(input: {
       severity: "error",
       message:
         providerStatus.message ??
-        "Claude Code CLI is not authenticated. Run `claude auth login` and try again.",
+        "Claude Code is not configured with a supported Anthropic credential. Set ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN and try again.",
       resolvedAuthMethod: input.authMethod,
       resolvedAccountType: "unknown",
     };

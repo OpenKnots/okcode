@@ -48,7 +48,7 @@ describe("humanizeThreadError", () => {
     ).toBe(true);
     expect(
       isAuthenticationThreadError(
-        "Claude is not authenticated. Run `claude auth login` and try again.",
+        "Claude is not configured with a supported Anthropic credential. Set ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN and try again.",
       ),
     ).toBe(true);
   });
@@ -81,9 +81,11 @@ describe("humanizeThreadError", () => {
     ).toContain("Troubleshooting:");
     expect(
       buildThreadErrorDiagnosticsCopy(
-        "Codex CLI is not authenticated. Run `codex login` and try again.",
+        "Claude Code is signed in with OAuth, which is not supported here. Set ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN and try again.",
         { includeTips: true },
       ),
-    ).toContain("Run `codex login` and retry the turn.");
+    ).toContain(
+      "Set `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN` in the runtime environment and retry the turn.",
+    );
   });
 });

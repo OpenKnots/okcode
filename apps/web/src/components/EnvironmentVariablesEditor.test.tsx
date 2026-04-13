@@ -12,6 +12,13 @@ describe("EnvironmentVariablesEditor", () => {
         emptyMessage="No variables"
         saveButtonLabel="Save"
         addButtonLabel="Add variable"
+        quickAddPresets={[
+          {
+            label: "Add Claude token",
+            description: "Create ANTHROPIC_AUTH_TOKEN in your global environment.",
+            entry: { key: "ANTHROPIC_AUTH_TOKEN", value: "" },
+          },
+        ]}
         onSave={async (entries) => entries}
       />,
     );
@@ -19,5 +26,6 @@ describe("EnvironmentVariablesEditor", () => {
     expect(markup).toContain('aria-label="Show value"');
     expect(markup).toContain("lucide-eye");
     expect(markup).toContain("-webkit-text-security:disc");
+    expect(markup).toContain("Add Claude token");
   });
 });

@@ -107,6 +107,11 @@ export interface EnvironmentVariablesEditorProps {
   readonly emptyMessage: string;
   readonly saveButtonLabel: string;
   readonly addButtonLabel: string;
+  readonly quickAddPresets?: ReadonlyArray<{
+    readonly label: string;
+    readonly description: string;
+    readonly entry: EnvironmentVariableEntry;
+  }>;
   readonly onSave: (
     entries: ReadonlyArray<EnvironmentVariableEntry>,
   ) => Promise<ReadonlyArray<EnvironmentVariableEntry>>;
@@ -119,6 +124,7 @@ export function EnvironmentVariablesEditor({
   emptyMessage,
   saveButtonLabel,
   addButtonLabel,
+  quickAddPresets,
   onSave,
   disabled = false,
 }: EnvironmentVariablesEditorProps) {
@@ -169,6 +175,12 @@ export function EnvironmentVariablesEditor({
   const addRow = () => {
     if (!canAddRow) return;
     setRows((current) => [...current, createDraftRow()]);
+    setSaveError(null);
+  };
+
+  const addQuickPreset = (entry: EnvironmentVariableEntry) => {
+    if (!canAddRow) return;
+    setRows((current) => [...current, createDraftRow(entry)]);
     setSaveError(null);
   };
 
@@ -384,10 +396,30 @@ export function EnvironmentVariablesEditor({
         <div className="text-[11px] text-muted-foreground">
           {normalizedEntries.length}/{ENVIRONMENT_VARIABLE_MAX_COUNT} saved variables
         </div>
-        <Button type="button" size="xs" variant="outline" disabled={!canAddRow} onClick={addRow}>
-          <PlusIcon className="size-3.5" />
-          {addButtonLabel}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {quickAddPresets?.length ? (
+            <div className="flex flex-wrap items-center gap-2">
+              {quickAddPresets.map((preset) => (
+                <Button
+                  key={preset.entry.key}
+                  type="button"
+                  size="xs"
+                  variant="secondary"
+                  disabled={!canAddRow}
+                  title={preset.description}
+                  onClick={() => addQuickPreset(preset.entry)}
+                >
+                  <PlusIcon className="size-3.5" />
+                  {preset.label}
+                </Button>
+              ))}
+            </div>
+          ) : null}
+          <Button type="button" size="xs" variant="outline" disabled={!canAddRow} onClick={addRow}>
+            <PlusIcon className="size-3.5" />
+            {addButtonLabel}
+          </Button>
+        </div>
       </div>
     </div>
   );

@@ -270,6 +270,16 @@ const make = Effect.gen(function* () {
     return readModel.threads.find((entry) => entry.id === threadId);
   });
 
+  const resolveRequestedTurnProvider = (input: {
+    readonly threadSelection: ModelSelection;
+    readonly provider?: ProviderKind;
+    readonly model?: string;
+  }): ProviderKind =>
+    input.provider ??
+    (input.model !== undefined
+      ? inferProviderForModel(input.model, input.threadSelection.provider)
+      : input.threadSelection.provider);
+
   const ensureSessionForThread = Effect.fnUntraced(function* (
     threadId: ThreadId,
     createdAt: string,
@@ -294,11 +304,16 @@ const make = Effect.gen(function* () {
       ? thread.session.providerName
       : undefined;
     const threadSelection = resolveThreadModelSelection(thread);
+    const requestedProvider = resolveRequestedTurnProvider({
+      threadSelection,
+      ...(options?.provider !== undefined ? { provider: options.provider } : {}),
+      ...(options?.model !== undefined ? { model: options.model } : {}),
+    });
     const requestedSelection =
       options?.modelSelection ??
       (options?.provider || options?.model || options?.modelOptions
         ? toCanonicalModelSelection(
-            options?.provider ?? threadSelection.provider,
+            requestedProvider,
             options?.model ?? threadSelection.model,
             options?.modelOptions ?? getModelSelectionOptions(threadSelection),
           )

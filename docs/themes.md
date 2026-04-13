@@ -29,19 +29,7 @@ The goal is to avoid generic editor skins and instead build themes that feel lik
 
 ---
 
-### 2. Solar Witch
-
-**Vibe:** magical, cozy, ritualistic  
-**Palette:** obsidian, ember orange, candle gold, deep plum, smoky rose
-
-- Warm firelight accents against a dark mystical base
-- Comments and subtle UI text can lean parchment-warm
-- Could make diff colors feel like ember/ash instead of default git green/red
-- Strong personality without becoming silly
-
----
-
-### 3. Cursor Dark
+### 2. Cursor Dark
 
 **Vibe:** sleek, focused, professional
 **Palette:** charcoal, dark gray, cool indigo, soft blue, muted white
@@ -133,18 +121,7 @@ The goal is to avoid generic editor skins and instead build themes that feel lik
 
 ---
 
-### 11. Cathedral Circuit
-
-**Vibe:** sacred machine, techno-gothic  
-**Palette:** graphite, sapphire, ruby, emerald, dim gold
-
-- Jewel-tone syntax on a dark architectural base
-- Can feel dramatic and reverent in a very good way
-- One of the most unique directions if executed carefully
-
----
-
-### 12. Desert Mirage
+### 11. Desert Mirage
 
 **Vibe:** cinematic, unusual, warm  
 **Palette:** dark bronze-brown, sand, cactus green, sunset coral, twilight violet
@@ -160,9 +137,7 @@ The goal is to avoid generic editor skins and instead build themes that feel lik
 If narrowing to a stronger first shortlist, these feel the most distinctive:
 
 - **Iridescent Void**
-- **Solar Witch**
 - **Cursor Dark**
-- **Cathedral Circuit**
   These avoid the “just another editor theme” problem best.
 
 ---
@@ -183,9 +158,7 @@ If narrowing to a stronger first shortlist, these feel the most distinctive:
 
 ### Atmospheric / weird
 
-- Solar Witch
 - Cursor Dark
-- Cathedral Circuit
 
 ---
 
@@ -237,8 +210,7 @@ To make themes feel truly differentiated, vary more than raw color values:
 The strongest candidates to develop first:
 
 1. **Iridescent Void**
-2. **Solar Witch**
-3. **Cursor Dark**
+2. **Cursor Dark**
 
 These feel like the best combination of distinctiveness, beauty, and long-session usability.
 

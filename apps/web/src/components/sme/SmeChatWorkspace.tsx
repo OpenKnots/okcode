@@ -13,10 +13,8 @@ import { serverConfigQueryOptions } from "~/lib/serverReactQuery";
 import { toastManager } from "~/components/ui/toast";
 
 import { SmeConversationDialog } from "./SmeConversationDialog";
-import { SmeMessageBubble } from "./SmeMessageBubble";
+import { SmeMessageList } from "./SmeMessageList";
 import { getSmeAuthMethodLabel, SME_PROVIDER_LABELS } from "./smeConversationConfig";
-
-const EMPTY_MESSAGES: SmeMessage[] = [];
 
 interface SmeChatWorkspaceProps {
   conversationId: string | null;
@@ -36,17 +34,9 @@ export function SmeChatWorkspace({
     () => conversations.find((item) => item.conversationId === conversationId) ?? null,
     [conversationId, conversations],
   );
-  const messages = useSmeStore((state) =>
-    conversationId
-      ? (state.messagesByConversation[conversationId] ?? EMPTY_MESSAGES)
-      : EMPTY_MESSAGES,
-  );
   const conversationError = useSmeStore((state) =>
     conversationId ? state.errorsByConversation[conversationId] : undefined,
   );
-  const streamingConversationId = useSmeStore((state) => state.streamingConversationId);
-  const streamingMessageId = useSmeStore((state) => state.streamingMessageId);
-  const streamingText = useSmeStore((state) => state.streamingText);
   const addUserMessage = useSmeStore((state) => state.addUserMessage);
   const clearStream = useSmeStore((state) => state.clearStream);
   const setMessages = useSmeStore((state) => state.setMessages);
@@ -55,7 +45,6 @@ export function SmeChatWorkspace({
   const [sending, setSending] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const serverConfigQuery = useQuery(serverConfigQueryOptions());
   const validationQuery = useQuery({
@@ -97,10 +86,6 @@ export function SmeChatWorkspace({
   }, [conversationId]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, streamingText]);
-
-  useEffect(() => {
     const textarea = textareaRef.current;
     if (!textarea) return;
     textarea.style.height = "auto";
@@ -116,7 +101,7 @@ export function SmeChatWorkspace({
     setInputText("");
     setSending(true);
     setConversationError(conversationId, undefined);
-    const previousMessages = messages;
+    const previousMessages = useSmeStore.getState().messagesByConversation[conversationId] ?? [];
 
     addUserMessage(conversationId, {
       messageId: `temp-${Date.now()}` as SmeMessageId,
@@ -174,7 +159,6 @@ export function SmeChatWorkspace({
     conversation,
     conversationId,
     inputText,
-    messages,
     providerOptions,
     sendDisabled,
     setConversationError,
@@ -289,47 +273,7 @@ export function SmeChatWorkspace({
         ) : null}
       </div>
 
-      <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-3xl">
-          {messages.map((message) => (
-            <SmeMessageBubble key={message.messageId} message={message} />
-          ))}
-          {streamingConversationId === conversationId && streamingText ? (
-            <SmeMessageBubble
-              message={
-                {
-                  messageId: (streamingMessageId ?? "streaming") as SmeMessageId,
-                  conversationId: conversationId as SmeConversationId,
-                  role: "assistant",
-                  text: streamingText,
-                  isStreaming: true,
-                  createdAt: new Date().toISOString(),
-                  updatedAt: new Date().toISOString(),
-                } as SmeMessage
-              }
-            />
-          ) : null}
-          {sending && !streamingText ? (
-            <div className="flex items-center gap-4 px-4 py-5">
-              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary/80 to-primary text-primary-foreground">
-                <SparklesIcon className="size-4" />
-              </div>
-              <div className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground">SME Assistant</p>
-                <div className="flex items-center gap-1.5">
-                  <div className="flex gap-1">
-                    <span className="size-1.5 animate-bounce rounded-full bg-muted-foreground/50 [animation-delay:0ms]" />
-                    <span className="size-1.5 animate-bounce rounded-full bg-muted-foreground/50 [animation-delay:150ms]" />
-                    <span className="size-1.5 animate-bounce rounded-full bg-muted-foreground/50 [animation-delay:300ms]" />
-                  </div>
-                  <span className="text-xs text-muted-foreground">Thinking...</span>
-                </div>
-              </div>
-            </div>
-          ) : null}
-          <div ref={messagesEndRef} />
-        </div>
-      </div>
+      <SmeMessageList conversationId={conversationId} sending={sending} />
 
       <div className="px-4 pb-4 pt-2">
         <div className="mx-auto max-w-3xl">

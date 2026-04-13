@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, memo, Suspense } from "react";
 import { UserIcon, SparklesIcon } from "lucide-react";
 import type { SmeMessage } from "@okcode/contracts";
 
@@ -10,8 +10,9 @@ interface SmeMessageBubbleProps {
   message: SmeMessage;
 }
 
-export function SmeMessageBubble({ message }: SmeMessageBubbleProps) {
+export const SmeMessageBubble = memo(function SmeMessageBubble({ message }: SmeMessageBubbleProps) {
   const isUser = message.role === "user";
+  const renderPlainText = isUser || Boolean(message.isStreaming);
 
   return (
     <div
@@ -40,7 +41,7 @@ export function SmeMessageBubble({ message }: SmeMessageBubbleProps) {
             isUser ? "bg-primary text-primary-foreground" : "bg-muted/60 text-foreground",
           )}
         >
-          {isUser ? (
+          {renderPlainText ? (
             <div className="whitespace-pre-wrap break-words">{message.text}</div>
           ) : (
             <Suspense
@@ -62,4 +63,4 @@ export function SmeMessageBubble({ message }: SmeMessageBubbleProps) {
       </div>
     </div>
   );
-}
+});

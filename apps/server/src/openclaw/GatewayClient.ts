@@ -466,7 +466,7 @@ export class OpenclawGatewayClient {
 
       if (frame.type === "event" && typeof frame.event === "string") {
         let matchedWaiter = false;
-        for (const waiter of [...this.pendingEventWaiters]) {
+        for (const waiter of this.pendingEventWaiters) {
           if (waiter.eventName === frame.event) {
             matchedWaiter = true;
             this.pendingEventWaiters.delete(waiter);

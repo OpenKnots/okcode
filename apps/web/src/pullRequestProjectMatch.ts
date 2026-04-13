@@ -16,7 +16,7 @@ function normalizeRepositorySlug(input: string): string {
 }
 
 function projectRepositoryCandidates(project: Project): string[] {
-  const candidates = [project.name, lastPathSegment(project.cwd)]
+  const candidates = [lastPathSegment(project.cwd), project.name]
     .map(normalizeRepositorySlug)
     .filter((candidate) => candidate.length > 0);
 
@@ -37,8 +37,12 @@ export function findProjectMatchingPullRequestReference(
     return null;
   }
 
-  return (
-    projects.find((project) => projectRepositoryCandidates(project).includes(targetRepository)) ??
-    null
+  const matches = projects.filter((project) =>
+    projectRepositoryCandidates(project).includes(targetRepository),
   );
+  if (matches.length !== 1) {
+    return null;
+  }
+
+  return matches[0] ?? null;
 }

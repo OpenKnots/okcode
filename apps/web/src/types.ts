@@ -94,6 +94,7 @@ export interface Project {
   cwd: string;
   model: string;
   defaultModelSelection?: ModelSelection | null;
+  iconPath?: string | null;
   expanded: boolean;
   createdAt?: string | undefined;
   updatedAt?: string | undefined;

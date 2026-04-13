@@ -23,6 +23,7 @@ function makeProject(input: {
     title: input.id,
     workspaceRoot: `/tmp/${input.id}`,
     defaultModel: "gpt-5-codex",
+    iconPath: null,
     scripts: [],
     createdAt: input.updatedAt,
     updatedAt: input.updatedAt,

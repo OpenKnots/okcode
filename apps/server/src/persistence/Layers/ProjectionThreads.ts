@@ -17,9 +17,7 @@ import {
 // selection will have a NULL model_selection column.
 const ProjectionThreadDbRowSchema = ProjectionThread.mapFields(
   Struct.assign({
-    modelSelection: Schema.NullOr(
-      Schema.fromJsonString(ProjectionThread.fields.modelSelection),
-    ),
+    modelSelection: Schema.NullOr(Schema.fromJsonString(ProjectionThread.fields.modelSelection)),
   }),
 );
 
@@ -144,9 +142,7 @@ const makeProjectionThreadRepository = Effect.gen(function* () {
     upsertProjectionThreadRow({
       ...row,
       modelSelection: row.modelSelection ?? null,
-    }).pipe(
-      Effect.mapError(toPersistenceSqlError("ProjectionThreadRepository.upsert:query")),
-    );
+    }).pipe(Effect.mapError(toPersistenceSqlError("ProjectionThreadRepository.upsert:query")));
 
   const getById: ProjectionThreadRepositoryShape["getById"] = (input) =>
     getProjectionThreadRow(input).pipe(

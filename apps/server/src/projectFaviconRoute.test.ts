@@ -98,6 +98,21 @@ describe("tryHandleProjectFaviconRequest", () => {
     });
   });
 
+  it("serves an explicit icon override when provided", async () => {
+    const projectDir = makeTempDir("okcode-favicon-route-override-");
+    const iconPath = path.join(projectDir, "public", "brand", "override.svg");
+    fs.mkdirSync(path.dirname(iconPath), { recursive: true });
+    fs.writeFileSync(iconPath, "<svg>override</svg>", "utf8");
+
+    await withRouteServer(async (baseUrl) => {
+      const pathname = `/api/project-favicon?cwd=${encodeURIComponent(projectDir)}&icon=${encodeURIComponent("public/brand/override.svg")}`;
+      const response = await request(baseUrl, pathname);
+      expect(response.statusCode).toBe(200);
+      expect(response.contentType).toContain("image/svg+xml");
+      expect(response.body).toBe("<svg>override</svg>");
+    });
+  });
+
   it("resolves icon href from source files when no well-known favicon exists", async () => {
     const projectDir = makeTempDir("okcode-favicon-route-source-");
     const iconPath = path.join(projectDir, "public", "brand", "logo.svg");

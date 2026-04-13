@@ -107,6 +107,31 @@ export function tryHandleProjectFaviconRequest(url: URL, res: http.ServerRespons
     return true;
   }
 
+  const overrideIconPath = url.searchParams.get("icon");
+  if (overrideIconPath) {
+    const candidates = resolveIconHref(projectCwd, overrideIconPath);
+    const serveOverrideOrFallback = (index: number): void => {
+      if (index >= candidates.length) {
+        serveFallbackFavicon(res);
+        return;
+      }
+      const candidate = candidates[index]!;
+      if (!isPathWithinProject(projectCwd, candidate)) {
+        serveOverrideOrFallback(index + 1);
+        return;
+      }
+      fs.stat(candidate, (err, stats) => {
+        if (err || !stats?.isFile()) {
+          serveOverrideOrFallback(index + 1);
+          return;
+        }
+        serveFaviconFile(candidate, res);
+      });
+    };
+    serveOverrideOrFallback(0);
+    return true;
+  }
+
   const tryResolvedPaths = (paths: string[], index: number, onExhausted: () => void): void => {
     if (index >= paths.length) {
       onExhausted();

@@ -59,6 +59,7 @@ import {
 } from "react";
 import { CloneRepositoryDialog } from "~/components/CloneRepositoryDialog";
 import { EditableThreadTitle } from "~/components/EditableThreadTitle";
+import { ProjectIcon } from "~/components/ProjectIcon";
 import { useClientMode } from "~/hooks/useClientMode";
 import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
 import { useCurrentWorktreeCleanupCandidates } from "~/hooks/useCurrentWorktreeCleanupCandidates";
@@ -1442,7 +1443,7 @@ export default function Sidebar() {
             ref={isManualProjectSorting ? dragHandleProps?.setActivatorNodeRef : undefined}
             size="sm"
             className={cn(
-              "h-auto min-w-0 flex-1 gap-0 rounded-md text-left hover:bg-transparent",
+              "h-auto min-w-0 flex-1 gap-1.5 rounded-md text-left hover:bg-transparent",
               isManualProjectSorting ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
             )}
             style={SIDEBAR_PROJECT_ROW_STYLE}
@@ -1459,6 +1460,7 @@ export default function Sidebar() {
               });
             }}
           >
+            <ProjectIcon cwd={project.cwd} iconPath={project.iconPath ?? null} className="size-4" />
             {editingProjectId === project.id ? (
               <input
                 ref={bindProjectInputRef}

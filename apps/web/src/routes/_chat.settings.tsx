@@ -384,6 +384,12 @@ const PROVIDER_AUTH_GUIDES: Record<
     verifyCmd: "Test Connection",
     note: "OpenClaw uses the gateway URL and password below rather than a local CLI login. A configured gateway unlocks it for new-thread selection.",
   },
+  copilot: {
+    installCmd: "npm install -g @github/copilot",
+    authCmd: "copilot login",
+    verifyCmd: "gh auth status",
+    note: "GitHub Copilot must be installed and authenticated before it can appear in the thread picker.",
+  },
 };
 
 function getAuthenticationBadgeCopy(input: {
@@ -811,6 +817,7 @@ function SettingsRouteView() {
     codex: Boolean(settings.codexBinaryPath || settings.codexHomePath),
     claudeAgent: Boolean(settings.claudeBinaryPath || settings.claudeAuthTokenHelperCommand),
     openclaw: Boolean(settings.openclawGatewayUrl || settings.openclawPassword),
+    copilot: Boolean(settings.copilotBinaryPath || settings.copilotConfigDir),
   });
   const [selectedCustomModelProvider, setSelectedCustomModelProvider] =
     useState<ProviderKind>("codex");
@@ -820,6 +827,7 @@ function SettingsRouteView() {
     codex: "",
     claudeAgent: "",
     openclaw: "",
+    copilot: "",
   });
   const [customModelErrorByProvider, setCustomModelErrorByProvider] = useState<
     Partial<Record<ProviderKind, string | null>>
@@ -1187,12 +1195,14 @@ function SettingsRouteView() {
       codex: false,
       claudeAgent: false,
       openclaw: false,
+      copilot: false,
     });
     setSelectedCustomModelProvider("codex");
     setCustomModelInputByProvider({
       codex: "",
       claudeAgent: "",
       openclaw: "",
+      copilot: "",
     });
     setCustomModelErrorByProvider({});
 
@@ -2515,6 +2525,7 @@ function SettingsRouteView() {
                                 codex: false,
                                 claudeAgent: false,
                                 openclaw: false,
+                                copilot: false,
                               });
                             }}
                           />

@@ -61,6 +61,17 @@ query PullRequestReviewDashboard($owner: String!, $name: String!, $number: Int!)
       headRefName
       baseRefOid
       headRefOid
+      reviews(last: 100) {
+        nodes {
+          state
+          body
+          submittedAt
+          authorAssociation
+          author {
+            login
+          }
+        }
+      }
       labels(first: 20) {
         nodes { name color }
       }
@@ -300,6 +311,32 @@ function normalizeStatusChecks(raw: unknown): PrReviewSummary["statusChecks"] {
   return statusChecks;
 }
 
+function normalizeRecentReviews(raw: unknown): PrReviewSummary["recentReviews"] {
+  if (!Array.isArray(raw)) return [];
+  const maintainerAssociations = new Set(["COLLABORATOR", "MEMBER", "OWNER"]);
+  return raw
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") return null;
+      const record = entry as Record<string, unknown>;
+      if (!maintainerAssociations.has(asString(record.authorAssociation) ?? "")) return null;
+      const submittedAt = asString(record.submittedAt);
+      const state = asString(record.state);
+      const author =
+        record.author && typeof record.author === "object"
+          ? asString((record.author as Record<string, unknown>).login)
+          : null;
+      if (!submittedAt || !state || !author) return null;
+      return {
+        authorLogin: author,
+        state,
+        body: typeof record.body === "string" ? record.body : "",
+        submittedAt,
+      } satisfies PrReviewSummary["recentReviews"][number];
+    })
+    .filter((entry): entry is PrReviewSummary["recentReviews"][number] => entry !== null)
+    .toSorted((a, b) => Date.parse(b.submittedAt) - Date.parse(a.submittedAt));
+}
+
 function normalizeDashboardResponse(
   raw: unknown,
 ): Pick<PrReviewDashboardResult, "pullRequest" | "threads"> {
@@ -343,6 +380,7 @@ function normalizeDashboardResponse(
     ((pullRequest.commits as any)?.nodes?.[0] as any)?.commit?.statusCheckRollup?.contexts?.nodes ??
       [],
   );
+  const recentReviews = normalizeRecentReviews((pullRequest.reviews as any)?.nodes ?? []);
 
   const threads = Array.isArray((pullRequest.reviewThreads as any)?.nodes)
     ? ((pullRequest.reviewThreads as any).nodes as unknown[])
@@ -394,6 +432,7 @@ function normalizeDashboardResponse(
       .map((entry) => normalizeUser(entry))
       .filter((entry): entry is GitHubUserPreview => entry !== null)
       .map((user) => ({ user, role: "requestedReviewer" as const })),
+    recentReviews,
     totalThreadCount: threads.length,
     unresolvedThreadCount: threads.filter((thread) => !thread.isResolved).length,
     headSha: asString(pullRequest.headRefOid),

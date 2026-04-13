@@ -31,6 +31,11 @@ const PROVIDER_CONFIG = {
     verifyCmd: "claude auth status",
     note: "You can also configure a Claude auth token helper command or one-click secret-manager preset in Settings.",
   },
+  copilot: {
+    installCmd: "npm install -g @github/copilot",
+    authCmd: "copilot login",
+    verifyCmd: "gh auth status",
+  },
 } as const;
 
 function StatusIcon({ status }: { status: ServerProviderStatus["status"] }) {

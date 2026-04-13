@@ -20,6 +20,7 @@ import { ProviderRuntimeIngestionLive } from "./orchestration/Layers/ProviderRun
 import { RuntimeReceiptBusLive } from "./orchestration/Layers/RuntimeReceiptBus";
 import { ProviderUnsupportedError } from "./provider/Errors";
 import { makeClaudeAdapterLive } from "./provider/Layers/ClaudeAdapter";
+import { makeCopilotAdapterLive } from "./provider/Layers/CopilotAdapter";
 import { makeCodexAdapterLive } from "./provider/Layers/CodexAdapter";
 import { makeOpenClawAdapterLive } from "./provider/Layers/OpenClawAdapter";
 import { ProviderHealthLive } from "./provider/Layers/ProviderHealth";
@@ -103,10 +104,14 @@ export function makeServerProviderLayer(): Layer.Layer<
     const openclawAdapterLayer = makeOpenClawAdapterLive(
       nativeEventLogger ? { nativeEventLogger } : undefined,
     ).pipe(Layer.provideMerge(OpenclawGatewayConfigLive));
+    const copilotAdapterLayer = makeCopilotAdapterLive(
+      nativeEventLogger ? { nativeEventLogger } : undefined,
+    );
     const adapterRegistryLayer = ProviderAdapterRegistryLive.pipe(
       Layer.provide(codexAdapterLayer),
       Layer.provide(claudeAdapterLayer),
       Layer.provide(openclawAdapterLayer),
+      Layer.provide(copilotAdapterLayer),
       Layer.provideMerge(providerSessionDirectoryLayer),
     );
     return makeProviderServiceLive(

@@ -222,14 +222,14 @@ function formatOpenclawGatewayDebugReport(result: TestOpenclawGatewayResult): st
   return lines.join("\n");
 }
 
-type InstallBinarySettingsKey = "claudeBinaryPath" | "codexBinaryPath";
+type InstallBinarySettingsKey = "claudeBinaryPath" | "codexBinaryPath" | "copilotBinaryPath";
 type InstallProviderSettings = {
   provider: ProviderKind;
   title: string;
   binaryPathKey: InstallBinarySettingsKey;
   binaryPlaceholder: string;
   binaryDescription: ReactNode;
-  homePathKey?: "codexHomePath";
+  homePathKey?: "codexHomePath" | "copilotConfigDir";
   homePlaceholder?: string;
   homeDescription?: ReactNode;
 };
@@ -262,6 +262,21 @@ const INSTALL_PROVIDER_SETTINGS: readonly InstallProviderSettings[] = [
       </>
     ),
   },
+  {
+    provider: "copilot",
+    title: "GitHub Copilot",
+    binaryPathKey: "copilotBinaryPath",
+    binaryPlaceholder: "GitHub Copilot binary path",
+    binaryDescription: (
+      <>
+        Leave blank to use <code>copilot</code> from your PATH. Authentication uses{" "}
+        <code>copilot login</code> or GitHub CLI credentials.
+      </>
+    ),
+    homePathKey: "copilotConfigDir",
+    homePlaceholder: "Copilot config directory",
+    homeDescription: "Optional custom Copilot config directory.",
+  },
 ];
 
 const PROVIDER_AUTH_GUIDES: Record<
@@ -284,6 +299,12 @@ const PROVIDER_AUTH_GUIDES: Record<
     authCmd: "claude auth login",
     verifyCmd: "claude auth status",
     note: "Claude Code must be installed and signed in before it appears in the thread picker.",
+  },
+  copilot: {
+    installCmd: "npm install -g @github/copilot",
+    authCmd: "copilot login",
+    verifyCmd: "copilot auth status",
+    note: "GitHub Copilot must be installed and signed in before it appears in the thread picker.",
   },
   openclaw: {
     verifyCmd: "Test Connection",
@@ -470,6 +491,7 @@ function SettingsRouteView() {
   const [openInstallProviders, setOpenInstallProviders] = useState<Record<ProviderKind, boolean>>({
     codex: Boolean(settings.codexBinaryPath || settings.codexHomePath),
     claudeAgent: Boolean(settings.claudeBinaryPath),
+    copilot: Boolean(settings.copilotBinaryPath || settings.copilotConfigDir),
     openclaw: Boolean(settings.openclawGatewayUrl || settings.openclawPassword),
   });
   const [selectedCustomModelProvider, setSelectedCustomModelProvider] =
@@ -479,6 +501,7 @@ function SettingsRouteView() {
   >({
     codex: "",
     claudeAgent: "",
+    copilot: "",
     openclaw: "",
   });
   const [customModelErrorByProvider, setCustomModelErrorByProvider] = useState<
@@ -542,7 +565,11 @@ function SettingsRouteView() {
   )!;
   const selectedCustomModelInput = customModelInputByProvider[selectedCustomModelProvider];
   const selectedCustomModelError = customModelErrorByProvider[selectedCustomModelProvider] ?? null;
-  const totalCustomModels = settings.customCodexModels.length + settings.customClaudeModels.length;
+  const totalCustomModels =
+    settings.customCodexModels.length +
+    settings.customClaudeModels.length +
+    settings.customCopilotModels.length +
+    settings.customOpenClawModels.length;
   const activeProjectEnvironmentVariables = selectedProjectEnvironmentVariablesQuery.data?.entries;
   const savedCustomModelRows = MODEL_PROVIDER_SETTINGS.flatMap((providerSettings) =>
     getCustomModelsForProvider(settings, providerSettings.provider).map((slug) => ({
@@ -557,6 +584,8 @@ function SettingsRouteView() {
     : savedCustomModelRows.slice(0, 5);
   const isInstallSettingsDirty =
     settings.claudeBinaryPath !== defaults.claudeBinaryPath ||
+    settings.copilotBinaryPath !== defaults.copilotBinaryPath ||
+    settings.copilotConfigDir !== defaults.copilotConfigDir ||
     settings.codexBinaryPath !== defaults.codexBinaryPath ||
     settings.codexHomePath !== defaults.codexHomePath;
   const isOpenClawSettingsDirty =
@@ -1392,10 +1421,13 @@ function SettingsRouteView() {
                         claudeBinaryPath: defaults.claudeBinaryPath,
                         codexBinaryPath: defaults.codexBinaryPath,
                         codexHomePath: defaults.codexHomePath,
+                        copilotBinaryPath: defaults.copilotBinaryPath,
+                        copilotConfigDir: defaults.copilotConfigDir,
                       });
                       setOpenInstallProviders({
                         codex: false,
                         claudeAgent: false,
+                        copilot: false,
                         openclaw: false,
                       });
                     }}
@@ -1411,11 +1443,16 @@ function SettingsRouteView() {
                       providerSettings.provider === "codex"
                         ? settings.codexBinaryPath !== defaults.codexBinaryPath ||
                           settings.codexHomePath !== defaults.codexHomePath
-                        : settings.claudeBinaryPath !== defaults.claudeBinaryPath;
+                        : providerSettings.provider === "claudeAgent"
+                          ? settings.claudeBinaryPath !== defaults.claudeBinaryPath
+                          : settings.copilotBinaryPath !== defaults.copilotBinaryPath ||
+                            settings.copilotConfigDir !== defaults.copilotConfigDir;
                     const binaryPathValue =
-                      providerSettings.binaryPathKey === "claudeBinaryPath"
+                      providerSettings.provider === "claudeAgent"
                         ? claudeBinaryPath
-                        : codexBinaryPath;
+                        : providerSettings.provider === "copilot"
+                          ? settings.copilotBinaryPath
+                          : codexBinaryPath;
 
                     return (
                       <Collapsible
@@ -1471,7 +1508,9 @@ function SettingsRouteView() {
                                       updateSettings(
                                         providerSettings.binaryPathKey === "claudeBinaryPath"
                                           ? { claudeBinaryPath: event.target.value }
-                                          : { codexBinaryPath: event.target.value },
+                                          : providerSettings.binaryPathKey === "copilotBinaryPath"
+                                            ? { copilotBinaryPath: event.target.value }
+                                            : { codexBinaryPath: event.target.value },
                                       )
                                     }
                                     placeholder={providerSettings.binaryPlaceholder}
@@ -1488,16 +1527,24 @@ function SettingsRouteView() {
                                     className="block"
                                   >
                                     <span className="block text-xs font-medium text-foreground">
-                                      CODEX_HOME path
+                                      {providerSettings.homePathKey === "codexHomePath"
+                                        ? "CODEX_HOME path"
+                                        : "Copilot config directory"}
                                     </span>
                                     <Input
                                       id={`provider-install-${providerSettings.homePathKey}`}
                                       className="mt-1"
-                                      value={codexHomePath}
+                                      value={
+                                        providerSettings.homePathKey === "codexHomePath"
+                                          ? codexHomePath
+                                          : settings.copilotConfigDir
+                                      }
                                       onChange={(event) =>
-                                        updateSettings({
-                                          codexHomePath: event.target.value,
-                                        })
+                                        updateSettings(
+                                          providerSettings.homePathKey === "codexHomePath"
+                                            ? { codexHomePath: event.target.value }
+                                            : { copilotConfigDir: event.target.value },
+                                        )
                                       }
                                       placeholder={providerSettings.homePlaceholder}
                                       spellCheck={false}
@@ -1879,7 +1926,7 @@ function SettingsRouteView() {
 
             <SettingsRow
               title="Custom models"
-              description="Add custom model slugs for Codex or Claude Code. The chat picker groups models by provider."
+              description="Add custom model slugs for Codex, Claude Code, GitHub Copilot, or OpenClaw. The chat picker groups models by provider."
               resetAction={
                 totalCustomModels > 0 ? (
                   <SettingResetButton
@@ -1888,6 +1935,8 @@ function SettingsRouteView() {
                       updateSettings({
                         customCodexModels: defaults.customCodexModels,
                         customClaudeModels: defaults.customClaudeModels,
+                        customCopilotModels: defaults.customCopilotModels,
+                        customOpenClawModels: defaults.customOpenClawModels,
                       });
                       setCustomModelErrorByProvider({});
                       setShowAllCustomModels(false);
@@ -1901,10 +1950,7 @@ function SettingsRouteView() {
                   <Select
                     value={selectedCustomModelProvider}
                     onValueChange={(value) => {
-                      if (value !== "codex" && value !== "claudeAgent") {
-                        return;
-                      }
-                      setSelectedCustomModelProvider(value);
+                      setSelectedCustomModelProvider(value as ProviderKind);
                     }}
                   >
                     <SelectTrigger

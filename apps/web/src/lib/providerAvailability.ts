@@ -1,10 +1,16 @@
 import type { ProviderKind, ServerProviderStatus } from "@okcode/contracts";
 
-const THREAD_PROVIDER_ORDER: readonly ProviderKind[] = ["codex", "claudeAgent", "openclaw"];
+const THREAD_PROVIDER_ORDER: readonly ProviderKind[] = [
+  "codex",
+  "claudeAgent",
+  "copilot",
+  "openclaw",
+];
 
 const THREAD_PROVIDER_LABELS: Record<ProviderKind, string> = {
   codex: "Codex",
   claudeAgent: "Claude Code",
+  copilot: "GitHub Copilot",
   openclaw: "OpenClaw",
 };
 

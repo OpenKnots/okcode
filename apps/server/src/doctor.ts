@@ -10,6 +10,7 @@ import { Effect } from "effect";
 import { Command } from "effect/unstable/cli";
 
 import {
+  checkCopilotProviderStatus,
   checkCodexProviderStatus,
   checkClaudeProviderStatus,
 } from "./provider/Layers/ProviderHealth";
@@ -32,6 +33,7 @@ const AUTH_LABELS: Record<string, string> = {
 const PROVIDER_LABELS: Record<string, string> = {
   codex: "Codex (OpenAI)",
   claudeAgent: "Claude Code",
+  copilot: "GitHub Copilot",
 };
 
 function printStatus(status: ServerProviderStatus): void {
@@ -65,9 +67,12 @@ const doctorProgram = Effect.gen(function* () {
   console.log("");
   console.log("Checking provider health...");
 
-  const statuses = yield* Effect.all([checkCodexProviderStatus, checkClaudeProviderStatus], {
-    concurrency: "unbounded",
-  });
+  const statuses = yield* Effect.all(
+    [checkCodexProviderStatus, checkClaudeProviderStatus, checkCopilotProviderStatus],
+    {
+      concurrency: "unbounded",
+    },
+  );
 
   for (const status of statuses) {
     printStatus(status);

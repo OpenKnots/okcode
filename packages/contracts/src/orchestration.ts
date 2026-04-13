@@ -29,7 +29,7 @@ export const ORCHESTRATION_WS_CHANNELS = {
   domainEvent: "orchestration.domainEvent",
 } as const;
 
-export const ProviderKind = Schema.Literals(["codex", "claudeAgent", "openclaw"]);
+export const ProviderKind = Schema.Literals(["codex", "claudeAgent", "openclaw", "copilot"]);
 export type ProviderKind = typeof ProviderKind.Type;
 export const ProviderApprovalPolicy = Schema.Literals([
   "untrusted",
@@ -63,10 +63,16 @@ export const OpenClawProviderStartOptions = Schema.Struct({
   password: Schema.optional(TrimmedNonEmptyString),
 });
 
+export const CopilotProviderStartOptions = Schema.Struct({
+  binaryPath: Schema.optional(TrimmedNonEmptyString),
+  configDir: Schema.optional(TrimmedNonEmptyString),
+});
+
 export const ProviderStartOptions = Schema.Struct({
   codex: Schema.optional(CodexProviderStartOptions),
   claudeAgent: Schema.optional(ClaudeProviderStartOptions),
   openclaw: Schema.optional(OpenClawProviderStartOptions),
+  copilot: Schema.optional(CopilotProviderStartOptions),
 });
 export type ProviderStartOptions = typeof ProviderStartOptions.Type;
 

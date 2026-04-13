@@ -1,5 +1,6 @@
 import {
   CLAUDE_CODE_EFFORT_OPTIONS,
+  COPILOT_REASONING_EFFORT_OPTIONS,
   CODEX_REASONING_EFFORT_OPTIONS,
   OPENCLAW_REASONING_EFFORT_OPTIONS,
   DEFAULT_MODEL_BY_PROVIDER,
@@ -9,6 +10,8 @@ import {
   REASONING_EFFORT_OPTIONS_BY_PROVIDER,
   type ClaudeModelOptions,
   type ClaudeCodeEffort,
+  type CopilotModelOptions,
+  type CopilotReasoningEffort,
   type CodexModelOptions,
   type CodexReasoningEffort,
   type OpenClawReasoningEffort,
@@ -21,6 +24,7 @@ const MODEL_SLUG_SET_BY_PROVIDER: Record<ProviderKind, ReadonlySet<ModelSlug>> =
   claudeAgent: new Set(MODEL_OPTIONS_BY_PROVIDER.claudeAgent.map((option) => option.slug)),
   codex: new Set(MODEL_OPTIONS_BY_PROVIDER.codex.map((option) => option.slug)),
   openclaw: new Set<ModelSlug>(),
+  copilot: new Set(MODEL_OPTIONS_BY_PROVIDER.copilot.map((option) => option.slug)),
 };
 
 const CLAUDE_OPUS_4_6_MODEL = "claude-opus-4-6";
@@ -83,7 +87,9 @@ export function normalizeModelSlug(
       ? trimmed.slice("anthropic/".length)
       : provider === "openclaw" && trimmed.toLowerCase().startsWith("openclaw/")
         ? trimmed.slice("openclaw/".length)
-        : trimmed;
+        : provider === "copilot" && trimmed.toLowerCase().startsWith("copilot/")
+          ? trimmed.slice("copilot/".length)
+          : trimmed;
 
   const aliases = MODEL_SLUG_ALIASES_BY_PROVIDER[provider] as Record<string, ModelSlug>;
   const aliased = Object.prototype.hasOwnProperty.call(aliases, providerNormalized)
@@ -160,10 +166,16 @@ export function inferProviderForModel(
     return "codex";
   }
 
+  const normalizedCopilot = normalizeModelSlug(model, "copilot");
+  if (normalizedCopilot && MODEL_SLUG_SET_BY_PROVIDER.copilot.has(normalizedCopilot)) {
+    return "copilot";
+  }
+
   if (typeof model === "string") {
     const trimmed = model.trim();
     if (trimmed.startsWith("claude-")) return "claudeAgent";
     if (trimmed.startsWith("openclaw/")) return "openclaw";
+    if (trimmed.startsWith("copilot/")) return "copilot";
   }
   return fallback;
 }
@@ -176,6 +188,9 @@ export function getReasoningEffortOptions(
 export function getReasoningEffortOptions(
   provider: "openclaw",
 ): ReadonlyArray<OpenClawReasoningEffort>;
+export function getReasoningEffortOptions(
+  provider: "copilot",
+): ReadonlyArray<CopilotReasoningEffort>;
 export function getReasoningEffortOptions(
   provider?: ProviderKind,
   model?: string | null | undefined,
@@ -199,6 +214,7 @@ export function getReasoningEffortOptions(
 export function getDefaultReasoningEffort(provider: "codex"): CodexReasoningEffort;
 export function getDefaultReasoningEffort(provider: "claudeAgent"): ClaudeCodeEffort;
 export function getDefaultReasoningEffort(provider: "openclaw"): OpenClawReasoningEffort;
+export function getDefaultReasoningEffort(provider: "copilot"): CopilotReasoningEffort;
 export function getDefaultReasoningEffort(provider?: ProviderKind): ProviderReasoningEffort;
 export function getDefaultReasoningEffort(
   provider: ProviderKind = "codex",
@@ -218,6 +234,10 @@ export function resolveReasoningEffortForProvider(
   provider: "openclaw",
   effort: string | null | undefined,
 ): OpenClawReasoningEffort | null;
+export function resolveReasoningEffortForProvider(
+  provider: "copilot",
+  effort: string | null | undefined,
+): CopilotReasoningEffort | null;
 export function resolveReasoningEffortForProvider(
   provider: ProviderKind,
   effort: string | null | undefined,
@@ -289,6 +309,18 @@ export function normalizeClaudeModelOptions(
   return Object.keys(nextOptions).length > 0 ? nextOptions : undefined;
 }
 
+export function normalizeCopilotModelOptions(
+  modelOptions: CopilotModelOptions | null | undefined,
+): CopilotModelOptions | undefined {
+  const defaultReasoningEffort = getDefaultReasoningEffort("copilot");
+  const reasoningEffort =
+    resolveReasoningEffortForProvider("copilot", modelOptions?.reasoningEffort) ??
+    defaultReasoningEffort;
+  const nextOptions: CopilotModelOptions =
+    reasoningEffort !== defaultReasoningEffort ? { reasoningEffort } : {};
+  return Object.keys(nextOptions).length > 0 ? nextOptions : undefined;
+}
+
 export function applyClaudePromptEffortPrefix(
   text: string,
   effort: ClaudeCodeEffort | null | undefined,
@@ -308,6 +340,7 @@ export function applyClaudePromptEffortPrefix(
 
 export {
   CLAUDE_CODE_EFFORT_OPTIONS,
+  COPILOT_REASONING_EFFORT_OPTIONS,
   CODEX_REASONING_EFFORT_OPTIONS,
   OPENCLAW_REASONING_EFFORT_OPTIONS,
 };

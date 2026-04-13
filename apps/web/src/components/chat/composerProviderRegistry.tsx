@@ -120,6 +120,25 @@ const composerProviderRegistry: Record<ProviderKind, ProviderRegistryEntry> = {
     renderTraitsMenuContent: () => null,
     renderTraitsPicker: () => null,
   },
+  copilot: {
+    getState: ({ modelOptions }) => {
+      const defaultPromptEffort = getDefaultReasoningEffort("copilot");
+      const promptEffort =
+        resolveReasoningEffortForProvider("copilot", modelOptions?.copilot?.reasoningEffort) ??
+        defaultPromptEffort;
+
+      return {
+        provider: "copilot",
+        promptEffort,
+        modelOptionsForDispatch:
+          promptEffort !== defaultPromptEffort
+            ? { copilot: { reasoningEffort: promptEffort } }
+            : undefined,
+      };
+    },
+    renderTraitsMenuContent: () => null,
+    renderTraitsPicker: () => null,
+  },
 };
 
 export function getComposerProviderState(input: ComposerProviderStateInput): ComposerProviderState {

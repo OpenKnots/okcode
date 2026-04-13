@@ -50,7 +50,11 @@ export const DEFAULT_SIDEBAR_THREAD_SORT_ORDER: SidebarThreadSortOrder = "update
 export const PrReviewRequestChangesTone = Schema.Literals(["warning", "brand", "neutral"]);
 export type PrReviewRequestChangesTone = typeof PrReviewRequestChangesTone.Type;
 export const DEFAULT_PR_REVIEW_REQUEST_CHANGES_TONE: PrReviewRequestChangesTone = "warning";
-type CustomModelSettingsKey = "customCodexModels" | "customClaudeModels" | "customOpenClawModels";
+type CustomModelSettingsKey =
+  | "customCodexModels"
+  | "customClaudeModels"
+  | "customOpenClawModels"
+  | "customCopilotModels";
 export type ProviderCustomModelConfig = {
   provider: ProviderKind;
   settingsKey: CustomModelSettingsKey;
@@ -65,6 +69,7 @@ const BUILT_IN_MODEL_SLUGS_BY_PROVIDER: Record<ProviderKind, ReadonlySet<string>
   codex: new Set(getModelOptions("codex").map((option) => option.slug)),
   claudeAgent: new Set(getModelOptions("claudeAgent").map((option) => option.slug)),
   openclaw: new Set(getModelOptions("openclaw").map((option) => option.slug)),
+  copilot: new Set(getModelOptions("copilot").map((option) => option.slug)),
 };
 
 const withDefaults =
@@ -82,6 +87,8 @@ const withDefaults =
 
 export const AppSettingsSchema = Schema.Struct({
   claudeBinaryPath: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
+  copilotBinaryPath: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
+  copilotConfigDir: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
   claudeAuthTokenHelperCommand: Schema.String.check(Schema.isMaxLength(4096)).pipe(
     withDefaults(() => ""),
   ),
@@ -130,6 +137,7 @@ export const AppSettingsSchema = Schema.Struct({
   codeViewerAutosave: Schema.Boolean.pipe(withDefaults(() => false)),
   customCodexModels: Schema.Array(Schema.String).pipe(withDefaults(() => [])),
   customClaudeModels: Schema.Array(Schema.String).pipe(withDefaults(() => [])),
+  customCopilotModels: Schema.Array(Schema.String).pipe(withDefaults(() => [])),
   customOpenClawModels: Schema.Array(Schema.String).pipe(withDefaults(() => [])),
   openclawGatewayUrl: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
   openclawPassword: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
@@ -161,6 +169,15 @@ const PROVIDER_CUSTOM_MODEL_CONFIG: Record<ProviderKind, ProviderCustomModelConf
     description: "Save additional Claude model slugs for the picker and `/model` command.",
     placeholder: "your-claude-model-slug",
     example: "claude-sonnet-5-0",
+  },
+  copilot: {
+    provider: "copilot",
+    settingsKey: "customCopilotModels",
+    defaultSettingsKey: "customCopilotModels",
+    title: "GitHub Copilot",
+    description: "Save additional GitHub Copilot model slugs for the picker and `/model` command.",
+    placeholder: "your-copilot-model-slug",
+    example: "gpt-5",
   },
   openclaw: {
     provider: "openclaw",
@@ -245,6 +262,7 @@ function normalizeAppSettings(settings: AppSettings): AppSettings {
     sidebarSpacing: clampSidebarSpacing(settings.sidebarSpacing),
     customCodexModels: normalizeCustomModelSlugs(settings.customCodexModels, "codex"),
     customClaudeModels: normalizeCustomModelSlugs(settings.customClaudeModels, "claudeAgent"),
+    customCopilotModels: normalizeCustomModelSlugs(settings.customCopilotModels, "copilot"),
     customOpenClawModels: normalizeCustomModelSlugs(settings.customOpenClawModels, "openclaw"),
   };
 }
@@ -278,6 +296,7 @@ export function getCustomModelsByProvider(
   return {
     codex: getCustomModelsForProvider(settings, "codex"),
     claudeAgent: getCustomModelsForProvider(settings, "claudeAgent"),
+    copilot: getCustomModelsForProvider(settings, "copilot"),
     openclaw: getCustomModelsForProvider(settings, "openclaw"),
   };
 }
@@ -344,6 +363,7 @@ export function getCustomModelOptionsByProvider(
   return {
     codex: getAppModelOptions("codex", customModelsByProvider.codex),
     claudeAgent: getAppModelOptions("claudeAgent", customModelsByProvider.claudeAgent),
+    copilot: getAppModelOptions("copilot", customModelsByProvider.copilot),
     openclaw: getAppModelOptions("openclaw", customModelsByProvider.openclaw),
   };
 }
@@ -352,6 +372,8 @@ export function getProviderStartOptions(
   settings: Pick<
     AppSettings,
     | "claudeBinaryPath"
+    | "copilotBinaryPath"
+    | "copilotConfigDir"
     | "claudeAuthTokenHelperCommand"
     | "codexBinaryPath"
     | "codexHomePath"
@@ -375,6 +397,22 @@ export function getProviderStartOptions(
             ...(settings.claudeAuthTokenHelperCommand
               ? { authTokenHelperCommand: settings.claudeAuthTokenHelperCommand }
               : {}),
+          },
+        }
+      : {}),
+    ...(settings.copilotBinaryPath || settings.copilotConfigDir
+      ? {
+          copilot: {
+            ...(settings.copilotBinaryPath ? { binaryPath: settings.copilotBinaryPath } : {}),
+            ...(settings.copilotConfigDir ? { configDir: settings.copilotConfigDir } : {}),
+          },
+        }
+      : {}),
+    ...(settings.openclawGatewayUrl || settings.openclawPassword
+      ? {
+          openclaw: {
+            ...(settings.openclawGatewayUrl ? { gatewayUrl: settings.openclawGatewayUrl } : {}),
+            ...(settings.openclawPassword ? { password: settings.openclawPassword } : {}),
           },
         }
       : {}),

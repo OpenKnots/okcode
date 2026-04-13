@@ -8,6 +8,7 @@
  * @module ProviderHealthLive
  */
 import * as OS from "node:os";
+import { CopilotClient } from "@github/copilot-sdk";
 import type {
   ServerProviderAuthStatus,
   ServerProviderStatus,
@@ -29,10 +30,19 @@ import { ProviderHealth, type ProviderHealthShape } from "../Services/ProviderHe
 const DEFAULT_TIMEOUT_MS = 4_000;
 const CODEX_PROVIDER = "codex" as const;
 const CLAUDE_AGENT_PROVIDER = "claudeAgent" as const;
+const COPILOT_PROVIDER = "copilot" as const;
 
 class OpenClawHealthProbeError extends Data.TaggedError("OpenClawHealthProbeError")<{
   cause: unknown;
 }> {}
+
+class CopilotHealthProbeError extends Data.TaggedError("CopilotHealthProbeError")<{
+  cause: unknown;
+}> {}
+
+function formatHealthProbeCause(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause);
+}
 
 const OPENCLAW_HEALTH_REQUIRED_METHODS = [
   "sessions.create",
@@ -322,6 +332,101 @@ const runClaudeCommand = (args: ReadonlyArray<string>) =>
 
     return { stdout, stderr, code: exitCode } satisfies CommandResult;
   }).pipe(Effect.scoped);
+
+export const checkCopilotProviderStatus: Effect.Effect<ServerProviderStatus, never, never> =
+  Effect.gen(function* () {
+    const checkedAt = new Date().toISOString();
+    const client = new CopilotClient({ logLevel: "error" });
+
+    const started = yield* Effect.tryPromise({
+      try: () => client.start(),
+      catch: (cause) => new CopilotHealthProbeError({ cause }),
+    }).pipe(Effect.timeoutOption(DEFAULT_TIMEOUT_MS), Effect.result);
+
+    if (Result.isFailure(started)) {
+      const error = started.failure;
+      return {
+        provider: COPILOT_PROVIDER,
+        status: "error" as const,
+        available: false,
+        authStatus: "unknown" as const,
+        checkedAt,
+        message:
+          error instanceof CopilotHealthProbeError
+            ? `Failed to start GitHub Copilot CLI: ${formatHealthProbeCause(error.cause)}.`
+            : "Failed to start GitHub Copilot CLI.",
+      } satisfies ServerProviderStatus;
+    }
+
+    if (Option.isNone(started.success)) {
+      yield* Effect.promise(() =>
+        client
+          .forceStop()
+          .then(() => undefined)
+          .catch(() => undefined),
+      );
+      return {
+        provider: COPILOT_PROVIDER,
+        status: "error" as const,
+        available: false,
+        authStatus: "unknown" as const,
+        checkedAt,
+        message: "GitHub Copilot CLI timed out while starting.",
+      } satisfies ServerProviderStatus;
+    }
+
+    const authResult = yield* Effect.tryPromise({
+      try: () => client.getAuthStatus(),
+      catch: (cause) => new CopilotHealthProbeError({ cause }),
+    }).pipe(Effect.timeoutOption(DEFAULT_TIMEOUT_MS), Effect.result);
+    yield* Effect.promise(() =>
+      client
+        .stop()
+        .then(() => undefined)
+        .catch(() => undefined),
+    );
+
+    if (Result.isFailure(authResult)) {
+      const error = authResult.failure;
+      return {
+        provider: COPILOT_PROVIDER,
+        status: "warning" as const,
+        available: true,
+        authStatus: "unknown" as const,
+        checkedAt,
+        message:
+          error instanceof CopilotHealthProbeError
+            ? `Could not verify GitHub Copilot authentication status: ${formatHealthProbeCause(error.cause)}.`
+            : "Could not verify GitHub Copilot authentication status.",
+      } satisfies ServerProviderStatus;
+    }
+
+    if (Option.isNone(authResult.success)) {
+      return {
+        provider: COPILOT_PROVIDER,
+        status: "warning" as const,
+        available: true,
+        authStatus: "unknown" as const,
+        checkedAt,
+        message: "Could not verify GitHub Copilot authentication status. Timed out while checking.",
+      } satisfies ServerProviderStatus;
+    }
+
+    const authStatus = authResult.success.value as {
+      readonly isAuthenticated: boolean;
+      readonly statusMessage?: string;
+    };
+    return {
+      provider: COPILOT_PROVIDER,
+      status: authStatus.isAuthenticated ? ("ready" as const) : ("error" as const),
+      available: true,
+      authStatus: authStatus.isAuthenticated
+        ? ("authenticated" as const)
+        : ("unauthenticated" as const),
+      checkedAt,
+      ...(authStatus.statusMessage ? { message: authStatus.statusMessage } : {}),
+    } satisfies ServerProviderStatus;
+  });
 
 // ── Health check ────────────────────────────────────────────────────
 
@@ -822,7 +927,12 @@ export const ProviderHealthLive = Layer.effect(
 
     return {
       getStatuses: Effect.all(
-        [checkCodexProviderStatus, checkClaudeProviderStatus, checkOpenClawProviderStatus],
+        [
+          checkCodexProviderStatus,
+          checkClaudeProviderStatus,
+          checkCopilotProviderStatus,
+          checkOpenClawProviderStatus,
+        ],
         {
           concurrency: "unbounded",
         },

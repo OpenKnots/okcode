@@ -94,6 +94,7 @@ export function SmeConversationDialog({
         {
           codex: settings.customCodexModels,
           claudeAgent: settings.customClaudeModels,
+          copilot: settings.customCopilotModels,
           openclaw: settings.customOpenClawModels,
         },
         null,
@@ -109,6 +110,7 @@ export function SmeConversationDialog({
     conversation,
     open,
     settings.customClaudeModels,
+    settings.customCopilotModels,
     settings.customCodexModels,
     settings.customOpenClawModels,
   ]);
@@ -147,6 +149,7 @@ export function SmeConversationDialog({
         {
           codex: settings.customCodexModels,
           claudeAgent: settings.customClaudeModels,
+          copilot: settings.customCopilotModels,
           openclaw: settings.customOpenClawModels,
         },
         nextProvider === "openclaw" ? "default" : null,

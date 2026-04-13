@@ -175,6 +175,14 @@ const makeSmeChatService = () =>
                 new SmeChatError("validateSetup", "Failed to validate Codex setup.", cause),
             });
 
+          case "copilot":
+            return {
+              ok: false,
+              severity: "warning" as const,
+              message: "GitHub Copilot is not available in SME Chat yet.",
+              resolvedAuthMethod: "auto" as const,
+            };
+
           case "openclaw":
             const openclawSummary = yield* openclawGatewayConfig
               .getSummary()

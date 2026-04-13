@@ -22,6 +22,8 @@ export function getAllowedSmeAuthMethods(provider: ProviderKind): readonly SmeAu
   switch (provider) {
     case "claudeAgent":
       return ["auto", "apiKey", "authToken"];
+    case "copilot":
+      return ["auto"];
     case "codex":
       return ["auto", "chatgpt", "apiKey", "customProvider"];
     case "openclaw":
@@ -32,6 +34,8 @@ export function getAllowedSmeAuthMethods(provider: ProviderKind): readonly SmeAu
 export function getDefaultSmeAuthMethod(provider: ProviderKind): SmeAuthMethod {
   switch (provider) {
     case "claudeAgent":
+      return "apiKey";
+    case "copilot":
       return "auto";
     case "codex":
       return "chatgpt";

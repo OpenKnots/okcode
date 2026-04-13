@@ -15,7 +15,16 @@ import {
   MenuSeparator as MenuDivider,
   MenuTrigger,
 } from "../ui/menu";
-import { ClaudeAI, CursorIcon, Gemini, Icon, OpenAI, OpenClawIcon, OpenCodeIcon } from "../Icons";
+import {
+  ClaudeAI,
+  CursorIcon,
+  Gemini,
+  GitHubIcon,
+  Icon,
+  OpenAI,
+  OpenClawIcon,
+  OpenCodeIcon,
+} from "../Icons";
 import { cn } from "~/lib/utils";
 import { getThreadProviderLabel } from "~/lib/providerAvailability";
 
@@ -23,6 +32,7 @@ const PROVIDER_ICON_BY_PROVIDER: Record<ProviderPickerKind, Icon> = {
   codex: OpenAI,
   claudeAgent: ClaudeAI,
   openclaw: OpenClawIcon,
+  copilot: GitHubIcon,
   cursor: CursorIcon,
 };
 
@@ -38,6 +48,7 @@ function providerIconClassName(
 ): string {
   if (provider === "claudeAgent") return "text-[#d97757]";
   if (provider === "openclaw") return "text-[#6cb4ee]";
+  if (provider === "copilot") return "text-white/85";
   return fallbackClassName;
 }
 

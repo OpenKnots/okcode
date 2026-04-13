@@ -77,10 +77,9 @@ export function modelSelectionsAreEqual(
   if (aOpts === null || bOpts === null) return false;
   const aKeys = Object.keys(aOpts).sort();
   const bKeys = Object.keys(bOpts).sort();
-  if (aKeys.length !== bKeys.length) return false;
+  if (aKeys.join(",") !== bKeys.join(",")) return false;
   return aKeys.every(
     (k) =>
-      bKeys.includes(k) &&
       (aOpts as Record<string, unknown>)[k] === (bOpts as Record<string, unknown>)[k],
   );
 }

@@ -12,6 +12,9 @@ import {
   type ProjectionThreadRepositoryShape,
 } from "../Services/ProjectionThreads.ts";
 
+// Schema.NullOr wraps fromJsonString so that NULL database rows decode to null
+// rather than failing to parse. Pre-migration rows and threads without a model
+// selection will have a NULL model_selection column.
 const ProjectionThreadDbRowSchema = ProjectionThread.mapFields(
   Struct.assign({
     modelSelection: Schema.NullOr(

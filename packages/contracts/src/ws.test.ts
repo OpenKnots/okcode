@@ -188,3 +188,85 @@ it.effect("rejects push envelopes when channel payload does not match the channe
     assert.strictEqual(result._tag, "Failure");
   }),
 );
+
+// ── Companion pairing contract tests ─────────────────────────────────
+
+it.effect("accepts generateCompanionPairingBundle requests", () =>
+  Effect.gen(function* () {
+    const parsed = yield* decodeWebSocketRequest({
+      id: "req-cpb-1",
+      body: {
+        _tag: WS_METHODS.serverGenerateCompanionPairingBundle,
+        ttlSeconds: 600,
+        advertisedEndpoints: [{ kind: "lan", url: "http://192.168.1.10:3773", reachable: true }],
+      },
+    });
+    assert.strictEqual(parsed.body._tag, WS_METHODS.serverGenerateCompanionPairingBundle);
+  }),
+);
+
+it.effect("accepts generateCompanionPairingBundle with no optional fields", () =>
+  Effect.gen(function* () {
+    const parsed = yield* decodeWebSocketRequest({
+      id: "req-cpb-2",
+      body: {
+        _tag: WS_METHODS.serverGenerateCompanionPairingBundle,
+      },
+    });
+    assert.strictEqual(parsed.body._tag, WS_METHODS.serverGenerateCompanionPairingBundle);
+  }),
+);
+
+it.effect("accepts exchangeCompanionBootstrap requests", () =>
+  Effect.gen(function* () {
+    const parsed = yield* decodeWebSocketRequest({
+      id: "req-ecb-1",
+      body: {
+        _tag: WS_METHODS.serverExchangeCompanionBootstrap,
+        bootstrapToken: "abc123",
+        endpointUrl: "http://192.168.1.10:3773",
+        deviceName: "My Phone",
+      },
+    });
+    assert.strictEqual(parsed.body._tag, WS_METHODS.serverExchangeCompanionBootstrap);
+  }),
+);
+
+it.effect("accepts exchangeCompanionBootstrap with password", () =>
+  Effect.gen(function* () {
+    const parsed = yield* decodeWebSocketRequest({
+      id: "req-ecb-2",
+      body: {
+        _tag: WS_METHODS.serverExchangeCompanionBootstrap,
+        bootstrapToken: "abc123",
+        endpointUrl: "http://192.168.1.10:3773",
+        password: "hunter2",
+        deviceName: "My Phone",
+      },
+    });
+    assert.strictEqual(parsed.body._tag, WS_METHODS.serverExchangeCompanionBootstrap);
+  }),
+);
+
+it.effect("accepts listPairedDevices requests", () =>
+  Effect.gen(function* () {
+    const parsed = yield* decodeWebSocketRequest({
+      id: "req-lpd-1",
+      body: { _tag: WS_METHODS.serverListPairedDevices },
+    });
+    assert.strictEqual(parsed.body._tag, WS_METHODS.serverListPairedDevices);
+  }),
+);
+
+it.effect("accepts revokePairedDevice requests", () =>
+  Effect.gen(function* () {
+    const parsed = yield* decodeWebSocketRequest({
+      id: "req-rpd-1",
+      body: {
+        _tag: WS_METHODS.serverRevokePairedDevice,
+        deviceId: "device-abc",
+      },
+    });
+    assert.strictEqual(parsed.body._tag, WS_METHODS.serverRevokePairedDevice);
+  }),
+);

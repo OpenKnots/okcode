@@ -56,6 +56,7 @@ function createThreadDeletedEvent(input: {
   readonly command: Pick<OrchestrationCommand, "commandId">;
   readonly threadId: ThreadId;
   readonly occurredAt: string;
+  readonly reason: "manual" | "limit-eviction" | "project-deleted";
 }): Omit<OrchestrationEvent, "sequence"> {
   return {
     ...withEventBase({
@@ -68,6 +69,7 @@ function createThreadDeletedEvent(input: {
     payload: {
       threadId: input.threadId,
       deletedAt: input.occurredAt,
+      reason: input.reason,
     },
   };
 }
@@ -76,6 +78,7 @@ function createProjectDeletedEvent(input: {
   readonly command: Pick<OrchestrationCommand, "commandId">;
   readonly projectId: ProjectId;
   readonly occurredAt: string;
+  readonly reason: "manual" | "limit-eviction";
 }): Omit<OrchestrationEvent, "sequence"> {
   return {
     ...withEventBase({
@@ -88,6 +91,7 @@ function createProjectDeletedEvent(input: {
     payload: {
       projectId: input.projectId,
       deletedAt: input.occurredAt,
+      reason: input.reason,
     },
   };
 }
@@ -145,6 +149,7 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
             command,
             threadId: thread.id,
             occurredAt: command.createdAt,
+            reason: "limit-eviction",
           }),
         ),
         ...projectsToArchive.map((project) =>
@@ -152,6 +157,7 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
             command,
             projectId: project.id,
             occurredAt: command.createdAt,
+            reason: "limit-eviction",
           }),
         ),
       ];
@@ -196,6 +202,7 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
         command,
         projectId: command.projectId,
         occurredAt,
+        reason: "manual",
       });
       if (threadsToArchive.length === 0) {
         return projectDeletedEvent;
@@ -206,6 +213,7 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
             command,
             threadId: thread.id,
             occurredAt,
+            reason: "project-deleted",
           }),
         ),
         projectDeletedEvent,
@@ -258,6 +266,7 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
           command,
           threadId: thread.id,
           occurredAt: command.createdAt,
+          reason: "limit-eviction",
         }),
       );
       return [...archiveEvents, threadCreatedEvent];
@@ -274,6 +283,7 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
         command,
         threadId: command.threadId,
         occurredAt,
+        reason: "manual",
       });
     }
 

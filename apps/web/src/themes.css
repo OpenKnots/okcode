@@ -63,64 +63,92 @@
   --warning-foreground: #f1a10d;
 }
 
-/* ─── Solar Witch ─── magical, cozy, ritualistic ─── */
+/* ─── Solar Witch ─── mystical, radiant, high-contrast sunset magic ─── */
 
 :root.theme-solar-witch {
   color-scheme: light;
-  --background: #faf5ee;
-  --foreground: #2d2118;
-  --card: #f5efe4;
-  --card-foreground: #2d2118;
-  --popover: #f5efe4;
-  --popover-foreground: #2d2118;
-  --primary: oklch(0.62 0.18 55);
+  --background: #fff7ed;
+  --foreground: #3b0764;
+  --card: #ffedd5;
+  --card-foreground: #3b0764;
+  --popover: #fff7ed;
+  --popover-foreground: #3b0764;
+  --primary: oklch(0.68 0.23 35);
   --primary-foreground: #ffffff;
-  --secondary: rgba(160, 100, 40, 0.06);
-  --secondary-foreground: #2d2118;
-  --muted: rgba(160, 100, 40, 0.06);
-  --muted-foreground: #8a7560;
-  --accent: rgba(160, 100, 40, 0.08);
-  --accent-foreground: #2d2118;
-  --destructive: #e5484d;
-  --destructive-foreground: #cd2b31;
-  --border: rgba(160, 100, 40, 0.1);
-  --input: rgba(160, 100, 40, 0.12);
-  --ring: oklch(0.62 0.18 55);
-  --info: #b47a2b;
-  --info-foreground: #96631e;
-  --success: #46a758;
-  --success-foreground: #2d8a3e;
-  --warning: #e5a836;
-  --warning-foreground: #ad7a18;
+  --secondary: rgba(251, 146, 60, 0.12);
+  --secondary-foreground: #7c2d12;
+  --muted: rgba(245, 158, 11, 0.12);
+  --muted-foreground: #9a3412;
+  --accent: rgba(236, 72, 153, 0.12);
+  --accent-foreground: #831843;
+  --destructive: #dc2626;
+  --destructive-foreground: #b91c1c;
+  --border: rgba(234, 88, 12, 0.18);
+  --input: rgba(234, 88, 12, 0.14);
+  --ring: oklch(0.68 0.23 35);
+  --info: #7c3aed;
+  --info-foreground: #6d28d9;
+  --success: #16a34a;
+  --success-foreground: #15803d;
+  --warning: #f59e0b;
+  --warning-foreground: #b45309;
 }
 
 :root.theme-solar-witch.dark {
   color-scheme: dark;
-  --background: #120e0a;
-  --foreground: #f0e6d6;
-  --card: #1a140e;
-  --card-foreground: #f0e6d6;
-  --popover: #1a140e;
-  --popover-foreground: #f0e6d6;
-  --primary: oklch(0.72 0.17 60);
-  --primary-foreground: #120e0a;
-  --secondary: rgba(220, 170, 100, 0.06);
-  --secondary-foreground: #f0e6d6;
-  --muted: rgba(220, 170, 100, 0.06);
-  --muted-foreground: #9a8a78;
-  --accent: rgba(220, 170, 100, 0.08);
-  --accent-foreground: #f0e6d6;
-  --destructive: #ff6369;
-  --destructive-foreground: #ff9592;
-  --border: rgba(220, 170, 100, 0.08);
-  --input: rgba(220, 170, 100, 0.1);
-  --ring: oklch(0.72 0.17 60);
-  --info: #e8a860;
-  --info-foreground: #f0c088;
-  --success: #4cc38a;
-  --success-foreground: #3dd68c;
-  --warning: #ffb224;
-  --warning-foreground: #f1a10d;
+  --background: #140b1f;
+  --foreground: #f8e8ff;
+  --card: #1f102b;
+  --card-foreground: #f8e8ff;
+  --popover: #1f102b;
+  --popover-foreground: #f8e8ff;
+  --primary: oklch(0.74 0.21 55);
+  --primary-foreground: #1a1022;
+  --secondary: rgba(251, 146, 60, 0.12);
+  --secondary-foreground: #ffd7a3;
+  --muted: rgba(236, 72, 153, 0.1);
+  --muted-foreground: #d8b4fe;
+  --accent: rgba(168, 85, 247, 0.14);
+  --accent-foreground: #f3e8ff;
+  --destructive: #fb7185;
+  --destructive-foreground: #fda4af;
+  --border: rgba(251, 146, 60, 0.14);
+  --input: rgba(251, 146, 60, 0.18);
+  --ring: oklch(0.74 0.21 55);
+  --info: #a78bfa;
+  --info-foreground: #c4b5fd;
+  --success: #4ade80;
+  --success-foreground: #86efac;
+  --warning: #fbbf24;
+  --warning-foreground: #fcd34d;
+}
+:root.theme-solar-witch.dark {
+  color-scheme: dark;
+  --background: #140b1f;
+  --foreground: #f8e8ff;
+  --card: #1f102b;
+  --card-foreground: #f8e8ff;
+  --popover: #1f102b;
+  --popover-foreground: #f8e8ff;
+  --primary: oklch(0.74 0.21 55);
+  --primary-foreground: #1a1022;
+  --secondary: rgba(251, 146, 60, 0.12);
+  --secondary-foreground: #ffd7a3;
+  --muted: rgba(236, 72, 153, 0.1);
+  --muted-foreground: #d8b4fe;
+  --accent: rgba(168, 85, 247, 0.14);
+  --accent-foreground: #f3e8ff;
+  --destructive: #fb7185;
+  --destructive-foreground: #fda4af;
+  --border: rgba(251, 146, 60, 0.14);
+  --input: rgba(251, 146, 60, 0.18);
+  --ring: oklch(0.74 0.21 55);
+  --info: #a78bfa;
+  --info-foreground: #c4b5fd;
+  --success: #4ade80;
+  --success-foreground: #86efac;
+  --warning: #fbbf24;
+  --warning-foreground: #fcd34d;
 }
 
 /* ─── Carbon ─── stark, modern, performance-focused (Vercel-inspired) ─── */

@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.22.1] - 2026-04-10
+
+See [docs/releases/v0.22.1.md](docs/releases/v0.22.1.md) for full notes and [docs/releases/v0.22.1/assets.md](docs/releases/v0.22.1/assets.md) for release asset inventory.
+
+### Added
+
+- Add decision workspace contracts, projections, persistence tables, and WebSocket wiring groundwork.
+- Add pending user input projections plus thread overview and detail queries.
+- Add sidebar density controls, connection test controls, and expandable notification diagnostics with copy support.
+- Add companion pairing contracts and mobile pairing stubs.
+- Add stop support for pending git actions and external GitHub link opening from the preview popout.
+- Add OpenClaw maintainer workflow skills.
+
+### Changed
+
+- Switch SME Claude flows to Claude Code CLI.
+- Extract the OpenClaw gateway client with auth fallback and modernize the gateway handshake flow.
+- Refresh theme tokens, default typography, and VS Code icon manifests.
+- Preserve thread routes in desktop pop-out windows and widen preview viewport inputs.
+- Render SME replies as markdown and replace the draft upload icon with a close action.
+
+### Fixed
+
+- Ignore expected redacted auth shutdown noise in Codex logs.
+- Normalize React language ids for syntax highlighting.
+- Defer the empty diff guard until after hook setup.
+- Restore orchestration snapshot and thread-detail compatibility across shared contracts and WebSocket wiring.
+- Backfill the pending user input projection table for already-upgraded state directories.
+- Improve OpenClaw gateway handshake diagnostics and connection-stage reporting.
+- Isolate CLI test state directories to avoid SQLite lock contention during release validation.
+- Tune long user-message timeline height estimation so browser layout stays aligned with validated rendering.
+
+## [0.22.0] - 2026-04-09
+
+See [docs/releases/v0.22.0.md](docs/releases/v0.22.0.md) for full notes and [docs/releases/v0.22.0/assets.md](docs/releases/v0.22.0/assets.md) for release asset inventory.
+
+### Added
+
+- Add provider-aware SME conversation auth with persisted provider and auth method settings.
+- Add navigable settings sections and a dedicated SME conversation settings editor.
+
+### Changed
+
+- Refresh SME chat with a modern sidebar, composer, and message layout.
+- Restructure settings into section-specific panels with a mobile section picker.
+- Route SME conversation sends through provider-specific auth validation and runtime backends.
+
+### Fixed
+
+- Redact secrets from websocket errors across the server, transport, and UI paths.
+
 ## [0.21.0] - 2026-04-09
 
 See [docs/releases/v0.21.0.md](docs/releases/v0.21.0.md) for full notes and [docs/releases/v0.21.0/assets.md](docs/releases/v0.21.0/assets.md) for release asset inventory.
@@ -638,3 +689,5 @@ First public version tag. See [docs/releases/v0.0.1.md](docs/releases/v0.0.1.md)
 [0.18.0]: https://github.com/OpenKnots/okcode/releases/tag/v0.18.0
 [0.20.0]: https://github.com/OpenKnots/okcode/releases/tag/v0.20.0
 [0.21.0]: https://github.com/OpenKnots/okcode/releases/tag/v0.21.0
+[0.22.0]: https://github.com/OpenKnots/okcode/releases/tag/v0.22.0
+[0.22.1]: https://github.com/OpenKnots/okcode/releases/tag/v0.22.1

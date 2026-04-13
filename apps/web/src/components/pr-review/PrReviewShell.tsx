@@ -61,6 +61,34 @@ function resolvePrReviewConfigPath(projectCwd: string, configPath: string): stri
   return joinPath(projectCwd, configPath);
 }
 
+function formatReviewDecision(decision: string | null | undefined): string {
+  if (!decision) return "No decision";
+  return decision.toLowerCase().replaceAll("_", " ");
+}
+
+function reviewDecisionTone(decision: string | null | undefined): string {
+  switch (decision) {
+    case "APPROVED":
+      return "text-emerald-600 dark:text-emerald-400";
+    case "CHANGES_REQUESTED":
+    case "REVIEW_REQUIRED":
+      return "text-amber-600 dark:text-amber-400";
+    default:
+      return "text-muted-foreground";
+  }
+}
+
+function formatReviewTimestamp(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}
+
 export function PrReviewShell({
   project,
   projects,
@@ -360,6 +388,8 @@ export function PrReviewShell({
   const blockingWorkflowStepsComputed = (dashboardQuery.data?.workflowSteps ?? []).filter(
     (step) => step.status === "blocked" || step.status === "failed",
   );
+  const recentReviews = dashboardQuery.data?.pullRequest.recentReviews ?? [];
+  const displayedRecentReviews = recentReviews.slice(0, 3);
 
   // Inspector props helper
   const inspectorProps = {
@@ -531,7 +561,58 @@ export function PrReviewShell({
           )}
         >
           <div className="overflow-hidden">
-            <div className="px-4 py-3 space-y-3">
+            <div className="space-y-3 px-4 py-3">
+              <div className="flex flex-wrap items-start gap-x-4 gap-y-2 rounded-xl border border-border/60 bg-muted/30 px-3 py-2.5 text-xs">
+                <div className="space-y-0.5">
+                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                    Review decision
+                  </div>
+                  <div
+                    className={cn(
+                      "font-medium capitalize",
+                      reviewDecisionTone(dashboardQuery.data?.pullRequest.reviewDecision),
+                    )}
+                  >
+                    {formatReviewDecision(dashboardQuery.data?.pullRequest.reviewDecision)}
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                  Recent maintainer reviews
+                </div>
+                {displayedRecentReviews.length > 0 ? (
+                  <div className="space-y-1.5">
+                    {displayedRecentReviews.map((review) => (
+                      <div
+                        className="rounded-md border border-border/60 bg-muted/30 px-2.5 py-2 text-xs"
+                        key={`${review.authorLogin}:${review.submittedAt}`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <span className="font-medium text-foreground">
+                              {review.authorLogin}
+                            </span>
+                            <span className="ml-2 capitalize text-muted-foreground">
+                              {review.state.toLowerCase().replaceAll("_", " ")}
+                            </span>
+                          </div>
+                          <span className="shrink-0 text-muted-foreground">
+                            {formatReviewTimestamp(review.submittedAt)}
+                          </span>
+                        </div>
+                        {review.body.trim().length > 0 ? (
+                          <p className="mt-1 line-clamp-2 whitespace-pre-wrap text-muted-foreground">
+                            {review.body}
+                          </p>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-xs text-muted-foreground">No maintainer reviews yet.</div>
+                )}
+              </div>
               <PrMentionComposer
                 cwd={project.cwd}
                 participants={dashboardQuery.data?.pullRequest.participants ?? []}
@@ -540,7 +621,6 @@ export function PrReviewShell({
                 value={reviewBody}
                 onChange={(value) => {
                   setReviewBody(value);
-                  // Auto-expand when user starts typing
                   if (value.trim().length > 0 && !actionRailExpanded) {
                     setActionRailExpanded(true);
                   }

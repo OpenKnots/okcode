@@ -42,6 +42,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDebouncedValue } from "@tanstack/react-pacer";
 import { useNavigate } from "@tanstack/react-router";
 import { gitBranchesQueryOptions, gitCreateWorktreeMutationOptions } from "~/lib/gitReactQuery";
+import {
+  getSelectableThreadProviders,
+  getThreadProviderLabel,
+  resolveThreadProviderSelection,
+} from "~/lib/providerAvailability";
 import { projectSearchEntriesQueryOptions } from "~/lib/projectReactQuery";
 import {
   skillCatalogQueryOptions,
@@ -194,7 +199,7 @@ import { useDiffViewerStore } from "~/diffViewerStore";
 import { PreviewPanel } from "./PreviewPanel";
 import { ContextWindowMeter } from "./chat/ContextWindowMeter";
 import { buildExpandedImagePreview, ExpandedImagePreview } from "./chat/ExpandedImagePreview";
-import { AVAILABLE_PROVIDER_OPTIONS, ProviderModelPicker } from "./chat/ProviderModelPicker";
+import { ProviderModelPicker } from "./chat/ProviderModelPicker";
 import { ComposerCommandItem, ComposerCommandMenu } from "./chat/ComposerCommandMenu";
 import { ComposerPendingApprovalActions } from "./chat/ComposerPendingApprovalActions";
 import { CompactComposerControlsMenu } from "./chat/CompactComposerControlsMenu";
@@ -857,8 +862,19 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
     markThreadVisited,
   ]);
 
+  const serverConfigQuery = useQuery(serverConfigQueryOptions());
   const sessionProvider = activeThread?.session?.provider ?? null;
   const selectedProviderByThreadId = composerDraft.provider;
+  const providerStatuses = serverConfigQuery.data?.providers ?? EMPTY_PROVIDER_STATUSES;
+  const selectableProviders = useMemo(
+    () =>
+      getSelectableThreadProviders({
+        statuses: providerStatuses,
+        openclawGatewayUrl: settings.openclawGatewayUrl,
+        claudeAuthTokenHelperCommand: settings.claudeAuthTokenHelperCommand,
+      }),
+    [providerStatuses, settings.claudeAuthTokenHelperCommand, settings.openclawGatewayUrl],
+  );
   const hasThreadStarted = Boolean(
     activeThread &&
     (activeThread.latestTurn !== null ||
@@ -868,7 +884,12 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
   const lockedProvider: ProviderKind | null = hasThreadStarted
     ? (sessionProvider ?? selectedProviderByThreadId ?? null)
     : null;
-  const selectedProvider: ProviderKind = lockedProvider ?? selectedProviderByThreadId ?? "codex";
+  const selectedProvider: ProviderKind =
+    lockedProvider ??
+    resolveThreadProviderSelection({
+      preferredProvider: selectedProviderByThreadId,
+      selectableProviders,
+    });
   const baseThreadModel = resolveModelSlugForProvider(
     selectedProvider,
     activeThread?.model ?? activeProject?.model ?? getDefaultModel(selectedProvider),
@@ -908,20 +929,18 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
   }, [modelOptionsByProvider, selectedModelForPicker, selectedProvider]);
   const searchableModelOptions = useMemo(
     () =>
-      AVAILABLE_PROVIDER_OPTIONS.filter(
-        (option) => lockedProvider === null || option.value === lockedProvider,
-      ).flatMap((option) =>
-        modelOptionsByProvider[option.value].map(({ slug, name }) => ({
-          provider: option.value,
-          providerLabel: option.label,
+      (lockedProvider !== null ? [lockedProvider] : selectableProviders).flatMap((provider) =>
+        modelOptionsByProvider[provider].map(({ slug, name }) => ({
+          provider,
+          providerLabel: getThreadProviderLabel(provider),
           slug,
           name,
           searchSlug: slug.toLowerCase(),
           searchName: name.toLowerCase(),
-          searchProvider: option.label.toLowerCase(),
+          searchProvider: getThreadProviderLabel(provider).toLowerCase(),
         })),
       ),
-    [lockedProvider, modelOptionsByProvider],
+    [lockedProvider, modelOptionsByProvider, selectableProviders],
   );
   const phase = derivePhase(activeThread?.session ?? null);
   const isSendBusy = sendPhase !== "idle";
@@ -1314,7 +1333,6 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
   );
   const effectivePathQuery = pathTriggerQuery.length > 0 ? debouncedPathQuery : "";
   const branchesQuery = useQuery(gitBranchesQueryOptions(gitCwd));
-  const serverConfigQuery = useQuery(serverConfigQueryOptions());
   const workspaceEntriesQuery = useQuery(
     projectSearchEntriesQueryOptions({
       cwd: gitCwd,
@@ -1536,7 +1554,6 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
     };
   }, []);
   const keybindings = serverConfigQuery.data?.keybindings ?? EMPTY_KEYBINDINGS;
-  const providerStatuses = serverConfigQuery.data?.providers ?? EMPTY_PROVIDER_STATUSES;
   const activeProviderStatus = useMemo(
     () => providerStatuses.find((status) => status.provider === selectedProvider) ?? null,
     [selectedProvider, providerStatuses],
@@ -1980,8 +1997,12 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
           })
         : null;
 
-      if (isElectron && keybindingRule) {
-        await api.server.upsertKeybinding(keybindingRule);
+      if (isElectron && input.keybindingCommand) {
+        await api.server.replaceKeybindingRules(
+          keybindingRule
+            ? { command: input.keybindingCommand, rules: [keybindingRule] }
+            : { command: input.keybindingCommand, rules: [] },
+        );
         await queryClient.invalidateQueries({ queryKey: serverQueryKeys.all });
       }
     },
@@ -4858,6 +4879,8 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
       <ErrorNotificationBar
         threadError={activeThread.error}
         showAuthFailuresAsErrors={settings.showAuthFailuresAsErrors}
+        showNotificationDetails={settings.showNotificationDetails}
+        includeDiagnosticsTipsInCopy={settings.includeDiagnosticsTipsInCopy}
         onDismissThreadError={() => setThreadError(activeThread.id, null)}
         providerStatus={activeProviderStatus}
         transportState={transportState}
@@ -5312,6 +5335,7 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
                             provider={selectedProvider}
                             model={selectedModelForPickerWithCustomFallback}
                             lockedProvider={lockedProvider}
+                            availableProviders={selectableProviders}
                             modelOptionsByProvider={modelOptionsByProvider}
                             {...(composerProviderState.modelPickerIconClassName
                               ? {

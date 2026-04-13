@@ -41,7 +41,7 @@ function toRuntimeFailure(
 
 export interface SendSmeViaProviderRuntimeInput {
   readonly providerService: ProviderServiceShape;
-  readonly provider: Extract<ProviderKind, "codex" | "openclaw">;
+  readonly provider: ProviderKind;
   readonly conversationId: string;
   readonly assistantMessageId: string;
   readonly model: string;

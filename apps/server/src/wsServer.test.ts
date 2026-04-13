@@ -2142,6 +2142,60 @@ describe("WebSocket Server", () => {
     );
   });
 
+  it("stops a pending git action for the initiating websocket", async () => {
+    const runStackedAction: GitManagerShape["runStackedAction"] = (input, options) =>
+      Effect.gen(function* () {
+        if (options?.progressReporter) {
+          yield* options.progressReporter.publish({
+            actionId: options.actionId ?? input.actionId,
+            cwd: input.cwd,
+            action: input.action,
+            kind: "phase_started",
+            phase: "commit",
+            label: "Committing...",
+          });
+        }
+        return yield* Effect.never;
+      });
+    const gitManager: GitManagerShape = {
+      status: vi.fn(() => Effect.void as any),
+      resolvePullRequest: vi.fn(() => Effect.void as any),
+      preparePullRequestThread: vi.fn(() => Effect.void as any),
+      runStackedAction,
+      listPullRequests: vi.fn(() => Effect.succeed({ pullRequests: [] })),
+    };
+
+    const { cwd } = makeWorkspaceFixture("test");
+    server = await createTestServer({ cwd, gitManager });
+    const addr = server.address();
+    const port = typeof addr === "object" && addr !== null ? addr.port : 0;
+
+    const [ws] = await connectAndAwaitWelcome(port);
+    connections.push(ws);
+
+    const actionResponsePromise = sendRequest(ws, WS_METHODS.gitRunStackedAction, {
+      actionId: "client-action-stop",
+      cwd,
+      action: "commit",
+    });
+    await waitForPush(ws, WS_CHANNELS.gitActionProgress);
+
+    const stopResponse = await sendRequest(ws, WS_METHODS.gitStopAction, {
+      cwd,
+      actionId: "client-action-stop",
+    });
+
+    expect(stopResponse.error).toBeUndefined();
+    await expect(actionResponsePromise).resolves.toEqual(
+      expect.objectContaining({
+        error: expect.objectContaining({
+          code: "git_action_stopped",
+          message: "Git action stopped.",
+        }),
+      }),
+    );
+  });
+
   it("rejects websocket connections without a valid auth token", async () => {
     const { cwd } = makeWorkspaceFixture("test");
     server = await createTestServer({ cwd, authToken: "secret-token" });

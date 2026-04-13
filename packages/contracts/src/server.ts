@@ -1,7 +1,12 @@
 import { Schema } from "effect";
-import { IsoDateTime, TrimmedNonEmptyString } from "./baseSchemas";
+import { DeviceId, IsoDateTime, PairingId, TrimmedNonEmptyString } from "./baseSchemas";
 import { BuildMetadata } from "./buildInfo";
-import { KeybindingRule, ResolvedKeybindingsConfig } from "./keybindings";
+import {
+  KeybindingCommand,
+  KeybindingRule,
+  MAX_KEYBINDINGS_COUNT,
+  ResolvedKeybindingsConfig,
+} from "./keybindings";
 import { EditorId } from "./editor";
 import { ProviderKind } from "./orchestration";
 
@@ -65,6 +70,15 @@ export const ServerUpsertKeybindingResult = Schema.Struct({
   issues: ServerConfigIssues,
 });
 export type ServerUpsertKeybindingResult = typeof ServerUpsertKeybindingResult.Type;
+
+export const ServerReplaceKeybindingRulesInput = Schema.Struct({
+  command: KeybindingCommand,
+  rules: Schema.Array(KeybindingRule).check(Schema.isMaxLength(MAX_KEYBINDINGS_COUNT)),
+});
+export type ServerReplaceKeybindingRulesInput = typeof ServerReplaceKeybindingRulesInput.Type;
+
+export const ServerReplaceKeybindingRulesResult = ServerUpsertKeybindingResult;
+export type ServerReplaceKeybindingRulesResult = typeof ServerReplaceKeybindingRulesResult.Type;
 
 export const ServerConfigUpdatedPayload = Schema.Struct({
   issues: ServerConfigIssues,
@@ -135,10 +149,124 @@ export const ListTokensResult = Schema.Struct({
 });
 export type ListTokensResult = typeof ListTokensResult.Type;
 
+// ── OpenClaw Gateway Config ─────────────────────────────────────────
+
+export const OpenclawGatewayConfigSummary = Schema.Struct({
+  gatewayUrl: Schema.NullOr(TrimmedNonEmptyString),
+  hasSharedSecret: Schema.Boolean,
+  deviceId: Schema.NullOr(TrimmedNonEmptyString),
+  devicePublicKey: Schema.NullOr(TrimmedNonEmptyString),
+  deviceFingerprint: Schema.NullOr(TrimmedNonEmptyString),
+  hasDeviceToken: Schema.Boolean,
+  deviceTokenRole: Schema.NullOr(TrimmedNonEmptyString),
+  deviceTokenScopes: Schema.Array(TrimmedNonEmptyString),
+  updatedAt: Schema.NullOr(IsoDateTime),
+});
+export type OpenclawGatewayConfigSummary = typeof OpenclawGatewayConfigSummary.Type;
+
+export const SaveOpenclawGatewayConfigInput = Schema.Struct({
+  gatewayUrl: TrimmedNonEmptyString,
+  sharedSecret: Schema.optional(Schema.String),
+  clearSharedSecret: Schema.optional(Schema.Boolean),
+});
+export type SaveOpenclawGatewayConfigInput = typeof SaveOpenclawGatewayConfigInput.Type;
+
+export const ResetOpenclawGatewayDeviceStateInput = Schema.Struct({
+  regenerateIdentity: Schema.optional(Schema.Boolean),
+});
+export type ResetOpenclawGatewayDeviceStateInput = typeof ResetOpenclawGatewayDeviceStateInput.Type;
+
+// ── Companion Pairing (new model) ──────────────────────────────────
+// The companion pairing model replaces the single-token deep-link flow
+// with endpoint-aware bundles and device-scoped sessions. The legacy
+// `GeneratePairingLinkInput`/`GeneratePairingLinkResult` contracts above
+// remain supported during rollout.
+
+export const CompanionEndpointKind = Schema.Literals(["tailscale", "lan", "manual"]);
+export type CompanionEndpointKind = typeof CompanionEndpointKind.Type;
+
+export const CompanionEndpoint = Schema.Struct({
+  kind: CompanionEndpointKind,
+  url: TrimmedNonEmptyString,
+  label: Schema.optional(TrimmedNonEmptyString),
+  reachable: Schema.Boolean,
+});
+export type CompanionEndpoint = typeof CompanionEndpoint.Type;
+
+export const CompanionPairingBundle = Schema.Struct({
+  pairingId: PairingId,
+  expiresAt: IsoDateTime,
+  endpoints: Schema.Array(CompanionEndpoint),
+  bootstrapToken: TrimmedNonEmptyString,
+  passwordRequired: Schema.Boolean,
+  passwordHint: Schema.optional(TrimmedNonEmptyString),
+});
+export type CompanionPairingBundle = typeof CompanionPairingBundle.Type;
+
+export const PairedDeviceSession = Schema.Struct({
+  deviceId: DeviceId,
+  deviceName: TrimmedNonEmptyString,
+  serverUrl: TrimmedNonEmptyString,
+  sessionToken: TrimmedNonEmptyString,
+  issuedAt: IsoDateTime,
+  expiresAt: Schema.NullOr(IsoDateTime),
+  lastSeenAt: Schema.NullOr(IsoDateTime),
+});
+export type PairedDeviceSession = typeof PairedDeviceSession.Type;
+
+// ── Companion RPC Inputs/Outputs ───────────────────────────────────
+
+export const GenerateCompanionPairingBundleInput = Schema.Struct({
+  /** Lifetime in seconds for the bootstrap token. Defaults to 300 (5 min). */
+  ttlSeconds: Schema.optional(Schema.Number),
+  /** Desktop-advertised endpoints to include in the bundle. */
+  advertisedEndpoints: Schema.optional(Schema.Array(CompanionEndpoint)),
+});
+export type GenerateCompanionPairingBundleInput = typeof GenerateCompanionPairingBundleInput.Type;
+
+export const GenerateCompanionPairingBundleResult = CompanionPairingBundle;
+export type GenerateCompanionPairingBundleResult = typeof GenerateCompanionPairingBundleResult.Type;
+
+export const ExchangeCompanionBootstrapInput = Schema.Struct({
+  bootstrapToken: TrimmedNonEmptyString,
+  endpointUrl: TrimmedNonEmptyString,
+  password: Schema.optional(Schema.String),
+  deviceName: TrimmedNonEmptyString,
+});
+export type ExchangeCompanionBootstrapInput = typeof ExchangeCompanionBootstrapInput.Type;
+
+export const ExchangeCompanionBootstrapResult = PairedDeviceSession;
+export type ExchangeCompanionBootstrapResult = typeof ExchangeCompanionBootstrapResult.Type;
+
+export const ListPairedDevicesResult = Schema.Struct({
+  devices: Schema.Array(
+    Schema.Struct({
+      deviceId: DeviceId,
+      deviceName: TrimmedNonEmptyString,
+      issuedAt: IsoDateTime,
+      lastSeenAt: Schema.NullOr(IsoDateTime),
+      endpointKind: Schema.optional(CompanionEndpointKind),
+      revoked: Schema.Boolean,
+    }),
+  ),
+});
+export type ListPairedDevicesResult = typeof ListPairedDevicesResult.Type;
+
+export const RevokePairedDeviceInput = Schema.Struct({
+  deviceId: DeviceId,
+});
+export type RevokePairedDeviceInput = typeof RevokePairedDeviceInput.Type;
+
+export const RevokePairedDeviceResult = Schema.Struct({
+  deviceId: DeviceId,
+  revoked: Schema.Boolean,
+});
+export type RevokePairedDeviceResult = typeof RevokePairedDeviceResult.Type;
+
 // ── OpenClaw Gateway Test ───────────────────────────────────────────
 
 export const TestOpenclawGatewayInput = Schema.Struct({
-  gatewayUrl: Schema.String,
+  gatewayUrl: Schema.optional(Schema.String),
   password: Schema.optional(Schema.String),
 });
 export type TestOpenclawGatewayInput = typeof TestOpenclawGatewayInput.Type;
@@ -176,6 +304,11 @@ export const TestOpenclawGatewayDiagnostics = Schema.Struct({
   socketCloseCode: Schema.optional(Schema.Number),
   socketCloseReason: Schema.optional(Schema.String),
   socketError: Schema.optional(Schema.String),
+  gatewayErrorCode: Schema.optional(Schema.String),
+  gatewayErrorDetailCode: Schema.optional(Schema.String),
+  gatewayErrorDetailReason: Schema.optional(Schema.String),
+  gatewayRecommendedNextStep: Schema.optional(Schema.String),
+  gatewayCanRetryWithDeviceToken: Schema.optional(Schema.Boolean),
   observedNotifications: Schema.Array(Schema.String),
   hints: Schema.Array(Schema.String),
 });

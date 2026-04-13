@@ -132,6 +132,7 @@ class FakeClaudeQuery implements AsyncIterable<SDKMessage> {
 function makeHarness(config?: {
   readonly nativeEventLogPath?: string;
   readonly nativeEventLogger?: ClaudeAdapterLiveOptions["nativeEventLogger"];
+  readonly readAuthTokenFromHelperCommand?: ClaudeAdapterLiveOptions["readAuthTokenFromHelperCommand"];
   readonly cwd?: string;
   readonly baseDir?: string;
 }) {
@@ -148,6 +149,11 @@ function makeHarness(config?: {
       createInput = input;
       return query;
     },
+    ...(config?.readAuthTokenFromHelperCommand
+      ? {
+          readAuthTokenFromHelperCommand: config.readAuthTokenFromHelperCommand,
+        }
+      : {}),
     ...(config?.nativeEventLogger
       ? {
           nativeEventLogger: config.nativeEventLogger,
@@ -237,6 +243,7 @@ async function readFirstPromptMessage(
 
 const THREAD_ID = ThreadId.makeUnsafe("thread-claude-1");
 const RESUME_THREAD_ID = ThreadId.makeUnsafe("thread-claude-resume");
+const THREAD_CWD = "/tmp/claude-session-workspace";
 
 describe("ClaudeAdapterLive", () => {
   it.effect("returns validation error for non-claude provider on startSession", () => {
@@ -345,6 +352,90 @@ describe("ClaudeAdapterLive", () => {
       const createInput = harness.getLastCreateQueryInput();
       assert.equal(typeof createInput?.options.env?.SHELL, "string");
       assert.notEqual(createInput?.options.env?.SHELL, "/definitely/missing-zsh");
+    }).pipe(
+      Effect.provideService(Random.Random, makeDeterministicRandomService()),
+      Effect.provide(harness.layer),
+    );
+  });
+
+  it.effect("sources ANTHROPIC_AUTH_TOKEN from the configured helper command", () => {
+    const helperCommand = "op read op://shared/anthropic/token --no-newline";
+    const helperToken = "helper-token";
+    let helperCall: {
+      readonly command: string;
+      readonly options?: { readonly cwd?: string };
+    } | null = null;
+    const helper: NonNullable<ClaudeAdapterLiveOptions["readAuthTokenFromHelperCommand"]> = (
+      command,
+      options,
+    ) => {
+      helperCall = {
+        command,
+        ...(options?.cwd ? { options: { cwd: options.cwd } } : {}),
+      };
+      return helperToken;
+    };
+    const harness = makeHarness({
+      readAuthTokenFromHelperCommand: helper,
+    });
+
+    return Effect.gen(function* () {
+      const adapter = yield* ClaudeAdapter;
+      yield* adapter.startSession({
+        threadId: THREAD_ID,
+        provider: "claudeAgent",
+        cwd: THREAD_CWD,
+        runtimeMode: "full-access",
+        env: {
+          ANTHROPIC_AUTH_TOKEN: "",
+        },
+        providerOptions: {
+          claudeAgent: {
+            authTokenHelperCommand: helperCommand,
+          },
+        },
+      });
+
+      const createInput = harness.getLastCreateQueryInput();
+      assert.equal(createInput?.options.env?.ANTHROPIC_AUTH_TOKEN, helperToken);
+      assert.equal(helperCall?.command, helperCommand);
+      assert.equal(helperCall?.options?.cwd, THREAD_CWD);
+    }).pipe(
+      Effect.provideService(Random.Random, makeDeterministicRandomService()),
+      Effect.provide(harness.layer),
+    );
+  });
+
+  it.effect("prefers an explicit ANTHROPIC_AUTH_TOKEN over the helper command", () => {
+    let helperCallCount = 0;
+    const helper: NonNullable<ClaudeAdapterLiveOptions["readAuthTokenFromHelperCommand"]> = () => {
+      helperCallCount += 1;
+      return "helper-token";
+    };
+    const harness = makeHarness({
+      readAuthTokenFromHelperCommand: helper,
+    });
+
+    return Effect.gen(function* () {
+      const adapter = yield* ClaudeAdapter;
+      yield* adapter.startSession({
+        threadId: THREAD_ID,
+        provider: "claudeAgent",
+        cwd: THREAD_CWD,
+        runtimeMode: "full-access",
+        env: {
+          ANTHROPIC_AUTH_TOKEN: "env-token",
+        },
+        providerOptions: {
+          claudeAgent: {
+            authTokenHelperCommand: "op read op://shared/anthropic/token --no-newline",
+          },
+        },
+      });
+
+      const createInput = harness.getLastCreateQueryInput();
+      assert.equal(createInput?.options.env?.ANTHROPIC_AUTH_TOKEN, "env-token");
+      assert.equal(helperCallCount, 0);
     }).pipe(
       Effect.provideService(Random.Random, makeDeterministicRandomService()),
       Effect.provide(harness.layer),
@@ -2472,6 +2563,57 @@ describe("ClaudeAdapterLive", () => {
       Effect.provide(harness.layer),
     );
   });
+
+  it.effect(
+    "restores default permission mode on sendTurn when interactionMode is chat for approval-required sessions",
+    () => {
+      const harness = makeHarness();
+      return Effect.gen(function* () {
+        const adapter = yield* ClaudeAdapter;
+
+        const session = yield* adapter.startSession({
+          threadId: THREAD_ID,
+          provider: "claudeAgent",
+          runtimeMode: "approval-required",
+        });
+
+        yield* adapter.sendTurn({
+          threadId: session.threadId,
+          input: "plan this",
+          interactionMode: "plan",
+          attachments: [],
+        });
+
+        const turnCompletedFiber = yield* Stream.filter(
+          adapter.streamEvents,
+          (event) => event.type === "turn.completed",
+        ).pipe(Stream.runHead, Effect.forkChild);
+
+        harness.query.emit({
+          type: "result",
+          subtype: "success",
+          is_error: false,
+          errors: [],
+          session_id: "sdk-session-approval-plan-restore",
+          uuid: "result-approval-plan",
+        } as unknown as SDKMessage);
+
+        yield* Fiber.join(turnCompletedFiber);
+
+        yield* adapter.sendTurn({
+          threadId: session.threadId,
+          input: "now answer directly",
+          interactionMode: "chat",
+          attachments: [],
+        });
+
+        assert.deepEqual(harness.query.setPermissionModeCalls, ["plan", "default"]);
+      }).pipe(
+        Effect.provideService(Random.Random, makeDeterministicRandomService()),
+        Effect.provide(harness.layer),
+      );
+    },
+  );
 
   it.effect("does not call setPermissionMode when interactionMode is absent", () => {
     const harness = makeHarness();

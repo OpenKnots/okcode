@@ -340,6 +340,13 @@ const makeCopilotAdapter = (options?: CopilotAdapterLiveOptions) =>
     const runtimeEventQueue = yield* Queue.unbounded<ProviderRuntimeEvent>();
     const sessions = new Map<ThreadId, CopilotSessionContext>();
 
+    yield* Effect.addFinalizer(() =>
+      Effect.forEach(
+        Array.from(sessions.keys()),
+        (threadId) => stopSession(threadId).pipe(Effect.ignore),
+        { discard: true },
+      ).pipe(Effect.ensuring(Queue.shutdown(runtimeEventQueue))),
+    );
     const emitEvent = (event: ProviderRuntimeEvent) =>
       Queue.offer(runtimeEventQueue, event).pipe(
         Effect.tap(() =>
@@ -937,11 +944,13 @@ const makeCopilotAdapter = (options?: CopilotAdapterLiveOptions) =>
       Effect.gen(function* () {
         const context = yield* getContext(input.threadId);
         if (context.turnState) {
-          return yield* new ProviderAdapterRequestError({
-            provider: PROVIDER,
-            method: "session.send",
-            detail: "GitHub Copilot already has an active turn for this thread.",
-          });
+          return yield* Effect.fail(
+            new ProviderAdapterRequestError({
+              provider: PROVIDER,
+              method: "session.send",
+              detail: "GitHub Copilot already has an active turn for this thread.",
+            }),
+          );
         }
 
         const turnId = TurnId.makeUnsafe(crypto.randomUUID());

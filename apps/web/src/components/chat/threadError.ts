@@ -6,6 +6,10 @@ export interface ThreadErrorPresentation {
   technicalDetails: string | null;
 }
 
+export interface ThreadErrorDiagnosticsCopyOptions {
+  includeTips?: boolean;
+}
+
 const WORKTREE_COMMAND_PREFIX = "Git command failed in GitCore.createWorktree:";
 const AUTH_FAILURE_PATTERNS = [
   "run `codex login`",
@@ -14,6 +18,10 @@ const AUTH_FAILURE_PATTERNS = [
   "run claude auth login",
   "codex cli is not authenticated",
   "claude is not authenticated",
+  "supported anthropic credential",
+  "signed in with oauth",
+  "oauth authentication is currently not supported",
+  "could not resolve authentication method",
   "authentication required",
 ] as const;
 
@@ -25,6 +33,40 @@ function extractWorktreeDetail(error: string): string | null {
   const separatorIndex = error.lastIndexOf(" - ");
   const detail = separatorIndex >= 0 ? error.slice(separatorIndex + 3).trim() : error.trim();
   return detail.length > 0 ? detail : null;
+}
+
+function getProviderLoginCommand(error: string): string | null {
+  const lower = error.toLowerCase();
+  if (lower.includes("claude")) {
+    return "`ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN`";
+  }
+  if (lower.includes("codex")) {
+    return "`codex login`";
+  }
+  return null;
+}
+
+function buildTroubleshootingTips(error: string, presentation: ThreadErrorPresentation): string[] {
+  const tips: string[] = [];
+
+  if (isAuthenticationThreadError(error)) {
+    const loginCommand = getProviderLoginCommand(error);
+    tips.push(
+      loginCommand?.includes("ANTHROPIC")
+        ? `Set ${loginCommand} in the runtime environment and retry the turn.`
+        : loginCommand
+          ? `Run ${loginCommand} and retry the turn.`
+          : "Run the provider login command for this CLI, then retry the turn.",
+    );
+  }
+
+  if (presentation.title === "Worktree thread could not start") {
+    tips.push(
+      "Create the first commit or switch to a base branch that resolves to a commit before starting a worktree thread.",
+    );
+  }
+
+  return tips;
 }
 
 export function isAuthenticationThreadError(error: string | null | undefined): boolean {
@@ -53,4 +95,39 @@ export function humanizeThreadError(error: string): ThreadErrorPresentation {
     description: trimmed.length > 0 ? trimmed : "An unexpected error occurred.",
     technicalDetails: null,
   };
+}
+
+export function buildThreadErrorDiagnosticsCopy(
+  error: string,
+  options: ThreadErrorDiagnosticsCopyOptions = {},
+): string {
+  const presentation = humanizeThreadError(error);
+  const lines: string[] = [];
+  const message = presentation.title
+    ? `${presentation.title}: ${presentation.description}`
+    : presentation.description;
+
+  lines.push(`Message: ${message}`);
+
+  if (
+    presentation.technicalDetails &&
+    presentation.technicalDetails.trim() !== presentation.description.trim()
+  ) {
+    lines.push("");
+    lines.push("Technical details:");
+    lines.push(presentation.technicalDetails);
+  }
+
+  if (options.includeTips) {
+    const tips = buildTroubleshootingTips(error, presentation);
+    if (tips.length > 0) {
+      lines.push("");
+      lines.push("Troubleshooting:");
+      for (const tip of tips) {
+        lines.push(`- ${tip}`);
+      }
+    }
+  }
+
+  return lines.join("\n");
 }

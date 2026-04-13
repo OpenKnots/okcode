@@ -1,8 +1,7 @@
 /**
  * ProviderHealthLive - Startup-time provider health checks.
  *
- * Performs one-time provider readiness probes when the server starts and
- * keeps the resulting snapshot in memory for `server.getConfig`.
+ * Performs provider readiness probes on demand for `server.getConfig`.
  *
  * Uses effect's ChildProcessSpawner to run CLI probes natively.
  *
@@ -15,20 +14,12 @@ import type {
   ServerProviderStatus,
   ServerProviderStatusState,
 } from "@okcode/contracts";
-import {
-  Array,
-  Data,
-  Effect,
-  Fiber,
-  FileSystem,
-  Layer,
-  Option,
-  Path,
-  Result,
-  Stream,
-} from "effect";
+import { Array, Data, Effect, FileSystem, Layer, Option, Path, Result, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
+import { serverBuildInfo } from "../../buildInfo.ts";
+import { OpenclawGatewayClient, OpenclawGatewayClientError } from "../../openclaw/GatewayClient.ts";
+import { OpenclawGatewayConfig } from "../../persistence/Services/OpenclawGatewayConfig.ts";
 import {
   formatCodexCliUpgradeMessage,
   isCodexCliVersionSupported,
@@ -52,6 +43,14 @@ class CopilotHealthProbeError extends Data.TaggedError("CopilotHealthProbeError"
 function formatHealthProbeCause(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause);
 }
+
+const OPENCLAW_HEALTH_REQUIRED_METHODS = [
+  "sessions.create",
+  "sessions.get",
+  "sessions.send",
+  "sessions.abort",
+  "sessions.messages.subscribe",
+] as const;
 
 // ── Pure helpers ────────────────────────────────────────────────────
 
@@ -108,6 +107,32 @@ function extractAuthBoolean(value: unknown): boolean | undefined {
   }
   return undefined;
 }
+
+function extractAuthString(value: unknown): string | undefined {
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      const nested = extractAuthString(entry);
+      if (nested !== undefined) return nested;
+    }
+    return undefined;
+  }
+
+  if (!value || typeof value !== "object") return undefined;
+
+  const record = value as Record<string, unknown>;
+  for (const key of ["authMethod", "auth_method", "method"] as const) {
+    if (typeof record[key] === "string") return record[key];
+  }
+  for (const key of ["auth", "session", "account"] as const) {
+    const nested = extractAuthString(record[key]);
+    if (nested !== undefined) return nested;
+  }
+  return undefined;
+}
+
+const CLAUDE_OAUTH_AUTH_METHODS = new Set(["claude.ai", "oauth"]);
+const CLAUDE_SUPPORTED_AUTH_METHODS = new Set(["apiKey", "authToken"]);
+const CLAUDE_AUTH_GUIDANCE = "Set ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN and try again.";
 
 export function parseAuthStatusFromOutput(result: CommandResult): {
   readonly status: ServerProviderStatusState;
@@ -387,7 +412,10 @@ export const checkCopilotProviderStatus: Effect.Effect<ServerProviderStatus, nev
       } satisfies ServerProviderStatus;
     }
 
-    const authStatus = authResult.success.value;
+    const authStatus = authResult.success.value as {
+      readonly isAuthenticated: boolean;
+      readonly statusMessage?: string;
+    };
     return {
       provider: COPILOT_PROVIDER,
       status: authStatus.isAuthenticated ? ("ready" as const) : ("error" as const),
@@ -552,13 +580,14 @@ export function parseClaudeAuthStatusFromOutput(result: CommandResult): {
     lowerOutput.includes("not logged in") ||
     lowerOutput.includes("login required") ||
     lowerOutput.includes("authentication required") ||
+    lowerOutput.includes("oauth authentication is currently not supported") ||
     lowerOutput.includes("run `claude login`") ||
     lowerOutput.includes("run claude login")
   ) {
     return {
       status: "error",
       authStatus: "unauthenticated",
-      message: "Claude is not authenticated. Run `claude auth login` and try again.",
+      message: `Claude is not configured with a supported Anthropic credential. ${CLAUDE_AUTH_GUIDANCE}`,
     };
   }
 
@@ -566,29 +595,63 @@ export function parseClaudeAuthStatusFromOutput(result: CommandResult): {
   const parsedAuth = (() => {
     const trimmed = result.stdout.trim();
     if (!trimmed || (!trimmed.startsWith("{") && !trimmed.startsWith("["))) {
-      return { attemptedJsonParse: false as const, auth: undefined as boolean | undefined };
+      return {
+        attemptedJsonParse: false as const,
+        auth: undefined as boolean | undefined,
+        authMethod: undefined as string | undefined,
+      };
     }
     try {
+      const parsed = JSON.parse(trimmed);
       return {
         attemptedJsonParse: true as const,
-        auth: extractAuthBoolean(JSON.parse(trimmed)),
+        auth: extractAuthBoolean(parsed),
+        authMethod: extractAuthString(parsed),
       };
     } catch {
-      return { attemptedJsonParse: false as const, auth: undefined as boolean | undefined };
+      return {
+        attemptedJsonParse: false as const,
+        auth: undefined as boolean | undefined,
+        authMethod: undefined as string | undefined,
+      };
     }
   })();
 
+  const authMethod = parsedAuth.authMethod?.trim();
+  const normalizedAuthMethod = authMethod?.toLowerCase();
+  if (normalizedAuthMethod && CLAUDE_OAUTH_AUTH_METHODS.has(normalizedAuthMethod)) {
+    return {
+      status: "error",
+      authStatus: "unauthenticated",
+      message: `Claude Code is signed in with OAuth, which is not supported here. ${CLAUDE_AUTH_GUIDANCE}`,
+    };
+  }
+
   if (parsedAuth.auth === true) {
+    if (authMethod && !CLAUDE_SUPPORTED_AUTH_METHODS.has(authMethod)) {
+      return {
+        status: "warning",
+        authStatus: "unknown",
+        message: `Claude authentication status reported an unsupported credential type '${authMethod}'. ${CLAUDE_AUTH_GUIDANCE}`,
+      };
+    }
     return { status: "ready", authStatus: "authenticated" };
   }
   if (parsedAuth.auth === false) {
     return {
       status: "error",
       authStatus: "unauthenticated",
-      message: "Claude is not authenticated. Run `claude auth login` and try again.",
+      message: `Claude is not configured with a supported Anthropic credential. ${CLAUDE_AUTH_GUIDANCE}`,
     };
   }
   if (parsedAuth.attemptedJsonParse) {
+    if (authMethod && !CLAUDE_SUPPORTED_AUTH_METHODS.has(authMethod)) {
+      return {
+        status: "error",
+        authStatus: "unauthenticated",
+        message: `Claude authentication status reported an unsupported credential type '${authMethod}'. ${CLAUDE_AUTH_GUIDANCE}`,
+      };
+    }
     return {
       status: "warning",
       authStatus: "unknown",
@@ -710,98 +773,175 @@ export const checkClaudeProviderStatus: Effect.Effect<
 
 const OPENCLAW_PROVIDER = "openclaw" as const;
 
-const checkOpenClawProviderStatus: Effect.Effect<ServerProviderStatus, never, never> = Effect.gen(
-  function* () {
-    const checkedAt = new Date().toISOString();
-    const gatewayUrl = process.env.OPENCLAW_GATEWAY_URL;
+const checkOpenClawProviderStatus: Effect.Effect<
+  ServerProviderStatus,
+  never,
+  OpenclawGatewayConfig
+> = Effect.gen(function* () {
+  const checkedAt = new Date().toISOString();
+  const gatewayConfig = yield* OpenclawGatewayConfig;
+  const resolvedConfigResult = yield* gatewayConfig.resolveForConnect().pipe(
+    Effect.match({
+      onSuccess: (resolvedConfig) => ({ ok: true as const, resolvedConfig }),
+      onFailure: (cause) => ({ ok: false as const, cause }),
+    }),
+  );
 
-    if (!gatewayUrl) {
-      return {
-        provider: OPENCLAW_PROVIDER,
-        status: "warning" as const,
-        available: false,
-        authStatus: "unknown" as const,
-        checkedAt,
-        message:
-          "OpenClaw gateway URL is not configured. Set OPENCLAW_GATEWAY_URL or configure in settings.",
-      } satisfies ServerProviderStatus;
-    }
+  if (!resolvedConfigResult.ok) {
+    const reason =
+      resolvedConfigResult.cause instanceof Error
+        ? resolvedConfigResult.cause.message
+        : String(resolvedConfigResult.cause);
 
-    // Derive HTTP health URL from the gateway URL (replace ws:// with http://).
-    const healthUrl = gatewayUrl
-      .replace(/^ws:\/\//, "http://")
-      .replace(/^wss:\/\//, "https://")
-      .replace(/\/$/, "")
-      .concat("/health");
+    return {
+      provider: OPENCLAW_PROVIDER,
+      status: "error" as const,
+      available: false,
+      authStatus: "unknown" as const,
+      checkedAt,
+      message: `OpenClaw gateway configuration could not be read. ${reason}`,
+    } satisfies ServerProviderStatus;
+  }
 
-    const probeResult = yield* Effect.tryPromise({
-      try: async () => {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
-        try {
-          const response = await fetch(healthUrl, {
-            signal: controller.signal,
-          });
-          return { ok: response.ok, status: response.status };
-        } finally {
-          clearTimeout(timeout);
+  const resolvedConfig = resolvedConfigResult.resolvedConfig;
+
+  if (!resolvedConfig) {
+    return {
+      provider: OPENCLAW_PROVIDER,
+      status: "error" as const,
+      available: false,
+      authStatus: "unauthenticated" as const,
+      checkedAt,
+      message: "OpenClaw gateway URL is not configured. Save it in Settings to enable OpenClaw.",
+    } satisfies ServerProviderStatus;
+  }
+
+  const connectResult = yield* Effect.tryPromise({
+    try: async () => {
+      const connection = await OpenclawGatewayClient.connect({
+        url: resolvedConfig.gatewayUrl,
+        identity: {
+          deviceId: resolvedConfig.deviceId,
+          deviceFingerprint: resolvedConfig.deviceFingerprint,
+          publicKey: resolvedConfig.devicePublicKey,
+          privateKeyPem: resolvedConfig.devicePrivateKeyPem,
+        },
+        ...(resolvedConfig.sharedSecret ? { sharedSecret: resolvedConfig.sharedSecret } : {}),
+        ...(resolvedConfig.deviceToken ? { deviceToken: resolvedConfig.deviceToken } : {}),
+        ...(resolvedConfig.deviceTokenRole
+          ? { deviceTokenRole: resolvedConfig.deviceTokenRole }
+          : {}),
+        ...(resolvedConfig.deviceTokenScopes.length > 0
+          ? { deviceTokenScopes: resolvedConfig.deviceTokenScopes }
+          : {}),
+        clientId: "okcode",
+        clientVersion: serverBuildInfo.version,
+        clientPlatform:
+          process.platform === "darwin"
+            ? "macos"
+            : process.platform === "win32"
+              ? "windows"
+              : process.platform,
+        clientMode: "operator",
+        locale: Intl.DateTimeFormat().resolvedOptions().locale || "en-US",
+        userAgent: `okcode/${serverBuildInfo.version}`,
+        role: "operator",
+        scopes: ["operator.read", "operator.write"],
+        requiredMethods: OPENCLAW_HEALTH_REQUIRED_METHODS,
+      });
+      try {
+        const deviceToken = connection.connect.auth?.deviceToken;
+        if (deviceToken && deviceToken !== resolvedConfig.deviceToken) {
+          await Effect.runPromise(
+            gatewayConfig.saveDeviceToken({
+              deviceToken,
+              ...(connection.connect.auth?.role ? { role: connection.connect.auth.role } : {}),
+              ...(connection.connect.auth?.scopes.length
+                ? { scopes: connection.connect.auth.scopes }
+                : {}),
+            }),
+          );
         }
-      },
-      catch: (cause) => new OpenClawHealthProbeError({ cause }),
-    }).pipe(Effect.result);
+      } finally {
+        await connection.client.close();
+      }
+      return connection.connect;
+    },
+    catch: (cause) => new OpenClawHealthProbeError({ cause }),
+  }).pipe(Effect.result);
 
-    if (Result.isFailure(probeResult)) {
-      return {
-        provider: OPENCLAW_PROVIDER,
-        status: "warning" as const,
-        available: false,
-        authStatus: "unknown" as const,
-        checkedAt,
-        message: `Cannot reach OpenClaw gateway at ${gatewayUrl}. Check the URL and ensure the gateway is running.`,
-      } satisfies ServerProviderStatus;
-    }
-
-    const probe = probeResult.success;
-    if (!probe.ok) {
-      return {
-        provider: OPENCLAW_PROVIDER,
-        status: "warning" as const,
-        available: false,
-        authStatus: "unknown" as const,
-        checkedAt,
-        message: `OpenClaw gateway at ${gatewayUrl} returned HTTP ${probe.status}.`,
-      } satisfies ServerProviderStatus;
-    }
-
+  if (Result.isSuccess(connectResult)) {
     return {
       provider: OPENCLAW_PROVIDER,
       status: "ready" as const,
       available: true,
-      authStatus: "unknown" as const,
+      authStatus: "authenticated" as const,
       checkedAt,
     } satisfies ServerProviderStatus;
-  },
-);
+  }
+
+  const cause = connectResult.failure.cause;
+  if (cause instanceof OpenClawHealthProbeError) {
+    const error = cause.cause;
+    if (error instanceof OpenclawGatewayClientError) {
+      const detailCode = error.gatewayError?.detailCode;
+      const gatewayMessage = error.gatewayError?.message ?? error.message;
+      if (
+        detailCode === "PAIRING_REQUIRED" ||
+        detailCode === "AUTH_TOKEN_MISSING" ||
+        detailCode === "AUTH_TOKEN_MISMATCH" ||
+        detailCode === "AUTH_DEVICE_TOKEN_MISMATCH" ||
+        detailCode?.startsWith("DEVICE_AUTH_")
+      ) {
+        return {
+          provider: OPENCLAW_PROVIDER,
+          status: "error" as const,
+          available: false,
+          authStatus: "unauthenticated" as const,
+          checkedAt,
+          message: gatewayMessage,
+        } satisfies ServerProviderStatus;
+      }
+    }
+  }
+
+  return {
+    provider: OPENCLAW_PROVIDER,
+    status: "warning" as const,
+    available: false,
+    authStatus: "unknown" as const,
+    checkedAt,
+    message: `Cannot complete the OpenClaw gateway handshake at ${resolvedConfig.gatewayUrl}. Check connectivity, proxying, and pairing/device auth state.`,
+  } satisfies ServerProviderStatus;
+});
 
 // ── Layer ───────────────────────────────────────────────────────────
 
 export const ProviderHealthLive = Layer.effect(
   ProviderHealth,
   Effect.gen(function* () {
-    const statusesFiber = yield* Effect.all(
-      [
-        checkCodexProviderStatus,
-        checkClaudeProviderStatus,
-        checkCopilotProviderStatus,
-        checkOpenClawProviderStatus,
-      ],
-      {
-        concurrency: "unbounded",
-      },
-    ).pipe(Effect.forkScoped);
+    const fileSystem = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+    const openclawGatewayConfig = yield* OpenclawGatewayConfig;
 
     return {
-      getStatuses: Fiber.join(statusesFiber),
+      getStatuses: Effect.all(
+        [
+          checkCodexProviderStatus,
+          checkClaudeProviderStatus,
+          checkCopilotProviderStatus,
+          checkOpenClawProviderStatus,
+        ],
+        {
+          concurrency: "unbounded",
+        },
+      ).pipe(
+        Effect.provideService(FileSystem.FileSystem, fileSystem),
+        Effect.provideService(Path.Path, path),
+        Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
+        Effect.provideService(OpenclawGatewayConfig, openclawGatewayConfig),
+      ),
     } satisfies ProviderHealthShape;
   }),
 );

@@ -2,8 +2,8 @@ import {
   type SmeAuthMethod,
   type SmeValidateSetupResult,
   type ProviderKind,
+  type ServerProviderStatus,
 } from "@okcode/contracts";
-import { compactNodeProcessEnv } from "@okcode/shared/environment";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
@@ -15,49 +15,8 @@ import {
   readCodexAccountSnapshot,
   type CodexAppServerStartSessionInput,
 } from "../codexAppServerManager.ts";
-import type { ResolvedAnthropicClientOptions } from "./backends/anthropic.ts";
 
 const OPENAI_MODEL_PROVIDERS = new Set(["openai"]);
-
-function normalizeOptionalValue(value: string | undefined | null): string | null {
-  const trimmed = value?.trim();
-  return trimmed && trimmed.length > 0 ? trimmed : null;
-}
-
-function pickAnthropicCredential(
-  env: Record<string, string>,
-  authMethod: Extract<SmeAuthMethod, "auto" | "apiKey" | "authToken">,
-): {
-  apiKey: string | null;
-  authToken: string | null;
-  resolvedAuthMethod: "apiKey" | "authToken";
-} | null {
-  const apiKey = normalizeOptionalValue(env.ANTHROPIC_API_KEY);
-  const authToken = normalizeOptionalValue(env.ANTHROPIC_AUTH_TOKEN);
-
-  if (authMethod === "apiKey") {
-    return apiKey ? { apiKey, authToken: null, resolvedAuthMethod: "apiKey" } : null;
-  }
-  if (authMethod === "authToken") {
-    return authToken ? { apiKey: null, authToken, resolvedAuthMethod: "authToken" } : null;
-  }
-  if (apiKey) {
-    return { apiKey, authToken: null, resolvedAuthMethod: "apiKey" };
-  }
-  if (authToken) {
-    return { apiKey: null, authToken, resolvedAuthMethod: "authToken" };
-  }
-  return null;
-}
-
-function anthropicBaseUrl(persistedEnv: Record<string, string>, processEnv?: NodeJS.ProcessEnv) {
-  const processEnvRecord = compactNodeProcessEnv(processEnv ?? process.env);
-  return (
-    normalizeOptionalValue(persistedEnv.ANTHROPIC_BASE_URL) ??
-    normalizeOptionalValue(processEnvRecord.ANTHROPIC_BASE_URL) ??
-    undefined
-  );
-}
 
 export function getAllowedSmeAuthMethods(provider: ProviderKind): readonly SmeAuthMethod[] {
   switch (provider) {
@@ -91,58 +50,62 @@ export function isValidSmeAuthMethod(provider: ProviderKind, authMethod: SmeAuth
 
 export function validateAnthropicSetup(input: {
   readonly authMethod: Extract<SmeAuthMethod, "auto" | "apiKey" | "authToken">;
-  readonly persistedEnv: Record<string, string>;
-  readonly processEnv?: NodeJS.ProcessEnv;
-}): SmeValidateSetupResult & { readonly clientOptions?: ResolvedAnthropicClientOptions } {
-  const processEnvRecord = compactNodeProcessEnv(input.processEnv ?? process.env);
-  const merged = { ...processEnvRecord, ...input.persistedEnv };
-  const credential = pickAnthropicCredential(merged, input.authMethod);
-  if (!credential) {
-    if (input.authMethod === "authToken") {
-      return {
-        ok: false,
-        severity: "error",
-        message:
-          "Anthropic auth token is missing. Set ANTHROPIC_AUTH_TOKEN in project or global environment variables.",
-        resolvedAuthMethod: "authToken",
-      };
-    }
-    if (input.authMethod === "apiKey") {
-      return {
-        ok: false,
-        severity: "error",
-        message:
-          "Anthropic API key is missing. Set ANTHROPIC_API_KEY in project or global environment variables.",
-        resolvedAuthMethod: "apiKey",
-      };
-    }
+  readonly providerStatus?: ServerProviderStatus | null | undefined;
+}): SmeValidateSetupResult {
+  const providerStatus = input.providerStatus;
+  if (!providerStatus) {
+    return {
+      ok: false,
+      severity: "error",
+      message: "Claude Code CLI status is unavailable.",
+      resolvedAuthMethod: input.authMethod,
+      resolvedAccountType: "unknown",
+    };
+  }
+
+  if (!providerStatus.available || providerStatus.status === "error") {
     return {
       ok: false,
       severity: "error",
       message:
-        "SME Chat requires ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN. Add one in Settings > Environment Variables.",
-      resolvedAuthMethod: "auto",
+        providerStatus.message ?? "Claude Code CLI is not installed or not available on PATH.",
+      resolvedAuthMethod: input.authMethod,
+      resolvedAccountType: "unknown",
+    };
+  }
+
+  if (providerStatus.authStatus === "unauthenticated") {
+    return {
+      ok: false,
+      severity: "error",
+      message:
+        providerStatus.message ??
+        "Claude Code is not configured with a supported Anthropic credential. Set ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN and try again.",
+      resolvedAuthMethod: input.authMethod,
+      resolvedAccountType: "unknown",
+    };
+  }
+
+  if (providerStatus.status === "warning") {
+    return {
+      ok: true,
+      severity: "warning",
+      message: providerStatus.message ?? "Claude Code CLI is available but needs verification.",
+      resolvedAuthMethod: input.authMethod,
+      resolvedAccountType: "unknown",
     };
   }
 
   return {
     ok: true,
     severity: "ready",
-    message:
-      credential.resolvedAuthMethod === "apiKey"
-        ? "Anthropic API key is configured."
-        : "Anthropic auth token is configured.",
-    resolvedAuthMethod: credential.resolvedAuthMethod,
-    clientOptions: (() => {
-      const baseURL = anthropicBaseUrl(input.persistedEnv, input.processEnv);
-      return {
-        apiKey: credential.apiKey,
-        authToken: credential.authToken,
-        ...(baseURL ? { baseURL } : {}),
-      };
-    })(),
+    message: providerStatus.message ?? "Claude Code CLI is ready.",
+    resolvedAuthMethod: input.authMethod,
+    resolvedAccountType: "unknown",
   };
 }
+
+export const validateClaudeSetup = validateAnthropicSetup;
 
 async function readCodexConfigModelProvider(
   providerOptions?: CodexAppServerStartSessionInput["providerOptions"],
@@ -372,12 +335,12 @@ export async function validateCodexSetup(input: {
 
 export function validateOpenClawSetup(input: {
   readonly authMethod: Extract<SmeAuthMethod, "auto" | "password" | "none">;
-  readonly providerOptions?: CodexAppServerStartSessionInput["providerOptions"];
+  readonly gatewayUrl: string | null;
+  readonly hasSharedSecret: boolean;
+  readonly hasDeviceToken: boolean;
+  readonly providerStatus?: ServerProviderStatus;
 }): SmeValidateSetupResult {
-  const gatewayUrl = normalizeOptionalValue(input.providerOptions?.openclaw?.gatewayUrl);
-  const password = normalizeOptionalValue(input.providerOptions?.openclaw?.password);
-
-  if (!gatewayUrl) {
+  if (!input.gatewayUrl) {
     return {
       ok: false,
       severity: "error",
@@ -387,13 +350,45 @@ export function validateOpenClawSetup(input: {
   }
 
   const resolvedAuthMethod =
-    input.authMethod === "auto" ? (password ? "password" : "none") : input.authMethod;
+    input.authMethod === "auto" ? (input.hasSharedSecret ? "password" : "none") : input.authMethod;
 
-  if (resolvedAuthMethod === "password" && !password) {
+  if (resolvedAuthMethod === "password" && !input.hasSharedSecret) {
     return {
       ok: false,
       severity: "error",
-      message: "OpenClaw password auth is selected, but no gateway password is configured.",
+      message: "OpenClaw shared-secret auth is selected, but no shared secret is configured.",
+      resolvedAuthMethod,
+    };
+  }
+
+  if (input.providerStatus?.authStatus === "unauthenticated") {
+    return {
+      ok: false,
+      severity: "error",
+      message:
+        input.providerStatus.message ??
+        "OpenClaw is configured, but pairing or device authentication is not complete.",
+      resolvedAuthMethod,
+    };
+  }
+
+  if (input.providerStatus?.status === "warning") {
+    return {
+      ok: false,
+      severity: "warning",
+      message:
+        input.providerStatus.message ??
+        "OpenClaw gateway health could not be verified. Test the gateway in Settings.",
+      resolvedAuthMethod,
+    };
+  }
+
+  if (!input.hasDeviceToken) {
+    return {
+      ok: false,
+      severity: "warning",
+      message:
+        "OpenClaw gateway settings are saved, but no device token is cached yet. Test the gateway in Settings and approve the device if prompted.",
       resolvedAuthMethod,
     };
   }
@@ -403,8 +398,8 @@ export function validateOpenClawSetup(input: {
     severity: "ready",
     message:
       resolvedAuthMethod === "password"
-        ? "OpenClaw gateway URL and password are configured."
-        : "OpenClaw gateway URL is configured.",
+        ? "OpenClaw gateway, shared secret, and device pairing are configured."
+        : "OpenClaw gateway and device pairing are configured.",
     resolvedAuthMethod,
   };
 }

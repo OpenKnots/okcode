@@ -1,14 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import {
-  ArrowUpIcon,
-  BookOpenIcon,
-  Settings2Icon,
-  SparklesIcon,
-  RefreshCcwIcon,
-} from "lucide-react";
+import { ArrowUpIcon, BookOpenIcon, Settings2Icon, SparklesIcon, XIcon } from "lucide-react";
 import type { SmeConversationId, SmeMessage, SmeMessageId } from "@okcode/contracts";
-import { useNavigate } from "@tanstack/react-router";
 
 import { getProviderStartOptions, useAppSettings } from "~/appSettings";
 import { ProviderHealthBanner } from "~/components/chat/ProviderHealthBanner";
@@ -20,10 +13,8 @@ import { serverConfigQueryOptions } from "~/lib/serverReactQuery";
 import { toastManager } from "~/components/ui/toast";
 
 import { SmeConversationDialog } from "./SmeConversationDialog";
-import { SmeMessageBubble } from "./SmeMessageBubble";
-import { SME_PROVIDER_LABELS } from "./smeConversationConfig";
-
-const EMPTY_MESSAGES: SmeMessage[] = [];
+import { SmeMessageList } from "./SmeMessageList";
+import { getSmeAuthMethodLabel, SME_PROVIDER_LABELS } from "./smeConversationConfig";
 
 interface SmeChatWorkspaceProps {
   conversationId: string | null;
@@ -36,7 +27,6 @@ export function SmeChatWorkspace({
   onToggleKnowledge,
   knowledgePanelOpen,
 }: SmeChatWorkspaceProps) {
-  const navigate = useNavigate();
   const { settings } = useAppSettings();
   const providerOptions = useMemo(() => getProviderStartOptions(settings), [settings]);
   const conversations = useSmeStore((state) => state.conversations);
@@ -44,17 +34,9 @@ export function SmeChatWorkspace({
     () => conversations.find((item) => item.conversationId === conversationId) ?? null,
     [conversationId, conversations],
   );
-  const messages = useSmeStore((state) =>
-    conversationId
-      ? (state.messagesByConversation[conversationId] ?? EMPTY_MESSAGES)
-      : EMPTY_MESSAGES,
-  );
   const conversationError = useSmeStore((state) =>
     conversationId ? state.errorsByConversation[conversationId] : undefined,
   );
-  const streamingConversationId = useSmeStore((state) => state.streamingConversationId);
-  const streamingMessageId = useSmeStore((state) => state.streamingMessageId);
-  const streamingText = useSmeStore((state) => state.streamingText);
   const addUserMessage = useSmeStore((state) => state.addUserMessage);
   const clearStream = useSmeStore((state) => state.clearStream);
   const setMessages = useSmeStore((state) => state.setMessages);
@@ -62,7 +44,7 @@ export function SmeChatWorkspace({
   const [inputText, setInputText] = useState("");
   const [sending, setSending] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const serverConfigQuery = useQuery(serverConfigQueryOptions());
   const validationQuery = useQuery({
@@ -100,8 +82,8 @@ export function SmeChatWorkspace({
     (validationQuery.data ? !validationQuery.data.ok : false);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, streamingText]);
+    setBannerDismissed(false);
+  }, [conversationId]);
 
   useEffect(() => {
     const textarea = textareaRef.current;
@@ -119,7 +101,7 @@ export function SmeChatWorkspace({
     setInputText("");
     setSending(true);
     setConversationError(conversationId, undefined);
-    const previousMessages = messages;
+    const previousMessages = useSmeStore.getState().messagesByConversation[conversationId] ?? [];
 
     addUserMessage(conversationId, {
       messageId: `temp-${Date.now()}` as SmeMessageId,
@@ -177,7 +159,6 @@ export function SmeChatWorkspace({
     conversation,
     conversationId,
     inputText,
-    messages,
     providerOptions,
     sendDisabled,
     setConversationError,
@@ -217,7 +198,8 @@ export function SmeChatWorkspace({
         <div className="min-w-0">
           <h2 className="truncate text-sm font-semibold text-foreground">{conversation.title}</h2>
           <p className="truncate text-xs text-muted-foreground">
-            {SME_PROVIDER_LABELS[conversation.provider]} · {conversation.authMethod} ·{" "}
+            {SME_PROVIDER_LABELS[conversation.provider]} ·{" "}
+            {getSmeAuthMethodLabel(conversation.provider, conversation.authMethod)} ·{" "}
             {conversation.model}
           </p>
         </div>
@@ -249,36 +231,34 @@ export function SmeChatWorkspace({
 
       <div className="px-4">
         <ProviderHealthBanner status={providerStatus} />
-        {validationQuery.data ? (
+        {validationQuery.data && !bannerDismissed ? (
           <div className="mx-auto max-w-3xl pt-3">
             <Alert variant={validationQuery.data.ok ? "default" : "error"}>
-              <AlertTitle>
-                {validationQuery.data.ok ? "Provider ready" : "Provider setup required"}
+              <AlertTitle className="flex items-center justify-between">
+                <span>
+                  {validationQuery.data.ok ? "Provider ready" : "Provider setup required"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setBannerDismissed(true)}
+                  className="rounded-md p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  aria-label="Dismiss"
+                >
+                  <XIcon className="size-3.5" />
+                </button>
               </AlertTitle>
               <AlertDescription className="flex items-center justify-between gap-3">
                 <span>{validationQuery.data.message}</span>
-                <span className="flex shrink-0 items-center gap-2">
+                {!validationQuery.data.ok ? (
                   <Button
                     type="button"
                     size="sm"
                     variant="outline"
-                    className="gap-1.5"
-                    onClick={() => void validationQuery.refetch()}
+                    onClick={() => setDialogOpen(true)}
                   >
-                    <RefreshCcwIcon className="size-3.5" />
-                    Test
+                    Settings
                   </Button>
-                  {!validationQuery.data.ok ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => void navigate({ to: "/settings" })}
-                    >
-                      Settings
-                    </Button>
-                  ) : null}
-                </span>
+                ) : null}
               </AlertDescription>
             </Alert>
           </div>
@@ -293,47 +273,7 @@ export function SmeChatWorkspace({
         ) : null}
       </div>
 
-      <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-3xl">
-          {messages.map((message) => (
-            <SmeMessageBubble key={message.messageId} message={message} />
-          ))}
-          {streamingConversationId === conversationId && streamingText ? (
-            <SmeMessageBubble
-              message={
-                {
-                  messageId: (streamingMessageId ?? "streaming") as SmeMessageId,
-                  conversationId: conversationId as SmeConversationId,
-                  role: "assistant",
-                  text: streamingText,
-                  isStreaming: true,
-                  createdAt: new Date().toISOString(),
-                  updatedAt: new Date().toISOString(),
-                } as SmeMessage
-              }
-            />
-          ) : null}
-          {sending && !streamingText ? (
-            <div className="flex items-center gap-4 px-4 py-5">
-              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary/80 to-primary text-primary-foreground">
-                <SparklesIcon className="size-4" />
-              </div>
-              <div className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground">SME Assistant</p>
-                <div className="flex items-center gap-1.5">
-                  <div className="flex gap-1">
-                    <span className="size-1.5 animate-bounce rounded-full bg-muted-foreground/50 [animation-delay:0ms]" />
-                    <span className="size-1.5 animate-bounce rounded-full bg-muted-foreground/50 [animation-delay:150ms]" />
-                    <span className="size-1.5 animate-bounce rounded-full bg-muted-foreground/50 [animation-delay:300ms]" />
-                  </div>
-                  <span className="text-xs text-muted-foreground">Thinking...</span>
-                </div>
-              </div>
-            </div>
-          ) : null}
-          <div ref={messagesEndRef} />
-        </div>
-      </div>
+      <SmeMessageList conversationId={conversationId} sending={sending} />
 
       <div className="px-4 pb-4 pt-2">
         <div className="mx-auto max-w-3xl">

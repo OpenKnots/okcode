@@ -49,3 +49,9 @@ export const SmeDocumentId = makeEntityId("SmeDocumentId");
 export type SmeDocumentId = typeof SmeDocumentId.Type;
 export const SmeMessageId = makeEntityId("SmeMessageId");
 export type SmeMessageId = typeof SmeMessageId.Type;
+
+// ── Companion Pairing IDs ───────────────────────────────────────────
+export const PairingId = makeEntityId("PairingId");
+export type PairingId = typeof PairingId.Type;
+export const DeviceId = makeEntityId("DeviceId");
+export type DeviceId = typeof DeviceId.Type;

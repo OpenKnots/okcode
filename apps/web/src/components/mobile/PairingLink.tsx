@@ -127,7 +127,8 @@ export function PairingLink() {
             </Button>
           </div>
           <p className="max-w-xs text-center text-[11px] leading-relaxed text-muted-foreground/70">
-            Copy the pairing link and paste it into the mobile app.
+            Copy the pairing link and paste it into the mobile app. A new QR-based pairing flow is
+            coming soon; this link method will continue to work.
           </p>
         </>
       ) : loading ? (

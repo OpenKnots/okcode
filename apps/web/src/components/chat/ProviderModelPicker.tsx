@@ -1,10 +1,10 @@
 import { type ModelSlug, type ProviderKind } from "@okcode/contracts";
 import { resolveSelectableModel } from "@okcode/shared/model";
 import { memo, useCallback, useRef, useState } from "react";
-import { type ProviderPickerKind, PROVIDER_OPTIONS } from "../../session-logic";
 import { CheckIcon, ChevronDownIcon } from "lucide-react";
-import { Button } from "../ui/button";
-import { Menu, MenuPopup, MenuTrigger } from "../ui/menu";
+import { type ProviderPickerKind, PROVIDER_OPTIONS } from "../../session-logic";
+import { getThreadProviderLabel } from "~/lib/providerAvailability";
+import { cn } from "~/lib/utils";
 import {
   ClaudeAI,
   CursorIcon,
@@ -15,7 +15,8 @@ import {
   OpenClawIcon,
   OpenCodeIcon,
 } from "../Icons";
-import { cn } from "~/lib/utils";
+import { Button } from "../ui/button";
+import { Menu, MenuPopup, MenuTrigger } from "../ui/menu";
 
 function isAvailableProviderOption(option: (typeof PROVIDER_OPTIONS)[number]): option is {
   value: ProviderKind;
@@ -51,13 +52,14 @@ function providerIconClassName(
 }
 
 function getProviderLabel(provider: ProviderKind): string {
-  return AVAILABLE_PROVIDER_OPTIONS.find((option) => option.value === provider)?.label ?? provider;
+  return getThreadProviderLabel(provider);
 }
 
 export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
   provider: ProviderKind;
   model: ModelSlug;
   lockedProvider: ProviderKind | null;
+  availableProviders: ReadonlyArray<ProviderKind>;
   modelOptionsByProvider: Record<ProviderKind, ReadonlyArray<{ slug: string; name: string }>>;
   activeProviderIconClassName?: string;
   compact?: boolean;
@@ -83,7 +85,9 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
   const PreviewProviderIcon = PROVIDER_ICON_BY_PROVIDER[previewProvider];
   const providerList =
     props.lockedProvider === null
-      ? AVAILABLE_PROVIDER_OPTIONS
+      ? AVAILABLE_PROVIDER_OPTIONS.filter((option) =>
+          props.availableProviders.includes(option.value),
+        )
       : AVAILABLE_PROVIDER_OPTIONS.filter((option) => option.value === props.lockedProvider);
   const handleModelChange = (provider: ProviderKind, value: string) => {
     if (props.disabled) return;
@@ -195,7 +199,9 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
                           ),
                         )}
                       />
-                      <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                      <span className="min-w-0 flex-1 truncate">
+                        {getProviderLabel(option.value)}
+                      </span>
                       {isCurrentProvider ? (
                         <span className="rounded-full border border-border/80 px-1.5 py-0.5 text-[10px] uppercase tracking-[0.08em] text-muted-foreground/75">
                           Current

@@ -1,14 +1,18 @@
+import { lazy, memo, Suspense } from "react";
 import { UserIcon, SparklesIcon } from "lucide-react";
 import type { SmeMessage } from "@okcode/contracts";
 
 import { cn } from "~/lib/utils";
 
+const ChatMarkdown = lazy(() => import("~/components/ChatMarkdown"));
+
 interface SmeMessageBubbleProps {
   message: SmeMessage;
 }
 
-export function SmeMessageBubble({ message }: SmeMessageBubbleProps) {
+export const SmeMessageBubble = memo(function SmeMessageBubble({ message }: SmeMessageBubbleProps) {
   const isUser = message.role === "user";
+  const renderPlainText = isUser || Boolean(message.isStreaming);
 
   return (
     <div
@@ -37,7 +41,19 @@ export function SmeMessageBubble({ message }: SmeMessageBubbleProps) {
             isUser ? "bg-primary text-primary-foreground" : "bg-muted/60 text-foreground",
           )}
         >
-          <div className="whitespace-pre-wrap break-words">{message.text}</div>
+          {renderPlainText ? (
+            <div className="whitespace-pre-wrap break-words">{message.text}</div>
+          ) : (
+            <Suspense
+              fallback={<div className="whitespace-pre-wrap break-words">{message.text}</div>}
+            >
+              <ChatMarkdown
+                text={message.text}
+                cwd={undefined}
+                isStreaming={Boolean(message.isStreaming)}
+              />
+            </Suspense>
+          )}
 
           {/* Streaming cursor */}
           {message.isStreaming ? (
@@ -47,4 +63,4 @@ export function SmeMessageBubble({ message }: SmeMessageBubbleProps) {
       </div>
     </div>
   );
-}
+});

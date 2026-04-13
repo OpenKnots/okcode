@@ -1,11 +1,11 @@
 {
   "name": "@okcode/mobile",
-  "version": "0.21.0",
+  "version": "0.22.1",
   "private": true,
   "type": "module",
   "scripts": {
     "build": "bun run scripts/build-mobile-shell.mjs",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "bunx tsc@5.7.3 --noEmit",
     "test": "vitest run --passWithNoTests",
     "sync": "cap sync",
     "open:ios": "cap open ios",

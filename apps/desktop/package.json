@@ -1,6 +1,6 @@
 {
   "name": "@okcode/desktop",
-  "version": "0.21.0",
+  "version": "0.22.1",
   "private": true,
   "main": "dist-electron/main.js",
   "scripts": {
@@ -9,7 +9,7 @@
     "dev:electron": "bun run scripts/dev-electron.mjs",
     "build": "tsdown",
     "start": "bun run scripts/start-electron.mjs",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "bunx tsc@5.7.3 --noEmit",
     "test": "vitest run --passWithNoTests",
     "smoke-test": "node scripts/smoke-test.mjs",
     "release-smoke": "node ../../scripts/release-smoke.ts"

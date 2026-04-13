@@ -199,6 +199,12 @@ describe("classifyCodexStderrLine", () => {
     expect(classifyCodexStderrLine(line)).toBeNull();
   });
 
+  it("ignores redacted AuthRequired transport shutdown noise", () => {
+    const line =
+      '2026-04-10T17:26:09.835934Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer [REDACTED]" })';
+    expect(classifyCodexStderrLine(line)).toBeNull();
+  });
+
   it("keeps unknown structured errors", () => {
     const line = "2026-02-08T04:24:20.085687Z ERROR codex_core::runtime: unrecoverable failure";
     expect(classifyCodexStderrLine(line)).toEqual({

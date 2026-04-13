@@ -61,6 +61,7 @@ describe("ProviderSessionStartInput", () => {
           binaryPath: "/usr/local/bin/claude",
           permissionMode: "plan",
           maxThinkingTokens: 12_000,
+          authTokenHelperCommand: "op read op://shared/anthropic/token --no-newline",
         },
       },
       runtimeMode: "full-access",
@@ -72,6 +73,9 @@ describe("ProviderSessionStartInput", () => {
     expect(parsed.providerOptions?.claudeAgent?.binaryPath).toBe("/usr/local/bin/claude");
     expect(parsed.providerOptions?.claudeAgent?.permissionMode).toBe("plan");
     expect(parsed.providerOptions?.claudeAgent?.maxThinkingTokens).toBe(12_000);
+    expect(parsed.providerOptions?.claudeAgent?.authTokenHelperCommand).toBe(
+      "op read op://shared/anthropic/token --no-newline",
+    );
     expect(parsed.runtimeMode).toBe("full-access");
   });
 });

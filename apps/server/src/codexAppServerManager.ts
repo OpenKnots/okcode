@@ -162,7 +162,7 @@ const BENIGN_ERROR_LOG_SNIPPETS = [
   "state db record_discrepancy: find_thread_path_by_id_str_in_subdir, falling_back",
 ];
 const BENIGN_STDERR_MESSAGE_SNIPPETS = [
-  'worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer error=\\"invalid_request\\", error_description=\\"No access token was provided in this request\\", resource_metadata=\\"https://mcp.supabase.com/.well-known/oauth-protected-resource/mcp\\""',
+  "worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError",
 ];
 const RECOVERABLE_THREAD_RESUME_ERROR_SNIPPETS = [
   "not found",

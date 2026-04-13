@@ -1,4 +1,5 @@
 import {
+  type ProjectId,
   GitActionFailure as GitActionFailureSchema,
   type GitActionFailure,
   type GitActionProgressEvent,
@@ -20,6 +21,7 @@ import {
   GitCommitIcon,
   InfoIcon,
   LinkIcon,
+  SquareIcon,
 } from "lucide-react";
 import { GitHubIcon } from "./Icons";
 import {
@@ -80,18 +82,22 @@ import {
   gitMutationKeys,
   gitPullMutationOptions,
   gitRunStackedActionMutationOptions,
+  gitStopActionMutationOptions,
   gitStatusQueryOptions,
   invalidateGitQueries,
 } from "~/lib/gitReactQuery";
 import { subscribeToGitPullRequestAction } from "~/lib/gitPullRequestAction";
+import { openGitHubUrl } from "~/lib/openGitHubUrl";
 import { newCommandId, newMessageId, randomUUID } from "~/lib/utils";
-import { resolvePathLinkTarget } from "~/terminal-links";
 import { readNativeApi } from "~/nativeApi";
+import { usePreviewStateStore } from "~/previewStateStore";
+import { resolvePathLinkTarget } from "~/terminal-links";
 import { isWsRequestError } from "~/wsTransport";
 
 interface GitActionsControlProps {
   gitCwd: string | null;
   activeThreadId: ThreadId | null;
+  activeProjectId: ProjectId | null;
 }
 
 interface PendingDefaultBranchAction {
@@ -355,8 +361,13 @@ function GitSyncActionIcon() {
   return <ArrowUpDownIcon className="size-3.5" />;
 }
 
-export default function GitActionsControl({ gitCwd, activeThreadId }: GitActionsControlProps) {
+export default function GitActionsControl({
+  gitCwd,
+  activeThreadId,
+  activeProjectId,
+}: GitActionsControlProps) {
   const { settings } = useAppSettings();
+  const setPreviewOpen = usePreviewStateStore((state) => state.setProjectOpen);
   const openFileInViewer = useFileViewNavigation();
   const threadToastData = useMemo(
     () => (activeThreadId ? { threadId: activeThreadId } : undefined),
@@ -427,11 +438,15 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
     }),
   );
   const pullMutation = useMutation(gitPullMutationOptions({ cwd: gitCwd, queryClient }));
+  const stopGitActionMutation = useMutation(
+    gitStopActionMutationOptions({ cwd: gitCwd, queryClient }),
+  );
 
   const isRunStackedActionRunning =
     useIsMutating({ mutationKey: gitMutationKeys.runStackedAction(gitCwd) }) > 0;
   const isPullRunning = useIsMutating({ mutationKey: gitMutationKeys.pull(gitCwd) }) > 0;
   const isGitActionRunning = isRunStackedActionRunning || isPullRunning;
+  const activeGitActionId = activeGitActionProgressRef.current?.actionId;
   const isDefaultBranch = useMemo(() => {
     const branchName = gitStatusForActions?.branch;
     if (!branchName) return false;
@@ -575,15 +590,6 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
   }, [updateActiveProgressToast]);
 
   const openExistingPr = useCallback(async () => {
-    const api = readNativeApi();
-    if (!api) {
-      toastManager.add({
-        type: "error",
-        title: "Link opening is unavailable.",
-        data: threadToastData,
-      });
-      return;
-    }
     const prUrl = openPullRequest?.url ?? null;
     if (!prUrl) {
       toastManager.add({
@@ -593,7 +599,12 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
       });
       return;
     }
-    void api.shell.openExternal(prUrl).catch((err) => {
+    void openGitHubUrl({
+      url: prUrl,
+      projectId: activeProjectId,
+      threadId: activeThreadId,
+      setPreviewOpen,
+    }).catch((err) => {
       toastManager.add({
         type: "error",
         title: "Unable to open PR link",
@@ -601,7 +612,7 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
         data: threadToastData,
       });
     });
-  }, [openPullRequest, threadToastData]);
+  }, [activeProjectId, activeThreadId, openPullRequest, setPreviewOpen, threadToastData]);
 
   const copyOpenPullRequestNumber = useCallback(() => {
     if (!openPullRequest) return;
@@ -770,10 +781,20 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
                   actionProps: {
                     children: formatOpenPullRequestLabel(prNumber),
                     onClick: () => {
-                      const api = readNativeApi();
-                      if (!api) return;
                       closeResultToast();
-                      void api.shell.openExternal(prUrl);
+                      void openGitHubUrl({
+                        url: prUrl,
+                        projectId: activeProjectId,
+                        threadId: activeThreadId,
+                        setPreviewOpen,
+                      }).catch((err) => {
+                        toastManager.add({
+                          type: "error",
+                          title: "Unable to open PR link",
+                          description: err instanceof Error ? err.message : "An error occurred.",
+                          data: threadToastData,
+                        });
+                      });
                     },
                   },
                 }
@@ -830,8 +851,11 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
           return;
         }
         toastManager.update(resolvedProgressToastId, {
-          type: "error",
-          title: "Action failed",
+          type: isWsRequestError(err) && err.code === "git_action_stopped" ? "info" : "error",
+          title:
+            isWsRequestError(err) && err.code === "git_action_stopped"
+              ? "Git action stopped"
+              : "Action failed",
           description: err instanceof Error ? err.message : "An error occurred.",
           data: threadToastData,
         });
@@ -1078,8 +1102,11 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
         })
         .catch((err) => {
           toastManager.update(loadingToastId, {
-            type: "error",
-            title: messages?.errorTitle ?? "Pull failed",
+            type: isWsRequestError(err) && err.code === "git_action_stopped" ? "info" : "error",
+            title:
+              isWsRequestError(err) && err.code === "git_action_stopped"
+                ? "Pull stopped"
+                : (messages?.errorTitle ?? "Pull failed"),
             description: err instanceof Error ? err.message : "An error occurred.",
             data: threadToastData,
           });
@@ -1087,6 +1114,22 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
     },
     [pullMutation, threadToastData],
   );
+
+  const stopPendingGitAction = useCallback(() => {
+    if (!gitCwd || !isGitActionRunning || stopGitActionMutation.isPending) {
+      return;
+    }
+    void stopGitActionMutation
+      .mutateAsync(activeGitActionId ? { actionId: activeGitActionId } : {})
+      .catch((error) => {
+        toastManager.add({
+          type: "error",
+          title: "Unable to stop git action",
+          description: error instanceof Error ? error.message : "An error occurred.",
+          data: threadToastData,
+        });
+      });
+  }, [activeGitActionId, gitCwd, isGitActionRunning, stopGitActionMutation, threadToastData]);
 
   const runSyncAction = useCallback(() => {
     if (!syncAction || syncAction.disabled) {
@@ -1234,6 +1277,20 @@ export default function GitActionsControl({ gitCwd, activeThreadId }: GitActions
         </Button>
       ) : (
         <Group aria-label="Git actions">
+          {isGitActionRunning ? (
+            <>
+              <Button
+                variant="destructive-outline"
+                size="xs"
+                disabled={stopGitActionMutation.isPending}
+                onClick={stopPendingGitAction}
+              >
+                <SquareIcon className="size-3.5" />
+                <span className="ml-0.5">Stop</span>
+              </Button>
+              <GroupSeparator className="hidden @sm/header-actions:block" />
+            </>
+          ) : null}
           {syncAction ? (
             <>
               {syncActionDisabledReason ? (

@@ -64,4 +64,26 @@ describe("findProjectMatchingPullRequestReference", () => {
       ),
     ).toBeNull();
   });
+
+  it("returns null when multiple projects match the same repository slug", () => {
+    const projects = [
+      makeProject({
+        id: "project-1" as Project["id"],
+        name: "Psi Claw",
+        cwd: "/Users/buns/projects/psi-claw",
+      }),
+      makeProject({
+        id: "project-2" as Project["id"],
+        name: "Psi Claw",
+        cwd: "/Users/buns/projects/psi-claw-copy",
+      }),
+    ];
+
+    expect(
+      findProjectMatchingPullRequestReference(
+        projects,
+        "https://github.com/OpenKnots/psi-claw/pull/137",
+      ),
+    ).toBeNull();
+  });
 });

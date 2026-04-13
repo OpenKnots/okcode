@@ -11,6 +11,7 @@ import {
   normalizeModelSlug,
   resolveSelectableModel,
 } from "@okcode/shared/model";
+import { validateHttpPreviewUrl } from "@okcode/shared/preview";
 import { APP_LOCALE_PREFERENCES } from "./i18n/types";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 import { EnvMode } from "./components/BranchToolbar.logic";
@@ -20,6 +21,19 @@ const MAX_CUSTOM_MODEL_COUNT = 32;
 export const MAX_CUSTOM_MODEL_LENGTH = 256;
 const BACKGROUND_IMAGE_KEY = "okcode:background-image";
 const BACKGROUND_OPACITY_KEY = "okcode:background-opacity";
+export const SIDEBAR_PROJECT_ROW_HEIGHT_MIN = 24;
+export const SIDEBAR_PROJECT_ROW_HEIGHT_MAX = 44;
+export const DEFAULT_SIDEBAR_PROJECT_ROW_HEIGHT = 28;
+export const SIDEBAR_THREAD_ROW_HEIGHT_MIN = 24;
+export const SIDEBAR_THREAD_ROW_HEIGHT_MAX = 44;
+export const DEFAULT_SIDEBAR_THREAD_ROW_HEIGHT = 28;
+export const SIDEBAR_FONT_SIZE_MIN = 10;
+export const SIDEBAR_FONT_SIZE_MAX = 16;
+export const DEFAULT_SIDEBAR_FONT_SIZE = 12;
+export const SIDEBAR_SPACING_MIN = 4;
+export const SIDEBAR_SPACING_MAX = 12;
+export const DEFAULT_SIDEBAR_SPACING = 8;
+export const DEFAULT_BROWSER_PREVIEW_START_PAGE_URL = "https://www.google.com/";
 
 export const TimestampFormat = Schema.Literals(["locale", "12-hour", "24-hour"]);
 export type TimestampFormat = typeof TimestampFormat.Type;
@@ -75,6 +89,9 @@ export const AppSettingsSchema = Schema.Struct({
   claudeBinaryPath: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
   copilotBinaryPath: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
   copilotConfigDir: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
+  claudeAuthTokenHelperCommand: Schema.String.check(Schema.isMaxLength(4096)).pipe(
+    withDefaults(() => ""),
+  ),
   codexBinaryPath: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
   codexHomePath: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
   backgroundImageUrl: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
@@ -87,8 +104,13 @@ export const AppSettingsSchema = Schema.Struct({
   rebaseBeforeCommit: Schema.Boolean.pipe(withDefaults(() => false)),
   enableAssistantStreaming: Schema.Boolean.pipe(withDefaults(() => false)),
   showAuthFailuresAsErrors: Schema.Boolean.pipe(withDefaults(() => true)),
+  showNotificationDetails: Schema.Boolean.pipe(withDefaults(() => false)),
+  includeDiagnosticsTipsInCopy: Schema.Boolean.pipe(withDefaults(() => false)),
   locale: AppLocale.pipe(withDefaults(() => DEFAULT_APP_LOCALE)),
   openLinksExternally: Schema.Boolean.pipe(withDefaults(() => false)),
+  browserPreviewStartPageUrl: Schema.String.check(Schema.isMaxLength(4096)).pipe(
+    withDefaults(() => ""),
+  ),
   sidebarProjectSortOrder: SidebarProjectSortOrder.pipe(
     withDefaults(() => DEFAULT_SIDEBAR_PROJECT_SORT_ORDER),
   ),
@@ -97,6 +119,12 @@ export const AppSettingsSchema = Schema.Struct({
   ),
   timestampFormat: TimestampFormat.pipe(withDefaults(() => DEFAULT_TIMESTAMP_FORMAT)),
   sidebarOpacity: Schema.Number.pipe(withDefaults(() => 1)),
+  sidebarProjectRowHeight: Schema.Number.pipe(
+    withDefaults(() => DEFAULT_SIDEBAR_PROJECT_ROW_HEIGHT),
+  ),
+  sidebarThreadRowHeight: Schema.Number.pipe(withDefaults(() => DEFAULT_SIDEBAR_THREAD_ROW_HEIGHT)),
+  sidebarFontSize: Schema.Number.pipe(withDefaults(() => DEFAULT_SIDEBAR_FONT_SIZE)),
+  sidebarSpacing: Schema.Number.pipe(withDefaults(() => DEFAULT_SIDEBAR_SPACING)),
   sidebarHideFiles: Schema.Boolean.pipe(withDefaults(() => false)),
   sidebarAccentProjectNames: Schema.Boolean.pipe(withDefaults(() => true)),
   sidebarAccentColorOverride: Schema.optional(Schema.String.check(Schema.isMaxLength(64))),
@@ -137,11 +165,10 @@ const PROVIDER_CUSTOM_MODEL_CONFIG: Record<ProviderKind, ProviderCustomModelConf
     provider: "claudeAgent",
     settingsKey: "customClaudeModels",
     defaultSettingsKey: "customClaudeModels",
-    title: "Anthropic",
-    description:
-      "Save additional Anthropic / Claude model slugs for the picker and `/model` command.",
-    placeholder: "your-anthropic-model-slug",
-    example: "anthropic/claude-sonnet-5-0",
+    title: "Claude Code",
+    description: "Save additional Claude model slugs for the picker and `/model` command.",
+    placeholder: "your-claude-model-slug",
+    example: "claude-sonnet-5-0",
   },
   copilot: {
     provider: "copilot",
@@ -201,12 +228,38 @@ function clampBackgroundOpacity(value: number): number {
   return Math.max(0.05, Math.min(1, value));
 }
 
+function clampSidebarProjectRowHeight(value: number): number {
+  return Math.round(
+    Math.max(SIDEBAR_PROJECT_ROW_HEIGHT_MIN, Math.min(SIDEBAR_PROJECT_ROW_HEIGHT_MAX, value)),
+  );
+}
+
+function clampSidebarThreadRowHeight(value: number): number {
+  return Math.round(
+    Math.max(SIDEBAR_THREAD_ROW_HEIGHT_MIN, Math.min(SIDEBAR_THREAD_ROW_HEIGHT_MAX, value)),
+  );
+}
+
+function clampSidebarFontSize(value: number): number {
+  return Math.round(Math.max(SIDEBAR_FONT_SIZE_MIN, Math.min(SIDEBAR_FONT_SIZE_MAX, value)));
+}
+
+function clampSidebarSpacing(value: number): number {
+  return Math.round(Math.max(SIDEBAR_SPACING_MIN, Math.min(SIDEBAR_SPACING_MAX, value)));
+}
+
 function normalizeAppSettings(settings: AppSettings): AppSettings {
   return {
     ...settings,
     backgroundImageUrl: settings.backgroundImageUrl.trim(),
+    browserPreviewStartPageUrl: settings.browserPreviewStartPageUrl.trim(),
+    claudeAuthTokenHelperCommand: settings.claudeAuthTokenHelperCommand.trim(),
     backgroundImageOpacity: clampBackgroundOpacity(settings.backgroundImageOpacity),
     sidebarOpacity: clampOpacity(settings.sidebarOpacity),
+    sidebarProjectRowHeight: clampSidebarProjectRowHeight(settings.sidebarProjectRowHeight),
+    sidebarThreadRowHeight: clampSidebarThreadRowHeight(settings.sidebarThreadRowHeight),
+    sidebarFontSize: clampSidebarFontSize(settings.sidebarFontSize),
+    sidebarSpacing: clampSidebarSpacing(settings.sidebarSpacing),
     customCodexModels: normalizeCustomModelSlugs(settings.customCodexModels, "codex"),
     customClaudeModels: normalizeCustomModelSlugs(settings.customClaudeModels, "claudeAgent"),
     customCopilotModels: normalizeCustomModelSlugs(settings.customCopilotModels, "copilot"),
@@ -321,6 +374,7 @@ export function getProviderStartOptions(
     | "claudeBinaryPath"
     | "copilotBinaryPath"
     | "copilotConfigDir"
+    | "claudeAuthTokenHelperCommand"
     | "codexBinaryPath"
     | "codexHomePath"
     | "openclawGatewayUrl"
@@ -336,10 +390,13 @@ export function getProviderStartOptions(
           },
         }
       : {}),
-    ...(settings.claudeBinaryPath
+    ...(settings.claudeBinaryPath || settings.claudeAuthTokenHelperCommand
       ? {
           claudeAgent: {
-            binaryPath: settings.claudeBinaryPath,
+            ...(settings.claudeBinaryPath ? { binaryPath: settings.claudeBinaryPath } : {}),
+            ...(settings.claudeAuthTokenHelperCommand
+              ? { authTokenHelperCommand: settings.claudeAuthTokenHelperCommand }
+              : {}),
           },
         }
       : {}),
@@ -362,6 +419,16 @@ export function getProviderStartOptions(
   };
 
   return Object.keys(providerOptions).length > 0 ? providerOptions : undefined;
+}
+
+export function resolveBrowserPreviewStartPageUrl(rawUrl: string | null | undefined): string {
+  const trimmedUrl = rawUrl?.trim() ?? "";
+  if (trimmedUrl.length === 0) {
+    return DEFAULT_BROWSER_PREVIEW_START_PAGE_URL;
+  }
+
+  const validatedUrl = validateHttpPreviewUrl(trimmedUrl);
+  return validatedUrl.ok ? validatedUrl.url : DEFAULT_BROWSER_PREVIEW_START_PAGE_URL;
 }
 
 export function useAppSettings() {

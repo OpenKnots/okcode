@@ -1,6 +1,6 @@
 import { type ServerProviderStatus } from "@okcode/contracts";
-import { memo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { memo, useState } from "react";
 import {
   CheckCircle2Icon,
   ChevronDownIcon,
@@ -23,16 +23,19 @@ const PROVIDER_CONFIG = {
     installCmd: "npm install -g @openai/codex",
     authCmd: "codex login",
     verifyCmd: "codex login status",
+    note: undefined,
   },
   claudeAgent: {
     installCmd: "npm install -g @anthropic-ai/claude-code",
-    authCmd: "claude auth login",
+    authCmd: "set ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN",
     verifyCmd: "claude auth status",
+    note: "You can also configure a Claude auth token helper command or one-click secret-manager preset in Settings.",
   },
   copilot: {
     installCmd: "npm install -g @github/copilot",
     authCmd: "copilot login",
     verifyCmd: "gh auth status",
+    note: undefined,
   },
 } as const;
 
@@ -98,6 +101,7 @@ function ProviderRow({ status }: { status: ServerProviderStatus }) {
               <Code>{config.verifyCmd}</Code>
             </Step>
           </div>
+          {config.note ? <p className="text-xs text-muted-foreground">{config.note}</p> : null}
         </div>
       )}
 
@@ -149,7 +153,6 @@ export const ProviderSetupCard = memo(function ProviderSetupCard({
   const navigate = useNavigate();
   const readyCount = providers.filter((p) => p.status === "ready").length;
 
-  // Don't show if all providers are ready
   if (readyCount === providers.length && providers.length > 0) {
     return null;
   }

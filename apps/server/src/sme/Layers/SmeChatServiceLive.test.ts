@@ -1,11 +1,7 @@
-import { ProjectId, SmeConversationId, type EnvironmentVariableEntry } from "@okcode/contracts";
-import { Effect, Layer, Option, Stream } from "effect";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { ProjectId, SmeConversationId } from "@okcode/contracts";
+import { Effect, Layer, Option } from "effect";
+import { describe, expect, it } from "vitest";
 
-import {
-  EnvironmentVariables,
-  type EnvironmentVariablesShape,
-} from "../../persistence/Services/EnvironmentVariables.ts";
 import {
   SmeKnowledgeDocumentRepository,
   type SmeKnowledgeDocumentRepositoryShape,
@@ -21,76 +17,8 @@ import {
   type SmeMessageRepositoryShape,
   type SmeMessageRow,
 } from "../../persistence/Services/SmeMessages.ts";
-import {
-  ProviderService,
-  type ProviderServiceShape,
-} from "../../provider/Services/ProviderService.ts";
 import { SmeChatService } from "../Services/SmeChatService.ts";
 import { makeSmeChatServiceLive } from "./SmeChatServiceLive.ts";
-
-const originalAnthropicEnv = {
-  ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
-  ANTHROPIC_AUTH_TOKEN: process.env.ANTHROPIC_AUTH_TOKEN,
-  ANTHROPIC_BASE_URL: process.env.ANTHROPIC_BASE_URL,
-};
-
-afterEach(() => {
-  restoreAnthropicEnv();
-});
-
-function restoreAnthropicEnv() {
-  for (const [key, value] of Object.entries(originalAnthropicEnv)) {
-    if (value === undefined) {
-      delete process.env[key];
-    } else {
-      process.env[key] = value;
-    }
-  }
-}
-
-function setAnthropicEnv(input: {
-  readonly apiKey?: string;
-  readonly authToken?: string;
-  readonly baseURL?: string;
-}) {
-  if (input.apiKey === undefined) {
-    delete process.env.ANTHROPIC_API_KEY;
-  } else {
-    process.env.ANTHROPIC_API_KEY = input.apiKey;
-  }
-
-  if (input.authToken === undefined) {
-    delete process.env.ANTHROPIC_AUTH_TOKEN;
-  } else {
-    process.env.ANTHROPIC_AUTH_TOKEN = input.authToken;
-  }
-
-  if (input.baseURL === undefined) {
-    delete process.env.ANTHROPIC_BASE_URL;
-  } else {
-    process.env.ANTHROPIC_BASE_URL = input.baseURL;
-  }
-}
-
-function toEntries(record: Record<string, string>): EnvironmentVariableEntry[] {
-  return Object.entries(record).map(([key, value]) => ({ key, value }));
-}
-
-function makeEnvironmentVariables(persistedEnv: Record<string, string>): EnvironmentVariablesShape {
-  const entries = toEntries(persistedEnv);
-
-  return {
-    getGlobal: () => Effect.succeed({ entries }),
-    saveGlobal: (input) => Effect.succeed({ entries: input.entries }),
-    getProject: (input) => Effect.succeed({ projectId: input.projectId, entries }),
-    saveProject: (input) =>
-      Effect.succeed({
-        projectId: input.projectId,
-        entries: input.entries,
-      }),
-    resolveEnvironment: () => Effect.succeed(persistedEnv),
-  };
-}
 
 function makeDocumentRepository(
   rows: ReadonlyArray<SmeKnowledgeDocumentRow> = [],
@@ -158,29 +86,8 @@ function makeMessageRepository() {
   return { repository, rowsByConversation };
 }
 
-function makeProviderService(): ProviderServiceShape {
-  return {
-    startSession: () => Effect.die("unexpected provider startSession"),
-    sendTurn: () => Effect.die("unexpected provider sendTurn"),
-    interruptTurn: () => Effect.void,
-    respondToRequest: () => Effect.void,
-    respondToUserInput: () => Effect.void,
-    stopSession: () => Effect.void,
-    listSessions: () => Effect.succeed([]),
-    getCapabilities: () => Effect.die("unexpected provider getCapabilities"),
-    rollbackConversation: () => Effect.void,
-    streamEvents: Stream.empty,
-  };
-}
-
 describe("SmeChatServiceLive", () => {
-  it("uses persisted Anthropic credentials for a successful send and stores the final reply", async () => {
-    setAnthropicEnv({
-      apiKey: "process-key-that-should-not-win",
-      authToken: "process-token-that-should-not-win",
-      baseURL: "https://process-base.example",
-    });
-
+  it("routes Claude conversations through direct Anthropic chat and stores the reply", async () => {
     const projectId = ProjectId.makeUnsafe("project-1");
     const conversationId = SmeConversationId.makeUnsafe("conversation-1");
     const conversationRow: SmeConversationRow = {
@@ -194,77 +101,106 @@ describe("SmeChatServiceLive", () => {
       updatedAt: "2026-01-01T00:00:00.000Z",
       deletedAt: null,
     };
-    const persistedEnv = {
-      ANTHROPIC_API_KEY: "project-api-key",
-      ANTHROPIC_BASE_URL: "https://project-base.example",
-    };
     const { repository: messageRepo, rowsByConversation } = makeMessageRepository();
-    const capturedClientOptions: Array<unknown> = [];
-    const capturedRequests: Array<unknown> = [];
+    const sendInputs: Array<any> = [];
+    const sendClaudeMessage = (input: any) =>
+      Effect.sync(() => {
+        sendInputs.push(input);
+        input.onEvent?.({
+          type: "sme.message.delta",
+          conversationId: input.conversationId,
+          messageId: input.assistantMessageId,
+          text: "Hello",
+        });
+        input.onEvent?.({
+          type: "sme.message.delta",
+          conversationId: input.conversationId,
+          messageId: input.assistantMessageId,
+          text: " world",
+        });
+        return "Hello world";
+      });
 
-    const createClient = vi.fn((options: unknown) => {
-      capturedClientOptions.push(options);
-      return {
-        messages: {
-          stream: async function* (request: unknown) {
-            capturedRequests.push(request);
-            yield {
-              type: "content_block_delta",
-              delta: { type: "text_delta", text: "Hello" },
-            };
-            yield {
-              type: "content_block_delta",
-              delta: { type: "text_delta", text: " world" },
-            };
-          },
-        },
-      } as never;
-    });
-
-    const layer = makeSmeChatServiceLive({ createClient }).pipe(
-      Layer.provideMerge(
-        Layer.succeed(EnvironmentVariables, makeEnvironmentVariables(persistedEnv)),
-      ),
+    const layer = makeSmeChatServiceLive({ sendSmeViaAnthropic: sendClaudeMessage }).pipe(
       Layer.provideMerge(Layer.succeed(SmeKnowledgeDocumentRepository, makeDocumentRepository())),
       Layer.provideMerge(
         Layer.succeed(SmeConversationRepository, makeConversationRepository([conversationRow])),
       ),
       Layer.provideMerge(Layer.succeed(SmeMessageRepository, messageRepo)),
-      Layer.provideMerge(Layer.succeed(ProviderService, makeProviderService())),
     );
+
+    const savedEnv = {
+      ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+      ANTHROPIC_AUTH_TOKEN: process.env.ANTHROPIC_AUTH_TOKEN,
+      ANTHROPIC_BASE_URL: process.env.ANTHROPIC_BASE_URL,
+      ANTHROPIC_API_BASE_URL: process.env.ANTHROPIC_API_BASE_URL,
+    };
+    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.ANTHROPIC_AUTH_TOKEN;
+    delete process.env.ANTHROPIC_BASE_URL;
+    delete process.env.ANTHROPIC_API_BASE_URL;
 
     const events: Array<unknown> = [];
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const service = yield* SmeChatService;
-        yield* service.sendMessage(
-          {
-            conversationId,
-            text: "What changed in the latest design?",
-          },
-          (event) => {
-            events.push(event);
-          },
-        );
-      }).pipe(Effect.provide(layer)),
-    );
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const service = yield* SmeChatService;
+          yield* service.sendMessage(
+            {
+              conversationId,
+              text: "What changed in the latest design?",
+              providerOptions: {
+                claudeAgent: {
+                  authTokenHelperCommand: "printf test-token",
+                },
+              },
+            },
+            (event) => {
+              events.push(event);
+            },
+          );
+        }).pipe(Effect.provide(layer)),
+      );
+    } finally {
+      if (savedEnv.ANTHROPIC_API_KEY === undefined) {
+        delete process.env.ANTHROPIC_API_KEY;
+      } else {
+        process.env.ANTHROPIC_API_KEY = savedEnv.ANTHROPIC_API_KEY;
+      }
+      if (savedEnv.ANTHROPIC_AUTH_TOKEN === undefined) {
+        delete process.env.ANTHROPIC_AUTH_TOKEN;
+      } else {
+        process.env.ANTHROPIC_AUTH_TOKEN = savedEnv.ANTHROPIC_AUTH_TOKEN;
+      }
+      if (savedEnv.ANTHROPIC_BASE_URL === undefined) {
+        delete process.env.ANTHROPIC_BASE_URL;
+      } else {
+        process.env.ANTHROPIC_BASE_URL = savedEnv.ANTHROPIC_BASE_URL;
+      }
+      if (savedEnv.ANTHROPIC_API_BASE_URL === undefined) {
+        delete process.env.ANTHROPIC_API_BASE_URL;
+      } else {
+        process.env.ANTHROPIC_API_BASE_URL = savedEnv.ANTHROPIC_API_BASE_URL;
+      }
+    }
 
-    expect(createClient).toHaveBeenCalledTimes(1);
-    expect(capturedClientOptions).toEqual([
-      {
-        apiKey: "project-api-key",
-        authToken: null,
-        baseURL: "https://project-base.example",
-      },
-    ]);
-    expect(capturedRequests).toEqual([
-      {
+    expect(sendInputs).toHaveLength(1);
+    expect(sendInputs[0]).toEqual(
+      expect.objectContaining({
+        clientOptions: expect.objectContaining({
+          authToken: "test-token",
+          apiKey: null,
+        }),
         model: "claude-sonnet-4-6",
-        max_tokens: 8192,
-        system: expect.stringContaining("knowledgeable subject matter expert assistant"),
+        systemPrompt: expect.stringContaining("plain assistant text only"),
         messages: [{ role: "user", content: "What changed in the latest design?" }],
-      },
-    ]);
+      }),
+    );
+    expect(sendInputs[0].messages).toHaveLength(1);
+    expect(sendInputs[0].messages[0]).toEqual({
+      role: "user",
+      content: "What changed in the latest design?",
+    });
     expect(events).toEqual([
       {
         type: "sme.message.delta",
@@ -300,9 +236,7 @@ describe("SmeChatServiceLive", () => {
     ]);
   });
 
-  it("fails before persisting messages when no Anthropic credentials are available", async () => {
-    setAnthropicEnv({});
-
+  it("fails before sending when Claude credentials are unavailable", async () => {
     const projectId = ProjectId.makeUnsafe("project-2");
     const conversationId = SmeConversationId.makeUnsafe("conversation-2");
     const conversationRow: SmeConversationRow = {
@@ -317,31 +251,64 @@ describe("SmeChatServiceLive", () => {
       deletedAt: null,
     };
     const { repository: messageRepo, rowsByConversation } = makeMessageRepository();
-    const createClient = vi.fn();
-
-    const layer = makeSmeChatServiceLive({ createClient }).pipe(
-      Layer.provideMerge(Layer.succeed(EnvironmentVariables, makeEnvironmentVariables({}))),
+    const layer = makeSmeChatServiceLive({
+      sendSmeViaAnthropic: () => Effect.succeed("unexpected send"),
+    }).pipe(
       Layer.provideMerge(Layer.succeed(SmeKnowledgeDocumentRepository, makeDocumentRepository())),
       Layer.provideMerge(
         Layer.succeed(SmeConversationRepository, makeConversationRepository([conversationRow])),
       ),
       Layer.provideMerge(Layer.succeed(SmeMessageRepository, messageRepo)),
-      Layer.provideMerge(Layer.succeed(ProviderService, makeProviderService())),
     );
 
-    await expect(
-      Effect.runPromise(
-        Effect.gen(function* () {
-          const service = yield* SmeChatService;
-          yield* service.sendMessage({
-            conversationId,
-            text: "Can you summarize the docs?",
-          });
-        }).pipe(Effect.provide(layer)),
-      ),
-    ).rejects.toThrow("SmeChatError in sendMessage:validate: Anthropic API key is missing.");
+    const savedEnv = {
+      ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+      ANTHROPIC_AUTH_TOKEN: process.env.ANTHROPIC_AUTH_TOKEN,
+      ANTHROPIC_BASE_URL: process.env.ANTHROPIC_BASE_URL,
+      ANTHROPIC_API_BASE_URL: process.env.ANTHROPIC_API_BASE_URL,
+    };
+    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.ANTHROPIC_AUTH_TOKEN;
+    delete process.env.ANTHROPIC_BASE_URL;
+    delete process.env.ANTHROPIC_API_BASE_URL;
 
-    expect(createClient).not.toHaveBeenCalled();
+    try {
+      await expect(
+        Effect.runPromise(
+          Effect.gen(function* () {
+            const service = yield* SmeChatService;
+            yield* service.sendMessage({
+              conversationId,
+              text: "Can you summarize the docs?",
+            });
+          }).pipe(Effect.provide(layer)),
+        ),
+      ).rejects.toThrow(
+        "SmeChatError in sendMessage:validate: Claude SME Chat needs an Anthropic API key, auth token, or auth token helper command.",
+      );
+    } finally {
+      if (savedEnv.ANTHROPIC_API_KEY === undefined) {
+        delete process.env.ANTHROPIC_API_KEY;
+      } else {
+        process.env.ANTHROPIC_API_KEY = savedEnv.ANTHROPIC_API_KEY;
+      }
+      if (savedEnv.ANTHROPIC_AUTH_TOKEN === undefined) {
+        delete process.env.ANTHROPIC_AUTH_TOKEN;
+      } else {
+        process.env.ANTHROPIC_AUTH_TOKEN = savedEnv.ANTHROPIC_AUTH_TOKEN;
+      }
+      if (savedEnv.ANTHROPIC_BASE_URL === undefined) {
+        delete process.env.ANTHROPIC_BASE_URL;
+      } else {
+        process.env.ANTHROPIC_BASE_URL = savedEnv.ANTHROPIC_BASE_URL;
+      }
+      if (savedEnv.ANTHROPIC_API_BASE_URL === undefined) {
+        delete process.env.ANTHROPIC_API_BASE_URL;
+      } else {
+        process.env.ANTHROPIC_API_BASE_URL = savedEnv.ANTHROPIC_API_BASE_URL;
+      }
+    }
+
     expect(rowsByConversation.get(conversationId)).toEqual([
       expect.objectContaining({
         role: "user",
@@ -349,5 +316,29 @@ describe("SmeChatServiceLive", () => {
         isStreaming: false,
       }),
     ]);
+  });
+
+  it("rejects unsupported SME providers before a conversation can be created", async () => {
+    const projectId = ProjectId.makeUnsafe("project-3");
+    const layer = makeSmeChatServiceLive().pipe(
+      Layer.provideMerge(Layer.succeed(SmeKnowledgeDocumentRepository, makeDocumentRepository())),
+      Layer.provideMerge(Layer.succeed(SmeConversationRepository, makeConversationRepository([]))),
+      Layer.provideMerge(Layer.succeed(SmeMessageRepository, makeMessageRepository().repository)),
+    );
+
+    await expect(
+      Effect.runPromise(
+        Effect.gen(function* () {
+          const service = yield* SmeChatService;
+          yield* service.createConversation({
+            projectId,
+            title: "Unsupported provider",
+            provider: "codex",
+            authMethod: "chatgpt",
+            model: "codex-mini",
+          });
+        }).pipe(Effect.provide(layer)),
+      ),
+    ).rejects.toThrow("SME Chat only supports Claude Code conversations right now.");
   });
 });

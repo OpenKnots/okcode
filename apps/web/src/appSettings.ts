@@ -11,6 +11,7 @@ import {
   normalizeModelSlug,
   resolveSelectableModel,
 } from "@okcode/shared/model";
+import { validateHttpPreviewUrl } from "@okcode/shared/preview";
 import { APP_LOCALE_PREFERENCES } from "./i18n/types";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 import { EnvMode } from "./components/BranchToolbar.logic";
@@ -32,6 +33,7 @@ export const DEFAULT_SIDEBAR_FONT_SIZE = 12;
 export const SIDEBAR_SPACING_MIN = 4;
 export const SIDEBAR_SPACING_MAX = 12;
 export const DEFAULT_SIDEBAR_SPACING = 8;
+export const DEFAULT_BROWSER_PREVIEW_START_PAGE_URL = "https://www.google.com/";
 
 export const TimestampFormat = Schema.Literals(["locale", "12-hour", "24-hour"]);
 export type TimestampFormat = typeof TimestampFormat.Type;
@@ -96,6 +98,9 @@ export const AppSettingsSchema = Schema.Struct({
   includeDiagnosticsTipsInCopy: Schema.Boolean.pipe(withDefaults(() => false)),
   locale: AppLocale.pipe(withDefaults(() => DEFAULT_APP_LOCALE)),
   openLinksExternally: Schema.Boolean.pipe(withDefaults(() => false)),
+  browserPreviewStartPageUrl: Schema.String.check(Schema.isMaxLength(4096)).pipe(
+    withDefaults(() => ""),
+  ),
   sidebarProjectSortOrder: SidebarProjectSortOrder.pipe(
     withDefaults(() => DEFAULT_SIDEBAR_PROJECT_SORT_ORDER),
   ),
@@ -227,6 +232,7 @@ function normalizeAppSettings(settings: AppSettings): AppSettings {
   return {
     ...settings,
     backgroundImageUrl: settings.backgroundImageUrl.trim(),
+    browserPreviewStartPageUrl: settings.browserPreviewStartPageUrl.trim(),
     backgroundImageOpacity: clampBackgroundOpacity(settings.backgroundImageOpacity),
     sidebarOpacity: clampOpacity(settings.sidebarOpacity),
     sidebarProjectRowHeight: clampSidebarProjectRowHeight(settings.sidebarProjectRowHeight),
@@ -375,6 +381,16 @@ export function getProviderStartOptions(
   };
 
   return Object.keys(providerOptions).length > 0 ? providerOptions : undefined;
+}
+
+export function resolveBrowserPreviewStartPageUrl(rawUrl: string | null | undefined): string {
+  const trimmedUrl = rawUrl?.trim() ?? "";
+  if (trimmedUrl.length === 0) {
+    return DEFAULT_BROWSER_PREVIEW_START_PAGE_URL;
+  }
+
+  const validatedUrl = validateHttpPreviewUrl(trimmedUrl);
+  return validatedUrl.ok ? validatedUrl.url : DEFAULT_BROWSER_PREVIEW_START_PAGE_URL;
 }
 
 export function useAppSettings() {

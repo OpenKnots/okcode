@@ -34,7 +34,9 @@ import {
   DEFAULT_GIT_TEXT_GENERATION_MODEL,
 } from "@okcode/contracts";
 import { getModelOptions, normalizeModelSlug } from "@okcode/shared/model";
+import { validateHttpPreviewUrl } from "@okcode/shared/preview";
 import {
+  DEFAULT_BROWSER_PREVIEW_START_PAGE_URL,
   DEFAULT_SIDEBAR_FONT_SIZE,
   DEFAULT_SIDEBAR_PROJECT_ROW_HEIGHT,
   DEFAULT_SIDEBAR_SPACING,
@@ -46,6 +48,7 @@ import {
   MODEL_PROVIDER_SETTINGS,
   patchCustomModels,
   PrReviewRequestChangesTone,
+  resolveBrowserPreviewStartPageUrl,
   SIDEBAR_FONT_SIZE_MAX,
   SIDEBAR_FONT_SIZE_MIN,
   SIDEBAR_PROJECT_ROW_HEIGHT_MAX,
@@ -758,6 +761,14 @@ function SettingsRouteView() {
   const { settings, defaults, updateSettings, resetSettings } = useAppSettings();
   const serverConfigQuery = useQuery(serverConfigQueryOptions());
   const queryClient = useQueryClient();
+  const trimmedBrowserPreviewStartPageUrl = settings.browserPreviewStartPageUrl.trim();
+  const browserPreviewStartPageValidation =
+    trimmedBrowserPreviewStartPageUrl.length > 0
+      ? validateHttpPreviewUrl(trimmedBrowserPreviewStartPageUrl)
+      : null;
+  const effectiveBrowserPreviewStartPageUrl = resolveBrowserPreviewStartPageUrl(
+    settings.browserPreviewStartPageUrl,
+  );
   const projects = useStore((state) => state.projects);
   const threads = useStore((state) => state.threads);
   const [selectedProjectId, setSelectedProjectId] = useState<ProjectId | null>(
@@ -2129,6 +2140,64 @@ function SettingsRouteView() {
                             })
                           }
                           aria-label="Open links externally"
+                        />
+                      }
+                    />
+
+                    <SettingsRow
+                      title="Browser preview start page"
+                      description="Used when opening a new browser preview tab without typing a URL first."
+                      status={
+                        trimmedBrowserPreviewStartPageUrl.length === 0 ? (
+                          <>
+                            Blank uses the default start page:{" "}
+                            <code>{DEFAULT_BROWSER_PREVIEW_START_PAGE_URL}</code>
+                          </>
+                        ) : browserPreviewStartPageValidation?.ok ? (
+                          <>
+                            New blank preview tabs will open at{" "}
+                            <code>{browserPreviewStartPageValidation.url}</code>.
+                          </>
+                        ) : (
+                          <>
+                            <span className="text-destructive">
+                              Invalid URL. Falling back to{" "}
+                              <code>{DEFAULT_BROWSER_PREVIEW_START_PAGE_URL}</code>.
+                            </span>
+                            <span className="mt-1 block break-all">
+                              Effective start page:{" "}
+                              <code>{effectiveBrowserPreviewStartPageUrl}</code>
+                            </span>
+                          </>
+                        )
+                      }
+                      resetAction={
+                        settings.browserPreviewStartPageUrl !==
+                        defaults.browserPreviewStartPageUrl ? (
+                          <SettingResetButton
+                            label="browser preview start page"
+                            onClick={() =>
+                              updateSettings({
+                                browserPreviewStartPageUrl: defaults.browserPreviewStartPageUrl,
+                              })
+                            }
+                          />
+                        ) : null
+                      }
+                      control={
+                        <Input
+                          value={settings.browserPreviewStartPageUrl}
+                          onChange={(event) =>
+                            updateSettings({
+                              browserPreviewStartPageUrl: event.target.value,
+                            })
+                          }
+                          placeholder={DEFAULT_BROWSER_PREVIEW_START_PAGE_URL}
+                          aria-label="Browser preview start page"
+                          autoCapitalize="off"
+                          autoCorrect="off"
+                          spellCheck={false}
+                          className="w-full sm:w-72"
                         />
                       }
                     />

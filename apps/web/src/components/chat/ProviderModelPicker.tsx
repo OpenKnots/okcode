@@ -26,14 +26,7 @@ import {
   OpenCodeIcon,
 } from "../Icons";
 import { cn } from "~/lib/utils";
-
-function isAvailableProviderOption(option: (typeof PROVIDER_OPTIONS)[number]): option is {
-  value: ProviderKind;
-  label: string;
-  available: true;
-} {
-  return option.available;
-}
+import { getThreadProviderLabel } from "~/lib/providerAvailability";
 
 const PROVIDER_ICON_BY_PROVIDER: Record<ProviderPickerKind, Icon> = {
   codex: OpenAI,
@@ -43,7 +36,6 @@ const PROVIDER_ICON_BY_PROVIDER: Record<ProviderPickerKind, Icon> = {
   cursor: CursorIcon,
 };
 
-export const AVAILABLE_PROVIDER_OPTIONS = PROVIDER_OPTIONS.filter(isAvailableProviderOption);
 const UNAVAILABLE_PROVIDER_OPTIONS = PROVIDER_OPTIONS.filter((option) => !option.available);
 const COMING_SOON_PROVIDER_OPTIONS = [
   { id: "opencode", label: "OpenCode", icon: OpenCodeIcon },
@@ -61,13 +53,14 @@ function providerIconClassName(
 }
 
 function getProviderLabel(provider: ProviderKind): string {
-  return AVAILABLE_PROVIDER_OPTIONS.find((option) => option.value === provider)?.label ?? provider;
+  return getThreadProviderLabel(provider);
 }
 
 export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
   provider: ProviderKind;
   model: ModelSlug;
   lockedProvider: ProviderKind | null;
+  availableProviders: ReadonlyArray<ProviderKind>;
   modelOptionsByProvider: Record<ProviderKind, ReadonlyArray<{ slug: string; name: string }>>;
   activeProviderIconClassName?: string;
   compact?: boolean;
@@ -76,6 +69,8 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
 }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const activeProvider = props.lockedProvider ?? props.provider;
+  const visibleProviders =
+    props.lockedProvider !== null ? [props.lockedProvider] : props.availableProviders;
   const selectedProviderOptions = props.modelOptionsByProvider[activeProvider];
   const selectedModelLabel =
     selectedProviderOptions.find((option) => option.slug === props.model)?.name ?? props.model;
@@ -158,7 +153,11 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
           </MenuGroup>
         ) : (
           <>
-            {AVAILABLE_PROVIDER_OPTIONS.map((option, index) => {
+            {visibleProviders.map((provider, index) => {
+              const option = {
+                value: provider,
+                label: getThreadProviderLabel(provider),
+              };
               const OptionIcon = PROVIDER_ICON_BY_PROVIDER[option.value];
               return (
                 <MenuGroup key={option.value}>

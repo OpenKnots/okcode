@@ -23,6 +23,7 @@ async function mountPicker(props: {
   provider: ProviderKind;
   model: ModelSlug;
   lockedProvider: ProviderKind | null;
+  availableProviders?: ReadonlyArray<ProviderKind>;
 }) {
   const host = document.createElement("div");
   document.body.append(host);
@@ -32,6 +33,7 @@ async function mountPicker(props: {
       provider={props.provider}
       model={props.model}
       lockedProvider={props.lockedProvider}
+      availableProviders={props.availableProviders ?? ["codex", "claudeAgent", "openclaw"]}
       modelOptionsByProvider={MODEL_OPTIONS_BY_PROVIDER}
       onProviderModelChange={onProviderModelChange}
     />,
@@ -52,11 +54,12 @@ describe("ProviderModelPicker", () => {
     document.body.innerHTML = "";
   });
 
-  it("shows both Codex and Anthropic model groups when provider switching is allowed", async () => {
+  it("shows both Codex and Claude Code model groups when provider switching is allowed", async () => {
     const mounted = await mountPicker({
       provider: "claudeAgent",
       model: "claude-opus-4-6",
       lockedProvider: null,
+      availableProviders: ["codex", "claudeAgent"],
     });
 
     try {
@@ -65,7 +68,7 @@ describe("ProviderModelPicker", () => {
       await vi.waitFor(() => {
         const text = document.body.textContent ?? "";
         expect(text).toContain("Codex");
-        expect(text).toContain("Anthropic");
+        expect(text).toContain("Claude Code");
         expect(text).toContain("GPT-5 Codex");
         expect(text).toContain("Claude Sonnet 4.6");
         expect(text).toContain("Claude Haiku 4.5");
@@ -111,6 +114,28 @@ describe("ProviderModelPicker", () => {
         "claudeAgent",
         "claude-sonnet-4-6",
       );
+    } finally {
+      await mounted.cleanup();
+    }
+  });
+
+  it("only shows authenticated providers when switching is allowed", async () => {
+    const mounted = await mountPicker({
+      provider: "codex",
+      model: "gpt-5-codex",
+      lockedProvider: null,
+      availableProviders: ["codex"],
+    });
+
+    try {
+      await page.getByRole("button").click();
+
+      await vi.waitFor(() => {
+        const text = document.body.textContent ?? "";
+        expect(text).toContain("Codex");
+        expect(text).toContain("GPT-5.3 Codex");
+        expect(text).not.toContain("Claude Code");
+      });
     } finally {
       await mounted.cleanup();
     }

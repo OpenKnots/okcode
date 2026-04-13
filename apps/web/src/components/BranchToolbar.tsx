@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
   gitPullMutationOptions,
+  gitStopActionMutationOptions,
   gitQueryKeys,
   gitStatusQueryOptions,
   invalidateGitQueries,
@@ -13,6 +14,7 @@ import { newCommandId } from "../lib/utils";
 import { readNativeApi } from "../nativeApi";
 import { useComposerDraftStore } from "../composerDraftStore";
 import { useStore } from "../store";
+import { isWsRequestError } from "../wsTransport";
 import {
   EnvMode,
   resolveDraftEnvModeAfterBranchChange,
@@ -127,6 +129,7 @@ export default function BranchToolbar({
   const isDiverged = aheadCount > 0 && behindCount > 0;
   const needsSync = behindCount > 0 && !hasServerThread;
   const pullMutation = useMutation(gitPullMutationOptions({ cwd: gitCwd, queryClient }));
+  const stopPullMutation = useMutation(gitStopActionMutationOptions({ cwd: gitCwd, queryClient }));
 
   // Force a fresh git-status fetch when a draft thread mounts so we catch
   // upstream changes immediately instead of waiting for the next poll cycle.
@@ -164,8 +167,11 @@ export default function BranchToolbar({
       })
       .catch((error) => {
         toastManager.add({
-          type: "error",
-          title: "Pull failed",
+          type: isWsRequestError(error) && error.code === "git_action_stopped" ? "info" : "error",
+          title:
+            isWsRequestError(error) && error.code === "git_action_stopped"
+              ? "Pull stopped"
+              : "Pull failed",
           description: error instanceof Error ? error.message : "An error occurred.",
         });
       })
@@ -173,6 +179,17 @@ export default function BranchToolbar({
         void invalidateGitQueries(queryClient);
       });
   }, [pullMutation, queryClient]);
+
+  const handleStopPull = useCallback(() => {
+    if (!pullMutation.isPending || stopPullMutation.isPending) return;
+    void stopPullMutation.mutateAsync({}).catch((error) => {
+      toastManager.add({
+        type: "error",
+        title: "Unable to stop pull",
+        description: error instanceof Error ? error.message : "An error occurred.",
+      });
+    });
+  }, [pullMutation.isPending, stopPullMutation]);
 
   if (!activeThreadId || !activeProject) return null;
 
@@ -258,6 +275,16 @@ export default function BranchToolbar({
                   : `Local branch is ${behindCount} commit${behindCount !== 1 ? "s" : ""} behind upstream. Pull to update before starting a new thread.`}
               </TooltipPopup>
             </Tooltip>
+          ) : null}
+          {pullMutation.isPending ? (
+            <Button
+              variant="destructive-outline"
+              size="xs"
+              disabled={stopPullMutation.isPending}
+              onClick={handleStopPull}
+            >
+              Stop
+            </Button>
           ) : null}
           <BranchToolbarBranchSelector
             activeProjectCwd={activeProject.cwd}

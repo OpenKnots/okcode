@@ -10,7 +10,7 @@
     "preview": "next start",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "bunx tsc@5.7.3 --noEmit"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

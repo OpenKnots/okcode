@@ -19,6 +19,8 @@ import { Route as ChatPluginsRouteImport } from './routes/_chat.plugins'
 import { Route as ChatMergeConflictsRouteImport } from './routes/_chat.merge-conflicts'
 import { Route as ChatFileViewRouteImport } from './routes/_chat.file-view'
 import { Route as ChatThreadIdRouteImport } from './routes/_chat.$threadId'
+import { Route as ChatSettingsIndexRouteImport } from './routes/_chat.settings.index'
+import { Route as ChatSettingsStyleRouteImport } from './routes/_chat.settings.style'
 
 const ChatRoute = ChatRouteImport.update({
   id: '/_chat',
@@ -69,6 +71,16 @@ const ChatThreadIdRoute = ChatThreadIdRouteImport.update({
   path: '/$threadId',
   getParentRoute: () => ChatRoute,
 } as any)
+const ChatSettingsIndexRoute = ChatSettingsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ChatSettingsRoute,
+} as any)
+const ChatSettingsStyleRoute = ChatSettingsStyleRouteImport.update({
+  id: '/style',
+  path: '/style',
+  getParentRoute: () => ChatSettingsRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof ChatIndexRoute
@@ -77,9 +89,11 @@ export interface FileRoutesByFullPath {
   '/merge-conflicts': typeof ChatMergeConflictsRoute
   '/plugins': typeof ChatPluginsRoute
   '/pr-review': typeof ChatPrReviewRoute
-  '/settings': typeof ChatSettingsRoute
+  '/settings': typeof ChatSettingsRouteWithChildren
   '/skills': typeof ChatSkillsRoute
   '/sme-chat': typeof ChatSmeChatRoute
+  '/settings/style': typeof ChatSettingsStyleRoute
+  '/settings/': typeof ChatSettingsIndexRoute
 }
 export interface FileRoutesByTo {
   '/$threadId': typeof ChatThreadIdRoute
@@ -87,10 +101,11 @@ export interface FileRoutesByTo {
   '/merge-conflicts': typeof ChatMergeConflictsRoute
   '/plugins': typeof ChatPluginsRoute
   '/pr-review': typeof ChatPrReviewRoute
-  '/settings': typeof ChatSettingsRoute
   '/skills': typeof ChatSkillsRoute
   '/sme-chat': typeof ChatSmeChatRoute
   '/': typeof ChatIndexRoute
+  '/settings/style': typeof ChatSettingsStyleRoute
+  '/settings': typeof ChatSettingsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -100,10 +115,12 @@ export interface FileRoutesById {
   '/_chat/merge-conflicts': typeof ChatMergeConflictsRoute
   '/_chat/plugins': typeof ChatPluginsRoute
   '/_chat/pr-review': typeof ChatPrReviewRoute
-  '/_chat/settings': typeof ChatSettingsRoute
+  '/_chat/settings': typeof ChatSettingsRouteWithChildren
   '/_chat/skills': typeof ChatSkillsRoute
   '/_chat/sme-chat': typeof ChatSmeChatRoute
   '/_chat/': typeof ChatIndexRoute
+  '/_chat/settings/style': typeof ChatSettingsStyleRoute
+  '/_chat/settings/': typeof ChatSettingsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -117,6 +134,8 @@ export interface FileRouteTypes {
     | '/settings'
     | '/skills'
     | '/sme-chat'
+    | '/settings/style'
+    | '/settings/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/$threadId'
@@ -124,10 +143,11 @@ export interface FileRouteTypes {
     | '/merge-conflicts'
     | '/plugins'
     | '/pr-review'
-    | '/settings'
     | '/skills'
     | '/sme-chat'
     | '/'
+    | '/settings/style'
+    | '/settings'
   id:
     | '__root__'
     | '/_chat'
@@ -140,6 +160,8 @@ export interface FileRouteTypes {
     | '/_chat/skills'
     | '/_chat/sme-chat'
     | '/_chat/'
+    | '/_chat/settings/style'
+    | '/_chat/settings/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -218,8 +240,36 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatThreadIdRouteImport
       parentRoute: typeof ChatRoute
     }
+    '/_chat/settings/': {
+      id: '/_chat/settings/'
+      path: '/'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof ChatSettingsIndexRouteImport
+      parentRoute: typeof ChatSettingsRoute
+    }
+    '/_chat/settings/style': {
+      id: '/_chat/settings/style'
+      path: '/style'
+      fullPath: '/settings/style'
+      preLoaderRoute: typeof ChatSettingsStyleRouteImport
+      parentRoute: typeof ChatSettingsRoute
+    }
   }
 }
+
+interface ChatSettingsRouteChildren {
+  ChatSettingsStyleRoute: typeof ChatSettingsStyleRoute
+  ChatSettingsIndexRoute: typeof ChatSettingsIndexRoute
+}
+
+const ChatSettingsRouteChildren: ChatSettingsRouteChildren = {
+  ChatSettingsStyleRoute: ChatSettingsStyleRoute,
+  ChatSettingsIndexRoute: ChatSettingsIndexRoute,
+}
+
+const ChatSettingsRouteWithChildren = ChatSettingsRoute._addFileChildren(
+  ChatSettingsRouteChildren,
+)
 
 interface ChatRouteChildren {
   ChatThreadIdRoute: typeof ChatThreadIdRoute
@@ -227,7 +277,7 @@ interface ChatRouteChildren {
   ChatMergeConflictsRoute: typeof ChatMergeConflictsRoute
   ChatPluginsRoute: typeof ChatPluginsRoute
   ChatPrReviewRoute: typeof ChatPrReviewRoute
-  ChatSettingsRoute: typeof ChatSettingsRoute
+  ChatSettingsRoute: typeof ChatSettingsRouteWithChildren
   ChatSkillsRoute: typeof ChatSkillsRoute
   ChatSmeChatRoute: typeof ChatSmeChatRoute
   ChatIndexRoute: typeof ChatIndexRoute
@@ -239,7 +289,7 @@ const ChatRouteChildren: ChatRouteChildren = {
   ChatMergeConflictsRoute: ChatMergeConflictsRoute,
   ChatPluginsRoute: ChatPluginsRoute,
   ChatPrReviewRoute: ChatPrReviewRoute,
-  ChatSettingsRoute: ChatSettingsRoute,
+  ChatSettingsRoute: ChatSettingsRouteWithChildren,
   ChatSkillsRoute: ChatSkillsRoute,
   ChatSmeChatRoute: ChatSmeChatRoute,
   ChatIndexRoute: ChatIndexRoute,

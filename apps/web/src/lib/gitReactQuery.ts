@@ -21,6 +21,7 @@ export const gitMutationKeys = {
   checkout: (cwd: string | null) => ["git", "mutation", "checkout", cwd] as const,
   runStackedAction: (cwd: string | null) => ["git", "mutation", "run-stacked-action", cwd] as const,
   pull: (cwd: string | null) => ["git", "mutation", "pull", cwd] as const,
+  stopAction: (cwd: string | null) => ["git", "mutation", "stop-action", cwd] as const,
   preparePullRequestThread: (cwd: string | null) =>
     ["git", "mutation", "prepare-pull-request-thread", cwd] as const,
 };
@@ -195,6 +196,26 @@ export function gitPullMutationOptions(input: { cwd: string | null; queryClient:
       const api = ensureNativeApi();
       if (!input.cwd) throw new Error("Git pull is unavailable.");
       return api.git.pull({ cwd: input.cwd });
+    },
+    onSettled: async () => {
+      await invalidateGitQueries(input.queryClient);
+    },
+  });
+}
+
+export function gitStopActionMutationOptions(input: {
+  cwd: string | null;
+  queryClient: QueryClient;
+}) {
+  return mutationOptions({
+    mutationKey: gitMutationKeys.stopAction(input.cwd),
+    mutationFn: async ({ actionId }: { actionId?: string } = {}) => {
+      const api = ensureNativeApi();
+      if (!input.cwd) throw new Error("Stopping git actions is unavailable.");
+      return api.git.stopAction({
+        cwd: input.cwd,
+        ...(actionId ? { actionId } : {}),
+      });
     },
     onSettled: async () => {
       await invalidateGitQueries(input.queryClient);

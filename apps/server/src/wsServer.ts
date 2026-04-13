@@ -38,6 +38,7 @@ import {
   Effect,
   Exit,
   FileSystem,
+  Fiber,
   Layer,
   Path,
   Ref,
@@ -71,7 +72,6 @@ import { Open, resolveAvailableEditors } from "./open";
 import { ServerConfig } from "./config";
 import { GitCore } from "./git/Services/GitCore.ts";
 import { collectMergedWorktreeCleanupCandidates } from "./git/worktreeCleanup.ts";
-import { tryHandleProjectFaviconRequest } from "./projectFaviconRoute";
 import {
   ATTACHMENTS_ROUTE_PREFIX,
   normalizeAttachmentRelativePath,
@@ -95,6 +95,7 @@ import { PrReview } from "./prReview/Services/PrReview.ts";
 import { GitHub } from "./github/Services/GitHub.ts";
 import { GitActionExecutionError } from "./git/Errors.ts";
 import { EnvironmentVariables } from "./persistence/Services/EnvironmentVariables.ts";
+import { OpenclawGatewayConfig } from "./persistence/Services/OpenclawGatewayConfig.ts";
 import { SkillService } from "./skills/SkillService.ts";
 import { SmeChatService } from "./sme/Services/SmeChatService.ts";
 import { TokenManager } from "./tokenManager.ts";
@@ -103,6 +104,7 @@ import { TerminalRuntimeEnvResolver } from "./terminal/Services/RuntimeEnvResolv
 import { version as serverVersion } from "../package.json" with { type: "json" };
 import { serverBuildInfo } from "./buildInfo";
 import { runOpenclawGatewayTest } from "./openclawGatewayTest.ts";
+import { createApiRouter } from "./api/router.ts";
 
 // ── OpenClaw Gateway Connection Test ──────────────────────────────────
 
@@ -317,7 +319,8 @@ export type ServerRuntimeServices =
   | SkillService
   | SmeChatService
   | Open
-  | EnvironmentVariables;
+  | EnvironmentVariables
+  | OpenclawGatewayConfig;
 
 export class ServerLifecycleError extends Schema.TaggedErrorClass<ServerLifecycleError>()(
   "ServerLifecycleError",
@@ -330,6 +333,13 @@ export class ServerLifecycleError extends Schema.TaggedErrorClass<ServerLifecycl
 class RouteRequestError extends Schema.TaggedErrorClass<RouteRequestError>()("RouteRequestError", {
   message: Schema.String,
 }) {}
+
+class GitActionStoppedError extends Schema.TaggedErrorClass<GitActionStoppedError>()(
+  "GitActionStoppedError",
+  {
+    message: Schema.String,
+  },
+) {}
 
 export const createServer = Effect.fn(function* (): Effect.fn.Return<
   http.Server,
@@ -350,11 +360,18 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
   } = serverConfig;
   const availableEditors = resolveAvailableEditors();
   const tokenManager = new TokenManager(authToken);
+  const tryHandleApiRequest = createApiRouter({
+    authToken,
+    host,
+    port,
+    tokenManager,
+  });
 
   const gitManager = yield* GitManager;
   const terminalManager = yield* TerminalManager;
   const keybindingsManager = yield* Keybindings;
   const providerHealth = yield* ProviderHealth;
+  const openclawGatewayConfig = yield* OpenclawGatewayConfig;
   const git = yield* GitCore;
   const fileSystem = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -374,6 +391,89 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
   const clients = yield* Ref.make(new Set<WebSocket>());
   const logger = createLogger("ws");
   const readiness = yield* makeServerReadiness;
+  type ActiveGitRequestKind = "pull" | "stacked_action";
+  type ActiveGitRequestHandle = {
+    readonly kind: ActiveGitRequestKind;
+    readonly cwd: string;
+    readonly actionId: string | null;
+    readonly fiber: Fiber.Fiber<unknown, unknown>;
+  };
+  const activeGitRequests = new WeakMap<WebSocket, Set<ActiveGitRequestHandle>>();
+
+  const registerActiveGitRequest = (ws: WebSocket, handle: ActiveGitRequestHandle) =>
+    Effect.sync(() => {
+      const handles = activeGitRequests.get(ws) ?? new Set<ActiveGitRequestHandle>();
+      handles.add(handle);
+      activeGitRequests.set(ws, handles);
+    });
+
+  const unregisterActiveGitRequest = (ws: WebSocket, handle: ActiveGitRequestHandle) =>
+    Effect.sync(() => {
+      const handles = activeGitRequests.get(ws);
+      if (!handles) {
+        return;
+      }
+      handles.delete(handle);
+      if (handles.size === 0) {
+        activeGitRequests.delete(ws);
+      }
+    });
+
+  const interruptActiveGitRequests = (ws: WebSocket) =>
+    Effect.gen(function* () {
+      const handles = Array.from(activeGitRequests.get(ws) ?? []);
+      activeGitRequests.delete(ws);
+      for (const handle of handles) {
+        yield* Fiber.interrupt(handle.fiber).pipe(Effect.ignore);
+      }
+    });
+
+  const stopActiveGitRequest = (
+    ws: WebSocket,
+    input: { cwd: string; actionId?: string | undefined },
+  ) =>
+    Effect.gen(function* () {
+      const handles = Array.from(activeGitRequests.get(ws) ?? []);
+      const handle =
+        input.actionId != null
+          ? handles.find(
+              (candidate) => candidate.cwd === input.cwd && candidate.actionId === input.actionId,
+            )
+          : handles.find((candidate) => candidate.cwd === input.cwd);
+
+      if (!handle) {
+        return;
+      }
+
+      yield* Fiber.interrupt(handle.fiber);
+    });
+
+  const runTrackedGitRequest = <A, E>(
+    ws: WebSocket,
+    meta: { kind: ActiveGitRequestKind; cwd: string; actionId?: string | undefined },
+    effect: Effect.Effect<A, E, never>,
+    interruptedMessage: string,
+  ): Effect.Effect<A, E | GitActionStoppedError> =>
+    Effect.gen(function* () {
+      const fiber = yield* Effect.forkScoped(effect);
+      const handle: ActiveGitRequestHandle = {
+        kind: meta.kind,
+        cwd: meta.cwd,
+        actionId: meta.actionId ?? null,
+        fiber,
+      };
+      yield* registerActiveGitRequest(ws, handle);
+      const exit = yield* Fiber.await(fiber).pipe(
+        Effect.ensuring(unregisterActiveGitRequest(ws, handle)),
+      );
+      if (Exit.isSuccess(exit)) {
+        return exit.value;
+      }
+      if (Cause.hasInterruptsOnly(exit.cause)) {
+        return yield* new GitActionStoppedError({ message: interruptedMessage });
+      }
+      return yield* Effect.failCause(exit.cause as Cause.Cause<E>);
+    }) as Effect.Effect<A, E | GitActionStoppedError, never>;
 
   function logOutgoingPush(push: WsPushEnvelopeBase, recipients: number) {
     if (!logWebSocketEvents) return;
@@ -547,7 +647,7 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
   });
 
   // HTTP server — serves static files or redirects to Vite dev server
-  const httpServer = http.createServer((req, res) => {
+  const httpServer = http.createServer(async (req, res) => {
     const respond = (
       statusCode: number,
       headers: Record<string, string>,
@@ -560,35 +660,7 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
     void Effect.runPromise(
       Effect.gen(function* () {
         const url = new URL(req.url ?? "/", `http://localhost:${port}`);
-        if (tryHandleProjectFaviconRequest(url, res)) {
-          return;
-        }
-
-        // ── Pairing API endpoint ──────────────────────────────────
-        if (url.pathname === "/api/pairing" && req.method === "GET") {
-          if (!authToken) {
-            respond(
-              200,
-              { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-              JSON.stringify({ error: "Auth is not enabled on this server." }),
-            );
-            return;
-          }
-
-          const ttlParam = url.searchParams.get("ttl");
-          const ttlSeconds = ttlParam ? Math.min(Math.max(Number(ttlParam), 30), 3600) : 300;
-          const record = tokenManager.generatePairingToken({ ttlSeconds, label: "http-api" });
-          const serverUrl = `http://${host ?? "localhost"}:${port}`;
-          const pairingUrl = `okcode://pair?server=${encodeURIComponent(serverUrl)}&token=${encodeURIComponent(record.tokenValue)}`;
-          respond(
-            200,
-            { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-            JSON.stringify({
-              pairingUrl,
-              expiresAt: record.expiresAt,
-              serverUrl,
-            }),
-          );
+        if (yield* Effect.promise(() => tryHandleApiRequest(req, res, url))) {
           return;
         }
 
@@ -788,6 +860,15 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
     }),
   ).pipe(Effect.forkIn(subscriptionsScope));
 
+  const publishServerConfigUpdated = () =>
+    Effect.gen(function* () {
+      const keybindingsConfig = yield* keybindingsManager.loadConfigState;
+      yield* pushBus.publishAll(WS_CHANNELS.serverConfigUpdated, {
+        issues: keybindingsConfig.issues,
+        providers: providerStatuses,
+      });
+    });
+
   yield* Scope.provide(orchestrationReactor.start, subscriptionsScope);
   yield* readiness.markOrchestrationSubscriptionsReady;
 
@@ -928,6 +1009,17 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
     switch (request.body._tag) {
       case ORCHESTRATION_WS_METHODS.getSnapshot:
         return yield* projectionReadModelQuery.getSnapshot();
+
+      case ORCHESTRATION_WS_METHODS.getThreadDetail: {
+        const body = stripRequestTag(request.body);
+        return yield* projectionReadModelQuery
+          .getSnapshot()
+          .pipe(
+            Effect.map(
+              (snapshot) => snapshot.threads.find((thread) => thread.id === body.threadId) ?? null,
+            ),
+          );
+      }
 
       case ORCHESTRATION_WS_METHODS.dispatchCommand: {
         const { command } = request.body;
@@ -1117,24 +1209,40 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
         const body = stripRequestTag(request.body);
         const snapshot = yield* projectionReadModelQuery.getSnapshot();
         const gitEnv = yield* resolveRuntimeEnvironment({ cwd: body.cwd, readModel: snapshot });
-        return yield* git
-          .syncCurrentBranch(body.cwd)
-          .pipe(Effect.provideService(RuntimeEnv, gitEnv));
+        return yield* runTrackedGitRequest(
+          ws,
+          { kind: "pull", cwd: body.cwd },
+          git.syncCurrentBranch(body.cwd).pipe(Effect.provideService(RuntimeEnv, gitEnv)),
+          "Git pull stopped.",
+        );
+      }
+
+      case WS_METHODS.gitStopAction: {
+        const body = stripRequestTag(request.body);
+        yield* stopActiveGitRequest(ws, body);
+        return {};
       }
 
       case WS_METHODS.gitRunStackedAction: {
         const body = stripRequestTag(request.body);
         const snapshot = yield* projectionReadModelQuery.getSnapshot();
         const gitEnv = yield* resolveRuntimeEnvironment({ cwd: body.cwd, readModel: snapshot });
-        return yield* gitManager
-          .runStackedAction(body, {
-            actionId: body.actionId,
-            progressReporter: {
-              publish: (event) =>
-                pushBus.publishClient(ws, WS_CHANNELS.gitActionProgress, event).pipe(Effect.asVoid),
-            },
-          })
-          .pipe(Effect.provideService(RuntimeEnv, gitEnv));
+        return yield* runTrackedGitRequest(
+          ws,
+          { kind: "stacked_action", cwd: body.cwd, actionId: body.actionId },
+          gitManager
+            .runStackedAction(body, {
+              actionId: body.actionId,
+              progressReporter: {
+                publish: (event) =>
+                  pushBus
+                    .publishClient(ws, WS_CHANNELS.gitActionProgress, event)
+                    .pipe(Effect.asVoid),
+              },
+            })
+            .pipe(Effect.provideService(RuntimeEnv, gitEnv)),
+          "Git action stopped.",
+        );
       }
 
       case WS_METHODS.gitResolvePullRequest: {
@@ -1502,6 +1610,15 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
         return { keybindings: keybindingsConfig, issues: [] };
       }
 
+      case WS_METHODS.serverReplaceKeybindingRules: {
+        const body = stripRequestTag(request.body);
+        const keybindingsConfig = yield* keybindingsManager.replaceKeybindingRules(
+          body.command,
+          body.rules,
+        );
+        return { keybindings: keybindingsConfig, issues: [] };
+      }
+
       case WS_METHODS.serverGetGlobalEnvironmentVariables:
         return yield* environmentVariables.getGlobal();
 
@@ -1563,11 +1680,69 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
         const tokens = tokenManager.list();
         return { tokens };
       }
+      case WS_METHODS.serverGetOpenclawGatewayConfig:
+        return yield* openclawGatewayConfig.getSummary();
+
+      case WS_METHODS.serverSaveOpenclawGatewayConfig: {
+        const body = stripRequestTag(request.body);
+        const summary = yield* openclawGatewayConfig.save(body);
+        yield* publishServerConfigUpdated();
+        return summary;
+      }
+
+      case WS_METHODS.serverResetOpenclawGatewayDeviceState: {
+        const body = stripRequestTag(request.body);
+        const summary = yield* openclawGatewayConfig.resetDeviceState(body);
+        yield* publishServerConfigUpdated();
+        return summary;
+      }
+
+      // ── Companion pairing (placeholder) ─────────────────────────────
+      // These handlers are wired for type-exhaustiveness but return
+      // stub responses until the full companion session manager is built.
+
+      case WS_METHODS.serverGenerateCompanionPairingBundle: {
+        return yield* new RouteRequestError({
+          message: "Companion pairing bundle generation is not yet implemented.",
+        });
+      }
+
+      case WS_METHODS.serverExchangeCompanionBootstrap: {
+        return yield* new RouteRequestError({
+          message: "Companion bootstrap exchange is not yet implemented.",
+        });
+      }
+
+      case WS_METHODS.serverListPairedDevices: {
+        return { devices: [] };
+      }
+
+      case WS_METHODS.serverRevokePairedDevice: {
+        return yield* new RouteRequestError({
+          message: "Companion device revocation is not yet implemented.",
+        });
+      }
 
       // ── OpenClaw gateway test ────────────────────────────────────────
       case WS_METHODS.serverTestOpenclawGateway: {
         const body = stripRequestTag(request.body);
-        return yield* testOpenclawGateway(body);
+        const resolvedConfig = yield* openclawGatewayConfig.resolveForConnect({
+          ...(body.gatewayUrl ? { gatewayUrl: body.gatewayUrl } : {}),
+          ...(body.password ? { sharedSecret: body.password } : {}),
+          allowEphemeralIdentity: body.gatewayUrl !== undefined,
+        });
+        if (!resolvedConfig) {
+          return yield* new RouteRequestError({
+            message:
+              "OpenClaw gateway URL is not configured. Save it in Settings or provide a test override.",
+          });
+        }
+        const result = yield* testOpenclawGateway({
+          gatewayUrl: resolvedConfig.gatewayUrl,
+          password: body.password ?? resolvedConfig.sharedSecret,
+        });
+        yield* publishServerConfigUpdated();
+        return result;
       }
 
       // ── Connection health ───────────────────────────────────────────
@@ -1677,6 +1852,16 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
         return yield* smeChatService.interruptMessage(body);
       }
 
+      case WS_METHODS.decisionListCases:
+      case WS_METHODS.decisionGetWorkspace:
+      case WS_METHODS.decisionReanalyze:
+      case WS_METHODS.decisionRequestConsultation:
+      case WS_METHODS.decisionRespondConsultation:
+      case WS_METHODS.decisionExecuteRecommendation:
+        return yield* new RouteRequestError({
+          message: "Decision workspace RPCs are not wired on this server build yet.",
+        });
+
       default: {
         const _exhaustiveCheck: never = request.body;
         return yield* new RouteRequestError({
@@ -1699,6 +1884,17 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
         message: redactSensitiveText(squashed.failure.summary),
         code: "git_action_failed",
         data: redactSensitiveValue(squashed.failure),
+      };
+    }
+
+    if (
+      (request.body._tag === WS_METHODS.gitRunStackedAction ||
+        request.body._tag === WS_METHODS.gitPull) &&
+      Schema.is(GitActionStoppedError)(squashed)
+    ) {
+      return {
+        message: redactSensitiveText(squashed.message),
+        code: "git_action_stopped",
       };
     }
 
@@ -1798,19 +1994,25 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
 
     ws.on("close", () => {
       void runPromise(
-        Ref.update(clients, (clients) => {
-          clients.delete(ws);
-          return clients;
-        }),
+        Effect.all([
+          interruptActiveGitRequests(ws),
+          Ref.update(clients, (clients) => {
+            clients.delete(ws);
+            return clients;
+          }),
+        ]).pipe(Effect.asVoid),
       );
     });
 
     ws.on("error", () => {
       void runPromise(
-        Ref.update(clients, (clients) => {
-          clients.delete(ws);
-          return clients;
-        }),
+        Effect.all([
+          interruptActiveGitRequests(ws),
+          Ref.update(clients, (clients) => {
+            clients.delete(ws);
+            return clients;
+          }),
+        ]).pipe(Effect.asVoid),
       );
     });
   });

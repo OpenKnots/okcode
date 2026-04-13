@@ -6,6 +6,7 @@ import {
   OrchestrationEvent,
   ORCHESTRATION_WS_CHANNELS,
   OrchestrationGetFullThreadDiffInput,
+  OrchestrationGetThreadDetailInput,
   ORCHESTRATION_WS_METHODS,
   OrchestrationGetSnapshotInput,
   OrchestrationGetTurnDiffInput,
@@ -27,6 +28,7 @@ import {
   GitPruneWorktreesInput,
   GitRemoveWorktreeInput,
   GitRunStackedActionInput,
+  GitStopActionInput,
   GitStatusInput,
 } from "./git";
 import {
@@ -44,6 +46,16 @@ import {
   PrReviewUserPreviewInput,
   PrSubmitReviewInput,
 } from "./prReview";
+import {
+  DECISION_WS_CHANNELS,
+  DECISION_WS_METHODS,
+  DecisionExecuteRecommendationInput,
+  DecisionGetWorkspaceInput,
+  DecisionListCasesInput,
+  DecisionRequestConsultationInput,
+  DecisionRespondConsultationInput,
+  DecisionUpdatedPayload,
+} from "./decision";
 import {
   TerminalClearInput,
   TerminalCloseInput,
@@ -69,9 +81,15 @@ import {
 import { ProjectFileTreeChangedPayload } from "./project";
 import { OpenInEditorInput, OpenPathInput } from "./editor";
 import {
+  ExchangeCompanionBootstrapInput,
+  GenerateCompanionPairingBundleInput,
   GeneratePairingLinkInput,
+  ResetOpenclawGatewayDeviceStateInput,
+  RevokePairedDeviceInput,
   RevokeTokenInput,
+  SaveOpenclawGatewayConfigInput,
   ServerConfigUpdatedPayload,
+  ServerReplaceKeybindingRulesInput,
   TestOpenclawGatewayInput,
 } from "./server";
 import { GitHubGetIssueInput, GitHubListIssuesInput, GitHubPostCommentInput } from "./github";
@@ -123,6 +141,7 @@ export const WS_METHODS = {
 
   // Git methods
   gitPull: "git.pull",
+  gitStopAction: "git.stopAction",
   gitStatus: "git.status",
   gitRunStackedAction: "git.runStackedAction",
   gitListBranches: "git.listBranches",
@@ -158,6 +177,14 @@ export const WS_METHODS = {
   prReviewRunWorkflowStep: "prReview.runWorkflowStep",
   prReviewSubmitReview: "prReview.submitReview",
 
+  // Decision workspace methods
+  decisionListCases: DECISION_WS_METHODS.listCases,
+  decisionGetWorkspace: DECISION_WS_METHODS.getWorkspace,
+  decisionReanalyze: DECISION_WS_METHODS.reanalyze,
+  decisionRequestConsultation: DECISION_WS_METHODS.requestConsultation,
+  decisionRespondConsultation: DECISION_WS_METHODS.respondConsultation,
+  decisionExecuteRecommendation: DECISION_WS_METHODS.executeRecommendation,
+
   // Terminal methods
   terminalOpen: "terminal.open",
   terminalWrite: "terminal.write",
@@ -185,13 +212,23 @@ export const WS_METHODS = {
   serverGetProjectEnvironmentVariables: "server.getProjectEnvironmentVariables",
   serverSaveProjectEnvironmentVariables: "server.saveProjectEnvironmentVariables",
   serverUpsertKeybinding: "server.upsertKeybinding",
+  serverReplaceKeybindingRules: "server.replaceKeybindingRules",
   serverPickFolder: "server.pickFolder",
 
-  // Token management
+  // Token management (legacy)
   serverGeneratePairingLink: "server.generatePairingLink",
   serverRotateToken: "server.rotateToken",
   serverRevokeToken: "server.revokeToken",
   serverListTokens: "server.listTokens",
+  serverGetOpenclawGatewayConfig: "server.getOpenclawGatewayConfig",
+  serverSaveOpenclawGatewayConfig: "server.saveOpenclawGatewayConfig",
+  serverResetOpenclawGatewayDeviceState: "server.resetOpenclawGatewayDeviceState",
+
+  // Companion pairing
+  serverGenerateCompanionPairingBundle: "server.generateCompanionPairingBundle",
+  serverExchangeCompanionBootstrap: "server.exchangeCompanionBootstrap",
+  serverListPairedDevices: "server.listPairedDevices",
+  serverRevokePairedDevice: "server.revokePairedDevice",
 
   // OpenClaw gateway
   serverTestOpenclawGateway: "server.testOpenclawGateway",
@@ -219,6 +256,7 @@ export const WS_CHANNELS = {
   gitActionProgress: "git.actionProgress",
   prReviewSyncUpdated: "prReview.syncUpdated",
   prReviewRepoConfigUpdated: "prReview.repoConfigUpdated",
+  decisionUpdated: DECISION_WS_CHANNELS.updated,
   terminalEvent: "terminal.event",
   serverWelcome: "server.welcome",
   serverConfigUpdated: "server.configUpdated",
@@ -263,6 +301,7 @@ const WebSocketRequestBody = Schema.Union([
 
   // Git methods
   tagRequestBody(WS_METHODS.gitPull, GitPullInput),
+  tagRequestBody(WS_METHODS.gitStopAction, GitStopActionInput),
   tagRequestBody(WS_METHODS.gitStatus, GitStatusInput),
   tagRequestBody(WS_METHODS.gitRunStackedAction, GitRunStackedActionInput),
   tagRequestBody(WS_METHODS.gitListBranches, GitListBranchesInput),
@@ -300,6 +339,17 @@ const WebSocketRequestBody = Schema.Union([
   tagRequestBody(WS_METHODS.prReviewApplyConflictResolution, PrReviewApplyConflictResolutionInput),
   tagRequestBody(WS_METHODS.prReviewRunWorkflowStep, PrReviewRunWorkflowStepInput),
   tagRequestBody(WS_METHODS.prReviewSubmitReview, PrSubmitReviewInput),
+
+  // Decision workspace methods
+  tagRequestBody(WS_METHODS.decisionListCases, DecisionListCasesInput),
+  tagRequestBody(WS_METHODS.decisionGetWorkspace, DecisionGetWorkspaceInput),
+  tagRequestBody(WS_METHODS.decisionReanalyze, DecisionGetWorkspaceInput),
+  tagRequestBody(WS_METHODS.decisionRequestConsultation, DecisionRequestConsultationInput),
+  tagRequestBody(WS_METHODS.decisionRespondConsultation, DecisionRespondConsultationInput),
+  tagRequestBody(WS_METHODS.decisionExecuteRecommendation, DecisionExecuteRecommendationInput),
+
+  // Orchestration detail methods
+  tagRequestBody(ORCHESTRATION_WS_METHODS.getThreadDetail, OrchestrationGetThreadDetailInput),
 
   // Terminal methods
   tagRequestBody(WS_METHODS.terminalOpen, TerminalOpenInput),
@@ -347,13 +397,29 @@ const WebSocketRequestBody = Schema.Union([
     SaveProjectEnvironmentVariablesInput,
   ),
   tagRequestBody(WS_METHODS.serverUpsertKeybinding, KeybindingRule),
+  tagRequestBody(WS_METHODS.serverReplaceKeybindingRules, ServerReplaceKeybindingRulesInput),
   tagRequestBody(WS_METHODS.serverPickFolder, Schema.Struct({})),
 
-  // Token management
+  // Token management (legacy)
   tagRequestBody(WS_METHODS.serverGeneratePairingLink, GeneratePairingLinkInput),
   tagRequestBody(WS_METHODS.serverRotateToken, Schema.Struct({})),
   tagRequestBody(WS_METHODS.serverRevokeToken, RevokeTokenInput),
   tagRequestBody(WS_METHODS.serverListTokens, Schema.Struct({})),
+  tagRequestBody(WS_METHODS.serverGetOpenclawGatewayConfig, Schema.Struct({})),
+  tagRequestBody(WS_METHODS.serverSaveOpenclawGatewayConfig, SaveOpenclawGatewayConfigInput),
+  tagRequestBody(
+    WS_METHODS.serverResetOpenclawGatewayDeviceState,
+    ResetOpenclawGatewayDeviceStateInput,
+  ),
+
+  // Companion pairing
+  tagRequestBody(
+    WS_METHODS.serverGenerateCompanionPairingBundle,
+    GenerateCompanionPairingBundleInput,
+  ),
+  tagRequestBody(WS_METHODS.serverExchangeCompanionBootstrap, ExchangeCompanionBootstrapInput),
+  tagRequestBody(WS_METHODS.serverListPairedDevices, Schema.Struct({})),
+  tagRequestBody(WS_METHODS.serverRevokePairedDevice, RevokePairedDeviceInput),
 
   // OpenClaw gateway
   tagRequestBody(WS_METHODS.serverTestOpenclawGateway, TestOpenclawGatewayInput),
@@ -399,6 +465,7 @@ export interface WsPushPayloadByChannel {
   readonly [WS_CHANNELS.gitActionProgress]: typeof GitActionProgressEvent.Type;
   readonly [WS_CHANNELS.prReviewSyncUpdated]: typeof PrReviewSyncUpdatedPayload.Type;
   readonly [WS_CHANNELS.prReviewRepoConfigUpdated]: typeof PrReviewRepoConfigUpdatedPayload.Type;
+  readonly [WS_CHANNELS.decisionUpdated]: typeof DecisionUpdatedPayload.Type;
   readonly [WS_CHANNELS.terminalEvent]: typeof TerminalEvent.Type;
   readonly [WS_CHANNELS.projectFileTreeChanged]: typeof ProjectFileTreeChangedPayload.Type;
   readonly [ORCHESTRATION_WS_CHANNELS.domainEvent]: OrchestrationEvent;
@@ -436,6 +503,10 @@ export const WsPushPrReviewRepoConfigUpdated = makeWsPushSchema(
   WS_CHANNELS.prReviewRepoConfigUpdated,
   PrReviewRepoConfigUpdatedPayload,
 );
+export const WsPushDecisionUpdated = makeWsPushSchema(
+  WS_CHANNELS.decisionUpdated,
+  DecisionUpdatedPayload,
+);
 export const WsPushTerminalEvent = makeWsPushSchema(WS_CHANNELS.terminalEvent, TerminalEvent);
 export const WsPushProjectFileTreeChanged = makeWsPushSchema(
   WS_CHANNELS.projectFileTreeChanged,
@@ -454,6 +525,7 @@ export const WsPushChannelSchema = Schema.Literals([
   WS_CHANNELS.gitActionProgress,
   WS_CHANNELS.prReviewSyncUpdated,
   WS_CHANNELS.prReviewRepoConfigUpdated,
+  WS_CHANNELS.decisionUpdated,
   WS_CHANNELS.serverWelcome,
   WS_CHANNELS.serverConfigUpdated,
   WS_CHANNELS.terminalEvent,
@@ -469,6 +541,7 @@ export const WsPush = Schema.Union([
   WsPushGitActionProgress,
   WsPushPrReviewSyncUpdated,
   WsPushPrReviewRepoConfigUpdated,
+  WsPushDecisionUpdated,
   WsPushTerminalEvent,
   WsPushProjectFileTreeChanged,
   WsPushOrchestrationDomainEvent,

@@ -22,6 +22,7 @@ import type {
   GitResolvePullRequestResult,
   GitRunStackedActionInput,
   GitRunStackedActionResult,
+  GitStopActionInput,
   GitWorktreeCleanupCandidate,
   GitStatusInput,
   GitStatusResult,
@@ -70,7 +71,6 @@ import type {
   GitHubPostCommentInput,
   GitHubPostCommentResult,
 } from "./github";
-import type { ServerConfig, TestOpenclawGatewayInput, TestOpenclawGatewayResult } from "./server";
 import type {
   GlobalEnvironmentVariablesResult,
   ProjectEnvironmentVariablesInput,
@@ -89,9 +89,17 @@ import type {
   TerminalWriteInput,
 } from "./terminal";
 import type {
+  OpenclawGatewayConfigSummary,
+  ResetOpenclawGatewayDeviceStateInput,
+  SaveOpenclawGatewayConfigInput,
+  ServerConfig,
+  ServerReplaceKeybindingRulesInput,
+  ServerReplaceKeybindingRulesResult,
   ServerUpsertKeybindingInput,
   ServerUpsertKeybindingResult,
   ServerUpdateInfo,
+  TestOpenclawGatewayInput,
+  TestOpenclawGatewayResult,
 } from "./server";
 import type {
   SkillListInput,
@@ -115,11 +123,24 @@ import type {
   ClientOrchestrationCommand,
   OrchestrationGetFullThreadDiffInput,
   OrchestrationGetFullThreadDiffResult,
+  OrchestrationGetThreadDetailInput,
   OrchestrationGetTurnDiffInput,
   OrchestrationGetTurnDiffResult,
   OrchestrationEvent,
   OrchestrationReadModel,
+  OrchestrationThread,
 } from "./orchestration";
+import type {
+  DecisionCaseSummary,
+  DecisionExecuteRecommendationInput,
+  DecisionExecutionResult,
+  DecisionGetWorkspaceInput,
+  DecisionListCasesInput,
+  DecisionRequestConsultationInput,
+  DecisionRespondConsultationInput,
+  DecisionUpdatedPayload,
+  DecisionWorkspace,
+} from "./decision";
 import type {
   SmeConversation,
   SmeCreateConversationInput,
@@ -388,6 +409,7 @@ export interface NativeApi {
     ) => Promise<GitPreparePullRequestThreadResult>;
     // Stacked action API
     pull: (input: GitPullInput) => Promise<GitPullResult>;
+    stopAction: (input: GitStopActionInput) => Promise<void>;
     status: (input: GitStatusInput) => Promise<GitStatusResult>;
     runStackedAction: (input: GitRunStackedActionInput) => Promise<GitRunStackedActionResult>;
     onActionProgress: (callback: (event: GitActionProgressEvent) => void) => () => void;
@@ -417,6 +439,17 @@ export interface NativeApi {
     onRepoConfigUpdated: (
       callback: (payload: PrReviewRepoConfigUpdatedPayload) => void,
     ) => () => void;
+  };
+  decision: {
+    listCases: (input: DecisionListCasesInput) => Promise<ReadonlyArray<DecisionCaseSummary>>;
+    getWorkspace: (input: DecisionGetWorkspaceInput) => Promise<DecisionWorkspace>;
+    reanalyze: (input: DecisionGetWorkspaceInput) => Promise<DecisionWorkspace>;
+    requestConsultation: (input: DecisionRequestConsultationInput) => Promise<DecisionWorkspace>;
+    respondConsultation: (input: DecisionRespondConsultationInput) => Promise<DecisionWorkspace>;
+    executeRecommendation: (
+      input: DecisionExecuteRecommendationInput,
+    ) => Promise<DecisionExecutionResult>;
+    onUpdated: (callback: (payload: DecisionUpdatedPayload) => void) => () => void;
   };
   skills: {
     list: (input?: SkillListInput) => Promise<SkillListResult>;
@@ -450,10 +483,23 @@ export interface NativeApi {
       input: SaveProjectEnvironmentVariablesInput,
     ) => Promise<ProjectEnvironmentVariablesResult>;
     upsertKeybinding: (input: ServerUpsertKeybindingInput) => Promise<ServerUpsertKeybindingResult>;
+    getOpenclawGatewayConfig: () => Promise<OpenclawGatewayConfigSummary>;
+    saveOpenclawGatewayConfig: (
+      input: SaveOpenclawGatewayConfigInput,
+    ) => Promise<OpenclawGatewayConfigSummary>;
+    resetOpenclawGatewayDeviceState: (
+      input?: ResetOpenclawGatewayDeviceStateInput,
+    ) => Promise<OpenclawGatewayConfigSummary>;
+    replaceKeybindingRules: (
+      input: ServerReplaceKeybindingRulesInput,
+    ) => Promise<ServerReplaceKeybindingRulesResult>;
     testOpenclawGateway: (input: TestOpenclawGatewayInput) => Promise<TestOpenclawGatewayResult>;
   };
   orchestration: {
     getSnapshot: () => Promise<OrchestrationReadModel>;
+    getThreadDetail: (
+      input: OrchestrationGetThreadDetailInput,
+    ) => Promise<OrchestrationThread | null>;
     dispatchCommand: (command: ClientOrchestrationCommand) => Promise<{ sequence: number }>;
     getTurnDiff: (input: OrchestrationGetTurnDiffInput) => Promise<OrchestrationGetTurnDiffResult>;
     getFullThreadDiff: (

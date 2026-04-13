@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 
 import { validateHttpPreviewUrl } from "@okcode/shared/preview";
+import { resolveBrowserPreviewStartPageUrl, useAppSettings } from "~/appSettings";
 import { readDesktopPreviewBridge } from "~/desktopPreview";
 import {
   type BrowserPresetId,
@@ -145,6 +146,7 @@ function resolveViewportDimensions(
 }
 
 export function PreviewPanel({ projectId, threadId, onClose }: PreviewPanelProps) {
+  const { settings } = useAppSettings();
   const previewBridge = readDesktopPreviewBridge();
   const setProjectOpen = usePreviewStateStore((state) => state.setProjectOpen);
   const favoriteUrls = usePreviewStateStore((state) => state.favoriteUrls);
@@ -412,8 +414,10 @@ export function PreviewPanel({ projectId, threadId, onClose }: PreviewPanelProps
         return;
       }
     }
-    // Create tab with a default page
-    void previewBridge?.createTab({ url: "https://www.google.com", threadId });
+    void previewBridge?.createTab({
+      url: resolveBrowserPreviewStartPageUrl(settings.browserPreviewStartPageUrl),
+      threadId,
+    });
   };
 
   const onClosePreview = () => {
@@ -610,7 +614,7 @@ export function PreviewPanel({ projectId, threadId, onClose }: PreviewPanelProps
                 onBlur={commitCustomViewport}
                 onKeyDown={(e) => e.key === "Enter" && commitCustomViewport()}
                 aria-label="Viewport width"
-                className="h-5 w-14 text-center text-[10px] tabular-nums"
+                className="h-5 w-[4.5rem] text-center text-[10px] tabular-nums"
                 min={320}
                 max={3840}
               />
@@ -622,7 +626,7 @@ export function PreviewPanel({ projectId, threadId, onClose }: PreviewPanelProps
                 onBlur={commitCustomViewport}
                 onKeyDown={(e) => e.key === "Enter" && commitCustomViewport()}
                 aria-label="Viewport height"
-                className="h-5 w-14 text-center text-[10px] tabular-nums"
+                className="h-5 w-[4.5rem] text-center text-[10px] tabular-nums"
                 min={320}
                 max={2160}
               />

@@ -14,6 +14,8 @@ import { OrchestrationReactorLive } from "./orchestration/Layers/OrchestrationRe
 import { ProviderCommandReactorLive } from "./orchestration/Layers/ProviderCommandReactor";
 import { OrchestrationProjectionPipelineLive } from "./orchestration/Layers/ProjectionPipeline";
 import { OrchestrationProjectionSnapshotQueryLive } from "./orchestration/Layers/ProjectionSnapshotQuery";
+import { OrchestrationProjectionOverviewQueryLive } from "./orchestration/Layers/ProjectionOverviewQuery";
+import { OrchestrationProjectionThreadDetailQueryLive } from "./orchestration/Layers/ProjectionThreadDetailQuery";
 import { ProviderRuntimeIngestionLive } from "./orchestration/Layers/ProviderRuntimeIngestion";
 import { RuntimeReceiptBusLive } from "./orchestration/Layers/RuntimeReceiptBus";
 import { ProviderUnsupportedError } from "./provider/Errors";
@@ -21,12 +23,14 @@ import { makeClaudeAdapterLive } from "./provider/Layers/ClaudeAdapter";
 import { makeCopilotAdapterLive } from "./provider/Layers/CopilotAdapter";
 import { makeCodexAdapterLive } from "./provider/Layers/CodexAdapter";
 import { makeOpenClawAdapterLive } from "./provider/Layers/OpenClawAdapter";
+import { ProviderHealthLive } from "./provider/Layers/ProviderHealth";
 import { ProviderAdapterRegistryLive } from "./provider/Layers/ProviderAdapterRegistry";
 import { makeProviderServiceLive } from "./provider/Layers/ProviderService";
 import { ProviderSessionDirectoryLive } from "./provider/Layers/ProviderSessionDirectory";
 import { ProviderService } from "./provider/Services/ProviderService";
 import { makeEventNdjsonLogger } from "./provider/Layers/EventNdjsonLogger";
 import { EnvironmentVariablesLive } from "./persistence/Services/EnvironmentVariables";
+import { OpenclawGatewayConfigLive } from "./persistence/Layers/OpenclawGatewayConfig";
 
 import { TerminalManagerLive } from "./terminal/Layers/Manager";
 import { TerminalRuntimeEnvResolverLive } from "./terminal/Layers/RuntimeEnvResolver";
@@ -86,16 +90,20 @@ export function makeServerProviderLayer(): Layer.Layer<
     ).pipe(
       Layer.provideMerge(EnvironmentVariablesLive),
       Layer.provideMerge(OrchestrationProjectionSnapshotQueryLive),
+      Layer.provideMerge(OrchestrationProjectionOverviewQueryLive),
+      Layer.provideMerge(OrchestrationProjectionThreadDetailQueryLive),
     );
     const claudeAdapterLayer = makeClaudeAdapterLive(
       nativeEventLogger ? { nativeEventLogger } : undefined,
     ).pipe(
       Layer.provideMerge(EnvironmentVariablesLive),
       Layer.provideMerge(OrchestrationProjectionSnapshotQueryLive),
+      Layer.provideMerge(OrchestrationProjectionOverviewQueryLive),
+      Layer.provideMerge(OrchestrationProjectionThreadDetailQueryLive),
     );
     const openclawAdapterLayer = makeOpenClawAdapterLive(
       nativeEventLogger ? { nativeEventLogger } : undefined,
-    );
+    ).pipe(Layer.provideMerge(OpenclawGatewayConfigLive));
     const copilotAdapterLayer = makeCopilotAdapterLive(
       nativeEventLogger ? { nativeEventLogger } : undefined,
     );
@@ -129,7 +137,10 @@ export function makeServerRuntimeServicesLayer() {
 
   const runtimeServicesLayer = Layer.empty.pipe(
     Layer.provideMerge(EnvironmentVariablesLive),
+    Layer.provideMerge(OpenclawGatewayConfigLive),
     Layer.provideMerge(OrchestrationProjectionSnapshotQueryLive),
+    Layer.provideMerge(OrchestrationProjectionOverviewQueryLive),
+    Layer.provideMerge(OrchestrationProjectionThreadDetailQueryLive),
     Layer.provideMerge(orchestrationLayer),
     Layer.provideMerge(checkpointStoreLayer),
     Layer.provideMerge(checkpointDiffQueryLayer),
@@ -172,6 +183,8 @@ export function makeServerRuntimeServicesLayer() {
 
   const smeChatLayer = SmeChatServiceLive.pipe(
     Layer.provideMerge(EnvironmentVariablesLive),
+    Layer.provideMerge(OpenclawGatewayConfigLive),
+    Layer.provideMerge(ProviderHealthLive.pipe(Layer.provideMerge(OpenclawGatewayConfigLive))),
     Layer.provide(SmeKnowledgeDocumentRepositoryLive),
     Layer.provide(SmeConversationRepositoryLive),
     Layer.provide(SmeMessageRepositoryLive),
@@ -187,6 +200,7 @@ export function makeServerRuntimeServicesLayer() {
     TerminalRuntimeEnvResolverLive,
     KeybindingsLive,
     SkillServiceLive,
+    OpenclawGatewayConfigLive,
     smeChatLayer,
   ).pipe(Layer.provideMerge(NodeServices.layer));
 }

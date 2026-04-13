@@ -1,4 +1,7 @@
+import { mkdtempSync } from "node:fs";
 import * as Http from "node:http";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it, vi } from "@effect/vitest";
 import * as ConfigProvider from "effect/ConfigProvider";
@@ -12,11 +15,13 @@ import { NetService } from "@okcode/shared/Net";
 import { CliConfig, okcodeCli, type CliConfigShape } from "./main";
 import { ServerConfig, type ServerConfigShape } from "./config";
 import { Open, type OpenShape } from "./open";
+import { OpenclawGatewayConfig } from "./persistence/Services/OpenclawGatewayConfig";
 import { Server, type ServerShape } from "./wsServer";
 
 const start = vi.fn(() => undefined);
 const stop = vi.fn(() => undefined);
 let resolvedConfig: ServerConfigShape | null = null;
+let testWorkspaceRoot = "";
 const serverStart = Effect.acquireRelease(
   Effect.gen(function* () {
     resolvedConfig = yield* ServerConfig;
@@ -29,11 +34,17 @@ const findAvailablePort = vi.fn((preferred: number) => Effect.succeed(preferred)
 
 // Shared service layer used by this CLI test suite.
 const testLayer = Layer.mergeAll(
-  Layer.succeed(CliConfig, {
-    cwd: "/tmp/t3-test-workspace",
-    fixPath: Effect.void,
-    resolveStaticDir: Effect.undefined,
-  } satisfies CliConfigShape),
+  Layer.effect(
+    CliConfig,
+    Effect.sync(
+      () =>
+        ({
+          cwd: testWorkspaceRoot,
+          fixPath: Effect.void,
+          resolveStaticDir: Effect.undefined,
+        }) satisfies CliConfigShape,
+    ),
+  ),
   Layer.succeed(NetService, {
     canListenOnHost: () => Effect.succeed(true),
     isPortAvailableOnLoopback: () => Effect.succeed(true),
@@ -44,6 +55,37 @@ const testLayer = Layer.mergeAll(
     start: serverStart,
     stopSignal: Effect.void,
   } satisfies ServerShape),
+  Layer.succeed(OpenclawGatewayConfig, {
+    getSummary: () =>
+      Effect.succeed({
+        gatewayUrl: null,
+        hasSharedSecret: false,
+        deviceId: null,
+        devicePublicKey: null,
+        deviceFingerprint: null,
+        hasDeviceToken: false,
+        deviceTokenRole: null,
+        deviceTokenScopes: [],
+        updatedAt: null,
+      }),
+    getStored: () => Effect.succeed(null),
+    save: () => Effect.die("unexpected openclaw save"),
+    resolveForConnect: () => Effect.succeed(null),
+    saveDeviceToken: () => Effect.void,
+    clearDeviceToken: () => Effect.void,
+    resetDeviceState: () =>
+      Effect.succeed({
+        gatewayUrl: null,
+        hasSharedSecret: false,
+        deviceId: null,
+        devicePublicKey: null,
+        deviceFingerprint: null,
+        hasDeviceToken: false,
+        deviceTokenRole: null,
+        deviceTokenScopes: [],
+        updatedAt: null,
+      }),
+  }),
   Layer.succeed(Open, {
     openBrowser: (_target: string) => Effect.void,
     openInEditor: () => Effect.void,
@@ -74,6 +116,7 @@ const runCli = (
 beforeEach(() => {
   vi.clearAllMocks();
   resolvedConfig = null;
+  testWorkspaceRoot = mkdtempSync(join(tmpdir(), "okcode-main-test-"));
   start.mockImplementation(() => undefined);
   stop.mockImplementation(() => undefined);
   findAvailablePort.mockImplementation((preferred: number) => Effect.succeed(preferred));

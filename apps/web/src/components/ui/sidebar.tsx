@@ -38,6 +38,10 @@ type SidebarContextProps = {
   toggleSidebar: () => void;
 };
 
+type CookieStoreLike = {
+  set(options: { expires: number; name: string; path: string; value: string }): Promise<void>;
+};
+
 type SidebarResizableOptions = {
   maxWidth?: number;
   minWidth?: number;
@@ -147,7 +151,9 @@ function SidebarProvider({
       }
 
       // This sets the cookie to keep the sidebar state.
-      await cookieStore.set({
+      const cookieStore = (globalThis as typeof globalThis & { cookieStore?: CookieStoreLike })
+        .cookieStore;
+      await cookieStore?.set({
         expires: Date.now() + SIDEBAR_COOKIE_MAX_AGE * 1000,
         name: SIDEBAR_COOKIE_NAME,
         path: "/",

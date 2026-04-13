@@ -1103,6 +1103,7 @@ it.layer(Layer.fresh(makeProjectionPipelinePrefixedTestLayer("t3-projection-atta
           payload: {
             threadId,
             deletedAt: now,
+            reason: "manual",
           },
         });
 
@@ -1179,6 +1180,7 @@ it.layer(Layer.fresh(makeProjectionPipelinePrefixedTestLayer("t3-projection-atta
           payload: {
             threadId: ThreadId.makeUnsafe(".."),
             deletedAt: now,
+            reason: "manual",
           },
         });
 

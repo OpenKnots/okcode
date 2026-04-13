@@ -267,8 +267,6 @@ export const InlineDiffBlock = memo(function InlineDiffBlock(props: {
     });
   }, [allLines]);
 
-  if (allLines.length === 0) return null;
-
   const needsTruncation = allLines.length > MAX_VISIBLE_LINES;
   const visibleLines =
     needsTruncation && !isExpanded ? keyedLines.slice(0, MAX_VISIBLE_LINES) : keyedLines;
@@ -327,6 +325,10 @@ export const InlineDiffBlock = memo(function InlineDiffBlock(props: {
       setCachedHighlightedHtml(line.text, languageId, diffThemeName, cacheScope, fullHtml);
     }
   }, [highlightedLines, languageId, diffThemeName]);
+
+  if (allLines.length === 0) {
+    return null;
+  }
 
   return (
     <div className="overflow-hidden rounded-xl border border-border/70">

@@ -343,7 +343,7 @@ const makeCopilotAdapter = (options?: CopilotAdapterLiveOptions) =>
     yield* Effect.addFinalizer(() =>
       Effect.forEach(
         Array.from(sessions.keys()),
-        (threadId) => stopSession(threadId).pipe(Effect.catchAll(() => Effect.void)),
+        (threadId) => stopSession(threadId).pipe(Effect.ignore),
         { discard: true },
       ).pipe(Effect.ensuring(Queue.shutdown(runtimeEventQueue))),
     );

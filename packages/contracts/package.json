@@ -1,6 +1,6 @@
 {
   "name": "@okcode/contracts",
-  "version": "0.21.0",
+  "version": "0.22.1",
   "private": true,
   "files": [
     "dist"
@@ -20,7 +20,7 @@
     "dev": "tsdown src/index.ts --format esm,cjs --dts --watch --clean",
     "build": "tsdown src/index.ts --format esm,cjs --dts --clean",
     "prepare": "node -e \"process.exit(process.env.CI ? 0 : 1)\" || node ../../scripts/patch-effect-language-service.ts",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "bunx tsc@5.7.3 --noEmit",
     "test": "vitest run"
   },
   "dependencies": {

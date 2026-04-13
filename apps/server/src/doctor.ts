@@ -34,12 +34,15 @@ const PROVIDER_LABELS: Record<string, string> = {
   codex: "Codex (OpenAI)",
   claudeAgent: "Claude Code",
   copilot: "GitHub Copilot",
+  gemini: "Gemini CLI",
+  openclaw: "OpenClaw",
 };
 
 function printStatus(status: ServerProviderStatus): void {
   const icon = STATUS_ICONS[status.status] ?? "?";
   const label = PROVIDER_LABELS[status.provider] ?? status.provider;
-  const auth = AUTH_LABELS[status.authStatus] ?? status.authStatus;
+  const authStatus = status.authStatus ?? status.auth?.status ?? "unknown";
+  const auth = AUTH_LABELS[authStatus] ?? authStatus;
 
   console.log("");
   console.log(`  ${icon} ${label}`);

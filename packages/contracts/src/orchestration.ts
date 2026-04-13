@@ -1,5 +1,12 @@
 import { Option, Schema, SchemaIssue, SchemaTransformation, Struct } from "effect";
-import { ProviderModelOptions } from "./model";
+import {
+  ClaudeModelOptions,
+  CodexModelOptions,
+  CopilotModelOptions,
+  GeminiModelOptions,
+  OpenClawModelOptions,
+  ProviderModelOptions,
+} from "./model";
 import {
   ApprovalRequestId,
   CheckpointRef,
@@ -29,7 +36,13 @@ export const ORCHESTRATION_WS_CHANNELS = {
   domainEvent: "orchestration.domainEvent",
 } as const;
 
-export const ProviderKind = Schema.Literals(["codex", "claudeAgent", "openclaw", "copilot"]);
+export const ProviderKind = Schema.Literals([
+  "codex",
+  "claudeAgent",
+  "openclaw",
+  "copilot",
+  "gemini",
+]);
 export type ProviderKind = typeof ProviderKind.Type;
 export const ProviderApprovalPolicy = Schema.Literals([
   "untrusted",
@@ -68,13 +81,62 @@ export const CopilotProviderStartOptions = Schema.Struct({
   configDir: Schema.optional(TrimmedNonEmptyString),
 });
 
+export const GeminiProviderStartOptions = Schema.Struct({
+  binaryPath: Schema.optional(TrimmedNonEmptyString),
+});
+
 export const ProviderStartOptions = Schema.Struct({
   codex: Schema.optional(CodexProviderStartOptions),
   claudeAgent: Schema.optional(ClaudeProviderStartOptions),
   openclaw: Schema.optional(OpenClawProviderStartOptions),
   copilot: Schema.optional(CopilotProviderStartOptions),
+  gemini: Schema.optional(GeminiProviderStartOptions),
 });
 export type ProviderStartOptions = typeof ProviderStartOptions.Type;
+
+export const CodexModelSelection = Schema.Struct({
+  provider: Schema.Literal("codex"),
+  model: TrimmedNonEmptyString,
+  options: Schema.optional(CodexModelOptions),
+});
+export type CodexModelSelection = typeof CodexModelSelection.Type;
+
+export const ClaudeModelSelection = Schema.Struct({
+  provider: Schema.Literal("claudeAgent"),
+  model: TrimmedNonEmptyString,
+  options: Schema.optional(ClaudeModelOptions),
+});
+export type ClaudeModelSelection = typeof ClaudeModelSelection.Type;
+
+export const OpenClawModelSelection = Schema.Struct({
+  provider: Schema.Literal("openclaw"),
+  model: TrimmedNonEmptyString,
+  options: Schema.optional(OpenClawModelOptions),
+});
+export type OpenClawModelSelection = typeof OpenClawModelSelection.Type;
+
+export const CopilotModelSelection = Schema.Struct({
+  provider: Schema.Literal("copilot"),
+  model: TrimmedNonEmptyString,
+  options: Schema.optional(CopilotModelOptions),
+});
+export type CopilotModelSelection = typeof CopilotModelSelection.Type;
+
+export const GeminiModelSelection = Schema.Struct({
+  provider: Schema.Literal("gemini"),
+  model: TrimmedNonEmptyString,
+  options: Schema.optional(GeminiModelOptions),
+});
+export type GeminiModelSelection = typeof GeminiModelSelection.Type;
+
+export const ModelSelection = Schema.Union([
+  CodexModelSelection,
+  ClaudeModelSelection,
+  OpenClawModelSelection,
+  CopilotModelSelection,
+  GeminiModelSelection,
+]);
+export type ModelSelection = typeof ModelSelection.Type;
 
 export const RuntimeMode = Schema.Literals(["approval-required", "full-access"]);
 export type RuntimeMode = typeof RuntimeMode.Type;
@@ -207,6 +269,7 @@ export const OrchestrationProject = Schema.Struct({
   title: TrimmedNonEmptyString,
   workspaceRoot: TrimmedNonEmptyString,
   defaultModel: Schema.NullOr(TrimmedNonEmptyString),
+  defaultModelSelection: Schema.optional(Schema.NullOr(ModelSelection)),
   scripts: Schema.Array(ProjectScript),
   createdAt: IsoDateTime,
   updatedAt: IsoDateTime,
@@ -336,6 +399,7 @@ export const OrchestrationThread = Schema.Struct({
   projectId: ProjectId,
   title: TrimmedNonEmptyString,
   model: TrimmedNonEmptyString,
+  modelSelection: Schema.optional(Schema.NullOr(ModelSelection)),
   runtimeMode: RuntimeMode,
   interactionMode: ProviderInteractionMode.pipe(
     Schema.withDecodingDefault(() => DEFAULT_PROVIDER_INTERACTION_MODE),
@@ -366,6 +430,7 @@ export const OrchestrationOverviewProject = Schema.Struct({
   title: TrimmedNonEmptyString,
   workspaceRoot: TrimmedNonEmptyString,
   defaultModel: Schema.NullOr(TrimmedNonEmptyString),
+  defaultModelSelection: Schema.optional(Schema.NullOr(ModelSelection)),
   scripts: Schema.Array(ProjectScript),
   activeThreadCount: NonNegativeInt,
   createdAt: IsoDateTime,
@@ -378,6 +443,7 @@ export const OrchestrationOverviewThread = Schema.Struct({
   projectId: ProjectId,
   title: TrimmedNonEmptyString,
   model: TrimmedNonEmptyString,
+  modelSelection: Schema.optional(Schema.NullOr(ModelSelection)),
   runtimeMode: RuntimeMode,
   interactionMode: ProviderInteractionMode.pipe(
     Schema.withDecodingDefault(() => DEFAULT_PROVIDER_INTERACTION_MODE),
@@ -420,6 +486,7 @@ export const ProjectCreateCommand = Schema.Struct({
   title: TrimmedNonEmptyString,
   workspaceRoot: TrimmedNonEmptyString,
   defaultModel: Schema.optional(TrimmedNonEmptyString),
+  defaultModelSelection: Schema.optional(ModelSelection),
   scripts: Schema.optional(Schema.Array(ProjectScript)),
   createdAt: IsoDateTime,
 });
@@ -431,6 +498,7 @@ const ProjectMetaUpdateCommand = Schema.Struct({
   title: Schema.optional(TrimmedNonEmptyString),
   workspaceRoot: Schema.optional(TrimmedNonEmptyString),
   defaultModel: Schema.optional(TrimmedNonEmptyString),
+  defaultModelSelection: Schema.optional(Schema.NullOr(ModelSelection)),
   scripts: Schema.optional(Schema.Array(ProjectScript)),
 });
 
@@ -447,6 +515,7 @@ const ThreadCreateCommand = Schema.Struct({
   projectId: ProjectId,
   title: TrimmedNonEmptyString,
   model: TrimmedNonEmptyString,
+  modelSelection: Schema.optional(Schema.NullOr(ModelSelection)),
   runtimeMode: RuntimeMode,
   interactionMode: ProviderInteractionMode.pipe(
     Schema.withDecodingDefault(() => DEFAULT_PROVIDER_INTERACTION_MODE),
@@ -469,6 +538,7 @@ const ThreadMetaUpdateCommand = Schema.Struct({
   threadId: ThreadId,
   title: Schema.optional(TrimmedNonEmptyString),
   model: Schema.optional(TrimmedNonEmptyString),
+  modelSelection: Schema.optional(ModelSelection),
   branch: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
   worktreePath: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
   githubRef: Schema.optional(GitHubRef),
@@ -503,6 +573,7 @@ export const ThreadTurnStartCommand = Schema.Struct({
   providerInput: Schema.optional(
     TrimmedNonEmptyString.check(Schema.isMaxLength(PROVIDER_SEND_TURN_MAX_INPUT_CHARS)),
   ),
+  modelSelection: Schema.optional(ModelSelection),
   provider: Schema.optional(ProviderKind),
   model: Schema.optional(TrimmedNonEmptyString),
   modelOptions: Schema.optional(ProviderModelOptions),
@@ -529,6 +600,7 @@ const ClientThreadTurnStartCommand = Schema.Struct({
   providerInput: Schema.optional(
     TrimmedNonEmptyString.check(Schema.isMaxLength(PROVIDER_SEND_TURN_MAX_INPUT_CHARS)),
   ),
+  modelSelection: Schema.optional(ModelSelection),
   provider: Schema.optional(ProviderKind),
   model: Schema.optional(TrimmedNonEmptyString),
   modelOptions: Schema.optional(ProviderModelOptions),
@@ -733,6 +805,7 @@ export const ProjectCreatedPayload = Schema.Struct({
   title: TrimmedNonEmptyString,
   workspaceRoot: TrimmedNonEmptyString,
   defaultModel: Schema.NullOr(TrimmedNonEmptyString),
+  defaultModelSelection: Schema.optional(Schema.NullOr(ModelSelection)),
   scripts: Schema.Array(ProjectScript),
   createdAt: IsoDateTime,
   updatedAt: IsoDateTime,
@@ -743,6 +816,7 @@ export const ProjectMetaUpdatedPayload = Schema.Struct({
   title: Schema.optional(TrimmedNonEmptyString),
   workspaceRoot: Schema.optional(TrimmedNonEmptyString),
   defaultModel: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
+  defaultModelSelection: Schema.optional(Schema.NullOr(ModelSelection)),
   scripts: Schema.optional(Schema.Array(ProjectScript)),
   updatedAt: IsoDateTime,
 });
@@ -761,6 +835,7 @@ export const ThreadCreatedPayload = Schema.Struct({
   projectId: ProjectId,
   title: TrimmedNonEmptyString,
   model: TrimmedNonEmptyString,
+  modelSelection: Schema.optional(Schema.NullOr(ModelSelection)),
   runtimeMode: RuntimeMode.pipe(Schema.withDecodingDefault(() => DEFAULT_RUNTIME_MODE)),
   interactionMode: ProviderInteractionMode.pipe(
     Schema.withDecodingDefault(() => DEFAULT_PROVIDER_INTERACTION_MODE),
@@ -785,6 +860,7 @@ export const ThreadMetaUpdatedPayload = Schema.Struct({
   threadId: ThreadId,
   title: Schema.optional(TrimmedNonEmptyString),
   model: Schema.optional(TrimmedNonEmptyString),
+  modelSelection: Schema.optional(Schema.NullOr(ModelSelection)),
   branch: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
   worktreePath: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
   githubRef: Schema.optional(GitHubRef),
@@ -823,6 +899,7 @@ export const ThreadTurnStartRequestedPayload = Schema.Struct({
   providerInput: Schema.optional(
     TrimmedNonEmptyString.check(Schema.isMaxLength(PROVIDER_SEND_TURN_MAX_INPUT_CHARS)),
   ),
+  modelSelection: Schema.optional(Schema.NullOr(ModelSelection)),
   provider: Schema.optional(ProviderKind),
   model: Schema.optional(TrimmedNonEmptyString),
   modelOptions: Schema.optional(ProviderModelOptions),

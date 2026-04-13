@@ -98,6 +98,7 @@ export function SmeConversationDialog({
           claudeAgent: settings.customClaudeModels,
           copilot: settings.customCopilotModels,
           openclaw: settings.customOpenClawModels,
+          gemini: settings.customGeminiModels,
         },
         null,
       );
@@ -114,6 +115,7 @@ export function SmeConversationDialog({
     settings.customClaudeModels,
     settings.customCopilotModels,
     settings.customCodexModels,
+    settings.customGeminiModels,
     settings.customOpenClawModels,
   ]);
 
@@ -153,6 +155,7 @@ export function SmeConversationDialog({
           claudeAgent: settings.customClaudeModels,
           copilot: settings.customCopilotModels,
           openclaw: settings.customOpenClawModels,
+          gemini: settings.customGeminiModels,
         },
         nextProvider === "openclaw" ? "default" : null,
       ),

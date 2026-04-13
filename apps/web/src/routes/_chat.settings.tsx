@@ -384,6 +384,12 @@ const PROVIDER_AUTH_GUIDES: Record<
     verifyCmd: "claude auth status",
     note: "Claude Code must be installed and configured with an Anthropic API key or auth token before it appears in the thread picker. Use Environment to add a Claude auth token in one click, or configure a helper command in the Claude install panel.",
   },
+  gemini: {
+    installCmd: "npm install -g @google/gemini-cli",
+    authCmd: "set GEMINI_API_KEY or GOOGLE_API_KEY",
+    verifyCmd: "gemini --version",
+    note: "Gemini CLI appears in the thread picker when the binary is installed and headless auth is available or locally cached.",
+  },
   openclaw: {
     verifyCmd: "Test Connection",
     note: "OpenClaw uses the gateway URL and shared secret below rather than a local CLI login. Shared-secret auth usually works without device pairing and is the recommended default for Tailscale and remote gateways.",
@@ -821,6 +827,7 @@ function SettingsRouteView() {
   const [openInstallProviders, setOpenInstallProviders] = useState<Record<ProviderKind, boolean>>({
     codex: Boolean(settings.codexBinaryPath || settings.codexHomePath),
     claudeAgent: Boolean(settings.claudeBinaryPath || settings.claudeAuthTokenHelperCommand),
+    gemini: false,
     openclaw: Boolean(settings.openclawGatewayUrl || settings.openclawPassword),
     copilot: Boolean(settings.copilotBinaryPath || settings.copilotConfigDir),
   });
@@ -831,6 +838,7 @@ function SettingsRouteView() {
   >({
     codex: "",
     claudeAgent: "",
+    gemini: "",
     openclaw: "",
     copilot: "",
   });
@@ -1311,6 +1319,7 @@ function SettingsRouteView() {
     setOpenInstallProviders({
       codex: false,
       claudeAgent: false,
+      gemini: false,
       openclaw: false,
       copilot: false,
     });
@@ -1318,6 +1327,7 @@ function SettingsRouteView() {
     setCustomModelInputByProvider({
       codex: "",
       claudeAgent: "",
+      gemini: "",
       openclaw: "",
       copilot: "",
     });
@@ -2641,6 +2651,7 @@ function SettingsRouteView() {
                               setOpenInstallProviders({
                                 codex: false,
                                 claudeAgent: false,
+                                gemini: false,
                                 openclaw: false,
                                 copilot: false,
                               });

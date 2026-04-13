@@ -1,5 +1,6 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { Effect, FileSystem, Layer, Path } from "effect";
+import { ChildProcessSpawner } from "effect/unstable/process";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 
 import { CheckpointDiffQueryLive } from "./checkpointing/Layers/CheckpointDiffQuery";
@@ -22,6 +23,7 @@ import { ProviderUnsupportedError } from "./provider/Errors";
 import { makeClaudeAdapterLive } from "./provider/Layers/ClaudeAdapter";
 import { makeCopilotAdapterLive } from "./provider/Layers/CopilotAdapter";
 import { makeCodexAdapterLive } from "./provider/Layers/CodexAdapter";
+import { GeminiAdapterLive } from "./provider/Layers/GeminiAdapter";
 import { makeOpenClawAdapterLive } from "./provider/Layers/OpenClawAdapter";
 import { ProviderHealthLive } from "./provider/Layers/ProviderHealth";
 import { ProviderAdapterRegistryLive } from "./provider/Layers/ProviderAdapterRegistry";
@@ -73,7 +75,11 @@ const makeRuntimePtyAdapterLayer = () =>
 export function makeServerProviderLayer(): Layer.Layer<
   ProviderService,
   ProviderUnsupportedError,
-  SqlClient.SqlClient | ServerConfig | FileSystem.FileSystem | ProviderRuntimeEventFeed
+  | SqlClient.SqlClient
+  | ServerConfig
+  | FileSystem.FileSystem
+  | ProviderRuntimeEventFeed
+  | ChildProcessSpawner.ChildProcessSpawner
 > {
   return Effect.gen(function* () {
     const { providerEventLogPath } = yield* ServerConfig;
@@ -108,11 +114,13 @@ export function makeServerProviderLayer(): Layer.Layer<
     const copilotAdapterLayer = makeCopilotAdapterLive(
       nativeEventLogger ? { nativeEventLogger } : undefined,
     );
+    const geminiAdapterLayer = GeminiAdapterLive;
     const adapterRegistryLayer = ProviderAdapterRegistryLive.pipe(
       Layer.provide(codexAdapterLayer),
       Layer.provide(claudeAdapterLayer),
       Layer.provide(openclawAdapterLayer),
       Layer.provide(copilotAdapterLayer),
+      Layer.provide(geminiAdapterLayer),
       Layer.provideMerge(providerSessionDirectoryLayer),
     );
     return makeProviderServiceLive(

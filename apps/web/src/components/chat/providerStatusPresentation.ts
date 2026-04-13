@@ -8,6 +8,7 @@ const PROVIDER_LABELS = {
   claudeAgent: "Claude Code",
   openclaw: "OpenClaw",
   copilot: "GitHub Copilot",
+  gemini: "Gemini CLI",
 } as const;
 
 export function getProviderLabel(provider: ServerProviderStatus["provider"]): string {
@@ -15,10 +16,11 @@ export function getProviderLabel(provider: ServerProviderStatus["provider"]): st
 }
 
 export function getProviderSetupPhase(status: ServerProviderStatus): ProviderSetupPhase {
+  const authStatus = status.authStatus ?? status.auth?.status;
   if (!status.available) {
     return "install";
   }
-  if (status.authStatus === "unauthenticated") {
+  if (authStatus === "unauthenticated") {
     return "authenticate";
   }
   if (status.status === "ready") {

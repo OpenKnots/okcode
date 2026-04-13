@@ -371,6 +371,7 @@ const makeProjectionThreadDetailQuery = Effect.gen(function* () {
             projectId: threadRow.value.projectId,
             title: threadRow.value.title,
             model: threadRow.value.model,
+            modelSelection: threadRow.value.modelSelection,
             runtimeMode: threadRow.value.runtimeMode,
             interactionMode: threadRow.value.interactionMode,
             branch: threadRow.value.branch,

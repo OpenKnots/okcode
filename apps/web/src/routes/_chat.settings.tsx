@@ -696,7 +696,7 @@ function SettingsRouteView() {
   const canImportLegacyOpenclawSettings =
     openclawGatewayConfigQuery.isSuccess &&
     !savedOpenclawGatewayUrl &&
-    Boolean(settings.openclawGatewayUrl || settings.openclawPassword);
+    Boolean(settings.openclawGatewayUrl?.trim());
   const changedSettingLabels = [
     ...(theme !== "system" ? ["Theme"] : []),
     ...(colorTheme !== DEFAULT_COLOR_THEME ? ["Color theme"] : []),

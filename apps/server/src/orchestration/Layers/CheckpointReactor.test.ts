@@ -99,6 +99,7 @@ function createProviderServiceHarness(
 
   return {
     service,
+    emit: (event: LegacyProviderRuntimeEvent) => event,
     rollbackConversation,
   };
 }

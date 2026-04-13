@@ -318,7 +318,15 @@ export function projectEvent(
             ...(payload.model !== undefined ? { model: payload.model } : {}),
             ...(payload.modelSelection !== undefined
               ? { modelSelection: payload.modelSelection }
-              : {}),
+              : payload.model !== undefined
+                ? {
+                    modelSelection: toCanonicalModelSelection(
+                      inferProviderForModel(payload.model),
+                      payload.model,
+                      undefined,
+                    ),
+                  }
+                : {}),
             ...(payload.branch !== undefined ? { branch: payload.branch } : {}),
             ...(payload.worktreePath !== undefined ? { worktreePath: payload.worktreePath } : {}),
             ...(payload.githubRef !== undefined ? { githubRef: payload.githubRef } : {}),

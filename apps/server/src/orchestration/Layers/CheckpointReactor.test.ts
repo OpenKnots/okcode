@@ -332,10 +332,12 @@ describe("CheckpointReactor", () => {
 
     return {
       engine,
-      provider,
+      provider: {
+        ...provider,
+        emit: (event: LegacyProviderRuntimeEvent) =>
+          Effect.runSync(eventFeed.publish(event as unknown as ProviderRuntimeEvent)),
+      },
       cwd,
-      emit: (event: LegacyProviderRuntimeEvent) =>
-        Effect.runSync(eventFeed.publish(event as unknown as ProviderRuntimeEvent)),
       drain,
     };
   }

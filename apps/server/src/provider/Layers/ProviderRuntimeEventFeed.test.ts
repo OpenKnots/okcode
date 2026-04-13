@@ -28,7 +28,7 @@ describe("ProviderRuntimeEventFeedLive", () => {
 
       const events = yield* Stream.take(feed.subscribeWithReplay(), 3).pipe(
         Stream.runCollect,
-        Effect.forkChild,
+        Effect.forkScoped,
       );
 
       yield* feed.publish(makeTurnStartedEvent("evt-3"));

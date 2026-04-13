@@ -340,6 +340,13 @@ const makeCopilotAdapter = (options?: CopilotAdapterLiveOptions) =>
     const runtimeEventQueue = yield* Queue.unbounded<ProviderRuntimeEvent>();
     const sessions = new Map<ThreadId, CopilotSessionContext>();
 
+    yield* Effect.addFinalizer(() =>
+      Effect.forEach(
+        Array.from(sessions.keys()),
+        (threadId) => stopSession(threadId).pipe(Effect.catchAll(() => Effect.void)),
+        { discard: true },
+      ).pipe(Effect.ensuring(Queue.shutdown(runtimeEventQueue))),
+    );
     const emitEvent = (event: ProviderRuntimeEvent) =>
       Queue.offer(runtimeEventQueue, event).pipe(
         Effect.tap(() =>

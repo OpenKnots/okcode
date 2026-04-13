@@ -63,6 +63,66 @@
   --warning-foreground: #f1a10d;
 }
 
+/* ─── Solar Witch ─── mystical, radiant, high-contrast sunset magic ─── */
+
+:root.theme-solar-witch {
+  color-scheme: light;
+  --background: #fff7ed;
+  --foreground: #3b0764;
+  --card: #ffedd5;
+  --card-foreground: #3b0764;
+  --popover: #fff7ed;
+  --popover-foreground: #3b0764;
+  --primary: oklch(0.68 0.23 35);
+  --primary-foreground: #ffffff;
+  --secondary: rgba(251, 146, 60, 0.12);
+  --secondary-foreground: #7c2d12;
+  --muted: rgba(245, 158, 11, 0.12);
+  --muted-foreground: #9a3412;
+  --accent: rgba(236, 72, 153, 0.12);
+  --accent-foreground: #831843;
+  --destructive: #dc2626;
+  --destructive-foreground: #b91c1c;
+  --border: rgba(234, 88, 12, 0.18);
+  --input: rgba(234, 88, 12, 0.14);
+  --ring: oklch(0.68 0.23 35);
+  --info: #7c3aed;
+  --info-foreground: #6d28d9;
+  --success: #16a34a;
+  --success-foreground: #15803d;
+  --warning: #f59e0b;
+  --warning-foreground: #b45309;
+}
+
+:root.theme-solar-witch.dark {
+  color-scheme: dark;
+  --background: #140b1f;
+  --foreground: #f8e8ff;
+  --card: #1f102b;
+  --card-foreground: #f8e8ff;
+  --popover: #1f102b;
+  --popover-foreground: #f8e8ff;
+  --primary: oklch(0.74 0.21 55);
+  --primary-foreground: #1a1022;
+  --secondary: rgba(251, 146, 60, 0.12);
+  --secondary-foreground: #ffd7a3;
+  --muted: rgba(236, 72, 153, 0.1);
+  --muted-foreground: #d8b4fe;
+  --accent: rgba(168, 85, 247, 0.14);
+  --accent-foreground: #f3e8ff;
+  --destructive: #fb7185;
+  --destructive-foreground: #fda4af;
+  --border: rgba(251, 146, 60, 0.14);
+  --input: rgba(251, 146, 60, 0.18);
+  --ring: oklch(0.74 0.21 55);
+  --info: #a78bfa;
+  --info-foreground: #c4b5fd;
+  --success: #4ade80;
+  --success-foreground: #86efac;
+  --warning: #fbbf24;
+  --warning-foreground: #fcd34d;
+}
+
 /* ─── Carbon ─── stark, modern, performance-focused (Vercel-inspired) ─── */
 
 :root.theme-carbon {

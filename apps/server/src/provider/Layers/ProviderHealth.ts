@@ -615,9 +615,30 @@ const checkOpenClawProviderStatus: Effect.Effect<
 > = Effect.gen(function* () {
   const checkedAt = new Date().toISOString();
   const gatewayConfig = yield* OpenclawGatewayConfig;
-  const resolvedConfig = yield* gatewayConfig
-    .resolveForConnect()
-    .pipe(Effect.orElseSucceed(() => null));
+  const resolvedConfigResult = yield* gatewayConfig.resolveForConnect().pipe(
+    Effect.match({
+      onSuccess: (resolvedConfig) => ({ ok: true as const, resolvedConfig }),
+      onFailure: (cause) => ({ ok: false as const, cause }),
+    }),
+  );
+
+  if (!resolvedConfigResult.ok) {
+    const reason =
+      resolvedConfigResult.cause instanceof Error
+        ? resolvedConfigResult.cause.message
+        : String(resolvedConfigResult.cause);
+
+    return {
+      provider: OPENCLAW_PROVIDER,
+      status: "error" as const,
+      available: false,
+      authStatus: "unknown" as const,
+      checkedAt,
+      message: `OpenClaw gateway configuration could not be read. ${reason}`,
+    } satisfies ServerProviderStatus;
+  }
+
+  const resolvedConfig = resolvedConfigResult.resolvedConfig;
 
   if (!resolvedConfig) {
     return {

@@ -694,7 +694,9 @@ function SettingsRouteView() {
     (openclawGatewayDraft !== null && openclawGatewayDraft !== savedOpenclawGatewayUrl) ||
     openclawSharedSecretDraft.length > 0;
   const canImportLegacyOpenclawSettings =
-    !savedOpenclawGatewayUrl && Boolean(settings.openclawGatewayUrl || settings.openclawPassword);
+    openclawGatewayConfigQuery.isSuccess &&
+    !savedOpenclawGatewayUrl &&
+    Boolean(settings.openclawGatewayUrl || settings.openclawPassword);
   const changedSettingLabels = [
     ...(theme !== "system" ? ["Theme"] : []),
     ...(colorTheme !== DEFAULT_COLOR_THEME ? ["Color theme"] : []),

@@ -11,6 +11,10 @@ import type {
 } from "@okcode/contracts";
 import NodeWebSocket from "ws";
 import { serverBuildInfo } from "./buildInfo.ts";
+import {
+  generateOpenclawDeviceIdentity,
+  signOpenclawDeviceChallenge,
+} from "./openclaw/deviceAuth.ts";
 
 const OPENCLAW_TEST_CONNECT_TIMEOUT_MS = 10_000;
 const OPENCLAW_TEST_RPC_TIMEOUT_MS = 10_000;
@@ -578,6 +582,7 @@ export async function runOpenclawGatewayTest(
   };
 
   let parsedUrlForHints: URL | null = null;
+  const testDeviceIdentity = generateOpenclawDeviceIdentity();
 
   const waitForGatewayEvent = (
     socket: NodeWebSocket,
@@ -783,29 +788,51 @@ export async function runOpenclawGatewayTest(
       }
     });
 
-  const buildConnectParams = (sharedSecret: string | undefined): Record<string, unknown> => ({
-    minProtocol: OPENCLAW_PROTOCOL_VERSION,
-    maxProtocol: OPENCLAW_PROTOCOL_VERSION,
-    client: {
-      id: "okcode",
-      version: serverBuildInfo.version,
-      platform:
-        process.platform === "darwin"
-          ? "macos"
-          : process.platform === "win32"
-            ? "windows"
-            : process.platform,
-      mode: "operator",
-    },
-    role: "operator",
-    scopes: [...OPENCLAW_OPERATOR_SCOPES],
-    caps: [],
-    commands: [],
-    permissions: {},
-    locale: Intl.DateTimeFormat().resolvedOptions().locale || "en-US",
-    userAgent: `okcode/${serverBuildInfo.version}`,
-    ...(sharedSecret ? { auth: { password: sharedSecret } } : {}),
-  });
+  const buildConnectParams = (
+    sharedSecret: string | undefined,
+    challenge: Record<string, unknown> | undefined,
+  ): Record<string, unknown> => {
+    const nonce =
+      typeof challenge?.nonce === "string" && challenge.nonce.length > 0 ? challenge.nonce : "";
+    const signedAt =
+      typeof challenge?.ts === "number" && Number.isFinite(challenge.ts)
+        ? challenge.ts
+        : Date.now();
+    const authToken = sharedSecret ?? "";
+    const signedDevice = signOpenclawDeviceChallenge(testDeviceIdentity, {
+      clientId: "okcode",
+      clientMode: "operator",
+      role: "operator",
+      scopes: [...OPENCLAW_OPERATOR_SCOPES],
+      token: authToken,
+      nonce,
+      signedAt,
+    });
+    return {
+      minProtocol: OPENCLAW_PROTOCOL_VERSION,
+      maxProtocol: OPENCLAW_PROTOCOL_VERSION,
+      client: {
+        id: "okcode",
+        version: serverBuildInfo.version,
+        platform:
+          process.platform === "darwin"
+            ? "macos"
+            : process.platform === "win32"
+              ? "windows"
+              : process.platform,
+        mode: "operator",
+      },
+      role: "operator",
+      scopes: [...OPENCLAW_OPERATOR_SCOPES],
+      caps: [],
+      commands: [],
+      permissions: {},
+      locale: Intl.DateTimeFormat().resolvedOptions().locale || "en-US",
+      userAgent: `okcode/${serverBuildInfo.version}`,
+      ...(authToken.length > 0 ? { auth: { token: authToken } } : {}),
+      device: signedDevice,
+    };
+  };
 
   try {
     const urlStart = Date.now();
@@ -907,13 +934,13 @@ export async function runOpenclawGatewayTest(
 
     const handshakeStart = Date.now();
     try {
-      await waitForGatewayEvent(ws, "connect.challenge");
+      const challenge = await waitForGatewayEvent(ws, "connect.challenge");
       captureEarlyGatewayEvents = false;
       earlyGatewayEvents.length = 0;
       const connectResult = await sendGatewayRequest(
         ws,
         "connect",
-        buildConnectParams(sharedSecret),
+        buildConnectParams(sharedSecret, challenge),
       );
       if (connectResult.error) {
         const detail = formatGatewayError(connectResult.error);

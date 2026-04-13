@@ -31,6 +31,8 @@ export function getAllowedSmeAuthMethods(provider: ProviderKind): readonly SmeAu
       return ["auto"];
     case "codex":
       return ["auto", "chatgpt", "apiKey", "customProvider"];
+    case "gemini":
+      return ["auto", "apiKey"];
     case "openclaw":
       return ["auto", "password", "none"];
   }
@@ -44,6 +46,8 @@ export function getDefaultSmeAuthMethod(provider: ProviderKind): SmeAuthMethod {
       return "auto";
     case "codex":
       return "chatgpt";
+    case "gemini":
+      return "apiKey";
     case "openclaw":
       return "password";
   }

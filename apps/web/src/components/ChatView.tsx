@@ -4,6 +4,7 @@ import {
   DEFAULT_MODEL_BY_PROVIDER,
   type ClaudeCodeEffort,
   type MessageId,
+  type ModelSelection,
   type ProjectScript,
   type ModelSlug,
   type ProviderKind,
@@ -22,12 +23,8 @@ import {
   ProviderInteractionMode,
   RuntimeMode,
 } from "@okcode/contracts";
-import {
-  applyClaudePromptEffortPrefix,
-  getDefaultModel,
-  normalizeModelSlug,
-  resolveModelSlugForProvider,
-} from "@okcode/shared/model";
+import { applyClaudePromptEffortPrefix, getDefaultModel } from "@okcode/shared/model";
+import { getModelSelectionModel, getModelSelectionOptions } from "@okcode/shared/modelSelection";
 import {
   Suspense,
   lazy,
@@ -162,13 +159,7 @@ import {
 import { type ProjectScriptDraft, materializeProjectScripts } from "~/projectScriptDefaults";
 import { newCommandId, newMessageId, newThreadId } from "~/lib/utils";
 import { readNativeApi } from "~/nativeApi";
-import {
-  getCustomModelOptionsByProvider,
-  getCustomModelsByProvider,
-  getProviderStartOptions,
-  resolveAppModelSelection,
-  useAppSettings,
-} from "../appSettings";
+import { getCustomModelsByProvider, getProviderStartOptions, useAppSettings } from "../appSettings";
 import { isTerminalFocused } from "../lib/terminalFocus";
 import {
   type ComposerAttachment,
@@ -238,6 +229,8 @@ import { usePreviewStateStore } from "~/previewStateStore";
 import { useClientMode } from "~/hooks/useClientMode";
 import { useTransportState } from "~/hooks/useTransportState";
 import { hasCustomThreadTitle, normalizeThreadTitle } from "~/threadTitle";
+import { resolveLiveModelSelection } from "~/modelSelection";
+import { getProviderModelOptionsByProvider } from "~/providerModels";
 import { enhancePrompt, type PromptEnhancementId } from "../promptEnhancement";
 
 function preloadThreadTerminalDrawer() {
@@ -889,19 +882,50 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
       preferredProvider: selectedProviderByThreadId,
       selectableProviders,
     });
-  const baseThreadModel = resolveModelSlugForProvider(
-    selectedProvider,
-    activeThread?.model ?? activeProject?.model ?? getDefaultModel(selectedProvider),
-  );
   const customModelsByProvider = useMemo(() => getCustomModelsByProvider(settings), [settings]);
-  const selectedModel = useMemo(() => {
-    const draftModel = composerDraft.model;
-    if (!draftModel) {
-      return baseThreadModel;
-    }
-    return resolveAppModelSelection(selectedProvider, customModelsByProvider, draftModel);
-  }, [baseThreadModel, composerDraft.model, customModelsByProvider, selectedProvider]);
-  const draftModelOptions = composerDraft.modelOptions;
+  const providerModelsByProvider = useMemo(
+    () =>
+      getProviderModelOptionsByProvider({
+        providers: providerStatuses,
+        customModelsByProvider,
+      }),
+    [customModelsByProvider, providerStatuses],
+  );
+  const baseModelSelection =
+    activeThread?.modelSelection ?? activeProject?.defaultModelSelection ?? null;
+  const baseThreadModel =
+    (baseModelSelection ? getModelSelectionModel(baseModelSelection) : null) ??
+    activeThread?.model ??
+    activeProject?.model ??
+    getDefaultModel(selectedProvider);
+  const draftModelOptions =
+    composerDraft.modelOptions ??
+    (baseModelSelection ? getModelSelectionOptions(baseModelSelection) : null);
+  const selectedModelSelection = useMemo(
+    () =>
+      resolveLiveModelSelection({
+        providerModelsByProvider,
+        fallbackProvider: selectedProvider,
+        preferredModelSelection:
+          composerDraft.provider || composerDraft.model || composerDraft.modelOptions
+            ? null
+            : baseModelSelection,
+        provider: selectedProvider,
+        model: composerDraft.model ?? baseThreadModel,
+        modelOptions: draftModelOptions,
+      }),
+    [
+      baseModelSelection,
+      baseThreadModel,
+      composerDraft.model,
+      composerDraft.modelOptions,
+      composerDraft.provider,
+      draftModelOptions,
+      providerModelsByProvider,
+      selectedProvider,
+    ],
+  );
+  const selectedModel = getModelSelectionModel(selectedModelSelection);
   const composerProviderState = useMemo(
     () =>
       getComposerProviderState({
@@ -914,22 +938,26 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
   );
   const selectedPromptEffort = composerProviderState.promptEffort;
   const selectedModelOptionsForDispatch = composerProviderState.modelOptionsForDispatch;
-  const providerOptionsForDispatch = useMemo(() => getProviderStartOptions(settings), [settings]);
-  const selectedModelForPicker = selectedModel;
-  const modelOptionsByProvider = useMemo(
-    () => getCustomModelOptionsByProvider(settings),
-    [settings],
+  const selectedModelSelectionForDispatch = useMemo(
+    () =>
+      resolveLiveModelSelection({
+        providerModelsByProvider,
+        fallbackProvider: selectedProvider,
+        preferredModelSelection: selectedModelSelection,
+        modelOptions: selectedModelOptionsForDispatch,
+      }),
+    [
+      providerModelsByProvider,
+      selectedModelOptionsForDispatch,
+      selectedModelSelection,
+      selectedProvider,
+    ],
   );
-  const selectedModelForPickerWithCustomFallback = useMemo(() => {
-    const currentOptions = modelOptionsByProvider[selectedProvider];
-    return currentOptions.some((option) => option.slug === selectedModelForPicker)
-      ? selectedModelForPicker
-      : (normalizeModelSlug(selectedModelForPicker, selectedProvider) ?? selectedModelForPicker);
-  }, [modelOptionsByProvider, selectedModelForPicker, selectedProvider]);
+  const providerOptionsForDispatch = useMemo(() => getProviderStartOptions(settings), [settings]);
   const searchableModelOptions = useMemo(
     () =>
       (lockedProvider !== null ? [lockedProvider] : selectableProviders).flatMap((provider) =>
-        modelOptionsByProvider[provider].map(({ slug, name }) => ({
+        providerModelsByProvider[provider].map(({ slug, name }) => ({
           provider,
           providerLabel: getThreadProviderLabel(provider),
           slug,
@@ -939,7 +967,7 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
           searchProvider: getThreadProviderLabel(provider).toLowerCase(),
         })),
       ),
-    [lockedProvider, modelOptionsByProvider, selectableProviders],
+    [lockedProvider, providerModelsByProvider, selectableProviders],
   );
   const phase = derivePhase(activeThread?.session ?? null);
   const isSendBusy = sendPhase !== "idle";
@@ -2224,7 +2252,7 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
     async (input: {
       threadId: ThreadId;
       createdAt: string;
-      model?: string;
+      modelSelection?: ModelSelection;
       runtimeMode: RuntimeMode;
       interactionMode: ProviderInteractionMode;
     }) => {
@@ -2236,12 +2264,15 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
         return;
       }
 
-      if (input.model !== undefined && input.model !== serverThread.model) {
+      if (
+        input.modelSelection !== undefined &&
+        JSON.stringify(input.modelSelection) !== JSON.stringify(serverThread.modelSelection ?? null)
+      ) {
         await api.orchestration.dispatchCommand({
           type: "thread.meta.update",
           commandId: newCommandId(),
           threadId: input.threadId,
-          model: input.model,
+          modelSelection: input.modelSelection,
         });
       }
 
@@ -2486,7 +2517,7 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
     queuedMessages.length,
     runtimeMode,
     scheduleStickToBottom,
-    selectedModelForPickerWithCustomFallback,
+    selectedModel,
     selectedProvider,
     sidebarProposedPlan,
   ]);
@@ -2829,7 +2860,7 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
       await persistThreadSettingsForNextTurn({
         threadId: threadIdForSend,
         createdAt: messageCreatedAt,
-        ...(selectedModel ? { model: selectedModel } : {}),
+        modelSelection: selectedModelSelectionForDispatch,
         runtimeMode,
         interactionMode,
       });
@@ -2853,12 +2884,8 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
           attachments: turnAttachments,
         },
         ...(nextQueued.providerInput ? { providerInput: nextQueued.providerInput } : {}),
-        model: selectedModel || undefined,
-        ...(selectedModelOptionsForDispatch
-          ? { modelOptions: selectedModelOptionsForDispatch }
-          : {}),
+        modelSelection: selectedModelSelectionForDispatch,
         ...(providerOptionsForDispatch ? { providerOptions: providerOptionsForDispatch } : {}),
-        provider: selectedProvider,
         assistantDeliveryMode: settings.enableAssistantStreaming ? "streaming" : "buffered",
         runtimeMode,
         interactionMode,
@@ -3669,8 +3696,7 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
         }
         title = truncateTitle(titleSeed);
       }
-      let threadCreateModel: ModelSlug =
-        selectedModel || (activeProject.model as ModelSlug) || DEFAULT_MODEL_BY_PROVIDER.codex;
+      const threadCreateModelSelection = selectedModelSelectionForDispatch;
 
       if (isLocalDraftThread) {
         await api.orchestration.dispatchCommand({
@@ -3679,7 +3705,8 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
           threadId: threadIdForSend,
           projectId: activeProject.id,
           title,
-          model: threadCreateModel,
+          model: selectedModel,
+          modelSelection: threadCreateModelSelection,
           runtimeMode,
           interactionMode,
           branch: nextThreadBranch,
@@ -3728,7 +3755,7 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
         await persistThreadSettingsForNextTurn({
           threadId: threadIdForSend,
           createdAt: messageCreatedAt,
-          ...(selectedModel ? { model: selectedModel } : {}),
+          modelSelection: selectedModelSelectionForDispatch,
           runtimeMode,
           interactionMode,
         });
@@ -3747,12 +3774,8 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
           attachments: turnAttachments,
         },
         ...(hiddenProviderInput ? { providerInput: hiddenProviderInput } : {}),
-        model: selectedModel || undefined,
-        ...(selectedModelOptionsForDispatch
-          ? { modelOptions: selectedModelOptionsForDispatch }
-          : {}),
+        modelSelection: selectedModelSelectionForDispatch,
         ...(providerOptionsForDispatch ? { providerOptions: providerOptionsForDispatch } : {}),
-        provider: selectedProvider,
         assistantDeliveryMode: settings.enableAssistantStreaming ? "streaming" : "buffered",
         runtimeMode,
         interactionMode,
@@ -4054,7 +4077,7 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
         await persistThreadSettingsForNextTurn({
           threadId: threadIdForSend,
           createdAt: messageCreatedAt,
-          ...(selectedModel ? { model: selectedModel } : {}),
+          modelSelection: selectedModelSelectionForDispatch,
           runtimeMode,
           interactionMode: nextInteractionMode,
         });
@@ -4073,11 +4096,7 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
             text: outgoingMessageText,
             attachments: [],
           },
-          provider: selectedProvider,
-          model: selectedModel || undefined,
-          ...(selectedModelOptionsForDispatch
-            ? { modelOptions: selectedModelOptionsForDispatch }
-            : {}),
+          modelSelection: selectedModelSelectionForDispatch,
           ...(providerOptionsForDispatch ? { providerOptions: providerOptionsForDispatch } : {}),
           assistantDeliveryMode: settings.enableAssistantStreaming ? "streaming" : "buffered",
           runtimeMode,
@@ -4125,10 +4144,9 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
       resetSendPhase,
       runtimeMode,
       selectedPromptEffort,
-      selectedModel,
-      selectedModelOptionsForDispatch,
-      providerOptionsForDispatch,
       selectedProvider,
+      selectedModelSelectionForDispatch,
+      providerOptionsForDispatch,
       setComposerDraftInteractionMode,
       setThreadError,
       settings.enableAssistantStreaming,
@@ -4161,11 +4179,7 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
       text: implementationPrompt,
     });
     const nextThreadTitle = truncateTitle(buildPlanImplementationThreadTitle(planMarkdown));
-    const nextThreadModel: ModelSlug =
-      selectedModel ||
-      (activeThread.model as ModelSlug) ||
-      (activeProject.model as ModelSlug) ||
-      DEFAULT_MODEL_BY_PROVIDER.codex;
+    const nextThreadModelSelection = selectedModelSelectionForDispatch;
 
     sendInFlightRef.current = true;
     beginSendPhase("sending-turn");
@@ -4181,7 +4195,8 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
         threadId: nextThreadId,
         projectId: activeProject.id,
         title: nextThreadTitle,
-        model: nextThreadModel,
+        model: selectedModel,
+        modelSelection: nextThreadModelSelection,
         runtimeMode,
         interactionMode: "code",
         branch: activeThread.branch,
@@ -4199,11 +4214,7 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
             text: outgoingImplementationPrompt,
             attachments: [],
           },
-          provider: selectedProvider,
-          model: selectedModel || undefined,
-          ...(selectedModelOptionsForDispatch
-            ? { modelOptions: selectedModelOptionsForDispatch }
-            : {}),
+          modelSelection: selectedModelSelectionForDispatch,
           ...(providerOptionsForDispatch ? { providerOptions: providerOptionsForDispatch } : {}),
           assistantDeliveryMode: settings.enableAssistantStreaming ? "streaming" : "buffered",
           runtimeMode,
@@ -4256,10 +4267,10 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
     resetSendPhase,
     runtimeMode,
     selectedPromptEffort,
-    selectedModel,
-    selectedModelOptionsForDispatch,
-    providerOptionsForDispatch,
     selectedProvider,
+    selectedModel,
+    selectedModelSelectionForDispatch,
+    providerOptionsForDispatch,
     settings.enableAssistantStreaming,
     syncServerReadModel,
   ]);
@@ -4271,10 +4282,9 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
         scheduleComposerFocus();
         return;
       }
-      const resolvedModel = resolveAppModelSelection(provider, customModelsByProvider, model);
       setComposerDraftProvider(activeThread.id, provider);
-      setComposerDraftModel(activeThread.id, resolvedModel);
-      setStickyComposerModel(resolvedModel);
+      setComposerDraftModel(activeThread.id, model);
+      setStickyComposerModel(model);
       scheduleComposerFocus();
     },
     [
@@ -4284,7 +4294,6 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
       setComposerDraftModel,
       setComposerDraftProvider,
       setStickyComposerModel,
-      customModelsByProvider,
     ],
   );
   const setPromptFromTraits = useCallback(
@@ -5334,10 +5343,14 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
                           <ProviderModelPicker
                             compact={isComposerFooterCompact}
                             provider={selectedProvider}
-                            model={selectedModelForPickerWithCustomFallback}
+                            model={selectedModel}
                             lockedProvider={lockedProvider}
-                            availableProviders={selectableProviders}
-                            modelOptionsByProvider={modelOptionsByProvider}
+                            providers={providerStatuses.filter((provider) =>
+                              (lockedProvider !== null
+                                ? [lockedProvider]
+                                : selectableProviders
+                              ).includes(provider.provider),
+                            )}
                             {...(composerProviderState.modelPickerIconClassName
                               ? {
                                   activeProviderIconClassName:

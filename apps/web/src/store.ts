@@ -11,6 +11,7 @@ import {
   resolveModelSlug,
   resolveModelSlugForProvider,
 } from "@okcode/shared/model";
+import { getModelSelectionModel, getModelSelectionProvider } from "@okcode/shared/modelSelection";
 import { create } from "zustand";
 import { type ChatMessage, type Project, type Thread } from "./types";
 import { Debouncer } from "@tanstack/react-pacer";
@@ -187,7 +188,12 @@ function mapProjectsFromReadModel(
       cwd: project.workspaceRoot,
       model:
         existing?.model ??
-        resolveModelSlug(project.defaultModel ?? DEFAULT_MODEL_BY_PROVIDER.codex),
+        resolveModelSlug(
+          project.defaultModelSelection
+            ? getModelSelectionModel(project.defaultModelSelection)
+            : (project.defaultModel ?? DEFAULT_MODEL_BY_PROVIDER.codex),
+        ),
+      defaultModelSelection: project.defaultModelSelection ?? null,
       expanded: resolveProjectExpandedState({
         existingExpanded: existing?.expanded,
         persistedExpanded: persistedProjectExpansionByCwd.get(project.workspaceRoot),
@@ -296,12 +302,15 @@ export function syncServerReadModel(state: AppState, readModel: OrchestrationRea
         projectId: thread.projectId,
         title: thread.title,
         model: resolveModelSlugForProvider(
-          inferProviderForThreadModel({
-            model: thread.model,
-            sessionProviderName: thread.session?.providerName ?? null,
-          }),
-          thread.model,
+          thread.modelSelection
+            ? getModelSelectionProvider(thread.modelSelection)
+            : inferProviderForThreadModel({
+                model: thread.model,
+                sessionProviderName: thread.session?.providerName ?? null,
+              }),
+          thread.modelSelection ? getModelSelectionModel(thread.modelSelection) : thread.model,
         ),
+        modelSelection: thread.modelSelection ?? null,
         runtimeMode: thread.runtimeMode,
         interactionMode: thread.interactionMode,
         session: thread.session

@@ -9,6 +9,7 @@ import {
 } from "./keybindings";
 import { EditorId } from "./editor";
 import { ProviderKind } from "./orchestration";
+import { ModelCapabilities } from "./model";
 
 const KeybindingsMalformedConfigIssue = Schema.Struct({
   kind: Schema.Literal("keybindings.malformed-config"),
@@ -39,17 +40,40 @@ export const ServerProviderAuthStatus = Schema.Literals([
 ]);
 export type ServerProviderAuthStatus = typeof ServerProviderAuthStatus.Type;
 
-export const ServerProviderStatus = Schema.Struct({
+export const ServerProviderAuth = Schema.Struct({
+  status: ServerProviderAuthStatus,
+  type: Schema.optional(TrimmedNonEmptyString),
+  label: Schema.optional(TrimmedNonEmptyString),
+});
+export type ServerProviderAuth = typeof ServerProviderAuth.Type;
+
+export const ServerProviderModel = Schema.Struct({
+  slug: TrimmedNonEmptyString,
+  name: TrimmedNonEmptyString,
+  isCustom: Schema.Boolean,
+  capabilities: Schema.NullOr(ModelCapabilities),
+});
+export type ServerProviderModel = typeof ServerProviderModel.Type;
+
+export const ServerProvider = Schema.Struct({
   provider: ProviderKind,
+  enabled: Schema.optional(Schema.Boolean),
+  installed: Schema.optional(Schema.Boolean),
+  version: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
   status: ServerProviderStatusState,
-  available: Schema.Boolean,
-  authStatus: ServerProviderAuthStatus,
+  auth: Schema.optional(ServerProviderAuth),
   checkedAt: IsoDateTime,
   message: Schema.optional(TrimmedNonEmptyString),
+  models: Schema.optional(Schema.Array(ServerProviderModel)),
+  // Compatibility aliases for older web/server code paths during migration.
+  available: Schema.optional(Schema.Boolean),
+  authStatus: Schema.optional(ServerProviderAuthStatus),
 });
-export type ServerProviderStatus = typeof ServerProviderStatus.Type;
+export type ServerProvider = typeof ServerProvider.Type;
+export const ServerProviderStatus = ServerProvider;
+export type ServerProviderStatus = ServerProvider;
 
-const ServerProviderStatuses = Schema.Array(ServerProviderStatus);
+const ServerProviderStatuses = Schema.Array(ServerProvider);
 
 export const ServerConfig = Schema.Struct({
   cwd: TrimmedNonEmptyString,

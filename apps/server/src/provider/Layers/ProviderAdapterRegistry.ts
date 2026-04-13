@@ -8,6 +8,7 @@
  * @module ProviderAdapterRegistryLive
  */
 import { Effect, Layer } from "effect";
+import { Option } from "effect";
 
 import { ProviderUnsupportedError, type ProviderAdapterError } from "../Errors.ts";
 import type { ProviderAdapterShape } from "../Services/ProviderAdapter.ts";
@@ -18,6 +19,7 @@ import {
 import { ClaudeAdapter } from "../Services/ClaudeAdapter.ts";
 import { CopilotAdapter } from "../Services/CopilotAdapter.ts";
 import { CodexAdapter } from "../Services/CodexAdapter.ts";
+import { GeminiAdapter } from "../Services/GeminiAdapter.ts";
 import { OpenClawAdapter } from "../Services/OpenClawAdapter.ts";
 
 export interface ProviderAdapterRegistryLiveOptions {
@@ -26,6 +28,7 @@ export interface ProviderAdapterRegistryLiveOptions {
 
 const makeProviderAdapterRegistry = (options?: ProviderAdapterRegistryLiveOptions) =>
   Effect.gen(function* () {
+    const maybeGeminiAdapter = yield* Effect.serviceOption(GeminiAdapter);
     const adapters =
       options?.adapters !== undefined
         ? options.adapters
@@ -34,6 +37,7 @@ const makeProviderAdapterRegistry = (options?: ProviderAdapterRegistryLiveOption
             yield* ClaudeAdapter,
             yield* OpenClawAdapter,
             yield* CopilotAdapter,
+            ...(Option.isSome(maybeGeminiAdapter) ? [maybeGeminiAdapter.value] : []),
           ];
     const byProvider = new Map(adapters.map((adapter) => [adapter.provider, adapter]));
 

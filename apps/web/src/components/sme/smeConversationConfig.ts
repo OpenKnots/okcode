@@ -5,6 +5,7 @@ export const SME_PROVIDER_LABELS: Record<ProviderKind, string> = {
   claudeAgent: "Claude Code",
   copilot: "GitHub Copilot",
   openclaw: "OpenClaw",
+  gemini: "Gemini CLI",
 };
 
 export function getDefaultSmeAuthMethod(provider: ProviderKind): SmeAuthMethod {
@@ -17,6 +18,8 @@ export function getDefaultSmeAuthMethod(provider: ProviderKind): SmeAuthMethod {
       return "chatgpt";
     case "openclaw":
       return "password";
+    case "gemini":
+      return "apiKey";
   }
 }
 
@@ -44,6 +47,11 @@ export function getSmeAuthMethodOptions(
         { value: "password", label: "Gateway Shared Secret" },
         { value: "none", label: "Device Token Only" },
         { value: "auto", label: "Auto (prefer shared secret)" },
+      ];
+    case "gemini":
+      return [
+        { value: "apiKey", label: "API Key" },
+        { value: "auto", label: "Auto" },
       ];
   }
 }

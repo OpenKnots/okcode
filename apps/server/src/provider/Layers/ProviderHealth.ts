@@ -10,6 +10,7 @@
 import * as OS from "node:os";
 import { CopilotClient } from "@github/copilot-sdk";
 import type {
+  ServerProvider,
   ServerProviderAuthStatus,
   ServerProviderStatus,
   ServerProviderStatusState,
@@ -25,12 +26,14 @@ import {
   isCodexCliVersionSupported,
   parseCodexCliVersion,
 } from "../codexCliVersion";
+import { withServerProviderModels } from "../providerCatalog.ts";
 import { ProviderHealth, type ProviderHealthShape } from "../Services/ProviderHealth";
 
 const DEFAULT_TIMEOUT_MS = 4_000;
 const CODEX_PROVIDER = "codex" as const;
 const CLAUDE_AGENT_PROVIDER = "claudeAgent" as const;
 const COPILOT_PROVIDER = "copilot" as const;
+const GEMINI_PROVIDER = "gemini" as const;
 
 class OpenClawHealthProbeError extends Data.TaggedError("OpenClawHealthProbeError")<{
   cause: unknown;
@@ -42,6 +45,21 @@ class CopilotHealthProbeError extends Data.TaggedError("CopilotHealthProbeError"
 
 function formatHealthProbeCause(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause);
+}
+
+function createServerProviderStatus(
+  input: Omit<ServerProvider, "models" | "available" | "authStatus">,
+): ServerProviderStatus {
+  return withServerProviderModels({
+    ...input,
+    available: (input.installed ?? false) && (input.enabled ?? true),
+    authStatus: input.auth?.status ?? "unknown",
+  });
+}
+
+function nonEmptyVersion(stdout: string, stderr: string): string | null {
+  const version = nonEmptyTrimmed(stdout) ?? nonEmptyTrimmed(stderr);
+  return version ?? null;
 }
 
 const OPENCLAW_HEALTH_REQUIRED_METHODS = [
@@ -128,6 +146,17 @@ function extractAuthString(value: unknown): string | undefined {
     if (nested !== undefined) return nested;
   }
   return undefined;
+}
+
+function hasGeminiHeadlessAuthEnv(): boolean {
+  if (nonEmptyTrimmed(process.env.GEMINI_API_KEY) || nonEmptyTrimmed(process.env.GOOGLE_API_KEY)) {
+    return true;
+  }
+  return Boolean(
+    nonEmptyTrimmed(process.env.GOOGLE_APPLICATION_CREDENTIALS) &&
+    nonEmptyTrimmed(process.env.GOOGLE_CLOUD_PROJECT) &&
+    nonEmptyTrimmed(process.env.GOOGLE_CLOUD_LOCATION),
+  );
 }
 
 const CLAUDE_CLI_AUTH_METHODS = new Set(["claude.ai", "oauth"]);
@@ -334,6 +363,28 @@ const runClaudeCommand = (args: ReadonlyArray<string>) =>
     return { stdout, stderr, code: exitCode } satisfies CommandResult;
   }).pipe(Effect.scoped);
 
+const runGeminiCommand = (args: ReadonlyArray<string>) =>
+  Effect.gen(function* () {
+    const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+    const command = ChildProcess.make("gemini", [...args], {
+      shell: process.platform === "win32",
+      env: process.env,
+    });
+
+    const child = yield* spawner.spawn(command);
+
+    const [stdout, stderr, exitCode] = yield* Effect.all(
+      [
+        collectStreamAsString(child.stdout),
+        collectStreamAsString(child.stderr),
+        child.exitCode.pipe(Effect.map(Number)),
+      ],
+      { concurrency: "unbounded" },
+    );
+
+    return { stdout, stderr, code: exitCode } satisfies CommandResult;
+  }).pipe(Effect.scoped);
+
 export const checkCopilotProviderStatus: Effect.Effect<ServerProviderStatus, never, never> =
   Effect.gen(function* () {
     const checkedAt = new Date().toISOString();
@@ -346,17 +397,19 @@ export const checkCopilotProviderStatus: Effect.Effect<ServerProviderStatus, nev
 
     if (Result.isFailure(started)) {
       const error = started.failure;
-      return {
+      return createServerProviderStatus({
         provider: COPILOT_PROVIDER,
+        enabled: true,
+        installed: false,
+        version: null,
         status: "error" as const,
-        available: false,
-        authStatus: "unknown" as const,
+        auth: { status: "unknown" as const },
         checkedAt,
         message:
           error instanceof CopilotHealthProbeError
             ? `Failed to start GitHub Copilot CLI: ${formatHealthProbeCause(error.cause)}.`
             : "Failed to start GitHub Copilot CLI.",
-      } satisfies ServerProviderStatus;
+      });
     }
 
     if (Option.isNone(started.success)) {
@@ -366,14 +419,16 @@ export const checkCopilotProviderStatus: Effect.Effect<ServerProviderStatus, nev
           .then(() => undefined)
           .catch(() => undefined),
       );
-      return {
+      return createServerProviderStatus({
         provider: COPILOT_PROVIDER,
+        enabled: true,
+        installed: false,
+        version: null,
         status: "error" as const,
-        available: false,
-        authStatus: "unknown" as const,
+        auth: { status: "unknown" as const },
         checkedAt,
         message: "GitHub Copilot CLI timed out while starting.",
-      } satisfies ServerProviderStatus;
+      });
     }
 
     const authResult = yield* Effect.tryPromise({
@@ -389,44 +444,52 @@ export const checkCopilotProviderStatus: Effect.Effect<ServerProviderStatus, nev
 
     if (Result.isFailure(authResult)) {
       const error = authResult.failure;
-      return {
+      return createServerProviderStatus({
         provider: COPILOT_PROVIDER,
+        enabled: true,
+        installed: true,
+        version: null,
         status: "warning" as const,
-        available: true,
-        authStatus: "unknown" as const,
+        auth: { status: "unknown" as const },
         checkedAt,
         message:
           error instanceof CopilotHealthProbeError
             ? `Could not verify GitHub Copilot authentication status: ${formatHealthProbeCause(error.cause)}.`
             : "Could not verify GitHub Copilot authentication status.",
-      } satisfies ServerProviderStatus;
+      });
     }
 
     if (Option.isNone(authResult.success)) {
-      return {
+      return createServerProviderStatus({
         provider: COPILOT_PROVIDER,
+        enabled: true,
+        installed: true,
+        version: null,
         status: "warning" as const,
-        available: true,
-        authStatus: "unknown" as const,
+        auth: { status: "unknown" as const },
         checkedAt,
         message: "Could not verify GitHub Copilot authentication status. Timed out while checking.",
-      } satisfies ServerProviderStatus;
+      });
     }
 
     const authStatus = authResult.success.value as {
       readonly isAuthenticated: boolean;
       readonly statusMessage?: string;
     };
-    return {
+    return createServerProviderStatus({
       provider: COPILOT_PROVIDER,
+      enabled: true,
+      installed: true,
+      version: null,
       status: authStatus.isAuthenticated ? ("ready" as const) : ("error" as const),
-      available: true,
-      authStatus: authStatus.isAuthenticated
-        ? ("authenticated" as const)
-        : ("unauthenticated" as const),
+      auth: {
+        status: authStatus.isAuthenticated
+          ? ("authenticated" as const)
+          : ("unauthenticated" as const),
+      },
       checkedAt,
       ...(authStatus.statusMessage ? { message: authStatus.statusMessage } : {}),
-    } satisfies ServerProviderStatus;
+    });
   });
 
 // ── Health check ────────────────────────────────────────────────────
@@ -446,54 +509,62 @@ export const checkCodexProviderStatus: Effect.Effect<
 
   if (Result.isFailure(versionProbe)) {
     const error = versionProbe.failure;
-    return {
+    return createServerProviderStatus({
       provider: CODEX_PROVIDER,
+      enabled: true,
+      installed: false,
+      version: null,
       status: "error" as const,
-      available: false,
-      authStatus: "unknown" as const,
+      auth: { status: "unknown" as const },
       checkedAt,
       message: isCommandMissingCause(error)
         ? "Codex CLI (`codex`) is not installed or not on PATH."
         : `Failed to execute Codex CLI health check: ${error instanceof Error ? error.message : String(error)}.`,
-    };
+    });
   }
 
   if (Option.isNone(versionProbe.success)) {
-    return {
+    return createServerProviderStatus({
       provider: CODEX_PROVIDER,
+      enabled: true,
+      installed: false,
+      version: null,
       status: "error" as const,
-      available: false,
-      authStatus: "unknown" as const,
+      auth: { status: "unknown" as const },
       checkedAt,
       message: "Codex CLI is installed but failed to run. Timed out while running command.",
-    };
+    });
   }
 
   const version = versionProbe.success.value;
   if (version.code !== 0) {
     const detail = detailFromResult(version);
-    return {
+    return createServerProviderStatus({
       provider: CODEX_PROVIDER,
+      enabled: true,
+      installed: false,
+      version: nonEmptyVersion(version.stdout, version.stderr),
       status: "error" as const,
-      available: false,
-      authStatus: "unknown" as const,
+      auth: { status: "unknown" as const },
       checkedAt,
       message: detail
         ? `Codex CLI is installed but failed to run. ${detail}`
         : "Codex CLI is installed but failed to run.",
-    };
+    });
   }
 
   const parsedVersion = parseCodexCliVersion(`${version.stdout}\n${version.stderr}`);
   if (parsedVersion && !isCodexCliVersionSupported(parsedVersion)) {
-    return {
+    return createServerProviderStatus({
       provider: CODEX_PROVIDER,
+      enabled: true,
+      installed: true,
+      version: nonEmptyVersion(version.stdout, version.stderr),
       status: "error" as const,
-      available: false,
-      authStatus: "unknown" as const,
+      auth: { status: "unknown" as const },
       checkedAt,
       message: formatCodexCliUpgradeMessage(parsedVersion),
-    };
+    });
   }
 
   // Probe 2: `codex login status` — is the user authenticated?
@@ -503,14 +574,16 @@ export const checkCodexProviderStatus: Effect.Effect<
   // login status` will report "not logged in" even when the CLI works
   // fine.  Skip the auth probe entirely for non-OpenAI providers.
   if (yield* hasCustomModelProvider) {
-    return {
+    return createServerProviderStatus({
       provider: CODEX_PROVIDER,
+      enabled: true,
+      installed: true,
+      version: nonEmptyVersion(version.stdout, version.stderr),
       status: "ready" as const,
-      available: true,
-      authStatus: "unknown" as const,
+      auth: { status: "unknown" as const },
       checkedAt,
       message: "Using a custom Codex model provider; OpenAI login check skipped.",
-    } satisfies ServerProviderStatus;
+    });
   }
 
   const authProbe = yield* runCodexCommand(["login", "status"]).pipe(
@@ -520,39 +593,45 @@ export const checkCodexProviderStatus: Effect.Effect<
 
   if (Result.isFailure(authProbe)) {
     const error = authProbe.failure;
-    return {
+    return createServerProviderStatus({
       provider: CODEX_PROVIDER,
+      enabled: true,
+      installed: true,
+      version: nonEmptyVersion(version.stdout, version.stderr),
       status: "warning" as const,
-      available: true,
-      authStatus: "unknown" as const,
+      auth: { status: "unknown" as const },
       checkedAt,
       message:
         error instanceof Error
           ? `Could not verify Codex authentication status: ${error.message}.`
           : "Could not verify Codex authentication status.",
-    };
+    });
   }
 
   if (Option.isNone(authProbe.success)) {
-    return {
+    return createServerProviderStatus({
       provider: CODEX_PROVIDER,
+      enabled: true,
+      installed: true,
+      version: nonEmptyVersion(version.stdout, version.stderr),
       status: "warning" as const,
-      available: true,
-      authStatus: "unknown" as const,
+      auth: { status: "unknown" as const },
       checkedAt,
       message: "Could not verify Codex authentication status. Timed out while running command.",
-    };
+    });
   }
 
   const parsed = parseAuthStatusFromOutput(authProbe.success.value);
-  return {
+  return createServerProviderStatus({
     provider: CODEX_PROVIDER,
+    enabled: true,
+    installed: true,
+    version: nonEmptyVersion(version.stdout, version.stderr),
     status: parsed.status,
-    available: true,
-    authStatus: parsed.authStatus,
+    auth: { status: parsed.authStatus },
     checkedAt,
     ...(parsed.message ? { message: parsed.message } : {}),
-  } satisfies ServerProviderStatus;
+  });
 });
 
 // ── Claude Agent health check ───────────────────────────────────────
@@ -688,42 +767,48 @@ export const checkClaudeProviderStatus: Effect.Effect<
 
   if (Result.isFailure(versionProbe)) {
     const error = versionProbe.failure;
-    return {
+    return createServerProviderStatus({
       provider: CLAUDE_AGENT_PROVIDER,
+      enabled: true,
+      installed: false,
+      version: null,
       status: "error" as const,
-      available: false,
-      authStatus: "unknown" as const,
+      auth: { status: "unknown" as const },
       checkedAt,
       message: isCommandMissingCause(error)
         ? "Claude Agent CLI (`claude`) is not installed or not on PATH."
         : `Failed to execute Claude Agent CLI health check: ${error instanceof Error ? error.message : String(error)}.`,
-    };
+    });
   }
 
   if (Option.isNone(versionProbe.success)) {
-    return {
+    return createServerProviderStatus({
       provider: CLAUDE_AGENT_PROVIDER,
+      enabled: true,
+      installed: false,
+      version: null,
       status: "error" as const,
-      available: false,
-      authStatus: "unknown" as const,
+      auth: { status: "unknown" as const },
       checkedAt,
       message: "Claude Agent CLI is installed but failed to run. Timed out while running command.",
-    };
+    });
   }
 
   const version = versionProbe.success.value;
   if (version.code !== 0) {
     const detail = detailFromResult(version);
-    return {
+    return createServerProviderStatus({
       provider: CLAUDE_AGENT_PROVIDER,
+      enabled: true,
+      installed: false,
+      version: nonEmptyVersion(version.stdout, version.stderr),
       status: "error" as const,
-      available: false,
-      authStatus: "unknown" as const,
+      auth: { status: "unknown" as const },
       checkedAt,
       message: detail
         ? `Claude Agent CLI is installed but failed to run. ${detail}`
         : "Claude Agent CLI is installed but failed to run.",
-    };
+    });
   }
 
   // Probe 2: `claude auth status` — is the user authenticated?
@@ -734,39 +819,45 @@ export const checkClaudeProviderStatus: Effect.Effect<
 
   if (Result.isFailure(authProbe)) {
     const error = authProbe.failure;
-    return {
+    return createServerProviderStatus({
       provider: CLAUDE_AGENT_PROVIDER,
+      enabled: true,
+      installed: true,
+      version: nonEmptyVersion(version.stdout, version.stderr),
       status: "warning" as const,
-      available: true,
-      authStatus: "unknown" as const,
+      auth: { status: "unknown" as const },
       checkedAt,
       message:
         error instanceof Error
           ? `Could not verify Claude authentication status: ${error.message}.`
           : "Could not verify Claude authentication status.",
-    };
+    });
   }
 
   if (Option.isNone(authProbe.success)) {
-    return {
+    return createServerProviderStatus({
       provider: CLAUDE_AGENT_PROVIDER,
+      enabled: true,
+      installed: true,
+      version: nonEmptyVersion(version.stdout, version.stderr),
       status: "warning" as const,
-      available: true,
-      authStatus: "unknown" as const,
+      auth: { status: "unknown" as const },
       checkedAt,
       message: "Could not verify Claude authentication status. Timed out while running command.",
-    };
+    });
   }
 
   const parsed = parseClaudeAuthStatusFromOutput(authProbe.success.value);
-  return {
+  return createServerProviderStatus({
     provider: CLAUDE_AGENT_PROVIDER,
+    enabled: true,
+    installed: true,
+    version: nonEmptyVersion(version.stdout, version.stderr),
     status: parsed.status,
-    available: true,
-    authStatus: parsed.authStatus,
+    auth: { status: parsed.authStatus },
     checkedAt,
     ...(parsed.message ? { message: parsed.message } : {}),
-  } satisfies ServerProviderStatus;
+  });
 });
 
 // ── OpenClaw health check ─────────────────────────────────────────
@@ -793,27 +884,31 @@ const checkOpenClawProviderStatus: Effect.Effect<
         ? resolvedConfigResult.cause.message
         : String(resolvedConfigResult.cause);
 
-    return {
+    return createServerProviderStatus({
       provider: OPENCLAW_PROVIDER,
+      enabled: true,
+      installed: false,
+      version: null,
       status: "error" as const,
-      available: false,
-      authStatus: "unknown" as const,
+      auth: { status: "unknown" as const },
       checkedAt,
       message: `OpenClaw gateway configuration could not be read. ${reason}`,
-    } satisfies ServerProviderStatus;
+    });
   }
 
   const resolvedConfig = resolvedConfigResult.resolvedConfig;
 
   if (!resolvedConfig) {
-    return {
+    return createServerProviderStatus({
       provider: OPENCLAW_PROVIDER,
+      enabled: true,
+      installed: false,
+      version: null,
       status: "error" as const,
-      available: false,
-      authStatus: "unauthenticated" as const,
+      auth: { status: "unauthenticated" as const },
       checkedAt,
       message: "OpenClaw gateway URL is not configured. Save it in Settings to enable OpenClaw.",
-    } satisfies ServerProviderStatus;
+    });
   }
 
   const connectResult = yield* Effect.tryPromise({
@@ -871,13 +966,15 @@ const checkOpenClawProviderStatus: Effect.Effect<
   }).pipe(Effect.result);
 
   if (Result.isSuccess(connectResult)) {
-    return {
+    return createServerProviderStatus({
       provider: OPENCLAW_PROVIDER,
+      enabled: true,
+      installed: true,
+      version: null,
       status: "ready" as const,
-      available: true,
-      authStatus: "authenticated" as const,
+      auth: { status: "authenticated" as const },
       checkedAt,
-    } satisfies ServerProviderStatus;
+    });
   }
 
   const cause = connectResult.failure.cause;
@@ -893,26 +990,109 @@ const checkOpenClawProviderStatus: Effect.Effect<
         detailCode === "AUTH_DEVICE_TOKEN_MISMATCH" ||
         detailCode?.startsWith("DEVICE_AUTH_")
       ) {
-        return {
+        return createServerProviderStatus({
           provider: OPENCLAW_PROVIDER,
+          enabled: true,
+          installed: false,
+          version: null,
           status: "error" as const,
-          available: false,
-          authStatus: "unauthenticated" as const,
+          auth: { status: "unauthenticated" as const },
           checkedAt,
           message: gatewayMessage,
-        } satisfies ServerProviderStatus;
+        });
       }
     }
   }
 
-  return {
+  return createServerProviderStatus({
     provider: OPENCLAW_PROVIDER,
+    enabled: true,
+    installed: false,
+    version: null,
     status: "warning" as const,
-    available: false,
-    authStatus: "unknown" as const,
+    auth: { status: "unknown" as const },
     checkedAt,
     message: `Cannot complete the OpenClaw gateway handshake at ${resolvedConfig.gatewayUrl}. Check connectivity, proxying, and pairing/device auth state.`,
-  } satisfies ServerProviderStatus;
+  });
+});
+
+export const checkGeminiProviderStatus: Effect.Effect<
+  ServerProviderStatus,
+  never,
+  ChildProcessSpawner.ChildProcessSpawner
+> = Effect.gen(function* () {
+  const checkedAt = new Date().toISOString();
+  const versionProbe = yield* runGeminiCommand(["--version"]).pipe(
+    Effect.timeoutOption(DEFAULT_TIMEOUT_MS),
+    Effect.result,
+  );
+
+  if (Result.isFailure(versionProbe)) {
+    const error = versionProbe.failure;
+    return createServerProviderStatus({
+      provider: GEMINI_PROVIDER,
+      enabled: true,
+      installed: false,
+      version: null,
+      status: "error",
+      auth: { status: "unknown" },
+      checkedAt,
+      message: isCommandMissingCause(error)
+        ? "Gemini CLI (`gemini`) is not installed or not on PATH."
+        : `Failed to execute Gemini CLI health check: ${error instanceof Error ? error.message : String(error)}.`,
+    });
+  }
+
+  if (Option.isNone(versionProbe.success)) {
+    return createServerProviderStatus({
+      provider: GEMINI_PROVIDER,
+      enabled: true,
+      installed: false,
+      version: null,
+      status: "error",
+      auth: { status: "unknown" },
+      checkedAt,
+      message: "Gemini CLI is installed but failed to run. Timed out while running command.",
+    });
+  }
+
+  const version = versionProbe.success.value;
+  if (version.code !== 0) {
+    return createServerProviderStatus({
+      provider: GEMINI_PROVIDER,
+      enabled: true,
+      installed: false,
+      version: nonEmptyVersion(version.stdout, version.stderr),
+      status: "error",
+      auth: { status: "unknown" },
+      checkedAt,
+      message: detailFromResult(version) ?? "Gemini CLI is installed but failed to run.",
+    });
+  }
+
+  if (hasGeminiHeadlessAuthEnv()) {
+    return createServerProviderStatus({
+      provider: GEMINI_PROVIDER,
+      enabled: true,
+      installed: true,
+      version: nonEmptyVersion(version.stdout, version.stderr),
+      status: "ready",
+      auth: { status: "authenticated", type: "headless", label: "Environment credentials" },
+      checkedAt,
+    });
+  }
+
+  return createServerProviderStatus({
+    provider: GEMINI_PROVIDER,
+    enabled: true,
+    installed: true,
+    version: nonEmptyVersion(version.stdout, version.stderr),
+    status: "warning",
+    auth: { status: "unknown" },
+    checkedAt,
+    message:
+      "Gemini CLI is installed. Headless auth was not prevalidated; cached OAuth may still work locally, or configure GEMINI_API_KEY / Vertex credentials for non-interactive use.",
+  });
 });
 
 // ── Layer ───────────────────────────────────────────────────────────
@@ -932,6 +1112,7 @@ export const ProviderHealthLive = Layer.effect(
           checkClaudeProviderStatus,
           checkCopilotProviderStatus,
           checkOpenClawProviderStatus,
+          checkGeminiProviderStatus,
         ],
         {
           concurrency: "unbounded",

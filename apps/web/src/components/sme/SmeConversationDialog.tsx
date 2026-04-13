@@ -201,7 +201,8 @@ export function SmeConversationDialog({
             {conversation ? "Conversation settings" : "New SME conversation"}
           </DialogTitle>
           <DialogDescription>
-            Choose the provider, auth method, and model used for future SME replies.
+            Choose the provider, auth method, and model used for future SME replies. SME Chat uses
+            direct provider credentials, not the Claude CLI login.
           </DialogDescription>
         </DialogHeader>
         <DialogPanel className="space-y-4">
@@ -246,6 +247,13 @@ export function SmeConversationDialog({
                 </option>
               ))}
             </select>
+            {provider === "claudeAgent" ? (
+              <p className="text-xs text-muted-foreground">
+                Claude SME Chat talks to Anthropic directly. "Auto" prefers an auth token or helper
+                command, then falls back to ANTHROPIC_API_KEY. A Claude Max / claude.ai CLI login
+                alone does not power SME Chat.
+              </p>
+            ) : null}
           </label>
 
           <label className="grid gap-1.5">

@@ -10,7 +10,7 @@ export const SME_PROVIDER_LABELS: Record<ProviderKind, string> = {
 export function getDefaultSmeAuthMethod(provider: ProviderKind): SmeAuthMethod {
   switch (provider) {
     case "claudeAgent":
-      return "apiKey";
+      return "auto";
     case "copilot":
       return "auto";
     case "codex":
@@ -26,9 +26,9 @@ export function getSmeAuthMethodOptions(
   switch (provider) {
     case "claudeAgent":
       return [
+        { value: "auto", label: "Auto (prefer auth token/helper)" },
         { value: "apiKey", label: "Anthropic API Key" },
-        { value: "authToken", label: "Auth Token" },
-        { value: "auto", label: "CLI" },
+        { value: "authToken", label: "Auth Token / Helper Command" },
       ];
     case "copilot":
       return [{ value: "auto", label: "Auto" }];

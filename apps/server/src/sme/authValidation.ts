@@ -3,7 +3,10 @@ import {
   type SmeValidateSetupResult,
   type ProviderKind,
   type ServerProviderStatus,
+  type ProviderStartOptions,
 } from "@okcode/contracts";
+
+import { resolveAnthropicClientOptions } from "./backends/anthropic.ts";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
@@ -17,6 +20,8 @@ import {
 } from "../codexAppServerManager.ts";
 
 const OPENAI_MODEL_PROVIDERS = new Set(["openai"]);
+const CLAUDE_SME_MISSING_CREDENTIALS_MESSAGE =
+  "Claude SME Chat uses direct Anthropic credentials, not the Claude CLI login. Set ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN, or configure `authTokenHelperCommand` in Settings.";
 
 export function getAllowedSmeAuthMethods(provider: ProviderKind): readonly SmeAuthMethod[] {
   switch (provider) {
@@ -34,7 +39,7 @@ export function getAllowedSmeAuthMethods(provider: ProviderKind): readonly SmeAu
 export function getDefaultSmeAuthMethod(provider: ProviderKind): SmeAuthMethod {
   switch (provider) {
     case "claudeAgent":
-      return "apiKey";
+      return "auto";
     case "copilot":
       return "auto";
     case "codex":
@@ -48,61 +53,134 @@ export function isValidSmeAuthMethod(provider: ProviderKind, authMethod: SmeAuth
   return getAllowedSmeAuthMethods(provider).includes(authMethod);
 }
 
-export function validateAnthropicSetup(input: {
+export function resolveClaudeSmeSetup(input: {
   readonly authMethod: Extract<SmeAuthMethod, "auto" | "apiKey" | "authToken">;
-  readonly providerStatus?: ServerProviderStatus | null | undefined;
-}): SmeValidateSetupResult {
-  const providerStatus = input.providerStatus;
-  if (!providerStatus) {
+  readonly providerOptions?: ProviderStartOptions["claudeAgent"];
+  readonly env?: NodeJS.ProcessEnv;
+}): {
+  readonly validation: SmeValidateSetupResult;
+  readonly clientOptions: {
+    readonly apiKey: string | null;
+    readonly authToken: string | null;
+    readonly baseURL?: string;
+  } | null;
+} {
+  const resolved = resolveAnthropicClientOptions({
+    ...(input.providerOptions ? { providerOptions: input.providerOptions } : {}),
+    ...(input.env ? { env: input.env } : {}),
+  });
+
+  const withBaseUrl = (clientOptions: {
+    readonly apiKey: string | null;
+    readonly authToken: string | null;
+  }) => ({
+    ...clientOptions,
+    ...(resolved.baseURL ? { baseURL: resolved.baseURL } : {}),
+  });
+
+  if (input.authMethod === "apiKey") {
+    if (!resolved.apiKey) {
+      return {
+        validation: {
+          ok: false,
+          severity: "error",
+          message:
+            "Claude SME Chat is set to Anthropic API Key, but no ANTHROPIC_API_KEY is configured.",
+          resolvedAuthMethod: "apiKey",
+          resolvedAccountType: "unknown",
+        },
+        clientOptions: null,
+      };
+    }
+
     return {
-      ok: false,
-      severity: "error",
-      message: "Claude Code CLI status is unavailable.",
-      resolvedAuthMethod: input.authMethod,
-      resolvedAccountType: "unknown",
+      validation: {
+        ok: true,
+        severity: "ready",
+        message: "Claude SME Chat can use the configured Anthropic API key.",
+        resolvedAuthMethod: "apiKey",
+        resolvedAccountType: "apiKey",
+      },
+      clientOptions: withBaseUrl({ apiKey: resolved.apiKey, authToken: null }),
     };
   }
 
-  if (!providerStatus.available || providerStatus.status === "error") {
+  if (input.authMethod === "authToken") {
+    if (!resolved.authToken) {
+      return {
+        validation: {
+          ok: false,
+          severity: "error",
+          message:
+            "Claude SME Chat is set to Auth Token, but no ANTHROPIC_AUTH_TOKEN or auth token helper command is configured.",
+          resolvedAuthMethod: "authToken",
+          resolvedAccountType: "unknown",
+        },
+        clientOptions: null,
+      };
+    }
+
     return {
-      ok: false,
-      severity: "error",
-      message:
-        providerStatus.message ?? "Claude Code CLI is not installed or not available on PATH.",
-      resolvedAuthMethod: input.authMethod,
-      resolvedAccountType: "unknown",
+      validation: {
+        ok: true,
+        severity: "ready",
+        message: "Claude SME Chat can use the configured Anthropic auth token.",
+        resolvedAuthMethod: "authToken",
+        resolvedAccountType: "unknown",
+      },
+      clientOptions: withBaseUrl({ apiKey: null, authToken: resolved.authToken }),
     };
   }
 
-  if (providerStatus.authStatus === "unauthenticated") {
+  if (resolved.authToken) {
     return {
-      ok: false,
-      severity: "error",
-      message:
-        providerStatus.message ??
-        "Claude Code is not configured with a supported Anthropic credential. Set ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN and try again.",
-      resolvedAuthMethod: input.authMethod,
-      resolvedAccountType: "unknown",
+      validation: {
+        ok: true,
+        severity: "ready",
+        message: "Claude SME Chat can use the configured Anthropic auth token.",
+        resolvedAuthMethod: "authToken",
+        resolvedAccountType: "unknown",
+      },
+      clientOptions: withBaseUrl({ apiKey: null, authToken: resolved.authToken }),
     };
   }
 
-  if (providerStatus.status === "warning") {
+  if (resolved.apiKey) {
     return {
-      ok: true,
-      severity: "warning",
-      message: providerStatus.message ?? "Claude Code CLI is available but needs verification.",
-      resolvedAuthMethod: input.authMethod,
-      resolvedAccountType: "unknown",
+      validation: {
+        ok: true,
+        severity: "ready",
+        message: "Claude SME Chat can use the configured Anthropic API key.",
+        resolvedAuthMethod: "apiKey",
+        resolvedAccountType: "apiKey",
+      },
+      clientOptions: withBaseUrl({ apiKey: resolved.apiKey, authToken: null }),
     };
   }
 
   return {
-    ok: true,
-    severity: "ready",
-    message: providerStatus.message ?? "Claude Code CLI is ready.",
-    resolvedAuthMethod: input.authMethod,
-    resolvedAccountType: "unknown",
+    validation: {
+      ok: false,
+      severity: "error",
+      message: CLAUDE_SME_MISSING_CREDENTIALS_MESSAGE,
+      resolvedAuthMethod: input.authMethod,
+      resolvedAccountType: "unknown",
+    },
+    clientOptions: null,
   };
+}
+
+export function validateAnthropicSetup(input: {
+  readonly authMethod: Extract<SmeAuthMethod, "auto" | "apiKey" | "authToken">;
+  readonly providerOptions?: ProviderStartOptions["claudeAgent"];
+  readonly env?: NodeJS.ProcessEnv;
+  readonly providerStatus?: ServerProviderStatus | null | undefined;
+}): SmeValidateSetupResult {
+  return resolveClaudeSmeSetup({
+    authMethod: input.authMethod,
+    ...(input.providerOptions ? { providerOptions: input.providerOptions } : {}),
+    ...(input.env ? { env: input.env } : {}),
+  }).validation;
 }
 
 export const validateClaudeSetup = validateAnthropicSetup;

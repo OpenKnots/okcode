@@ -95,7 +95,7 @@ describe("SmeChatServiceLive", () => {
       projectId,
       title: "Architecture Q&A",
       provider: "claudeAgent",
-      authMethod: "apiKey",
+      authMethod: "auto",
       model: "claude-sonnet-4-6",
       createdAt: "2026-01-01T00:00:00.000Z",
       updatedAt: "2026-01-01T00:00:00.000Z",
@@ -234,6 +234,80 @@ describe("SmeChatServiceLive", () => {
       { role: "user", text: "What changed in the latest design?", isStreaming: false },
       { role: "assistant", text: "Hello world", isStreaming: false },
     ]);
+  });
+
+  it("honors the selected API key auth method even when an auth token helper is also configured", async () => {
+    const projectId = ProjectId.makeUnsafe("project-api-key");
+    const conversationId = SmeConversationId.makeUnsafe("conversation-api-key");
+    const conversationRow: SmeConversationRow = {
+      conversationId,
+      projectId,
+      title: "API key only",
+      provider: "claudeAgent",
+      authMethod: "apiKey",
+      model: "claude-sonnet-4-6",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+      deletedAt: null,
+    };
+    const { repository: messageRepo } = makeMessageRepository();
+    const sendInputs: Array<any> = [];
+    const sendClaudeMessage = (input: any) =>
+      Effect.sync(() => {
+        sendInputs.push(input);
+        return "Used API key";
+      });
+
+    const layer = makeSmeChatServiceLive({ sendSmeViaAnthropic: sendClaudeMessage }).pipe(
+      Layer.provideMerge(Layer.succeed(SmeKnowledgeDocumentRepository, makeDocumentRepository())),
+      Layer.provideMerge(
+        Layer.succeed(SmeConversationRepository, makeConversationRepository([conversationRow])),
+      ),
+      Layer.provideMerge(Layer.succeed(SmeMessageRepository, messageRepo)),
+    );
+
+    const savedEnv = {
+      ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+      ANTHROPIC_AUTH_TOKEN: process.env.ANTHROPIC_AUTH_TOKEN,
+    };
+    process.env.ANTHROPIC_API_KEY = "api-key-from-env";
+    delete process.env.ANTHROPIC_AUTH_TOKEN;
+
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const service = yield* SmeChatService;
+          yield* service.sendMessage({
+            conversationId,
+            text: "Use the SDK credentials",
+            providerOptions: {
+              claudeAgent: {
+                authTokenHelperCommand: "printf helper-token",
+              },
+            },
+          });
+        }).pipe(Effect.provide(layer)),
+      );
+    } finally {
+      if (savedEnv.ANTHROPIC_API_KEY === undefined) {
+        delete process.env.ANTHROPIC_API_KEY;
+      } else {
+        process.env.ANTHROPIC_API_KEY = savedEnv.ANTHROPIC_API_KEY;
+      }
+      if (savedEnv.ANTHROPIC_AUTH_TOKEN === undefined) {
+        delete process.env.ANTHROPIC_AUTH_TOKEN;
+      } else {
+        process.env.ANTHROPIC_AUTH_TOKEN = savedEnv.ANTHROPIC_AUTH_TOKEN;
+      }
+    }
+
+    expect(sendInputs).toHaveLength(1);
+    expect(sendInputs[0].clientOptions).toEqual(
+      expect.objectContaining({
+        apiKey: "api-key-from-env",
+        authToken: null,
+      }),
+    );
   });
 
   it("fails before sending when Claude credentials are unavailable", async () => {

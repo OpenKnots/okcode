@@ -23,8 +23,8 @@ import crypto from "node:crypto";
 import { SmeConversationRepository } from "../../persistence/Services/SmeConversations.ts";
 import { SmeKnowledgeDocumentRepository } from "../../persistence/Services/SmeKnowledgeDocuments.ts";
 import { SmeMessageRepository } from "../../persistence/Services/SmeMessages.ts";
-import { isValidSmeAuthMethod } from "../authValidation.ts";
-import { resolveAnthropicClientOptions, sendSmeViaAnthropic } from "../backends/anthropic.ts";
+import { isValidSmeAuthMethod, resolveClaudeSmeSetup } from "../authValidation.ts";
+import { sendSmeViaAnthropic } from "../backends/anthropic.ts";
 import { buildSmeSystemPrompt } from "../promptBuilder.ts";
 import {
   SmeChatError,
@@ -161,36 +161,19 @@ const makeSmeChatService = (options?: SmeChatServiceLiveOptions) =>
           };
         }
 
-        const clientOptions = yield* Effect.try({
+        const resolvedSetup = yield* Effect.try({
           try: () =>
-            resolveAnthropicClientOptions({
+            resolveClaudeSmeSetup({
+              authMethod: conversation.authMethod as Extract<
+                SmeAuthMethod,
+                "auto" | "apiKey" | "authToken"
+              >,
               providerOptions: providerOptions?.claudeAgent,
             }),
           catch: (cause) => new SmeChatError("validateSetup", String(cause), cause),
         });
 
-        if (!clientOptions.apiKey && !clientOptions.authToken) {
-          return {
-            ok: false,
-            severity: "error" as const,
-            message:
-              "Claude SME Chat needs an Anthropic API key, auth token, or auth token helper command. Set ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN, or configure `authTokenHelperCommand` in Settings.",
-            resolvedAuthMethod: conversation.authMethod,
-            resolvedAccountType: "unknown" as const,
-          };
-        }
-
-        return {
-          ok: true,
-          severity: "ready" as const,
-          message:
-            clientOptions.apiKey !== null
-              ? "Claude SME Chat can use the configured Anthropic API key."
-              : "Claude SME Chat can use the configured Anthropic auth token.",
-          resolvedAuthMethod: conversation.authMethod,
-          resolvedAccountType:
-            clientOptions.apiKey !== null ? ("apiKey" as const) : ("unknown" as const),
-        };
+        return resolvedSetup.validation;
       });
 
     const uploadDocument: SmeChatServiceShape["uploadDocument"] = (input) =>
@@ -454,22 +437,28 @@ const makeSmeChatService = (options?: SmeChatServiceLiveOptions) =>
           role: message.role,
           text: message.text,
         }));
-        const anthropicClientOptions = yield* Effect.try({
+        const resolvedAnthropicSetup = yield* Effect.try({
           try: () =>
-            resolveAnthropicClientOptions({
+            resolveClaudeSmeSetup({
+              authMethod: conv.authMethod as Extract<
+                SmeAuthMethod,
+                "auto" | "apiKey" | "authToken"
+              >,
               providerOptions: input.providerOptions?.claudeAgent,
             }),
           catch: (cause) => new SmeChatError("sendMessage:providerRuntime", String(cause), cause),
         });
 
-        if (!anthropicClientOptions.apiKey && !anthropicClientOptions.authToken) {
+        if (!resolvedAnthropicSetup.clientOptions) {
           return yield* Effect.fail(
             new SmeChatError(
               "sendMessage:providerRuntime",
-              "Claude SME Chat needs an Anthropic API key, auth token, or auth token helper command. Set ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN, or configure `authTokenHelperCommand` in Settings.",
+              resolvedAnthropicSetup.validation.message,
             ),
           );
         }
+
+        const anthropicClientOptions = resolvedAnthropicSetup.clientOptions;
 
         const systemPrompt = buildSmeSystemPrompt(docs);
         const messages: Array<MessageParam> = [

@@ -535,7 +535,7 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
         assert.strictEqual(status.authStatus, "unauthenticated");
         assert.strictEqual(
           status.message,
-          "Claude is not configured with a supported Anthropic credential. Set ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN and try again.",
+          "Claude is not configured with a supported Anthropic credential. Run `claude auth login`, or set ANTHROPIC_API_KEY / ANTHROPIC_AUTH_TOKEN, and try again.",
         );
       }).pipe(
         Effect.provide(
@@ -554,17 +554,14 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
       ),
     );
 
-    it.effect("returns unauthenticated when auth status reports oauth auth", () =>
+    it.effect("returns authenticated when auth status reports Claude.ai auth", () =>
       Effect.gen(function* () {
         const status = yield* checkClaudeProviderStatus;
         assert.strictEqual(status.provider, "claudeAgent");
-        assert.strictEqual(status.status, "error");
+        assert.strictEqual(status.status, "ready");
         assert.strictEqual(status.available, true);
-        assert.strictEqual(status.authStatus, "unauthenticated");
-        assert.strictEqual(
-          status.message,
-          "Claude Code is signed in with OAuth, which is not supported here. Set ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN and try again.",
-        );
+        assert.strictEqual(status.authStatus, "authenticated");
+        assert.strictEqual(status.message, "Claude Code CLI is ready via Claude.ai login.");
       }).pipe(
         Effect.provide(
           mockSpawnerLayer((args) => {
@@ -641,12 +638,9 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
         stderr: "",
         code: 0,
       });
-      assert.strictEqual(parsed.status, "error");
-      assert.strictEqual(parsed.authStatus, "unauthenticated");
-      assert.strictEqual(
-        parsed.message,
-        "Claude Code is signed in with OAuth, which is not supported here. Set ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN and try again.",
-      );
+      assert.strictEqual(parsed.status, "ready");
+      assert.strictEqual(parsed.authStatus, "authenticated");
+      assert.strictEqual(parsed.message, "Claude Code CLI is ready via Claude.ai login.");
     });
 
     it("JSON with loggedIn=false is unauthenticated", () => {

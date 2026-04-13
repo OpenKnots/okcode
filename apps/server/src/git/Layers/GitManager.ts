@@ -45,6 +45,11 @@ interface PullRequestInfo extends OpenPrInfo {
   updatedAt: string | null;
 }
 
+interface LatestPrLookupCacheEntry {
+  expiresAtMs: number;
+  pr: PullRequestInfo | null;
+}
+
 interface ResolvedPullRequest {
   number: number;
   title: string;
@@ -369,6 +374,8 @@ export const makeGitManager = Effect.gen(function* () {
   const gitCore = yield* GitCore;
   const gitHubCli = yield* GitHubCli;
   const textGeneration = yield* TextGeneration;
+  const latestPrLookupCache = new Map<string, LatestPrLookupCacheEntry>();
+  const LATEST_PR_LOOKUP_CACHE_TTL_MS = 15_000;
 
   const createProgressEmitter = (
     input: { cwd: string; action: "commit" | "commit_push" | "commit_push_pr" },
@@ -619,6 +626,13 @@ export const makeGitManager = Effect.gen(function* () {
   const findLatestPr = (cwd: string, details: { branch: string; upstreamRef: string | null }) =>
     Effect.gen(function* () {
       const headContext = yield* resolveBranchHeadContext(cwd, details);
+      const cacheKey = [cwd, headContext.headSelectors.join("\u0000")].join("\u0001");
+      const now = Date.now();
+      const cached = latestPrLookupCache.get(cacheKey);
+      if (cached && cached.expiresAtMs > now) {
+        return cached.pr;
+      }
+
       const parsedByNumber = new Map<number, PullRequestInfo>();
 
       for (const headSelector of headContext.headSelectors) {
@@ -663,10 +677,12 @@ export const makeGitManager = Effect.gen(function* () {
       });
 
       const latestOpenPr = parsed.find((pr) => pr.state === "open");
-      if (latestOpenPr) {
-        return latestOpenPr;
-      }
-      return parsed[0] ?? null;
+      const resolved = latestOpenPr ?? parsed[0] ?? null;
+      latestPrLookupCache.set(cacheKey, {
+        expiresAtMs: now + LATEST_PR_LOOKUP_CACHE_TTL_MS,
+        pr: resolved,
+      });
+      return resolved;
     });
 
   const resolveBaseBranch = (

@@ -4,12 +4,16 @@ import {
   CheckCircle2Icon,
   ChevronDownIcon,
   CpuIcon,
+  GlobeIcon,
   GitBranchIcon,
   ImportIcon,
+  KeyboardIcon,
   Loader2Icon,
   PaletteIcon,
   PlusIcon,
+  RefreshCwIcon,
   RotateCcwIcon,
+  ShieldCheckIcon,
   SkipForwardIcon,
   SmartphoneIcon,
   Undo2Icon,
@@ -22,8 +26,11 @@ import { type ReactNode, useCallback, useEffect, useState } from "react";
 import type { TestOpenclawGatewayHostKind, TestOpenclawGatewayResult } from "@okcode/contracts";
 import {
   type BuildMetadata,
+  type KeybindingCommand,
+  type KeybindingRule,
   type ProjectId,
   type ProviderKind,
+  type ServerProviderStatus,
   DEFAULT_GIT_TEXT_GENERATION_MODEL,
 } from "@okcode/contracts";
 import { getModelOptions, normalizeModelSlug } from "@okcode/shared/model";
@@ -56,6 +63,7 @@ import { APP_BUILD_INFO } from "../branding";
 import { Button } from "../components/ui/button";
 import { Collapsible, CollapsibleContent } from "../components/ui/collapsible";
 import { EnvironmentVariablesEditor } from "../components/EnvironmentVariablesEditor";
+import { HotkeysSettingsSection } from "../components/settings/HotkeysSettingsSection";
 import { Input } from "../components/ui/input";
 import {
   Select,
@@ -94,20 +102,34 @@ import {
   setStoredRadiusOverride,
   type CustomThemeData,
 } from "../lib/customTheme";
+import { openUrlInAppBrowser } from "../lib/openUrlInAppBrowser";
 import {
-  openclawGatewayConfigQueryOptions,
-  serverConfigQueryOptions,
-  serverQueryKeys,
-} from "../lib/serverReactQuery";
+  getSelectableThreadProviders,
+  isProviderReadyForThreadSelection,
+} from "../lib/providerAvailability";
+import { serverConfigQueryOptions, serverQueryKeys } from "../lib/serverReactQuery";
 import { cn } from "../lib/utils";
 import { ensureNativeApi, readNativeApi } from "../nativeApi";
 import { useStore } from "../store";
 import { PairingLink } from "../components/mobile/PairingLink";
+import {
+  getProviderLabel as getProviderStatusLabelName,
+  getProviderStatusDescription,
+  getProviderStatusHeading,
+} from "../components/chat/providerStatusPresentation";
 
 // ---------------------------------------------------------------------------
 // Settings navigation sections
 // ---------------------------------------------------------------------------
-type SettingsSectionId = "general" | "environment" | "git" | "models" | "mobile" | "advanced";
+type SettingsSectionId =
+  | "general"
+  | "authentication"
+  | "hotkeys"
+  | "environment"
+  | "git"
+  | "models"
+  | "mobile"
+  | "advanced";
 
 interface SettingsNavItem {
   id: SettingsSectionId;
@@ -119,6 +141,12 @@ interface SettingsNavItem {
 function useSettingsNavItems(): SettingsNavItem[] {
   return [
     { id: "general", label: "General", icon: <PaletteIcon className="size-4" /> },
+    {
+      id: "authentication",
+      label: "Authentication",
+      icon: <ShieldCheckIcon className="size-4" />,
+    },
+    { id: "hotkeys", label: "Hotkeys", icon: <KeyboardIcon className="size-4" /> },
     { id: "environment", label: "Environment", icon: <VariableIcon className="size-4" /> },
     { id: "git", label: "Git", icon: <GitBranchIcon className="size-4" /> },
     { id: "models", label: "Models", icon: <CpuIcon className="size-4" /> },
@@ -317,9 +345,9 @@ const INSTALL_PROVIDER_SETTINGS: readonly InstallProviderSettings[] = [
   },
   {
     provider: "claudeAgent",
-    title: "Anthropic",
+    title: "Claude Code",
     binaryPathKey: "claudeBinaryPath",
-    binaryPlaceholder: "Claude binary path",
+    binaryPlaceholder: "Claude Code binary path",
     binaryDescription: (
       <>
         Leave blank to use <code>claude</code> from your PATH. Authentication uses{" "}
@@ -328,6 +356,147 @@ const INSTALL_PROVIDER_SETTINGS: readonly InstallProviderSettings[] = [
     ),
   },
 ];
+
+const PROVIDER_AUTH_GUIDES: Record<
+  ProviderKind,
+  {
+    installCmd?: string;
+    authCmd?: string;
+    verifyCmd?: string;
+    note: string;
+  }
+> = {
+  codex: {
+    installCmd: "npm install -g @openai/codex",
+    authCmd: "codex login",
+    verifyCmd: "codex login status",
+    note: "Codex stays available in thread creation when the CLI is ready and its auth is either confirmed or delegated to a custom model provider.",
+  },
+  claudeAgent: {
+    installCmd: "npm install -g @anthropic-ai/claude-code",
+    authCmd: "claude auth login",
+    verifyCmd: "claude auth status",
+    note: "Claude Code must be installed and signed in before it appears in the thread picker.",
+  },
+  openclaw: {
+    verifyCmd: "Test Connection",
+    note: "OpenClaw uses the gateway URL and password below rather than a local CLI login. A configured gateway unlocks it for new-thread selection.",
+  },
+};
+
+function getAuthenticationBadgeCopy(input: {
+  status: ServerProviderStatus | null;
+  provider: ProviderKind;
+  openclawGatewayUrl: string;
+}): {
+  tone: "success" | "warning" | "error";
+  label: string;
+} {
+  if (
+    isProviderReadyForThreadSelection({
+      provider: input.provider,
+      statuses: input.status ? [input.status] : [],
+      openclawGatewayUrl: input.openclawGatewayUrl,
+    })
+  ) {
+    return { tone: "success", label: "Available in thread picker" };
+  }
+
+  if (input.status?.authStatus === "unauthenticated") {
+    return { tone: "error", label: "Sign-in required" };
+  }
+
+  if (input.provider === "openclaw" && input.openclawGatewayUrl.trim().length === 0) {
+    return { tone: "warning", label: "Gateway not configured" };
+  }
+
+  if (input.status?.available === false || input.status?.status === "error") {
+    return { tone: "error", label: "Unavailable" };
+  }
+
+  return { tone: "warning", label: "Needs verification" };
+}
+
+function AuthenticationStatusCard({
+  provider,
+  status,
+  openclawGatewayUrl,
+}: {
+  provider: ProviderKind;
+  status: ServerProviderStatus | null;
+  openclawGatewayUrl: string;
+}) {
+  const guide = PROVIDER_AUTH_GUIDES[provider];
+  const badge = getAuthenticationBadgeCopy({ status, provider, openclawGatewayUrl });
+  const badgeClassName =
+    badge.tone === "success"
+      ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+      : badge.tone === "error"
+        ? "border-red-500/25 bg-red-500/10 text-red-700 dark:text-red-300"
+        : "border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300";
+  const heading =
+    status !== null
+      ? getProviderStatusHeading(status)
+      : provider === "openclaw" && openclawGatewayUrl.trim().length > 0
+        ? "OpenClaw gateway is configured locally"
+        : `${getProviderStatusLabelName(provider)} needs configuration`;
+  const description =
+    status !== null
+      ? getProviderStatusDescription(status)
+      : provider === "openclaw" && openclawGatewayUrl.trim().length > 0
+        ? "OpenClaw is configured in local settings. Use Test Connection below to verify the gateway before starting a thread."
+        : guide.note;
+
+  return (
+    <div className="rounded-xl border border-border/70 bg-background/70 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-medium text-foreground">
+              {getProviderStatusLabelName(provider)}
+            </h3>
+            <span
+              className={cn(
+                "rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em]",
+                badgeClassName,
+              )}
+            >
+              {badge.label}
+            </span>
+          </div>
+          <p className="text-xs font-medium text-foreground">{heading}</p>
+          <p className="max-w-2xl text-xs text-muted-foreground">{description}</p>
+        </div>
+        {status?.checkedAt ? (
+          <span className="text-[11px] text-muted-foreground">
+            Checked {new Date(status.checkedAt).toLocaleString()}
+          </span>
+        ) : null}
+      </div>
+
+      <div className="mt-4 grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
+        <div className="rounded-lg border border-border/60 bg-card/60 px-3 py-2">
+          <div className="font-medium text-foreground">Install</div>
+          <code className="mt-1 block break-all text-[11px]">
+            {guide.installCmd ?? "Configured in-app"}
+          </code>
+        </div>
+        <div className="rounded-lg border border-border/60 bg-card/60 px-3 py-2">
+          <div className="font-medium text-foreground">Authenticate</div>
+          <code className="mt-1 block break-all text-[11px]">
+            {guide.authCmd ?? "Use gateway password"}
+          </code>
+        </div>
+        <div className="rounded-lg border border-border/60 bg-card/60 px-3 py-2">
+          <div className="font-medium text-foreground">Verify</div>
+          <code className="mt-1 block break-all text-[11px]">{guide.verifyCmd ?? "N/A"}</code>
+        </div>
+      </div>
+
+      <p className="mt-3 text-xs text-muted-foreground">{guide.note}</p>
+    </div>
+  );
+}
 
 function SettingsSection({
   title,
@@ -591,7 +760,6 @@ function SettingsRouteView() {
   const { theme, setTheme, colorTheme, setColorTheme, fontFamily, setFontFamily } = useTheme();
   const { settings, defaults, updateSettings, resetSettings } = useAppSettings();
   const serverConfigQuery = useQuery(serverConfigQueryOptions());
-  const openclawGatewayConfigQuery = useQuery(openclawGatewayConfigQueryOptions());
   const queryClient = useQueryClient();
   const trimmedBrowserPreviewStartPageUrl = settings.browserPreviewStartPageUrl.trim();
   const browserPreviewStartPageValidation =
@@ -602,6 +770,7 @@ function SettingsRouteView() {
     settings.browserPreviewStartPageUrl,
   );
   const projects = useStore((state) => state.projects);
+  const threads = useStore((state) => state.threads);
   const [selectedProjectId, setSelectedProjectId] = useState<ProjectId | null>(
     () => projects[0]?.id ?? null,
   );
@@ -639,12 +808,6 @@ function SettingsRouteView() {
     null,
   );
   const [openclawTestLoading, setOpenclawTestLoading] = useState(false);
-  const [openclawGatewayDraft, setOpenclawGatewayDraft] = useState<string | null>(null);
-  const [openclawSharedSecretDraft, setOpenclawSharedSecretDraft] = useState("");
-  const [openclawSaveLoading, setOpenclawSaveLoading] = useState(false);
-  const [openclawResetLoading, setOpenclawResetLoading] = useState<"token" | "identity" | null>(
-    null,
-  );
   const { copyToClipboard: copyOpenclawDebugReport, isCopied: openclawDebugReportCopied } =
     useCopyToClipboard();
 
@@ -654,6 +817,15 @@ function SettingsRouteView() {
   const selectedProjectEnvironmentVariablesQuery = useQuery(
     projectEnvironmentVariablesQueryOptions(activeProjectId),
   );
+  const activeProjectPreviewThreadId =
+    activeProjectId === null
+      ? null
+      : (threads
+          .filter((thread) => thread.projectId === activeProjectId)
+          .toSorted((a, b) =>
+            (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt),
+          )
+          .at(0)?.id ?? null);
 
   useEffect(() => {
     if (projects.length === 0) {
@@ -673,6 +845,11 @@ function SettingsRouteView() {
   const claudeBinaryPath = settings.claudeBinaryPath;
   const keybindingsConfigPath = serverConfigQuery.data?.keybindingsConfigPath ?? null;
   const availableEditors = serverConfigQuery.data?.availableEditors;
+  const providerStatuses = serverConfigQuery.data?.providers ?? [];
+  const selectableProviders = getSelectableThreadProviders({
+    statuses: providerStatuses,
+    openclawGatewayUrl: settings.openclawGatewayUrl,
+  });
 
   const gitTextGenerationModelOptions = getAppModelOptions(
     "codex",
@@ -710,16 +887,9 @@ function SettingsRouteView() {
     settings.claudeBinaryPath !== defaults.claudeBinaryPath ||
     settings.codexBinaryPath !== defaults.codexBinaryPath ||
     settings.codexHomePath !== defaults.codexHomePath;
-  const savedOpenclawGatewayUrl = openclawGatewayConfigQuery.data?.gatewayUrl ?? "";
-  const savedOpenclawHasSharedSecret = openclawGatewayConfigQuery.data?.hasSharedSecret ?? false;
-  const effectiveOpenclawGatewayUrl = openclawGatewayDraft ?? savedOpenclawGatewayUrl;
   const isOpenClawSettingsDirty =
-    (openclawGatewayDraft !== null && openclawGatewayDraft !== savedOpenclawGatewayUrl) ||
-    openclawSharedSecretDraft.length > 0;
-  const canImportLegacyOpenclawSettings =
-    openclawGatewayConfigQuery.isSuccess &&
-    !savedOpenclawGatewayUrl &&
-    Boolean(settings.openclawGatewayUrl || settings.openclawPassword);
+    settings.openclawGatewayUrl !== defaults.openclawGatewayUrl ||
+    settings.openclawPassword !== defaults.openclawPassword;
   const changedSettingLabels = [
     ...(theme !== "system" ? ["Theme"] : []),
     ...(colorTheme !== DEFAULT_COLOR_THEME ? ["Color theme"] : []),
@@ -737,6 +907,12 @@ function SettingsRouteView() {
       : []),
     ...(settings.showAuthFailuresAsErrors !== defaults.showAuthFailuresAsErrors
       ? ["Auth failure errors"]
+      : []),
+    ...(settings.showNotificationDetails !== defaults.showNotificationDetails
+      ? ["Notification details"]
+      : []),
+    ...(settings.includeDiagnosticsTipsInCopy !== defaults.includeDiagnosticsTipsInCopy
+      ? ["Diagnostics copy tips"]
       : []),
     ...(settings.openLinksExternally !== defaults.openLinksExternally
       ? ["Open links externally"]
@@ -773,10 +949,32 @@ function SettingsRouteView() {
     ...(settings.backgroundImageOpacity !== defaults.backgroundImageOpacity
       ? ["Background opacity"]
       : []),
+    ...(settings.sidebarOpacity !== defaults.sidebarOpacity ? ["Sidebar opacity"] : []),
+    ...(settings.sidebarProjectRowHeight !== defaults.sidebarProjectRowHeight
+      ? ["Project height"]
+      : []),
+    ...(settings.sidebarThreadRowHeight !== defaults.sidebarThreadRowHeight
+      ? ["Thread height"]
+      : []),
+    ...(settings.sidebarFontSize !== defaults.sidebarFontSize ? ["Sidebar font size"] : []),
+    ...(settings.sidebarSpacing !== defaults.sidebarSpacing ? ["Sidebar spacing"] : []),
     ...(radiusOverride !== null ? ["Border radius"] : []),
     ...(fontOverride ? ["Font family"] : []),
-    ...(fontSizeOverride !== null ? ["Font size"] : []),
+    ...(fontSizeOverride !== null ? ["Code font size"] : []),
   ];
+
+  const openTweakcn = useCallback(() => {
+    void openUrlInAppBrowser({
+      url: "https://tweakcn.com",
+      projectId: activeProjectId,
+      threadId: activeProjectPreviewThreadId,
+      popOut: true,
+      nativeApi: readNativeApi(),
+    }).catch(() => {
+      const nativeApi = ensureNativeApi();
+      return nativeApi.shell.openExternal("https://tweakcn.com");
+    });
+  }, [activeProjectId, activeProjectPreviewThreadId]);
 
   const openKeybindingsFile = useCallback(() => {
     if (!keybindingsConfigPath) return;
@@ -800,6 +998,19 @@ function SettingsRouteView() {
         setIsOpeningKeybindings(false);
       });
   }, [availableEditors, keybindingsConfigPath]);
+
+  const replaceKeybindingRules = useCallback(
+    async (command: KeybindingCommand, rules: readonly KeybindingRule[]) => {
+      const api = ensureNativeApi();
+      await api.server.replaceKeybindingRules({ command, rules: [...rules] });
+      await queryClient.invalidateQueries({ queryKey: serverQueryKeys.all });
+    },
+    [queryClient],
+  );
+
+  const refreshProviderStatuses = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: serverQueryKeys.config() });
+  }, [queryClient]);
 
   const saveGlobalEnvironmentVariables = useCallback(
     async (entries: ReadonlyArray<{ key: string; value: string }>) => {
@@ -833,11 +1044,9 @@ function SettingsRouteView() {
     setOpenclawTestResult(null);
     try {
       const api = ensureNativeApi();
-      const gatewayUrl = effectiveOpenclawGatewayUrl.trim();
-      const sharedSecret = openclawSharedSecretDraft.trim();
       const result = await api.server.testOpenclawGateway({
-        ...(gatewayUrl ? { gatewayUrl } : {}),
-        ...(sharedSecret ? { password: sharedSecret } : {}),
+        gatewayUrl: settings.openclawGatewayUrl,
+        password: settings.openclawPassword || undefined,
       });
       setOpenclawTestResult(result);
     } catch (err) {
@@ -850,110 +1059,12 @@ function SettingsRouteView() {
     } finally {
       setOpenclawTestLoading(false);
     }
-  }, [effectiveOpenclawGatewayUrl, openclawSharedSecretDraft, openclawTestLoading]);
+  }, [openclawTestLoading, settings.openclawGatewayUrl, settings.openclawPassword]);
 
   const handleCopyOpenclawDebugReport = useCallback(() => {
     if (!openclawTestResult) return;
     copyOpenclawDebugReport(formatOpenclawGatewayDebugReport(openclawTestResult), undefined);
   }, [copyOpenclawDebugReport, openclawTestResult]);
-
-  const saveOpenclawGatewayConfig = useCallback(async () => {
-    if (openclawSaveLoading) return;
-    const gatewayUrl = effectiveOpenclawGatewayUrl.trim();
-    if (!gatewayUrl) {
-      throw new Error("Gateway URL is required.");
-    }
-    setOpenclawSaveLoading(true);
-    try {
-      const api = ensureNativeApi();
-      const sharedSecret = openclawSharedSecretDraft.trim();
-      const summary = await api.server.saveOpenclawGatewayConfig({
-        gatewayUrl,
-        ...(sharedSecret ? { sharedSecret } : {}),
-      });
-      queryClient.setQueryData(serverQueryKeys.openclawGatewayConfig(), summary);
-      void queryClient.invalidateQueries({ queryKey: serverQueryKeys.all });
-      setOpenclawGatewayDraft(null);
-      setOpenclawSharedSecretDraft("");
-      setOpenclawTestResult(null);
-    } finally {
-      setOpenclawSaveLoading(false);
-    }
-  }, [effectiveOpenclawGatewayUrl, openclawSaveLoading, openclawSharedSecretDraft, queryClient]);
-
-  const clearSavedOpenclawSharedSecret = useCallback(async () => {
-    const gatewayUrl = effectiveOpenclawGatewayUrl.trim();
-    if (!gatewayUrl) {
-      throw new Error("Gateway URL is required.");
-    }
-    setOpenclawSaveLoading(true);
-    try {
-      const api = ensureNativeApi();
-      const summary = await api.server.saveOpenclawGatewayConfig({
-        gatewayUrl,
-        clearSharedSecret: true,
-      });
-      queryClient.setQueryData(serverQueryKeys.openclawGatewayConfig(), summary);
-      void queryClient.invalidateQueries({ queryKey: serverQueryKeys.all });
-      setOpenclawSharedSecretDraft("");
-      setOpenclawTestResult(null);
-    } finally {
-      setOpenclawSaveLoading(false);
-    }
-  }, [effectiveOpenclawGatewayUrl, queryClient]);
-
-  const resetOpenclawDeviceState = useCallback(
-    async (regenerateIdentity: boolean) => {
-      if (openclawResetLoading) return;
-      setOpenclawResetLoading(regenerateIdentity ? "identity" : "token");
-      try {
-        const api = ensureNativeApi();
-        const summary = await api.server.resetOpenclawGatewayDeviceState({
-          regenerateIdentity,
-        });
-        queryClient.setQueryData(serverQueryKeys.openclawGatewayConfig(), summary);
-        void queryClient.invalidateQueries({ queryKey: serverQueryKeys.all });
-        setOpenclawTestResult(null);
-      } finally {
-        setOpenclawResetLoading(null);
-      }
-    },
-    [openclawResetLoading, queryClient],
-  );
-
-  const importLegacyOpenclawSettings = useCallback(async () => {
-    const gatewayUrl = settings.openclawGatewayUrl.trim();
-    if (!gatewayUrl) {
-      throw new Error("Legacy OpenClaw settings do not contain a gateway URL.");
-    }
-    setOpenclawSaveLoading(true);
-    try {
-      const api = ensureNativeApi();
-      const sharedSecret = settings.openclawPassword.trim();
-      const summary = await api.server.saveOpenclawGatewayConfig({
-        gatewayUrl,
-        ...(sharedSecret ? { sharedSecret } : {}),
-      });
-      queryClient.setQueryData(serverQueryKeys.openclawGatewayConfig(), summary);
-      void queryClient.invalidateQueries({ queryKey: serverQueryKeys.all });
-      updateSettings({
-        openclawGatewayUrl: defaults.openclawGatewayUrl,
-        openclawPassword: defaults.openclawPassword,
-      });
-      setOpenclawGatewayDraft(null);
-      setOpenclawSharedSecretDraft("");
-      setOpenclawTestResult(null);
-    } finally {
-      setOpenclawSaveLoading(false);
-    }
-  }, [
-    defaults.openclawGatewayUrl,
-    defaults.openclawPassword,
-    queryClient,
-    settings.openclawGatewayUrl,
-    settings.openclawPassword,
-    updateSettings,
-  ]);
 
   const addCustomModel = useCallback(
     (provider: ProviderKind) => {
@@ -1239,6 +1350,23 @@ function SettingsRouteView() {
                                 <Button
                                   size="xs"
                                   variant="outline"
+                                  onClick={openTweakcn}
+                                  aria-label="Open tweakcn"
+                                >
+                                  <GlobeIcon className="size-3.5" />
+                                </Button>
+                              }
+                            />
+                            <TooltipPopup side="top">
+                              Open tweakcn in the in-app browser
+                            </TooltipPopup>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger
+                              render={
+                                <Button
+                                  size="xs"
+                                  variant="outline"
                                   onClick={() => setCustomThemeDialogOpen(true)}
                                   aria-label="Import custom theme"
                                 >
@@ -1290,12 +1418,12 @@ function SettingsRouteView() {
                     />
 
                     <SettingsRow
-                      title="Font size"
+                      title="Code font size"
                       description="Adjust the font size for code editors and terminal."
                       resetAction={
                         fontSizeOverride !== null ? (
                           <SettingResetButton
-                            label="font size"
+                            label="code font size"
                             onClick={() => {
                               clearFontSizeOverride();
                               setFontSizeOverrideState(null);
@@ -1317,7 +1445,7 @@ function SettingsRouteView() {
                               setStoredFontSizeOverride(value);
                             }}
                             className="h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-muted accent-foreground sm:w-28"
-                            aria-label="Font size"
+                            aria-label="Code font size"
                           />
                           <span className="w-12 text-right text-xs tabular-nums text-muted-foreground">
                             {fontSizeOverride ?? 12}px
@@ -1431,6 +1559,150 @@ function SettingsRouteView() {
                           />
                           <span className="w-9 text-right text-xs tabular-nums text-muted-foreground">
                             {Math.round(settings.sidebarOpacity * 100)}%
+                          </span>
+                        </div>
+                      }
+                    />
+
+                    <SettingsRow
+                      title="Project height"
+                      description="Adjust the height of project rows in the sidebar."
+                      resetAction={
+                        settings.sidebarProjectRowHeight !== defaults.sidebarProjectRowHeight ? (
+                          <SettingResetButton
+                            label="project height"
+                            onClick={() =>
+                              updateSettings({
+                                sidebarProjectRowHeight: DEFAULT_SIDEBAR_PROJECT_ROW_HEIGHT,
+                              })
+                            }
+                          />
+                        ) : null
+                      }
+                      control={
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="range"
+                            min={SIDEBAR_PROJECT_ROW_HEIGHT_MIN}
+                            max={SIDEBAR_PROJECT_ROW_HEIGHT_MAX}
+                            step={1}
+                            value={settings.sidebarProjectRowHeight}
+                            onChange={(e) => {
+                              updateSettings({
+                                sidebarProjectRowHeight: Number(e.target.value),
+                              });
+                            }}
+                            className="h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-muted accent-foreground sm:w-28"
+                            aria-label="Project height"
+                          />
+                          <span className="w-12 text-right text-xs tabular-nums text-muted-foreground">
+                            {settings.sidebarProjectRowHeight}px
+                          </span>
+                        </div>
+                      }
+                    />
+
+                    <SettingsRow
+                      title="Thread height"
+                      description="Adjust the height of thread rows in the sidebar."
+                      resetAction={
+                        settings.sidebarThreadRowHeight !== defaults.sidebarThreadRowHeight ? (
+                          <SettingResetButton
+                            label="thread height"
+                            onClick={() =>
+                              updateSettings({
+                                sidebarThreadRowHeight: DEFAULT_SIDEBAR_THREAD_ROW_HEIGHT,
+                              })
+                            }
+                          />
+                        ) : null
+                      }
+                      control={
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="range"
+                            min={SIDEBAR_THREAD_ROW_HEIGHT_MIN}
+                            max={SIDEBAR_THREAD_ROW_HEIGHT_MAX}
+                            step={1}
+                            value={settings.sidebarThreadRowHeight}
+                            onChange={(e) => {
+                              updateSettings({
+                                sidebarThreadRowHeight: Number(e.target.value),
+                              });
+                            }}
+                            className="h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-muted accent-foreground sm:w-28"
+                            aria-label="Thread height"
+                          />
+                          <span className="w-12 text-right text-xs tabular-nums text-muted-foreground">
+                            {settings.sidebarThreadRowHeight}px
+                          </span>
+                        </div>
+                      }
+                    />
+
+                    <SettingsRow
+                      title="Sidebar font size"
+                      description="Adjust the size of project and thread names in the sidebar."
+                      resetAction={
+                        settings.sidebarFontSize !== defaults.sidebarFontSize ? (
+                          <SettingResetButton
+                            label="sidebar font size"
+                            onClick={() =>
+                              updateSettings({ sidebarFontSize: DEFAULT_SIDEBAR_FONT_SIZE })
+                            }
+                          />
+                        ) : null
+                      }
+                      control={
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="range"
+                            min={SIDEBAR_FONT_SIZE_MIN}
+                            max={SIDEBAR_FONT_SIZE_MAX}
+                            step={1}
+                            value={settings.sidebarFontSize}
+                            onChange={(e) => {
+                              updateSettings({ sidebarFontSize: Number(e.target.value) });
+                            }}
+                            className="h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-muted accent-foreground sm:w-28"
+                            aria-label="Sidebar font size"
+                          />
+                          <span className="w-12 text-right text-xs tabular-nums text-muted-foreground">
+                            {settings.sidebarFontSize}px
+                          </span>
+                        </div>
+                      }
+                    />
+
+                    <SettingsRow
+                      title="Sidebar spacing"
+                      description="Adjust padding and row spacing in the project and thread list."
+                      resetAction={
+                        settings.sidebarSpacing !== defaults.sidebarSpacing ? (
+                          <SettingResetButton
+                            label="sidebar spacing"
+                            onClick={() =>
+                              updateSettings({ sidebarSpacing: DEFAULT_SIDEBAR_SPACING })
+                            }
+                          />
+                        ) : null
+                      }
+                      control={
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="range"
+                            min={SIDEBAR_SPACING_MIN}
+                            max={SIDEBAR_SPACING_MAX}
+                            step={1}
+                            value={settings.sidebarSpacing}
+                            onChange={(e) => {
+                              updateSettings({ sidebarSpacing: Number(e.target.value) });
+                            }}
+                            className="h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-muted accent-foreground sm:w-28"
+                            aria-label="Sidebar spacing"
+                          />
+                          <span className="w-12 text-right text-xs tabular-nums text-muted-foreground">
+                            {settings.sidebarSpacing}px
                           </span>
                         </div>
                       }
@@ -1788,6 +2060,63 @@ function SettingsRouteView() {
                     />
 
                     <SettingsRow
+                      title="Notification details"
+                      description="Open the chat notification bar expanded by default so the error text is visible without an extra click."
+                      resetAction={
+                        settings.showNotificationDetails !== defaults.showNotificationDetails ? (
+                          <SettingResetButton
+                            label="notification details"
+                            onClick={() =>
+                              updateSettings({
+                                showNotificationDetails: defaults.showNotificationDetails,
+                              })
+                            }
+                          />
+                        ) : null
+                      }
+                      control={
+                        <Switch
+                          checked={settings.showNotificationDetails}
+                          onCheckedChange={(checked) =>
+                            updateSettings({
+                              showNotificationDetails: Boolean(checked),
+                            })
+                          }
+                          aria-label="Show notification details by default"
+                        />
+                      }
+                    />
+
+                    <SettingsRow
+                      title="Diagnostics copy tips"
+                      description="Include short troubleshooting tips when copying notification diagnostics. Leave this off to keep copied text smaller."
+                      resetAction={
+                        settings.includeDiagnosticsTipsInCopy !==
+                        defaults.includeDiagnosticsTipsInCopy ? (
+                          <SettingResetButton
+                            label="diagnostics copy tips"
+                            onClick={() =>
+                              updateSettings({
+                                includeDiagnosticsTipsInCopy: defaults.includeDiagnosticsTipsInCopy,
+                              })
+                            }
+                          />
+                        ) : null
+                      }
+                      control={
+                        <Switch
+                          checked={settings.includeDiagnosticsTipsInCopy}
+                          onCheckedChange={(checked) =>
+                            updateSettings({
+                              includeDiagnosticsTipsInCopy: Boolean(checked),
+                            })
+                          }
+                          aria-label="Include diagnostics tips in copied text"
+                        />
+                      }
+                    />
+
+                    <SettingsRow
                       title="Open links externally"
                       description="Open terminal URLs in your default browser instead of the embedded preview panel."
                       resetAction={
@@ -2093,6 +2422,361 @@ function SettingsRouteView() {
                   </SettingsSection>
                 )}
 
+                {activeSection === "authentication" && (
+                  <SettingsSection
+                    title="Authentication"
+                    description="Only providers that are ready and authenticated enough to run will appear in the new-thread provider picker. Existing threads remain pinned to their current provider."
+                    actions={
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => void refreshProviderStatuses()}
+                      >
+                        <RefreshCwIcon className="size-3.5" />
+                        Refresh status
+                      </Button>
+                    }
+                  >
+                    <SettingsRow
+                      title="Thread picker availability"
+                      description="These checks decide which providers show up in the thread composer before a provider is locked in."
+                      status={`${selectableProviders.length} provider${selectableProviders.length === 1 ? "" : "s"} currently selectable`}
+                    >
+                      <div className="mt-4 space-y-3">
+                        {(["codex", "claudeAgent", "openclaw"] as const).map((provider) => (
+                          <AuthenticationStatusCard
+                            key={provider}
+                            provider={provider}
+                            status={
+                              providerStatuses.find((status) => status.provider === provider) ??
+                              null
+                            }
+                            openclawGatewayUrl={settings.openclawGatewayUrl}
+                          />
+                        ))}
+                      </div>
+                    </SettingsRow>
+
+                    <SettingsRow
+                      title="Provider installs"
+                      description="Override the CLI binaries and auth homes used for new sessions."
+                      status="These paths apply when OK Code starts a fresh provider session."
+                      resetAction={
+                        isInstallSettingsDirty ? (
+                          <SettingResetButton
+                            label="provider installs"
+                            onClick={() => {
+                              updateSettings({
+                                claudeBinaryPath: defaults.claudeBinaryPath,
+                                codexBinaryPath: defaults.codexBinaryPath,
+                                codexHomePath: defaults.codexHomePath,
+                              });
+                              setOpenInstallProviders({
+                                codex: false,
+                                claudeAgent: false,
+                                openclaw: false,
+                              });
+                            }}
+                          />
+                        ) : null
+                      }
+                    >
+                      <div className="mt-4">
+                        <div className="space-y-2">
+                          {INSTALL_PROVIDER_SETTINGS.map((providerSettings) => {
+                            const isOpen = openInstallProviders[providerSettings.provider];
+                            const isDirty =
+                              providerSettings.provider === "codex"
+                                ? settings.codexBinaryPath !== defaults.codexBinaryPath ||
+                                  settings.codexHomePath !== defaults.codexHomePath
+                                : settings.claudeBinaryPath !== defaults.claudeBinaryPath;
+                            const binaryPathValue =
+                              providerSettings.binaryPathKey === "claudeBinaryPath"
+                                ? claudeBinaryPath
+                                : codexBinaryPath;
+
+                            return (
+                              <Collapsible
+                                key={providerSettings.provider}
+                                open={isOpen}
+                                onOpenChange={(open) =>
+                                  setOpenInstallProviders((existing) => ({
+                                    ...existing,
+                                    [providerSettings.provider]: open,
+                                  }))
+                                }
+                              >
+                                <div className="overflow-hidden rounded-xl border border-border/70">
+                                  <button
+                                    type="button"
+                                    className="flex w-full items-center gap-3 px-4 py-3 text-left"
+                                    onClick={() =>
+                                      setOpenInstallProviders((existing) => ({
+                                        ...existing,
+                                        [providerSettings.provider]:
+                                          !existing[providerSettings.provider],
+                                      }))
+                                    }
+                                  >
+                                    <span className="min-w-0 flex-1 text-sm font-medium text-foreground">
+                                      {providerSettings.title}
+                                    </span>
+                                    {isDirty ? (
+                                      <span className="text-[11px] text-muted-foreground">
+                                        Custom
+                                      </span>
+                                    ) : null}
+                                    <ChevronDownIcon
+                                      className={cn(
+                                        "size-4 shrink-0 text-muted-foreground transition-transform",
+                                        isOpen && "rotate-180",
+                                      )}
+                                    />
+                                  </button>
+
+                                  <CollapsibleContent>
+                                    <div className="border-t border-border/70 px-4 py-4">
+                                      <div className="space-y-3">
+                                        <label
+                                          htmlFor={`provider-install-${providerSettings.binaryPathKey}`}
+                                          className="block"
+                                        >
+                                          <span className="block text-xs font-medium text-foreground">
+                                            {providerSettings.title} binary path
+                                          </span>
+                                          <Input
+                                            id={`provider-install-${providerSettings.binaryPathKey}`}
+                                            className="mt-1"
+                                            value={binaryPathValue}
+                                            onChange={(event) =>
+                                              updateSettings(
+                                                providerSettings.binaryPathKey ===
+                                                  "claudeBinaryPath"
+                                                  ? { claudeBinaryPath: event.target.value }
+                                                  : { codexBinaryPath: event.target.value },
+                                              )
+                                            }
+                                            placeholder={providerSettings.binaryPlaceholder}
+                                            spellCheck={false}
+                                          />
+                                          <span className="mt-1 block text-xs text-muted-foreground">
+                                            {providerSettings.binaryDescription}
+                                          </span>
+                                        </label>
+
+                                        {providerSettings.homePathKey ? (
+                                          <label
+                                            htmlFor={`provider-install-${providerSettings.homePathKey}`}
+                                            className="block"
+                                          >
+                                            <span className="block text-xs font-medium text-foreground">
+                                              CODEX_HOME path
+                                            </span>
+                                            <Input
+                                              id={`provider-install-${providerSettings.homePathKey}`}
+                                              className="mt-1"
+                                              value={codexHomePath}
+                                              onChange={(event) =>
+                                                updateSettings({
+                                                  codexHomePath: event.target.value,
+                                                })
+                                              }
+                                              placeholder={providerSettings.homePlaceholder}
+                                              spellCheck={false}
+                                            />
+                                            {providerSettings.homeDescription ? (
+                                              <span className="mt-1 block text-xs text-muted-foreground">
+                                                {providerSettings.homeDescription}
+                                              </span>
+                                            ) : null}
+                                          </label>
+                                        ) : null}
+                                      </div>
+                                    </div>
+                                  </CollapsibleContent>
+                                </div>
+                              </Collapsible>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </SettingsRow>
+
+                    <SettingsRow
+                      title="OpenClaw gateway"
+                      description="Connect to an OpenClaw gateway for remote agent sessions."
+                      status={
+                        settings.openclawGatewayUrl.trim().length > 0
+                          ? `Configured for ${settings.openclawGatewayUrl}`
+                          : "Not configured"
+                      }
+                      resetAction={
+                        isOpenClawSettingsDirty ? (
+                          <SettingResetButton
+                            label="OpenClaw gateway"
+                            onClick={() =>
+                              updateSettings({
+                                openclawGatewayUrl: defaults.openclawGatewayUrl,
+                                openclawPassword: defaults.openclawPassword,
+                              })
+                            }
+                          />
+                        ) : null
+                      }
+                    >
+                      <div className="mt-4 space-y-3">
+                        <label htmlFor="openclaw-gateway-url" className="block">
+                          <span className="block text-xs font-medium text-foreground">
+                            Gateway URL
+                          </span>
+                          <Input
+                            id="openclaw-gateway-url"
+                            className="mt-1"
+                            value={settings.openclawGatewayUrl}
+                            onChange={(event) => {
+                              updateSettings({ openclawGatewayUrl: event.target.value });
+                              setOpenclawTestResult(null);
+                            }}
+                            placeholder="ws://localhost:8080"
+                            spellCheck={false}
+                          />
+                          <span className="mt-1 block text-xs text-muted-foreground">
+                            WebSocket URL of the OpenClaw gateway. Leave blank when not using
+                            OpenClaw.
+                          </span>
+                        </label>
+                        <label htmlFor="openclaw-password" className="block">
+                          <span className="block text-xs font-medium text-foreground">
+                            Password
+                          </span>
+                          <Input
+                            id="openclaw-password"
+                            className="mt-1"
+                            type="password"
+                            value={settings.openclawPassword}
+                            onChange={(event) => {
+                              updateSettings({ openclawPassword: event.target.value });
+                              setOpenclawTestResult(null);
+                            }}
+                            placeholder="Shared secret"
+                            spellCheck={false}
+                            autoComplete="off"
+                          />
+                          <span className="mt-1 block text-xs text-muted-foreground">
+                            Shared secret used to authenticate with the gateway.
+                          </span>
+                        </label>
+
+                        <div className="pt-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={!settings.openclawGatewayUrl || openclawTestLoading}
+                            onClick={testOpenclawGateway}
+                          >
+                            {openclawTestLoading ? (
+                              <>
+                                <Loader2Icon className="mr-1.5 size-3.5 animate-spin" />
+                                Testing…
+                              </>
+                            ) : (
+                              "Test Connection"
+                            )}
+                          </Button>
+                        </div>
+
+                        {openclawTestResult ? (
+                          <div className="mt-3 rounded-md border border-border bg-muted/30 p-3">
+                            <div className="flex items-center gap-2">
+                              {openclawTestResult.success ? (
+                                <CheckCircle2Icon className="size-4 text-emerald-500" />
+                              ) : (
+                                <XCircleIcon className="size-4 text-red-500" />
+                              )}
+                              <span
+                                className={cn(
+                                  "text-xs font-semibold",
+                                  openclawTestResult.success ? "text-emerald-500" : "text-red-500",
+                                )}
+                              >
+                                {openclawTestResult.success
+                                  ? "Connection successful"
+                                  : "Connection failed"}
+                              </span>
+                              <span className="ml-auto text-[10px] tabular-nums text-muted-foreground">
+                                {openclawTestResult.totalDurationMs}ms total
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="xs"
+                                className="h-6 px-2 text-[10px]"
+                                onClick={handleCopyOpenclawDebugReport}
+                              >
+                                {openclawDebugReportCopied ? "Copied!" : "Copy debug report"}
+                              </Button>
+                            </div>
+
+                            {openclawTestResult.steps.length > 0 ? (
+                              <div className="mt-2.5 space-y-1.5">
+                                {openclawTestResult.steps.map((step) => (
+                                  <div
+                                    key={`${step.name}-${step.status}-${step.durationMs}`}
+                                    className="flex items-start gap-2 text-xs"
+                                  >
+                                    {step.status === "pass" ? (
+                                      <CheckCircle2Icon className="mt-px size-3.5 shrink-0 text-emerald-500" />
+                                    ) : null}
+                                    {step.status === "fail" ? (
+                                      <XCircleIcon className="mt-px size-3.5 shrink-0 text-red-500" />
+                                    ) : null}
+                                    {step.status === "skip" ? (
+                                      <SkipForwardIcon className="mt-px size-3.5 shrink-0 text-muted-foreground" />
+                                    ) : null}
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex items-baseline gap-2">
+                                        <span className="font-medium text-foreground">
+                                          {step.name}
+                                        </span>
+                                        <span className="text-[10px] tabular-nums text-muted-foreground">
+                                          {step.durationMs}ms
+                                        </span>
+                                      </div>
+                                      {step.detail ? (
+                                        <span className="block break-all text-muted-foreground">
+                                          {step.detail}
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : null}
+
+                            {openclawTestResult.error &&
+                            !openclawTestResult.steps.some((step) => step.status === "fail") ? (
+                              <div className="mt-2 text-xs text-red-500">
+                                {openclawTestResult.error}
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </div>
+                    </SettingsRow>
+                  </SettingsSection>
+                )}
+
+                {activeSection === "hotkeys" && (
+                  <HotkeysSettingsSection
+                    keybindings={serverConfigQuery.data?.keybindings ?? []}
+                    issues={serverConfigQuery.data?.issues ?? []}
+                    keybindingsConfigPath={keybindingsConfigPath}
+                    isOpeningKeybindings={isOpeningKeybindings}
+                    openKeybindingsError={openKeybindingsError}
+                    onOpenKeybindingsFile={openKeybindingsFile}
+                    onReplaceKeybindingRules={replaceKeybindingRules}
+                  />
+                )}
+
                 {activeSection === "environment" && (
                   <SettingsSection
                     title="Environment"
@@ -2293,7 +2977,7 @@ function SettingsRouteView() {
 
                     <SettingsRow
                       title="Custom models"
-                      description="Add custom model slugs for Codex or Anthropic. The chat picker groups models by provider."
+                      description="Add custom model slugs for Codex or Claude Code. The chat picker groups models by provider."
                       resetAction={
                         totalCustomModels > 0 ? (
                           <SettingResetButton
@@ -2444,631 +3128,8 @@ function SettingsRouteView() {
                 {activeSection === "advanced" && (
                   <SettingsSection
                     title="Advanced"
-                    description="Provider paths, keybindings, and build info."
+                    description="Build metadata and low-level diagnostics."
                   >
-                    <SettingsRow
-                      title="Provider installs"
-                      description="Override the CLI binaries and auth homes used for new sessions."
-                      resetAction={
-                        isInstallSettingsDirty ? (
-                          <SettingResetButton
-                            label="provider installs"
-                            onClick={() => {
-                              updateSettings({
-                                claudeBinaryPath: defaults.claudeBinaryPath,
-                                codexBinaryPath: defaults.codexBinaryPath,
-                                codexHomePath: defaults.codexHomePath,
-                              });
-                              setOpenInstallProviders({
-                                codex: false,
-                                claudeAgent: false,
-                                openclaw: false,
-                              });
-                            }}
-                          />
-                        ) : null
-                      }
-                    >
-                      <div className="mt-4">
-                        <div className="space-y-2">
-                          {INSTALL_PROVIDER_SETTINGS.map((providerSettings) => {
-                            const isOpen = openInstallProviders[providerSettings.provider];
-                            const isDirty =
-                              providerSettings.provider === "codex"
-                                ? settings.codexBinaryPath !== defaults.codexBinaryPath ||
-                                  settings.codexHomePath !== defaults.codexHomePath
-                                : settings.claudeBinaryPath !== defaults.claudeBinaryPath;
-                            const binaryPathValue =
-                              providerSettings.binaryPathKey === "claudeBinaryPath"
-                                ? claudeBinaryPath
-                                : codexBinaryPath;
-
-                            return (
-                              <Collapsible
-                                key={providerSettings.provider}
-                                open={isOpen}
-                                onOpenChange={(open) =>
-                                  setOpenInstallProviders((existing) => ({
-                                    ...existing,
-                                    [providerSettings.provider]: open,
-                                  }))
-                                }
-                              >
-                                <div className="overflow-hidden rounded-xl border border-border/70">
-                                  <button
-                                    type="button"
-                                    className="flex w-full items-center gap-3 px-4 py-3 text-left"
-                                    onClick={() =>
-                                      setOpenInstallProviders((existing) => ({
-                                        ...existing,
-                                        [providerSettings.provider]:
-                                          !existing[providerSettings.provider],
-                                      }))
-                                    }
-                                  >
-                                    <span className="min-w-0 flex-1 text-sm font-medium text-foreground">
-                                      {providerSettings.title}
-                                    </span>
-                                    {isDirty ? (
-                                      <span className="text-[11px] text-muted-foreground">
-                                        Custom
-                                      </span>
-                                    ) : null}
-                                    <ChevronDownIcon
-                                      className={cn(
-                                        "size-4 shrink-0 text-muted-foreground transition-transform",
-                                        isOpen && "rotate-180",
-                                      )}
-                                    />
-                                  </button>
-
-                                  <CollapsibleContent>
-                                    <div className="border-t border-border/70 px-4 py-4">
-                                      <div className="space-y-3">
-                                        <label
-                                          htmlFor={`provider-install-${providerSettings.binaryPathKey}`}
-                                          className="block"
-                                        >
-                                          <span className="block text-xs font-medium text-foreground">
-                                            {providerSettings.title} binary path
-                                          </span>
-                                          <Input
-                                            id={`provider-install-${providerSettings.binaryPathKey}`}
-                                            className="mt-1"
-                                            value={binaryPathValue}
-                                            onChange={(event) =>
-                                              updateSettings(
-                                                providerSettings.binaryPathKey ===
-                                                  "claudeBinaryPath"
-                                                  ? { claudeBinaryPath: event.target.value }
-                                                  : { codexBinaryPath: event.target.value },
-                                              )
-                                            }
-                                            placeholder={providerSettings.binaryPlaceholder}
-                                            spellCheck={false}
-                                          />
-                                          <span className="mt-1 block text-xs text-muted-foreground">
-                                            {providerSettings.binaryDescription}
-                                          </span>
-                                        </label>
-
-                                        {providerSettings.homePathKey ? (
-                                          <label
-                                            htmlFor={`provider-install-${providerSettings.homePathKey}`}
-                                            className="block"
-                                          >
-                                            <span className="block text-xs font-medium text-foreground">
-                                              CODEX_HOME path
-                                            </span>
-                                            <Input
-                                              id={`provider-install-${providerSettings.homePathKey}`}
-                                              className="mt-1"
-                                              value={codexHomePath}
-                                              onChange={(event) =>
-                                                updateSettings({
-                                                  codexHomePath: event.target.value,
-                                                })
-                                              }
-                                              placeholder={providerSettings.homePlaceholder}
-                                              spellCheck={false}
-                                            />
-                                            {providerSettings.homeDescription ? (
-                                              <span className="mt-1 block text-xs text-muted-foreground">
-                                                {providerSettings.homeDescription}
-                                              </span>
-                                            ) : null}
-                                          </label>
-                                        ) : null}
-                                      </div>
-                                    </div>
-                                  </CollapsibleContent>
-                                </div>
-                              </Collapsible>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </SettingsRow>
-
-                    <SettingsRow
-                      title="OpenClaw gateway"
-                      description="Connect to an OpenClaw gateway for remote agent sessions."
-                      resetAction={
-                        isOpenClawSettingsDirty ? (
-                          <SettingResetButton
-                            label="OpenClaw gateway"
-                            onClick={() => {
-                              setOpenclawGatewayDraft(null);
-                              setOpenclawSharedSecretDraft("");
-                              setOpenclawTestResult(null);
-                            }}
-                          />
-                        ) : null
-                      }
-                    >
-                      <div className="mt-4 space-y-3">
-                        {canImportLegacyOpenclawSettings ? (
-                          <div className="rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
-                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                              <span>
-                                Legacy browser-local OpenClaw settings were found. Import them to
-                                the server to make them active.
-                              </span>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={openclawSaveLoading}
-                                onClick={() => {
-                                  void importLegacyOpenclawSettings();
-                                }}
-                              >
-                                <ImportIcon className="mr-1.5 size-3.5" />
-                                Import legacy settings
-                              </Button>
-                            </div>
-                          </div>
-                        ) : null}
-                        <label htmlFor="openclaw-gateway-url" className="block">
-                          <span className="block text-xs font-medium text-foreground">
-                            Gateway URL
-                          </span>
-                          <Input
-                            id="openclaw-gateway-url"
-                            className="mt-1"
-                            value={effectiveOpenclawGatewayUrl}
-                            onChange={(event) => {
-                              setOpenclawGatewayDraft(event.target.value);
-                              setOpenclawTestResult(null);
-                            }}
-                            placeholder="ws://localhost:8080"
-                            spellCheck={false}
-                          />
-                          <span className="mt-1 block text-xs text-muted-foreground">
-                            WebSocket URL of the OpenClaw gateway. Leave blank when not using
-                            OpenClaw.
-                          </span>
-                        </label>
-                        <label htmlFor="openclaw-password" className="block">
-                          <span className="block text-xs font-medium text-foreground">
-                            Shared secret
-                          </span>
-                          <Input
-                            id="openclaw-password"
-                            className="mt-1"
-                            type="password"
-                            value={openclawSharedSecretDraft}
-                            onChange={(event) => {
-                              setOpenclawSharedSecretDraft(event.target.value);
-                              setOpenclawTestResult(null);
-                            }}
-                            placeholder={
-                              savedOpenclawHasSharedSecret
-                                ? "Leave blank to keep existing secret"
-                                : "Shared secret"
-                            }
-                            spellCheck={false}
-                            autoComplete="off"
-                          />
-                          <span className="mt-1 block text-xs text-muted-foreground">
-                            Shared secret used for gateway auth. Leave blank to keep the saved
-                            secret unchanged.
-                          </span>
-                        </label>
-
-                        <div className="rounded-md border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
-                          <div>
-                            Saved URL:{" "}
-                            <span className="font-mono text-foreground">
-                              {openclawGatewayConfigQuery.data?.gatewayUrl ?? "Not saved"}
-                            </span>
-                          </div>
-                          <div>
-                            Saved shared secret:{" "}
-                            <span className="text-foreground">
-                              {savedOpenclawHasSharedSecret ? "Configured" : "Not configured"}
-                            </span>
-                          </div>
-                          <div>
-                            Device fingerprint:{" "}
-                            <span className="font-mono text-foreground">
-                              {openclawGatewayConfigQuery.data?.deviceFingerprint ?? "Not created"}
-                            </span>
-                          </div>
-                          <div>
-                            Cached device token:{" "}
-                            <span className="text-foreground">
-                              {openclawGatewayConfigQuery.data?.hasDeviceToken
-                                ? "Present"
-                                : "Not cached"}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="flex flex-wrap gap-2 pt-1">
-                          <Button
-                            variant="default"
-                            size="sm"
-                            disabled={!effectiveOpenclawGatewayUrl.trim() || openclawSaveLoading}
-                            onClick={() => {
-                              void saveOpenclawGatewayConfig();
-                            }}
-                          >
-                            {openclawSaveLoading ? (
-                              <>
-                                <Loader2Icon className="mr-1.5 size-3.5 animate-spin" />
-                                Saving…
-                              </>
-                            ) : (
-                              "Save gateway config"
-                            )}
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={
-                              (!effectiveOpenclawGatewayUrl.trim() &&
-                                !openclawGatewayConfigQuery.data?.gatewayUrl) ||
-                              openclawTestLoading
-                            }
-                            onClick={() => {
-                              void testOpenclawGateway();
-                            }}
-                          >
-                            {openclawTestLoading ? (
-                              <>
-                                <Loader2Icon className="mr-1.5 size-3.5 animate-spin" />
-                                Testing…
-                              </>
-                            ) : (
-                              "Test Connection"
-                            )}
-                          </Button>
-                          {savedOpenclawHasSharedSecret ? (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              disabled={!effectiveOpenclawGatewayUrl.trim() || openclawSaveLoading}
-                              onClick={() => {
-                                void clearSavedOpenclawSharedSecret();
-                              }}
-                            >
-                              Clear saved secret
-                            </Button>
-                          ) : null}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={
-                              !openclawGatewayConfigQuery.data?.gatewayUrl ||
-                              Boolean(openclawResetLoading)
-                            }
-                            onClick={() => {
-                              void resetOpenclawDeviceState(false);
-                            }}
-                          >
-                            {openclawResetLoading === "token" ? "Resetting token…" : "Reset token"}
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={
-                              !openclawGatewayConfigQuery.data?.gatewayUrl ||
-                              Boolean(openclawResetLoading)
-                            }
-                            onClick={() => {
-                              void resetOpenclawDeviceState(true);
-                            }}
-                          >
-                            {openclawResetLoading === "identity"
-                              ? "Regenerating identity…"
-                              : "Regenerate identity"}
-                          </Button>
-                        </div>
-
-                        {/* Debug / Results Panel */}
-                        {openclawTestResult && (
-                          <div className="mt-3 rounded-md border border-border bg-muted/30 p-3">
-                            {/* Overall status header */}
-                            <div className="flex items-center gap-2">
-                              {openclawTestResult.success ? (
-                                <CheckCircle2Icon className="size-4 text-emerald-500" />
-                              ) : (
-                                <XCircleIcon className="size-4 text-red-500" />
-                              )}
-                              <span
-                                className={cn(
-                                  "text-xs font-semibold",
-                                  openclawTestResult.success ? "text-emerald-500" : "text-red-500",
-                                )}
-                              >
-                                {openclawTestResult.success
-                                  ? "Connection successful"
-                                  : "Connection failed"}
-                              </span>
-                              <span className="ml-auto text-[10px] tabular-nums text-muted-foreground">
-                                {openclawTestResult.totalDurationMs}ms total
-                              </span>
-                              <Button
-                                variant="ghost"
-                                size="xs"
-                                className="h-6 px-2 text-[10px]"
-                                onClick={handleCopyOpenclawDebugReport}
-                              >
-                                {openclawDebugReportCopied ? "Copied!" : "Copy debug report"}
-                              </Button>
-                            </div>
-
-                            {/* Step-by-step results */}
-                            {openclawTestResult.steps.length > 0 && (
-                              <div className="mt-2.5 space-y-1.5">
-                                {openclawTestResult.steps.map((step) => (
-                                  <div
-                                    key={`${step.name}-${step.status}-${step.durationMs}`}
-                                    className="flex items-start gap-2 text-xs"
-                                  >
-                                    {step.status === "pass" && (
-                                      <CheckCircle2Icon className="mt-px size-3.5 shrink-0 text-emerald-500" />
-                                    )}
-                                    {step.status === "fail" && (
-                                      <XCircleIcon className="mt-px size-3.5 shrink-0 text-red-500" />
-                                    )}
-                                    {step.status === "skip" && (
-                                      <SkipForwardIcon className="mt-px size-3.5 shrink-0 text-muted-foreground" />
-                                    )}
-                                    <div className="min-w-0 flex-1">
-                                      <div className="flex items-baseline gap-2">
-                                        <span className="font-medium text-foreground">
-                                          {step.name}
-                                        </span>
-                                        <span className="tabular-nums text-muted-foreground text-[10px]">
-                                          {step.durationMs}ms
-                                        </span>
-                                      </div>
-                                      {step.detail && (
-                                        <span className="block break-all text-muted-foreground">
-                                          {step.detail}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-
-                            {/* Server info */}
-                            {openclawTestResult.serverInfo && (
-                              <div className="mt-2.5 border-t border-border pt-2">
-                                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                                  Server Info
-                                </span>
-                                <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
-                                  {openclawTestResult.serverInfo.version && (
-                                    <div>
-                                      Version:{" "}
-                                      <span className="font-mono text-foreground">
-                                        {openclawTestResult.serverInfo.version}
-                                      </span>
-                                    </div>
-                                  )}
-                                  {openclawTestResult.serverInfo.sessionId && (
-                                    <div>
-                                      Session:{" "}
-                                      <span className="font-mono text-foreground">
-                                        {openclawTestResult.serverInfo.sessionId}
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-
-                            {openclawTestResult.diagnostics && (
-                              <div className="mt-2.5 border-t border-border pt-2">
-                                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                                  Debugging Context
-                                </span>
-                                <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
-                                  {openclawTestResult.diagnostics.normalizedUrl && (
-                                    <div>
-                                      Endpoint:{" "}
-                                      <span className="break-all font-mono text-foreground">
-                                        {openclawTestResult.diagnostics.normalizedUrl}
-                                      </span>
-                                    </div>
-                                  )}
-                                  {openclawTestResult.diagnostics.hostKind && (
-                                    <div>
-                                      Host type:{" "}
-                                      <span className="text-foreground">
-                                        {describeOpenclawGatewayHostKind(
-                                          openclawTestResult.diagnostics.hostKind,
-                                        )}
-                                      </span>
-                                    </div>
-                                  )}
-                                  {openclawTestResult.diagnostics.resolvedAddresses.length > 0 && (
-                                    <div>
-                                      Resolved:{" "}
-                                      <span className="break-all font-mono text-foreground">
-                                        {openclawTestResult.diagnostics.resolvedAddresses.join(
-                                          ", ",
-                                        )}
-                                      </span>
-                                    </div>
-                                  )}
-                                  {describeOpenclawGatewayHealthStatus(openclawTestResult) && (
-                                    <div>
-                                      Health probe:{" "}
-                                      <span className="text-foreground">
-                                        {describeOpenclawGatewayHealthStatus(openclawTestResult)}
-                                      </span>
-                                      {openclawTestResult.diagnostics.healthUrl && (
-                                        <>
-                                          {" "}
-                                          at{" "}
-                                          <span className="break-all font-mono text-foreground">
-                                            {openclawTestResult.diagnostics.healthUrl}
-                                          </span>
-                                        </>
-                                      )}
-                                    </div>
-                                  )}
-                                  {openclawTestResult.diagnostics.socketCloseCode !== undefined && (
-                                    <div>
-                                      Socket close:{" "}
-                                      <span className="text-foreground">
-                                        {openclawTestResult.diagnostics.socketCloseCode}
-                                        {openclawTestResult.diagnostics.socketCloseReason
-                                          ? ` (${openclawTestResult.diagnostics.socketCloseReason})`
-                                          : ""}
-                                      </span>
-                                    </div>
-                                  )}
-                                  {openclawTestResult.diagnostics.socketError && (
-                                    <div>
-                                      Socket error:{" "}
-                                      <span className="break-all text-foreground">
-                                        {openclawTestResult.diagnostics.socketError}
-                                      </span>
-                                    </div>
-                                  )}
-                                  {openclawTestResult.diagnostics.gatewayErrorCode && (
-                                    <div>
-                                      Gateway error code:{" "}
-                                      <span className="break-all font-mono text-foreground">
-                                        {openclawTestResult.diagnostics.gatewayErrorCode}
-                                      </span>
-                                    </div>
-                                  )}
-                                  {openclawTestResult.diagnostics.gatewayErrorDetailCode && (
-                                    <div>
-                                      Gateway detail code:{" "}
-                                      <span className="break-all font-mono text-foreground">
-                                        {openclawTestResult.diagnostics.gatewayErrorDetailCode}
-                                      </span>
-                                    </div>
-                                  )}
-                                  {openclawTestResult.diagnostics.gatewayErrorDetailReason && (
-                                    <div>
-                                      Gateway detail reason:{" "}
-                                      <span className="break-all font-mono text-foreground">
-                                        {openclawTestResult.diagnostics.gatewayErrorDetailReason}
-                                      </span>
-                                    </div>
-                                  )}
-                                  {openclawTestResult.diagnostics.gatewayRecommendedNextStep && (
-                                    <div>
-                                      Gateway next step:{" "}
-                                      <span className="break-all font-mono text-foreground">
-                                        {openclawTestResult.diagnostics.gatewayRecommendedNextStep}
-                                      </span>
-                                    </div>
-                                  )}
-                                  {openclawTestResult.diagnostics.gatewayCanRetryWithDeviceToken !==
-                                    undefined && (
-                                    <div>
-                                      Device-token retry available:{" "}
-                                      <span className="text-foreground">
-                                        {openclawTestResult.diagnostics
-                                          .gatewayCanRetryWithDeviceToken
-                                          ? "Yes"
-                                          : "No"}
-                                      </span>
-                                    </div>
-                                  )}
-                                  {openclawTestResult.diagnostics.observedNotifications.length >
-                                    0 && (
-                                    <div>
-                                      Gateway events:{" "}
-                                      <span className="break-all font-mono text-foreground">
-                                        {openclawTestResult.diagnostics.observedNotifications.join(
-                                          ", ",
-                                        )}
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-
-                            {openclawTestResult.diagnostics &&
-                              openclawTestResult.diagnostics.hints.length > 0 && (
-                                <div className="mt-2.5 border-t border-border pt-2">
-                                  <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                                    Troubleshooting
-                                  </span>
-                                  <ul className="mt-1 space-y-1 text-xs text-muted-foreground">
-                                    {openclawTestResult.diagnostics.hints.map((hint) => (
-                                      <li key={hint} className="flex gap-2">
-                                        <span className="mt-[6px] size-1 shrink-0 rounded-full bg-muted-foreground/60" />
-                                        <span>{hint}</span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              )}
-
-                            {/* Error summary */}
-                            {openclawTestResult.error &&
-                              !openclawTestResult.steps.some((s) => s.status === "fail") && (
-                                <div className="mt-2 text-xs text-red-500">
-                                  {openclawTestResult.error}
-                                </div>
-                              )}
-                          </div>
-                        )}
-                      </div>
-                    </SettingsRow>
-
-                    <SettingsRow
-                      title="Keybindings"
-                      description="Open the persisted `keybindings.json` file to edit advanced bindings directly."
-                      status={
-                        <>
-                          <span className="block break-all font-mono text-[11px] text-foreground">
-                            {keybindingsConfigPath ?? "Resolving keybindings path..."}
-                          </span>
-                          {openKeybindingsError ? (
-                            <span className="mt-1 block text-destructive">
-                              {openKeybindingsError}
-                            </span>
-                          ) : (
-                            <span className="mt-1 block">Opens in your preferred editor.</span>
-                          )}
-                        </>
-                      }
-                      control={
-                        <Button
-                          size="xs"
-                          variant="outline"
-                          disabled={!keybindingsConfigPath || isOpeningKeybindings}
-                          onClick={openKeybindingsFile}
-                        >
-                          {isOpeningKeybindings ? "Opening..." : "Open file"}
-                        </Button>
-                      }
-                    />
-
                     <SettingsRow
                       title="Build"
                       description="Current app-shell and server build metadata."

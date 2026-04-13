@@ -1702,7 +1702,6 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
         const tokens = tokenManager.list();
         return { tokens };
       }
-
       case WS_METHODS.serverGetOpenclawGatewayConfig:
         return yield* openclawGatewayConfig.getSummary();
 

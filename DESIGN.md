@@ -93,15 +93,16 @@ Colors are referenced through CSS custom properties, never hardcoded hex values.
 
 ### Themes
 
-Five premium themes, each with light and dark variants:
+Six premium themes, each with light and dark variants:
 
-| Theme | Vibe |
-|-------|------|
-| **Iridescent Void** | Futuristic, expensive, slightly alien |
-| **Carbon** | Stark, modern, performance-focused |
-| **Vapor** | Refined, fluid, purposeful |
-| **Cotton Candy** | Sweet, dreamy, pink and blue |
-| **Cathedral Circuit** | Sacred machine, techno-gothic |
+| Theme                 | Vibe                                  |
+| --------------------- | ------------------------------------- |
+| **Iridescent Void**   | Futuristic, expensive, slightly alien |
+| **Solar Witch**       | Magical, cozy, ritualistic            |
+| **Carbon**            | Stark, modern, performance-focused    |
+| **Vapor**             | Refined, fluid, purposeful            |
+| **Cotton Candy**      | Sweet, dreamy, pink and blue          |
+| **Cathedral Circuit** | Sacred machine, techno-gothic         |
 
 All themes define the same set of CSS custom properties. Components must use semantic
 tokens (`bg-accent`, `text-muted-foreground`) — never theme-specific values.

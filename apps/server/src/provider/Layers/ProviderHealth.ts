@@ -1,8 +1,7 @@
 /**
  * ProviderHealthLive - Startup-time provider health checks.
  *
- * Performs one-time provider readiness probes when the server starts and
- * keeps the resulting snapshot in memory for `server.getConfig`.
+ * Performs provider readiness probes on demand for `server.getConfig`.
  *
  * Uses effect's ChildProcessSpawner to run CLI probes natively.
  *

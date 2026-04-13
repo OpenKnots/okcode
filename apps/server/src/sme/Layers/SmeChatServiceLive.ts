@@ -6,7 +6,6 @@
  *
  * @module SmeChatServiceLive
  */
-import Anthropic from "@anthropic-ai/sdk";
 import type {
   SmeAuthMethod,
   SmeConversation,
@@ -21,37 +20,25 @@ import {
 import { DateTime, Effect, Layer, Option, Random, Ref } from "effect";
 import crypto from "node:crypto";
 
-import { EnvironmentVariables } from "../../persistence/Services/EnvironmentVariables.ts";
 import { OpenclawGatewayConfig } from "../../persistence/Services/OpenclawGatewayConfig.ts";
 import { SmeConversationRepository } from "../../persistence/Services/SmeConversations.ts";
 import { SmeKnowledgeDocumentRepository } from "../../persistence/Services/SmeKnowledgeDocuments.ts";
 import { SmeMessageRepository } from "../../persistence/Services/SmeMessages.ts";
-import { ProviderHealth } from "../../provider/Services/ProviderHealth.ts";
 import { ProviderService } from "../../provider/Services/ProviderService.ts";
+import { ProviderHealth } from "../../provider/Services/ProviderHealth.ts";
 import {
   isValidSmeAuthMethod,
-  validateAnthropicSetup,
+  validateClaudeSetup,
   validateCodexSetup,
   validateOpenClawSetup,
 } from "../authValidation.ts";
-import { sendSmeViaAnthropic, type ResolvedAnthropicClientOptions } from "../backends/anthropic.ts";
 import { sendSmeViaProviderRuntime } from "../backends/providerRuntime.ts";
-import {
-  buildSmeAnthropicMessages,
-  buildSmeCompiledPrompt,
-  buildSmeSystemPrompt,
-} from "../promptBuilder.ts";
+import { buildSmeCompiledPrompt } from "../promptBuilder.ts";
 import {
   SmeChatError,
   SmeChatService,
   type SmeChatServiceShape,
 } from "../Services/SmeChatService.ts";
-
-type AnthropicMessagesClient = Pick<Anthropic, "messages">;
-
-export interface SmeChatServiceLiveOptions {
-  readonly createClient?: (options: ResolvedAnthropicClientOptions) => AnthropicMessagesClient;
-}
 
 type ActiveRequest = {
   readonly interrupt: Effect.Effect<void, never>;
@@ -116,19 +103,14 @@ function toMessage(message: {
   };
 }
 
-const makeSmeChatService = (options: SmeChatServiceLiveOptions = {}) =>
+const makeSmeChatService = () =>
   Effect.gen(function* () {
     const documentRepo = yield* SmeKnowledgeDocumentRepository;
     const conversationRepo = yield* SmeConversationRepository;
     const messageRepo = yield* SmeMessageRepository;
-    const environmentVariables = yield* EnvironmentVariables;
     const openclawGatewayConfig = yield* OpenclawGatewayConfig;
-    const providerHealth = yield* ProviderHealth;
     const providerService = yield* ProviderService;
-    const createClient =
-      options.createClient ??
-      ((clientOptions: ResolvedAnthropicClientOptions): AnthropicMessagesClient =>
-        new Anthropic(clientOptions));
+    const providerHealth = yield* ProviderHealth;
 
     const activeRequests = yield* Ref.make(new Map<string, ActiveRequest>());
 
@@ -167,18 +149,15 @@ const makeSmeChatService = (options: SmeChatServiceLiveOptions = {}) =>
 
         switch (conversation.provider) {
           case "claudeAgent": {
-            const persistedEnv = yield* environmentVariables
-              .resolveEnvironment({
-                projectId: conversation.projectId,
-              })
-              .pipe(Effect.mapError((e) => new SmeChatError("validateSetup", e.message)));
-            return validateAnthropicSetup({
+            const providerStatus = (yield* providerHealth.getStatuses).find(
+              (status) => status.provider === "claudeAgent",
+            );
+            return validateClaudeSetup({
               authMethod: conversation.authMethod as Extract<
                 SmeAuthMethod,
                 "auto" | "apiKey" | "authToken"
               >,
-              persistedEnv,
-              processEnv: process.env,
+              providerStatus,
             });
           }
 
@@ -457,73 +436,28 @@ const makeSmeChatService = (options: SmeChatServiceLiveOptions = {}) =>
           return yield* Effect.fail(new SmeChatError("sendMessage:validate", validation.message));
         }
 
-        const systemPrompt = buildSmeSystemPrompt(docs);
         const promptHistory = existingMessages.map((message) => ({
           role: message.role,
           text: message.text,
         }));
-        const anthropicMessages = buildSmeAnthropicMessages({
-          history: promptHistory,
-          userText: input.text,
-        });
         const compiledPrompt = buildSmeCompiledPrompt({
           docs,
           history: promptHistory,
           userText: input.text,
         });
 
-        const sendEffect =
-          conv.provider === "claudeAgent"
-            ? Effect.gen(function* () {
-                const persistedEnv = yield* environmentVariables
-                  .resolveEnvironment({
-                    projectId: conv.projectId,
-                  })
-                  .pipe(Effect.mapError((e) => new SmeChatError("sendMessage:env", e.message)));
-                const anthropicSetup = validateAnthropicSetup({
-                  authMethod: conv.authMethod as Extract<
-                    SmeAuthMethod,
-                    "auto" | "apiKey" | "authToken"
-                  >,
-                  persistedEnv,
-                  processEnv: process.env,
-                });
-                if (!anthropicSetup.ok || !anthropicSetup.clientOptions) {
-                  return yield* Effect.fail(
-                    new SmeChatError("sendMessage:validate", anthropicSetup.message),
-                  );
-                }
-
-                const controller = new AbortController();
-                yield* setInterrupt(
-                  input.conversationId,
-                  Effect.sync(() => {
-                    controller.abort();
-                  }),
-                );
-                return yield* sendSmeViaAnthropic({
-                  client: createClient(anthropicSetup.clientOptions),
-                  conversationId: input.conversationId,
-                  assistantMessageId,
-                  model: conv.model,
-                  systemPrompt,
-                  messages: anthropicMessages,
-                  ...(onEvent ? { onEvent } : {}),
-                  abortSignal: controller.signal,
-                }).pipe(Effect.ensuring(clearInterrupt(input.conversationId)));
-              })
-            : sendSmeViaProviderRuntime({
-                providerService,
-                provider: conv.provider,
-                conversationId: input.conversationId,
-                assistantMessageId,
-                model: conv.model,
-                compiledPrompt,
-                ...(input.providerOptions ? { providerOptions: input.providerOptions } : {}),
-                ...(onEvent ? { onEvent } : {}),
-                setInterruptEffect: (interrupt) => setInterrupt(input.conversationId, interrupt),
-                clearInterruptEffect: clearInterrupt(input.conversationId),
-              });
+        const sendEffect = sendSmeViaProviderRuntime({
+          providerService,
+          provider: conv.provider,
+          conversationId: input.conversationId,
+          assistantMessageId,
+          model: conv.model,
+          compiledPrompt,
+          ...(input.providerOptions ? { providerOptions: input.providerOptions } : {}),
+          ...(onEvent ? { onEvent } : {}),
+          setInterruptEffect: (interrupt) => setInterrupt(input.conversationId, interrupt),
+          clearInterruptEffect: clearInterrupt(input.conversationId),
+        });
 
         const responseText = yield* sendEffect.pipe(
           Effect.mapError((cause) =>
@@ -590,7 +524,6 @@ const makeSmeChatService = (options: SmeChatServiceLiveOptions = {}) =>
     } satisfies SmeChatServiceShape;
   });
 
-export const makeSmeChatServiceLive = (options: SmeChatServiceLiveOptions = {}) =>
-  Layer.effect(SmeChatService, makeSmeChatService(options));
+export const makeSmeChatServiceLive = () => Layer.effect(SmeChatService, makeSmeChatService());
 
 export const SmeChatServiceLive = makeSmeChatServiceLive();

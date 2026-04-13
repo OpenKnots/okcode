@@ -54,7 +54,8 @@ type CustomModelSettingsKey =
   | "customCodexModels"
   | "customClaudeModels"
   | "customOpenClawModels"
-  | "customCopilotModels";
+  | "customCopilotModels"
+  | "customGeminiModels";
 export type ProviderCustomModelConfig = {
   provider: ProviderKind;
   settingsKey: CustomModelSettingsKey;
@@ -70,6 +71,7 @@ const BUILT_IN_MODEL_SLUGS_BY_PROVIDER: Record<ProviderKind, ReadonlySet<string>
   claudeAgent: new Set(getModelOptions("claudeAgent").map((option) => option.slug)),
   openclaw: new Set(getModelOptions("openclaw").map((option) => option.slug)),
   copilot: new Set(getModelOptions("copilot").map((option) => option.slug)),
+  gemini: new Set(getModelOptions("gemini").map((option) => option.slug)),
 };
 
 const withDefaults =
@@ -139,6 +141,7 @@ export const AppSettingsSchema = Schema.Struct({
   customClaudeModels: Schema.Array(Schema.String).pipe(withDefaults(() => [])),
   customCopilotModels: Schema.Array(Schema.String).pipe(withDefaults(() => [])),
   customOpenClawModels: Schema.Array(Schema.String).pipe(withDefaults(() => [])),
+  customGeminiModels: Schema.Array(Schema.String).pipe(withDefaults(() => [])),
   openclawGatewayUrl: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
   openclawPassword: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
   textGenerationModel: Schema.optional(TrimmedNonEmptyString),
@@ -187,6 +190,15 @@ const PROVIDER_CUSTOM_MODEL_CONFIG: Record<ProviderKind, ProviderCustomModelConf
     description: "Save additional OpenClaw model slugs for the picker and `/model` command.",
     placeholder: "your-openclaw-model-slug",
     example: "openclaw/my-custom-model",
+  },
+  gemini: {
+    provider: "gemini",
+    settingsKey: "customGeminiModels",
+    defaultSettingsKey: "customGeminiModels",
+    title: "Gemini CLI",
+    description: "Save additional Gemini model slugs for the picker and `/model` command.",
+    placeholder: "your-gemini-model-slug",
+    example: "gemini-3-pro-preview",
   },
 };
 export const MODEL_PROVIDER_SETTINGS = Object.values(PROVIDER_CUSTOM_MODEL_CONFIG);
@@ -264,6 +276,7 @@ function normalizeAppSettings(settings: AppSettings): AppSettings {
     customClaudeModels: normalizeCustomModelSlugs(settings.customClaudeModels, "claudeAgent"),
     customCopilotModels: normalizeCustomModelSlugs(settings.customCopilotModels, "copilot"),
     customOpenClawModels: normalizeCustomModelSlugs(settings.customOpenClawModels, "openclaw"),
+    customGeminiModels: normalizeCustomModelSlugs(settings.customGeminiModels, "gemini"),
   };
 }
 
@@ -298,6 +311,7 @@ export function getCustomModelsByProvider(
     claudeAgent: getCustomModelsForProvider(settings, "claudeAgent"),
     copilot: getCustomModelsForProvider(settings, "copilot"),
     openclaw: getCustomModelsForProvider(settings, "openclaw"),
+    gemini: getCustomModelsForProvider(settings, "gemini"),
   };
 }
 
@@ -365,6 +379,7 @@ export function getCustomModelOptionsByProvider(
     claudeAgent: getAppModelOptions("claudeAgent", customModelsByProvider.claudeAgent),
     copilot: getAppModelOptions("copilot", customModelsByProvider.copilot),
     openclaw: getAppModelOptions("openclaw", customModelsByProvider.openclaw),
+    gemini: getAppModelOptions("gemini", customModelsByProvider.gemini),
   };
 }
 

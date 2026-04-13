@@ -4,6 +4,7 @@ import {
   CheckCircle2Icon,
   ChevronDownIcon,
   CpuIcon,
+  FolderIcon,
   GlobeIcon,
   GitBranchIcon,
   ImportIcon,
@@ -113,10 +114,11 @@ import {
   serverConfigQueryOptions,
   serverQueryKeys,
 } from "../lib/serverReactQuery";
-import { cn } from "../lib/utils";
+import { cn, newCommandId } from "../lib/utils";
 import { ensureNativeApi, readNativeApi } from "../nativeApi";
 import { useStore } from "../store";
 import { PairingLink } from "../components/mobile/PairingLink";
+import { ProjectIcon } from "../components/ProjectIcon";
 import {
   getProviderLabel as getProviderStatusLabelName,
   getProviderStatusDescription,
@@ -131,6 +133,7 @@ type SettingsSectionId =
   | "authentication"
   | "hotkeys"
   | "environment"
+  | "projects"
   | "git"
   | "models"
   | "mobile"
@@ -153,6 +156,7 @@ function useSettingsNavItems(): SettingsNavItem[] {
     },
     { id: "hotkeys", label: "Hotkeys", icon: <KeyboardIcon className="size-4" /> },
     { id: "environment", label: "Environment", icon: <VariableIcon className="size-4" /> },
+    { id: "projects", label: "Projects", icon: <FolderIcon className="size-4" /> },
     { id: "git", label: "Git", icon: <GitBranchIcon className="size-4" /> },
     { id: "models", label: "Models", icon: <CpuIcon className="size-4" /> },
     {
@@ -383,6 +387,12 @@ const PROVIDER_AUTH_GUIDES: Record<
     authCmd: "set ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN",
     verifyCmd: "claude auth status",
     note: "Claude Code must be installed and configured with an Anthropic API key or auth token before it appears in the thread picker. Use Environment to add a Claude auth token in one click, or configure a helper command in the Claude install panel.",
+  },
+  gemini: {
+    installCmd: "npm install -g @google/gemini-cli",
+    authCmd: "set GEMINI_API_KEY or GOOGLE_API_KEY",
+    verifyCmd: "gemini --version",
+    note: "Gemini CLI appears in the thread picker when the binary is installed and headless auth is available or locally cached.",
   },
   openclaw: {
     verifyCmd: "Test Connection",
@@ -821,6 +831,7 @@ function SettingsRouteView() {
   const [openInstallProviders, setOpenInstallProviders] = useState<Record<ProviderKind, boolean>>({
     codex: Boolean(settings.codexBinaryPath || settings.codexHomePath),
     claudeAgent: Boolean(settings.claudeBinaryPath || settings.claudeAuthTokenHelperCommand),
+    gemini: false,
     openclaw: Boolean(settings.openclawGatewayUrl || settings.openclawPassword),
     copilot: Boolean(settings.copilotBinaryPath || settings.copilotConfigDir),
   });
@@ -831,6 +842,7 @@ function SettingsRouteView() {
   >({
     codex: "",
     claudeAgent: "",
+    gemini: "",
     openclaw: "",
     copilot: "",
   });
@@ -864,6 +876,7 @@ function SettingsRouteView() {
   const globalEnvironmentVariablesQuery = useQuery(globalEnvironmentVariablesQueryOptions());
   const activeProjectId = selectedProjectId ?? projects[0]?.id ?? null;
   const selectedProject = projects.find((project) => project.id === activeProjectId) ?? null;
+  const [projectIconDraft, setProjectIconDraft] = useState("");
   const selectedProjectEnvironmentVariablesQuery = useQuery(
     projectEnvironmentVariablesQueryOptions(activeProjectId),
   );
@@ -889,6 +902,10 @@ function SettingsRouteView() {
       setSelectedProjectId(projects[0]?.id ?? null);
     }
   }, [projects, selectedProjectId]);
+
+  useEffect(() => {
+    setProjectIconDraft(selectedProject?.iconPath ?? "");
+  }, [selectedProject?.iconPath, selectedProject?.id]);
 
   const codexBinaryPath = settings.codexBinaryPath;
   const codexHomePath = settings.codexHomePath;
@@ -1102,6 +1119,25 @@ function SettingsRouteView() {
     [queryClient, selectedProject],
   );
 
+  const saveProjectIconOverride = useCallback(async () => {
+    if (!selectedProject) {
+      throw new Error("Select a project before saving the project icon.");
+    }
+    const nextIconPath = projectIconDraft.trim();
+    const currentIconPath = selectedProject.iconPath ?? "";
+    if (nextIconPath === currentIconPath) {
+      return;
+    }
+
+    const api = ensureNativeApi();
+    await api.orchestration.dispatchCommand({
+      type: "project.meta.update",
+      commandId: newCommandId(),
+      projectId: selectedProject.id,
+      iconPath: nextIconPath.length > 0 ? nextIconPath : null,
+    });
+  }, [projectIconDraft, selectedProject]);
+
   const testOpenclawGateway = useCallback(async () => {
     if (openclawTestLoading) return;
     setOpenclawTestLoading(true);
@@ -1311,6 +1347,7 @@ function SettingsRouteView() {
     setOpenInstallProviders({
       codex: false,
       claudeAgent: false,
+      gemini: false,
       openclaw: false,
       copilot: false,
     });
@@ -1318,6 +1355,7 @@ function SettingsRouteView() {
     setCustomModelInputByProvider({
       codex: "",
       claudeAgent: "",
+      gemini: "",
       openclaw: "",
       copilot: "",
     });
@@ -2641,6 +2679,7 @@ function SettingsRouteView() {
                               setOpenInstallProviders({
                                 codex: false,
                                 claudeAgent: false,
+                                gemini: false,
                                 openclaw: false,
                                 copilot: false,
                               });
@@ -3370,17 +3409,24 @@ function SettingsRouteView() {
                         }
                       />
                     </SettingsRow>
+                  </SettingsSection>
+                )}
 
+                {activeSection === "projects" && (
+                  <SettingsSection
+                    title="Projects"
+                    description="Per-project variables and sidebar icon overrides."
+                  >
                     <SettingsRow
-                      title="Project variables"
-                      description="Saved per project and merged on top of the global set when that project launches a provider, terminal, or helper command."
+                      title="Project"
+                      description="Choose the project you want to configure."
                       status={
                         selectedProject ? (
                           <span className="block break-all font-mono text-[11px] text-foreground">
                             {selectedProject.name} · {selectedProject.cwd}
                           </span>
                         ) : (
-                          <span className="block">Open a project to edit project variables.</span>
+                          <span className="block">Open a project to edit project settings.</span>
                         )
                       }
                       control={
@@ -3399,11 +3445,18 @@ function SettingsRouteView() {
                             <SelectPopup align="end" alignItemWithTrigger={false}>
                               {projects.map((project) => (
                                 <SelectItem hideIndicator key={project.id} value={project.id}>
-                                  <div className="flex min-w-0 flex-col">
-                                    <span className="truncate">{project.name}</span>
-                                    <span className="truncate text-[11px] text-muted-foreground">
-                                      {project.cwd}
-                                    </span>
+                                  <div className="flex min-w-0 items-center gap-2">
+                                    <ProjectIcon
+                                      cwd={project.cwd}
+                                      iconPath={project.iconPath ?? null}
+                                      className="size-4"
+                                    />
+                                    <div className="flex min-w-0 flex-col">
+                                      <span className="truncate">{project.name}</span>
+                                      <span className="truncate text-[11px] text-muted-foreground">
+                                        {project.cwd}
+                                      </span>
+                                    </div>
                                   </div>
                                 </SelectItem>
                               ))}
@@ -3415,6 +3468,11 @@ function SettingsRouteView() {
                           </span>
                         )
                       }
+                    />
+
+                    <SettingsRow
+                      title="Project variables"
+                      description="Saved per project and merged on top of the global set when that project launches a provider, terminal, or helper command."
                     >
                       <EnvironmentVariablesEditor
                         key={selectedProject?.id ?? "no-project"}
@@ -3441,6 +3499,64 @@ function SettingsRouteView() {
                         }
                       />
                     </SettingsRow>
+
+                    <SettingsRow
+                      title="Project icon"
+                      description="Override the icon shown next to this project in the sidebar. Use a path relative to the project root, such as `public/icon.svg`."
+                      status={
+                        selectedProject ? (
+                          <span className="inline-flex items-center gap-2 text-[11px] text-muted-foreground">
+                            <ProjectIcon
+                              cwd={selectedProject.cwd}
+                              iconPath={projectIconDraft.trim() || selectedProject.iconPath || null}
+                              className="size-4"
+                            />
+                            {projectIconDraft.trim().length > 0
+                              ? projectIconDraft.trim()
+                              : (selectedProject.iconPath ?? "Using the project favicon")}
+                          </span>
+                        ) : (
+                          <span className="block">Open or create a project to edit the icon.</span>
+                        )
+                      }
+                      control={
+                        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+                          <Input
+                            value={projectIconDraft}
+                            onChange={(event) => setProjectIconDraft(event.target.value)}
+                            onBlur={() => {
+                              void saveProjectIconOverride();
+                            }}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") {
+                                event.preventDefault();
+                                void saveProjectIconOverride();
+                              } else if (event.key === "Escape") {
+                                event.preventDefault();
+                                setProjectIconDraft(selectedProject?.iconPath ?? "");
+                              }
+                            }}
+                            placeholder="public/icon.svg"
+                            className="w-full sm:w-64"
+                            aria-label="Project icon path"
+                            disabled={!selectedProject}
+                          />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={
+                              !selectedProject ||
+                              projectIconDraft.trim() === (selectedProject?.iconPath ?? "")
+                            }
+                            onClick={() => {
+                              void saveProjectIconOverride();
+                            }}
+                          >
+                            Save
+                          </Button>
+                        </div>
+                      }
+                    />
                   </SettingsSection>
                 )}
 

@@ -13,7 +13,13 @@ import {
 } from "react";
 import { RightPanelHeader } from "~/components/RightPanelHeader";
 import { WorkspacePanel } from "~/components/WorkspacePanel";
-import { Sidebar, SidebarInset, SidebarProvider, SidebarRail } from "~/components/ui/sidebar";
+import {
+  Sidebar,
+  SidebarInset,
+  SidebarProvider,
+  SidebarRail,
+  useSidebar,
+} from "~/components/ui/sidebar";
 import { WorkspaceFileTree } from "~/components/WorkspaceFileTree";
 import { useChatWidgetStore } from "../chatWidgetStore";
 import { useCodeViewerStore } from "../codeViewerStore";
@@ -24,6 +30,8 @@ import { useDiffViewerStore } from "../diffViewerStore";
 import { isMobileShell } from "../env";
 import { useClientMode } from "../hooks/useClientMode";
 import { useTheme } from "../hooks/useTheme";
+import { isTerminalFocused } from "../lib/terminalFocus";
+import { panelNavigationShortcutData } from "../keybindings";
 import { useRightPanelStore } from "../rightPanelStore";
 import { useSimulationViewerStore } from "../simulationViewerStore";
 import { useStore } from "../store";
@@ -169,6 +177,7 @@ const RightPanelSheet = (props: { open: boolean; onClose: () => void; children: 
 function ChatThreadRouteView() {
   const threadsHydrated = useStore((store) => store.threadsHydrated);
   const navigate = useNavigate();
+  const { toggleSidebar } = useSidebar();
   const threadId = Route.useParams({
     select: (params) => ThreadId.makeUnsafe(params.threadId),
   });
@@ -227,6 +236,45 @@ function ChatThreadRouteView() {
   const closeSimulation = useCallback(() => {
     closeSimulationStore();
   }, [closeSimulationStore]);
+
+  useEffect(() => {
+    const onWindowKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
+      if (event.repeat) return;
+      if (isTerminalFocused()) return;
+
+      const target = event.target;
+      if (target instanceof HTMLElement) {
+        if (
+          target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable
+        ) {
+          return;
+        }
+      }
+
+      const shortcutTarget = panelNavigationShortcutData(event);
+      if (shortcutTarget === null) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (shortcutTarget === "sidebar") {
+        toggleSidebar();
+        return;
+      }
+
+      if (rightPanelOpen) {
+        closeRightPanel();
+      } else {
+        openRightPanel();
+      }
+    };
+
+    window.addEventListener("keydown", onWindowKeyDown);
+    return () => window.removeEventListener("keydown", onWindowKeyDown);
+  }, [closeRightPanel, openRightPanel, rightPanelOpen, toggleSidebar]);
 
   // ── Sync sub-panel opens → right panel tab ────────────────────────
   // When code viewer opens (or a new file is activated), switch to workspace tab.

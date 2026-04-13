@@ -1,6 +1,6 @@
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 import * as SqlSchema from "effect/unstable/sql/SqlSchema";
-import { Effect, Layer } from "effect";
+import { Effect, Layer, Schema, Struct } from "effect";
 
 import { toPersistenceSqlError } from "../Errors.ts";
 import {
@@ -12,11 +12,20 @@ import {
   type ProjectionThreadRepositoryShape,
 } from "../Services/ProjectionThreads.ts";
 
+// Schema.NullOr wraps fromJsonString so that NULL database rows decode to null
+// rather than failing to parse. Pre-migration rows and threads without a model
+// selection will have a NULL model_selection column.
+const ProjectionThreadDbRowSchema = ProjectionThread.mapFields(
+  Struct.assign({
+    modelSelection: Schema.NullOr(Schema.fromJsonString(ProjectionThread.fields.modelSelection)),
+  }),
+);
+
 const makeProjectionThreadRepository = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;
 
   const upsertProjectionThreadRow = SqlSchema.void({
-    Request: ProjectionThread,
+    Request: ProjectionThreadDbRowSchema,
     execute: (row) =>
       sql`
         INSERT INTO projection_threads (
@@ -24,6 +33,7 @@ const makeProjectionThreadRepository = Effect.gen(function* () {
           project_id,
           title,
           model,
+          model_selection,
           runtime_mode,
           interaction_mode,
           branch,
@@ -39,6 +49,7 @@ const makeProjectionThreadRepository = Effect.gen(function* () {
           ${row.projectId},
           ${row.title},
           ${row.model},
+          ${row.modelSelection},
           ${row.runtimeMode},
           ${row.interactionMode},
           ${row.branch},
@@ -54,6 +65,7 @@ const makeProjectionThreadRepository = Effect.gen(function* () {
           project_id = excluded.project_id,
           title = excluded.title,
           model = excluded.model,
+          model_selection = excluded.model_selection,
           runtime_mode = excluded.runtime_mode,
           interaction_mode = excluded.interaction_mode,
           branch = excluded.branch,
@@ -68,7 +80,7 @@ const makeProjectionThreadRepository = Effect.gen(function* () {
 
   const getProjectionThreadRow = SqlSchema.findOneOption({
     Request: GetProjectionThreadInput,
-    Result: ProjectionThread,
+    Result: ProjectionThreadDbRowSchema,
     execute: ({ threadId }) =>
       sql`
         SELECT
@@ -76,6 +88,7 @@ const makeProjectionThreadRepository = Effect.gen(function* () {
           project_id AS "projectId",
           title,
           model,
+          model_selection AS "modelSelection",
           runtime_mode AS "runtimeMode",
           interaction_mode AS "interactionMode",
           branch,
@@ -92,7 +105,7 @@ const makeProjectionThreadRepository = Effect.gen(function* () {
 
   const listProjectionThreadRows = SqlSchema.findAll({
     Request: ListProjectionThreadsByProjectInput,
-    Result: ProjectionThread,
+    Result: ProjectionThreadDbRowSchema,
     execute: ({ projectId }) =>
       sql`
         SELECT
@@ -100,6 +113,7 @@ const makeProjectionThreadRepository = Effect.gen(function* () {
           project_id AS "projectId",
           title,
           model,
+          model_selection AS "modelSelection",
           runtime_mode AS "runtimeMode",
           interaction_mode AS "interactionMode",
           branch,
@@ -125,9 +139,10 @@ const makeProjectionThreadRepository = Effect.gen(function* () {
   });
 
   const upsert: ProjectionThreadRepositoryShape["upsert"] = (row) =>
-    upsertProjectionThreadRow(row).pipe(
-      Effect.mapError(toPersistenceSqlError("ProjectionThreadRepository.upsert:query")),
-    );
+    upsertProjectionThreadRow({
+      ...row,
+      modelSelection: row.modelSelection ?? null,
+    }).pipe(Effect.mapError(toPersistenceSqlError("ProjectionThreadRepository.upsert:query")));
 
   const getById: ProjectionThreadRepositoryShape["getById"] = (input) =>
     getProjectionThreadRow(input).pipe(

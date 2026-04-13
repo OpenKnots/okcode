@@ -29,6 +29,7 @@ describe("decider project scripts", () => {
           projectId: asProjectId("project-scripts"),
           title: "Scripts",
           workspaceRoot: "/tmp/scripts",
+          iconPath: null,
           createdAt: now,
         },
         readModel,
@@ -62,6 +63,7 @@ describe("decider project scripts", () => {
           title: "Scripts",
           workspaceRoot: "/tmp/scripts-populated",
           scripts: Array.from(scripts),
+          iconPath: null,
           createdAt: now,
         },
         readModel,
@@ -93,6 +95,8 @@ describe("decider project scripts", () => {
           title: "Scripts",
           workspaceRoot: "/tmp/scripts",
           defaultModel: null,
+          defaultModelSelection: null,
+          iconPath: null,
           scripts: [],
           createdAt: now,
           updatedAt: now,
@@ -117,6 +121,7 @@ describe("decider project scripts", () => {
           commandId: CommandId.makeUnsafe("cmd-project-update-scripts"),
           projectId: asProjectId("project-scripts"),
           scripts: Array.from(scripts),
+          iconPath: null,
         },
         readModel,
       }),
@@ -125,6 +130,52 @@ describe("decider project scripts", () => {
     const event = Array.isArray(result) ? result[0] : result;
     expect(event.type).toBe("project.meta-updated");
     expect((event.payload as { scripts?: unknown[] }).scripts).toEqual(scripts);
+  });
+
+  it("propagates iconPath in project.meta.update payload", async () => {
+    const now = new Date().toISOString();
+    const initial = createEmptyReadModel(now);
+    const readModel = await Effect.runPromise(
+      projectEvent(initial, {
+        sequence: 1,
+        eventId: asEventId("evt-project-create-icon"),
+        aggregateKind: "project",
+        aggregateId: asProjectId("project-icon"),
+        type: "project.created",
+        occurredAt: now,
+        commandId: CommandId.makeUnsafe("cmd-project-create-icon"),
+        causationEventId: null,
+        correlationId: CommandId.makeUnsafe("cmd-project-create-icon"),
+        metadata: {},
+        payload: {
+          projectId: asProjectId("project-icon"),
+          title: "Icon",
+          workspaceRoot: "/tmp/icon",
+          defaultModel: null,
+          defaultModelSelection: null,
+          iconPath: null,
+          scripts: [],
+          createdAt: now,
+          updatedAt: now,
+        },
+      }),
+    );
+
+    const result = await Effect.runPromise(
+      decideOrchestrationCommand({
+        command: {
+          type: "project.meta.update",
+          commandId: CommandId.makeUnsafe("cmd-project-update-icon"),
+          projectId: asProjectId("project-icon"),
+          iconPath: "public/brand.svg",
+        },
+        readModel,
+      }),
+    );
+
+    const event = Array.isArray(result) ? result[0] : result;
+    expect(event.type).toBe("project.meta-updated");
+    expect((event.payload as { iconPath?: string | null }).iconPath).toBe("public/brand.svg");
   });
 
   it("emits user message and turn-start-requested events for thread.turn.start", async () => {
@@ -147,6 +198,8 @@ describe("decider project scripts", () => {
           title: "Project",
           workspaceRoot: "/tmp/project",
           defaultModel: null,
+          defaultModelSelection: null,
+          iconPath: null,
           scripts: [],
           createdAt: now,
           updatedAt: now,

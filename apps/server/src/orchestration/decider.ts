@@ -6,6 +6,8 @@ import type {
   ThreadId,
 } from "@okcode/contracts";
 import { Effect } from "effect";
+import { inferProviderForModel } from "@okcode/shared/model";
+import { toCanonicalModelSelection } from "@okcode/shared/modelSelection";
 
 import { OrchestrationCommandInvariantError } from "./Errors.ts";
 import {
@@ -127,6 +129,16 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
           title: command.title,
           workspaceRoot: command.workspaceRoot,
           defaultModel: command.defaultModel ?? null,
+          defaultModelSelection:
+            command.defaultModelSelection ??
+            (command.defaultModel
+              ? toCanonicalModelSelection(
+                  inferProviderForModel(command.defaultModel),
+                  command.defaultModel,
+                  undefined,
+                )
+              : null),
+          iconPath: command.iconPath ?? null,
           scripts: command.scripts ?? [],
           createdAt: command.createdAt,
           updatedAt: command.createdAt,
@@ -184,6 +196,18 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
           ...(command.title !== undefined ? { title: command.title } : {}),
           ...(command.workspaceRoot !== undefined ? { workspaceRoot: command.workspaceRoot } : {}),
           ...(command.defaultModel !== undefined ? { defaultModel: command.defaultModel } : {}),
+          ...(command.defaultModelSelection !== undefined
+            ? { defaultModelSelection: command.defaultModelSelection }
+            : command.defaultModel !== undefined
+              ? {
+                  defaultModelSelection: toCanonicalModelSelection(
+                    inferProviderForModel(command.defaultModel),
+                    command.defaultModel,
+                    undefined,
+                  ),
+                }
+              : {}),
+          ...(command.iconPath !== undefined ? { iconPath: command.iconPath } : {}),
           ...(command.scripts !== undefined ? { scripts: command.scripts } : {}),
           updatedAt: occurredAt,
         },
@@ -245,6 +269,13 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
           projectId: command.projectId,
           title: command.title,
           model: command.model,
+          modelSelection:
+            command.modelSelection ??
+            toCanonicalModelSelection(
+              inferProviderForModel(command.model),
+              command.model,
+              undefined,
+            ),
           runtimeMode: command.runtimeMode,
           interactionMode: command.interactionMode,
           branch: command.branch,
@@ -306,6 +337,17 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
           threadId: command.threadId,
           ...(command.title !== undefined ? { title: command.title } : {}),
           ...(command.model !== undefined ? { model: command.model } : {}),
+          ...(command.modelSelection !== undefined
+            ? { modelSelection: command.modelSelection }
+            : command.model !== undefined
+              ? {
+                  modelSelection: toCanonicalModelSelection(
+                    inferProviderForModel(command.model),
+                    command.model,
+                    undefined,
+                  ),
+                }
+              : {}),
           ...(command.branch !== undefined ? { branch: command.branch } : {}),
           ...(command.worktreePath !== undefined ? { worktreePath: command.worktreePath } : {}),
           ...(command.githubRef !== undefined ? { githubRef: command.githubRef } : {}),
@@ -423,6 +465,9 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
           threadId: command.threadId,
           messageId: command.message.messageId,
           ...(command.providerInput !== undefined ? { providerInput: command.providerInput } : {}),
+          ...(command.modelSelection !== undefined
+            ? { modelSelection: command.modelSelection }
+            : {}),
           ...(command.provider !== undefined ? { provider: command.provider } : {}),
           ...(command.model !== undefined ? { model: command.model } : {}),
           ...(command.modelOptions !== undefined ? { modelOptions: command.modelOptions } : {}),

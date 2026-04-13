@@ -5,6 +5,7 @@ import {
   CommandId,
   DEFAULT_GIT_TEXT_GENERATION_MODEL,
   EventId,
+  type ModelSelection,
   type OrchestrationEvent,
   type ProjectId,
   type ProviderModelOptions,
@@ -30,6 +31,12 @@ import {
   type ProviderCommandReactorShape,
 } from "../Services/ProviderCommandReactor.ts";
 import { inferProviderForModel } from "@okcode/shared/model";
+import {
+  getModelSelectionModel,
+  getModelSelectionOptions,
+  getModelSelectionProvider,
+  toCanonicalModelSelection,
+} from "@okcode/shared/modelSelection";
 import { resolveRuntimeEnvironment } from "../../runtimeEnvironment.ts";
 
 type ProviderIntentEvent = Extract<
@@ -66,6 +73,16 @@ function mapProviderSessionStatusToOrchestrationStatus(
     default:
       return "ready";
   }
+}
+
+function resolveThreadModelSelection(thread: {
+  readonly model: string;
+  readonly modelSelection?: ModelSelection | null | undefined;
+}): ModelSelection {
+  return (
+    thread.modelSelection ??
+    toCanonicalModelSelection(inferProviderForModel(thread.model), thread.model, undefined)
+  );
 }
 
 const turnStartKeyForEvent = (event: ProviderIntentEvent): string =>
@@ -257,6 +274,7 @@ const make = Effect.gen(function* () {
     threadId: ThreadId,
     createdAt: string,
     options?: {
+      readonly modelSelection?: ModelSelection;
       readonly provider?: ProviderKind;
       readonly model?: string;
       readonly modelOptions?: ProviderModelOptions;
@@ -275,7 +293,18 @@ const make = Effect.gen(function* () {
     )
       ? thread.session.providerName
       : undefined;
-    const threadProvider: ProviderKind = currentProvider ?? inferProviderForModel(thread.model);
+    const threadSelection = resolveThreadModelSelection(thread);
+    const requestedSelection =
+      options?.modelSelection ??
+      (options?.provider || options?.model || options?.modelOptions
+        ? toCanonicalModelSelection(
+            options?.provider ?? threadSelection.provider,
+            options?.model ?? threadSelection.model,
+            options?.modelOptions ?? getModelSelectionOptions(threadSelection),
+          )
+        : threadSelection);
+    const threadProvider: ProviderKind =
+      currentProvider ?? getModelSelectionProvider(threadSelection);
     if (options?.provider !== undefined && options.provider !== threadProvider) {
       return yield* new ProviderAdapterRequestError({
         provider: threadProvider,
@@ -284,8 +313,18 @@ const make = Effect.gen(function* () {
       });
     }
     if (
+      options?.modelSelection !== undefined &&
+      getModelSelectionProvider(options.modelSelection) !== threadProvider
+    ) {
+      return yield* new ProviderAdapterRequestError({
+        provider: threadProvider,
+        method: "thread.turn.start",
+        detail: `Thread '${threadId}' is bound to provider '${threadProvider}' and cannot use model selection for '${getModelSelectionProvider(options.modelSelection)}'.`,
+      });
+    }
+    if (
       options?.model !== undefined &&
-      inferProviderForModel(options.model, threadProvider) !== threadProvider
+      getModelSelectionProvider(requestedSelection) !== threadProvider
     ) {
       return yield* new ProviderAdapterRequestError({
         provider: threadProvider,
@@ -294,7 +333,9 @@ const make = Effect.gen(function* () {
       });
     }
     const preferredProvider: ProviderKind = currentProvider ?? threadProvider;
-    const desiredModel = options?.model ?? thread.model;
+    const desiredModel = getModelSelectionModel(requestedSelection);
+    const desiredModelOptions =
+      options?.modelOptions ?? getModelSelectionOptions(requestedSelection);
     const { cwd: effectiveCwd, staleWorktreePath } = resolveSessionCwd({
       thread,
       projects: readModel.projects,
@@ -330,7 +371,7 @@ const make = Effect.gen(function* () {
           : {}),
         ...(effectiveCwd ? { cwd: effectiveCwd } : {}),
         ...(desiredModel ? { model: desiredModel } : {}),
-        ...(options?.modelOptions !== undefined ? { modelOptions: options.modelOptions } : {}),
+        ...(desiredModelOptions !== undefined ? { modelOptions: desiredModelOptions } : {}),
         ...(options?.providerOptions !== undefined
           ? { providerOptions: options.providerOptions }
           : {}),
@@ -376,8 +417,8 @@ const make = Effect.gen(function* () {
       const previousModelOptions = threadModelOptions.get(threadId);
       const shouldRestartForModelOptionsChange =
         currentProvider === "claudeAgent" &&
-        options?.modelOptions !== undefined &&
-        !sameModelOptions(previousModelOptions, options.modelOptions);
+        desiredModelOptions !== undefined &&
+        !sameModelOptions(previousModelOptions, desiredModelOptions);
       const activeSessionCwd = activeSession?.cwd;
       const shouldRestartForCwdChange =
         staleWorktreePath !== null || activeSessionCwd !== effectiveCwd;
@@ -441,6 +482,7 @@ const make = Effect.gen(function* () {
     readonly messageText: string;
     readonly providerInput?: string;
     readonly attachments?: ReadonlyArray<ChatAttachment>;
+    readonly modelSelection?: ModelSelection;
     readonly provider?: ProviderKind;
     readonly model?: string;
     readonly modelOptions?: ProviderModelOptions;
@@ -453,6 +495,7 @@ const make = Effect.gen(function* () {
       return;
     }
     yield* ensureSessionForThread(input.threadId, input.createdAt, {
+      ...(input.modelSelection !== undefined ? { modelSelection: input.modelSelection } : {}),
       ...(input.provider !== undefined ? { provider: input.provider } : {}),
       ...(input.model !== undefined ? { model: input.model } : {}),
       ...(input.modelOptions !== undefined ? { modelOptions: input.modelOptions } : {}),
@@ -463,6 +506,11 @@ const make = Effect.gen(function* () {
     }
     if (input.modelOptions !== undefined) {
       threadModelOptions.set(input.threadId, input.modelOptions);
+    } else if (input.modelSelection?.options) {
+      const selectionOptions = getModelSelectionOptions(input.modelSelection);
+      if (selectionOptions !== undefined) {
+        threadModelOptions.set(input.threadId, selectionOptions);
+      }
     }
     const normalizedInput = toNonEmptyProviderInput(input.providerInput ?? input.messageText);
     const normalizedAttachments = input.attachments ?? [];
@@ -476,13 +524,20 @@ const make = Effect.gen(function* () {
         ? "in-session"
         : (yield* providerService.getCapabilities(activeSession.provider)).sessionModelSwitch;
     const modelForTurn = sessionModelSwitch === "unsupported" ? activeSession?.model : input.model;
+    const requestedModelForTurn = input.modelSelection
+      ? getModelSelectionModel(input.modelSelection)
+      : modelForTurn;
+    const requestedModelOptionsForTurn =
+      input.modelOptions ?? getModelSelectionOptions(input.modelSelection);
 
     yield* providerService.sendTurn({
       threadId: input.threadId,
       ...(normalizedInput ? { input: normalizedInput } : {}),
       ...(normalizedAttachments.length > 0 ? { attachments: normalizedAttachments } : {}),
-      ...(modelForTurn !== undefined ? { model: modelForTurn } : {}),
-      ...(input.modelOptions !== undefined ? { modelOptions: input.modelOptions } : {}),
+      ...(requestedModelForTurn !== undefined ? { model: requestedModelForTurn } : {}),
+      ...(requestedModelOptionsForTurn !== undefined
+        ? { modelOptions: requestedModelOptionsForTurn }
+        : {}),
       ...(input.interactionMode !== undefined ? { interactionMode: input.interactionMode } : {}),
     });
   });
@@ -598,6 +653,9 @@ const make = Effect.gen(function* () {
         ? { providerInput: event.payload.providerInput }
         : {}),
       ...(message.attachments !== undefined ? { attachments: message.attachments } : {}),
+      ...(event.payload.modelSelection != null
+        ? { modelSelection: event.payload.modelSelection }
+        : {}),
       ...(event.payload.provider !== undefined ? { provider: event.payload.provider } : {}),
       ...(event.payload.model !== undefined ? { model: event.payload.model } : {}),
       ...(event.payload.modelOptions !== undefined

@@ -15,7 +15,13 @@ import { ProjectScript } from "@okcode/contracts";
 
 // Makes sure that the scripts are parsed from the JSON string the DB returns
 const ProjectionProjectDbRowSchema = ProjectionProject.mapFields(
-  Struct.assign({ scripts: Schema.fromJsonString(Schema.Array(ProjectScript)) }),
+  Struct.assign({
+    defaultModelSelection: Schema.NullOr(
+      Schema.fromJsonString(ProjectionProject.fields.defaultModelSelection),
+    ),
+    iconPath: Schema.NullOr(Schema.String),
+    scripts: Schema.fromJsonString(Schema.Array(ProjectScript)),
+  }),
 );
 
 function toPersistenceSqlOrDecodeError(sqlOperation: string, decodeOperation: string) {
@@ -37,6 +43,8 @@ const makeProjectionProjectRepository = Effect.gen(function* () {
               title,
               workspace_root,
               default_model,
+              default_model_selection,
+              icon_path,
               scripts_json,
               created_at,
               updated_at,
@@ -47,6 +55,8 @@ const makeProjectionProjectRepository = Effect.gen(function* () {
               ${row.title},
               ${row.workspaceRoot},
               ${row.defaultModel},
+              ${row.defaultModelSelection},
+              ${row.iconPath},
               ${row.scripts},
               ${row.createdAt},
               ${row.updatedAt},
@@ -57,6 +67,8 @@ const makeProjectionProjectRepository = Effect.gen(function* () {
               title = excluded.title,
               workspace_root = excluded.workspace_root,
               default_model = excluded.default_model,
+              default_model_selection = excluded.default_model_selection,
+              icon_path = excluded.icon_path,
               scripts_json = excluded.scripts_json,
               created_at = excluded.created_at,
               updated_at = excluded.updated_at,
@@ -74,6 +86,8 @@ const makeProjectionProjectRepository = Effect.gen(function* () {
           title,
           workspace_root AS "workspaceRoot",
           default_model AS "defaultModel",
+          default_model_selection AS "defaultModelSelection",
+          icon_path AS "iconPath",
           scripts_json AS "scripts",
           created_at AS "createdAt",
           updated_at AS "updatedAt",
@@ -93,6 +107,8 @@ const makeProjectionProjectRepository = Effect.gen(function* () {
           title,
           workspace_root AS "workspaceRoot",
           default_model AS "defaultModel",
+          default_model_selection AS "defaultModelSelection",
+          icon_path AS "iconPath",
           scripts_json AS "scripts",
           created_at AS "createdAt",
           updated_at AS "updatedAt",
@@ -112,7 +128,11 @@ const makeProjectionProjectRepository = Effect.gen(function* () {
   });
 
   const upsert: ProjectionProjectRepositoryShape["upsert"] = (row) =>
-    upsertProjectionProjectRow(row).pipe(
+    upsertProjectionProjectRow({
+      ...row,
+      defaultModelSelection: row.defaultModelSelection ?? null,
+      iconPath: row.iconPath ?? null,
+    }).pipe(
       Effect.mapError(
         toPersistenceSqlOrDecodeError(
           "ProjectionProjectRepository.upsert:query",

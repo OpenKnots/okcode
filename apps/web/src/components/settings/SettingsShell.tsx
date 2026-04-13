@@ -1,6 +1,7 @@
 import {
   CpuIcon,
   GitBranchIcon,
+  FolderIcon,
   KeyboardIcon,
   PaletteIcon,
   Settings2Icon,
@@ -24,6 +25,7 @@ export type SettingsSectionId =
   | "authentication"
   | "hotkeys"
   | "environment"
+  | "projects"
   | "git"
   | "models"
   | "mobile"
@@ -48,6 +50,7 @@ const SETTINGS_NAV_ITEMS: readonly SettingsNavItem[] = [
   },
   { id: "hotkeys", label: "Hotkeys", icon: <KeyboardIcon className="size-4" /> },
   { id: "environment", label: "Environment", icon: <VariableIcon className="size-4" /> },
+  { id: "projects", label: "Projects", icon: <FolderIcon className="size-4" /> },
   { id: "git", label: "Git", icon: <GitBranchIcon className="size-4" /> },
   { id: "models", label: "Models", icon: <CpuIcon className="size-4" /> },
   {

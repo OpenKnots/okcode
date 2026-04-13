@@ -2,7 +2,7 @@ import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { initCustomTheme } from "../lib/customTheme";
 
 type Theme = "light" | "dark" | "system";
-type ColorTheme = "default" | "iridescent-void" | "carbon" | "cotton-candy" | "custom";
+type ColorTheme = "default" | "iridescent-void" | "carbon" | "purple-stuff" | "custom";
 
 type FontFamily = "dm-sans" | "inter" | "plus-jakarta-sans";
 
@@ -17,7 +17,7 @@ export const COLOR_THEMES: { id: ColorTheme; label: string }[] = [
   { id: "default", label: "Default" },
   { id: "iridescent-void", label: "Iridescent Void" },
   { id: "carbon", label: "Carbon" },
-  { id: "cotton-candy", label: "Cotton Candy" },
+  { id: "purple-stuff", label: "Purple Stuff" },
   { id: "custom", label: "Custom" },
 ];
 
@@ -59,14 +59,20 @@ function getStored(): Theme {
 
 function getStoredColorTheme(): ColorTheme {
   const raw = localStorage.getItem(COLOR_THEME_STORAGE_KEY);
+  const normalized = raw === "cotton-candy" ? "purple-stuff" : raw;
+
   if (
-    raw === "default" ||
-    raw === "iridescent-void" ||
-    raw === "carbon" ||
-    raw === "cotton-candy" ||
-    raw === "custom"
+    normalized === "default" ||
+    normalized === "iridescent-void" ||
+    normalized === "carbon" ||
+    normalized === "purple-stuff" ||
+    normalized === "custom"
   ) {
-    return raw;
+    if (normalized !== raw) {
+      localStorage.setItem(COLOR_THEME_STORAGE_KEY, normalized);
+    }
+
+    return normalized;
   }
   return DEFAULT_COLOR_THEME;
 }

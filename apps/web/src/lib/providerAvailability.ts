@@ -3,6 +3,7 @@ import type { ProviderKind, ServerProviderStatus } from "@okcode/contracts";
 const THREAD_PROVIDER_ORDER: readonly ProviderKind[] = [
   "codex",
   "claudeAgent",
+  "gemini",
   "copilot",
   "openclaw",
 ];
@@ -10,6 +11,7 @@ const THREAD_PROVIDER_ORDER: readonly ProviderKind[] = [
 const THREAD_PROVIDER_LABELS: Record<ProviderKind, string> = {
   codex: "Codex",
   claudeAgent: "Claude Code",
+  gemini: "Gemini",
   copilot: "GitHub Copilot",
   openclaw: "OpenClaw",
 };
@@ -48,12 +50,13 @@ export function isProviderReadyForThreadSelection(input: {
     input.provider === "claudeAgent" &&
     (input.claudeAuthTokenHelperCommand ?? "").trim().length > 0 &&
     status.available &&
-    status.authStatus === "unauthenticated"
+    (status.authStatus ?? status.auth?.status) === "unauthenticated"
   ) {
     return true;
   }
 
-  return status.available && status.status === "ready" && status.authStatus !== "unauthenticated";
+  const authStatus = status.authStatus ?? status.auth?.status;
+  return Boolean(status.available && status.status === "ready" && authStatus !== "unauthenticated");
 }
 
 export function getSelectableThreadProviders(input: {

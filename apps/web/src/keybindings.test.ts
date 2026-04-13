@@ -17,6 +17,7 @@ import {
   isTerminalSplitShortcut,
   isTerminalToggleShortcut,
   resolveShortcutCommand,
+  panelNavigationShortcutData,
   shortcutLabelForCommand,
   shortcutLabelsForCommand,
   terminalNavigationShortcutData,
@@ -509,6 +510,34 @@ describe("terminalNavigationShortcutData", () => {
         event({ type: "keyup", key: "ArrowLeft", altKey: true }),
         "MacIntel",
       ),
+    );
+  });
+});
+
+describe("panelNavigationShortcutData", () => {
+  it("maps Ctrl+Left to the left sidebar", () => {
+    assert.strictEqual(
+      panelNavigationShortcutData(event({ key: "ArrowLeft", ctrlKey: true })),
+      "sidebar",
+    );
+  });
+
+  it("maps Ctrl+Right to the right panel", () => {
+    assert.strictEqual(
+      panelNavigationShortcutData(event({ key: "ArrowRight", ctrlKey: true })),
+      "right-panel",
+    );
+  });
+
+  it("ignores unsupported modifier combinations", () => {
+    assert.isNull(panelNavigationShortcutData(event({ key: "ArrowLeft", metaKey: true })));
+    assert.isNull(panelNavigationShortcutData(event({ key: "ArrowRight", altKey: true })));
+    assert.isNull(panelNavigationShortcutData(event({ key: "ArrowLeft", shiftKey: true })));
+  });
+
+  it("ignores non-keydown events", () => {
+    assert.isNull(
+      panelNavigationShortcutData(event({ type: "keyup", key: "ArrowLeft", ctrlKey: true })),
     );
   });
 });

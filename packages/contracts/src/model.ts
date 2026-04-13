@@ -1,4 +1,5 @@
 import { Schema } from "effect";
+import { TrimmedNonEmptyString } from "./baseSchemas";
 import type { ProviderKind } from "./orchestration";
 
 export const CODEX_REASONING_EFFORT_OPTIONS = ["xhigh", "high", "medium", "low"] as const;
@@ -9,6 +10,7 @@ export const OPENCLAW_REASONING_EFFORT_OPTIONS = ["low", "medium", "high"] as co
 export type OpenClawReasoningEffort = (typeof OPENCLAW_REASONING_EFFORT_OPTIONS)[number];
 export const COPILOT_REASONING_EFFORT_OPTIONS = ["low", "medium", "high", "xhigh"] as const;
 export type CopilotReasoningEffort = (typeof COPILOT_REASONING_EFFORT_OPTIONS)[number];
+export type GeminiReasoningEffort = never;
 export type ProviderReasoningEffort =
   | CodexReasoningEffort
   | ClaudeCodeEffort
@@ -25,6 +27,7 @@ export const ClaudeModelOptions = Schema.Struct({
   thinking: Schema.optional(Schema.Boolean),
   effort: Schema.optional(Schema.Literals(CLAUDE_CODE_EFFORT_OPTIONS)),
   fastMode: Schema.optional(Schema.Boolean),
+  contextWindow: Schema.optional(Schema.String),
 });
 export type ClaudeModelOptions = typeof ClaudeModelOptions.Type;
 
@@ -38,11 +41,15 @@ export const CopilotModelOptions = Schema.Struct({
 });
 export type CopilotModelOptions = typeof CopilotModelOptions.Type;
 
+export const GeminiModelOptions = Schema.Struct({});
+export type GeminiModelOptions = typeof GeminiModelOptions.Type;
+
 export const ProviderModelOptions = Schema.Struct({
   codex: Schema.optional(CodexModelOptions),
   claudeAgent: Schema.optional(ClaudeModelOptions),
   openclaw: Schema.optional(OpenClawModelOptions),
   copilot: Schema.optional(CopilotModelOptions),
+  gemini: Schema.optional(GeminiModelOptions),
 });
 export type ProviderModelOptions = typeof ProviderModelOptions.Type;
 
@@ -83,6 +90,14 @@ export const MODEL_OPTIONS_BY_PROVIDER = {
     { slug: "gemini-2.5-pro", name: "Gemini 2.5 Pro" },
     { slug: "grok-code-fast-1", name: "Grok Code Fast 1" },
   ],
+  gemini: [
+    { slug: "auto-gemini-3", name: "Auto (Gemini 3)" },
+    { slug: "auto-gemini-2.5", name: "Auto (Gemini 2.5)" },
+    { slug: "gemini-2.5-pro", name: "Gemini 2.5 Pro" },
+    { slug: "gemini-2.5-flash", name: "Gemini 2.5 Flash" },
+    { slug: "gemini-3-pro-preview", name: "Gemini 3 Pro Preview" },
+    { slug: "gemini-3-flash-preview", name: "Gemini 3 Flash Preview" },
+  ],
 } as const satisfies Record<ProviderKind, readonly ModelOption[]>;
 export type ModelOptionsByProvider = typeof MODEL_OPTIONS_BY_PROVIDER;
 
@@ -94,6 +109,7 @@ export const DEFAULT_MODEL_BY_PROVIDER: Record<ProviderKind, ModelSlug> = {
   claudeAgent: "claude-sonnet-4-6",
   openclaw: "default",
   copilot: "gpt-5.3-codex",
+  gemini: "auto-gemini-3",
 };
 
 // Backward compatibility for existing Codex-only call sites.
@@ -161,6 +177,19 @@ export const MODEL_SLUG_ALIASES_BY_PROVIDER: Record<ProviderKind, Record<string,
     "grok code fast 1": "grok-code-fast-1",
     "grok-code-fast-1": "grok-code-fast-1",
   },
+  gemini: {
+    auto: "auto-gemini-3",
+    "auto-gemini-3": "auto-gemini-3",
+    "auto-gemini-2.5": "auto-gemini-2.5",
+    "gemini 2.5 pro": "gemini-2.5-pro",
+    "gemini-2.5-pro": "gemini-2.5-pro",
+    "gemini 2.5 flash": "gemini-2.5-flash",
+    "gemini-2.5-flash": "gemini-2.5-flash",
+    "gemini 3 pro preview": "gemini-3-pro-preview",
+    "gemini-3-pro-preview": "gemini-3-pro-preview",
+    "gemini 3 flash preview": "gemini-3-flash-preview",
+    "gemini-3-flash-preview": "gemini-3-flash-preview",
+  },
 };
 
 export const REASONING_EFFORT_OPTIONS_BY_PROVIDER = {
@@ -168,6 +197,7 @@ export const REASONING_EFFORT_OPTIONS_BY_PROVIDER = {
   claudeAgent: CLAUDE_CODE_EFFORT_OPTIONS,
   openclaw: OPENCLAW_REASONING_EFFORT_OPTIONS,
   copilot: COPILOT_REASONING_EFFORT_OPTIONS,
+  gemini: [],
 } as const satisfies Record<ProviderKind, readonly ProviderReasoningEffort[]>;
 
 export const DEFAULT_REASONING_EFFORT_BY_PROVIDER = {
@@ -175,4 +205,28 @@ export const DEFAULT_REASONING_EFFORT_BY_PROVIDER = {
   claudeAgent: "high",
   openclaw: "high",
   copilot: "high",
+  gemini: "high",
 } as const satisfies Record<ProviderKind, ProviderReasoningEffort>;
+
+export const EffortOption = Schema.Struct({
+  value: TrimmedNonEmptyString,
+  label: TrimmedNonEmptyString,
+  isDefault: Schema.optional(Schema.Boolean),
+});
+export type EffortOption = typeof EffortOption.Type;
+
+export const ContextWindowOption = Schema.Struct({
+  value: TrimmedNonEmptyString,
+  label: TrimmedNonEmptyString,
+  isDefault: Schema.optional(Schema.Boolean),
+});
+export type ContextWindowOption = typeof ContextWindowOption.Type;
+
+export const ModelCapabilities = Schema.Struct({
+  reasoningEffortLevels: Schema.Array(EffortOption),
+  supportsFastMode: Schema.Boolean,
+  supportsThinkingToggle: Schema.Boolean,
+  contextWindowOptions: Schema.Array(ContextWindowOption),
+  promptInjectedEffortLevels: Schema.Array(TrimmedNonEmptyString),
+});
+export type ModelCapabilities = typeof ModelCapabilities.Type;

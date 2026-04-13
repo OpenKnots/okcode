@@ -96,6 +96,7 @@ export function SmeConversationDialog({
           claudeAgent: settings.customClaudeModels,
           copilot: settings.customCopilotModels,
           openclaw: settings.customOpenClawModels,
+          gemini: settings.customGeminiModels,
         },
         null,
       );
@@ -112,6 +113,7 @@ export function SmeConversationDialog({
     settings.customClaudeModels,
     settings.customCopilotModels,
     settings.customCodexModels,
+    settings.customGeminiModels,
     settings.customOpenClawModels,
   ]);
 
@@ -216,7 +218,7 @@ export function SmeConversationDialog({
               onChange={(event) => handleProviderChange(event.target.value as ProviderKind)}
               className="h-10 rounded-xl border border-border bg-background px-3 text-sm"
             >
-              {(["claudeAgent", "codex", "copilot", "openclaw"] as const).map((value) => (
+              {(["claudeAgent", "codex", "copilot", "openclaw", "gemini"] as const).map((value) => (
                 <option
                   key={value}
                   value={value}
@@ -227,8 +229,8 @@ export function SmeConversationDialog({
               ))}
             </select>
             <p className="text-xs text-muted-foreground">
-              SME Chat currently supports Codex / ChatGPT and GitHub Copilot. Claude and OpenClaw
-              are disabled here.
+              SME Chat currently supports Codex / ChatGPT and GitHub Copilot. Claude, OpenClaw, and
+              Gemini are disabled here.
             </p>
           </label>
 

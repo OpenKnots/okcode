@@ -99,7 +99,7 @@ Three premium themes, each with light and dark variants:
 | ------------------- | ------------------------------------- |
 | **Iridescent Void** | Futuristic, expensive, slightly alien |
 | **Carbon**          | Stark, modern, performance-focused    |
-| **Cotton Candy**    | Sweet, dreamy, pink and blue          |
+| **Purple Stuff**    | Plush lilac, grape-soda, subtly noir  |
 
 All themes define the same set of CSS custom properties. Components must use semantic
 tokens (`bg-accent`, `text-muted-foreground`) — never theme-specific values.

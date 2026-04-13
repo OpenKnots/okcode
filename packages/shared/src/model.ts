@@ -25,6 +25,7 @@ const MODEL_SLUG_SET_BY_PROVIDER: Record<ProviderKind, ReadonlySet<ModelSlug>> =
   codex: new Set(MODEL_OPTIONS_BY_PROVIDER.codex.map((option) => option.slug)),
   openclaw: new Set<ModelSlug>(),
   copilot: new Set(MODEL_OPTIONS_BY_PROVIDER.copilot.map((option) => option.slug)),
+  gemini: new Set(MODEL_OPTIONS_BY_PROVIDER.gemini.map((option) => option.slug)),
 };
 
 const CLAUDE_OPUS_4_6_MODEL = "claude-opus-4-6";
@@ -171,11 +172,17 @@ export function inferProviderForModel(
     return "copilot";
   }
 
+  const normalizedGemini = normalizeModelSlug(model, "gemini");
+  if (normalizedGemini && MODEL_SLUG_SET_BY_PROVIDER.gemini.has(normalizedGemini)) {
+    return "gemini";
+  }
+
   if (typeof model === "string") {
     const trimmed = model.trim();
     if (trimmed.startsWith("claude-")) return "claudeAgent";
     if (trimmed.startsWith("openclaw/")) return "openclaw";
     if (trimmed.startsWith("copilot/")) return "copilot";
+    if (trimmed.startsWith("gemini-") || trimmed.startsWith("auto-gemini-")) return "gemini";
   }
   return fallback;
 }
@@ -191,6 +198,7 @@ export function getReasoningEffortOptions(
 export function getReasoningEffortOptions(
   provider: "copilot",
 ): ReadonlyArray<CopilotReasoningEffort>;
+export function getReasoningEffortOptions(provider: "gemini"): ReadonlyArray<never>;
 export function getReasoningEffortOptions(
   provider?: ProviderKind,
   model?: string | null | undefined,
@@ -215,6 +223,7 @@ export function getDefaultReasoningEffort(provider: "codex"): CodexReasoningEffo
 export function getDefaultReasoningEffort(provider: "claudeAgent"): ClaudeCodeEffort;
 export function getDefaultReasoningEffort(provider: "openclaw"): OpenClawReasoningEffort;
 export function getDefaultReasoningEffort(provider: "copilot"): CopilotReasoningEffort;
+export function getDefaultReasoningEffort(provider: "gemini"): ProviderReasoningEffort;
 export function getDefaultReasoningEffort(provider?: ProviderKind): ProviderReasoningEffort;
 export function getDefaultReasoningEffort(
   provider: ProviderKind = "codex",
@@ -238,6 +247,10 @@ export function resolveReasoningEffortForProvider(
   provider: "copilot",
   effort: string | null | undefined,
 ): CopilotReasoningEffort | null;
+export function resolveReasoningEffortForProvider(
+  provider: "gemini",
+  effort: string | null | undefined,
+): null;
 export function resolveReasoningEffortForProvider(
   provider: ProviderKind,
   effort: string | null | undefined,

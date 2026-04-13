@@ -6,6 +6,8 @@ import {
   OrchestrationThread,
 } from "@okcode/contracts";
 import { Effect, Schema } from "effect";
+import { inferProviderForModel } from "@okcode/shared/model";
+import { toCanonicalModelSelection } from "@okcode/shared/modelSelection";
 
 import { toProjectorDecodeError, type OrchestrationProjectorDecodeError } from "./Errors.ts";
 import {
@@ -182,6 +184,8 @@ export function projectEvent(
             title: payload.title,
             workspaceRoot: payload.workspaceRoot,
             defaultModel: payload.defaultModel,
+            defaultModelSelection: payload.defaultModelSelection,
+            iconPath: payload.iconPath,
             scripts: payload.scripts,
             createdAt: payload.createdAt,
             updatedAt: payload.updatedAt,
@@ -214,6 +218,18 @@ export function projectEvent(
                   ...(payload.defaultModel !== undefined
                     ? { defaultModel: payload.defaultModel }
                     : {}),
+                  ...(payload.defaultModelSelection !== undefined
+                    ? { defaultModelSelection: payload.defaultModelSelection }
+                    : payload.defaultModel !== undefined
+                      ? {
+                          defaultModelSelection: toCanonicalModelSelection(
+                            inferProviderForModel(payload.defaultModel),
+                            payload.defaultModel,
+                            undefined,
+                          ),
+                        }
+                      : {}),
+                  ...(payload.iconPath !== undefined ? { iconPath: payload.iconPath } : {}),
                   ...(payload.scripts !== undefined ? { scripts: payload.scripts } : {}),
                   updatedAt: payload.updatedAt,
                 }
@@ -253,6 +269,13 @@ export function projectEvent(
             projectId: payload.projectId,
             title: payload.title,
             model: payload.model,
+            modelSelection:
+              payload.modelSelection ??
+              toCanonicalModelSelection(
+                inferProviderForModel(payload.model),
+                payload.model,
+                undefined,
+              ),
             runtimeMode: payload.runtimeMode,
             interactionMode: payload.interactionMode,
             branch: payload.branch,
@@ -303,6 +326,17 @@ export function projectEvent(
           threads: updateThread(nextBase.threads, payload.threadId, {
             ...(payload.title !== undefined ? { title: payload.title } : {}),
             ...(payload.model !== undefined ? { model: payload.model } : {}),
+            ...(payload.modelSelection !== undefined
+              ? { modelSelection: payload.modelSelection }
+              : payload.model !== undefined
+                ? {
+                    modelSelection: toCanonicalModelSelection(
+                      inferProviderForModel(payload.model),
+                      payload.model,
+                      undefined,
+                    ),
+                  }
+                : {}),
             ...(payload.branch !== undefined ? { branch: payload.branch } : {}),
             ...(payload.worktreePath !== undefined ? { worktreePath: payload.worktreePath } : {}),
             ...(payload.githubRef !== undefined ? { githubRef: payload.githubRef } : {}),

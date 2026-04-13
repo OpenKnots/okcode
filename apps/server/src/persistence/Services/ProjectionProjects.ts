@@ -6,7 +6,7 @@
  *
  * @module ProjectionProjectRepository
  */
-import { IsoDateTime, ProjectId, ProjectScript } from "@okcode/contracts";
+import { IsoDateTime, ModelSelection, ProjectId, ProjectScript } from "@okcode/contracts";
 import { Option, Schema, ServiceMap } from "effect";
 import type { Effect } from "effect";
 
@@ -17,6 +17,8 @@ export const ProjectionProject = Schema.Struct({
   title: Schema.String,
   workspaceRoot: Schema.String,
   defaultModel: Schema.NullOr(Schema.String),
+  defaultModelSelection: Schema.optional(Schema.NullOr(ModelSelection)),
+  iconPath: Schema.optional(Schema.NullOr(Schema.String)),
   scripts: Schema.Array(ProjectScript),
   createdAt: IsoDateTime,
   updatedAt: IsoDateTime,

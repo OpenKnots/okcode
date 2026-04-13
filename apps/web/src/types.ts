@@ -5,6 +5,7 @@ import type {
   OrchestrationThreadActivity,
   ProjectScript as ContractProjectScript,
   GitHubRef,
+  ModelSelection,
   ThreadId,
   ProjectId,
   TurnId,
@@ -92,6 +93,8 @@ export interface Project {
   name: string;
   cwd: string;
   model: string;
+  defaultModelSelection?: ModelSelection | null;
+  iconPath?: string | null;
   expanded: boolean;
   createdAt?: string | undefined;
   updatedAt?: string | undefined;
@@ -104,6 +107,7 @@ export interface Thread {
   projectId: ProjectId;
   title: string;
   model: string;
+  modelSelection?: ModelSelection | null;
   runtimeMode: RuntimeMode;
   interactionMode: ProviderInteractionMode;
   session: ThreadSession | null;

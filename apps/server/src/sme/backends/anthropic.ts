@@ -1,8 +1,11 @@
 import Anthropic from "@anthropic-ai/sdk";
+import type { MessageParam } from "@anthropic-ai/sdk/resources";
 import type { SmeMessageEvent } from "@okcode/contracts";
 import { Effect } from "effect";
 
+import { readClaudeAuthTokenFromHelperCommand } from "../../provider/claudeAuthTokenHelper.ts";
 import { SmeChatError } from "../Services/SmeChatService.ts";
+import type { ProviderStartOptions } from "@okcode/contracts";
 
 type AnthropicMessagesClient = Pick<Anthropic, "messages">;
 
@@ -12,13 +15,55 @@ export interface ResolvedAnthropicClientOptions {
   readonly baseURL?: string;
 }
 
+export interface ResolveAnthropicClientOptionsInput {
+  readonly providerOptions?: ProviderStartOptions["claudeAgent"];
+  readonly env?: NodeJS.ProcessEnv;
+}
+
+function nonEmptyTrimmed(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+export function resolveAnthropicClientOptions(
+  input?: ResolveAnthropicClientOptionsInput,
+): ResolvedAnthropicClientOptions {
+  const env = input?.env ?? process.env;
+  const explicitApiKey = nonEmptyTrimmed(env.ANTHROPIC_API_KEY);
+  const explicitAuthToken = nonEmptyTrimmed(env.ANTHROPIC_AUTH_TOKEN);
+  const helperCommand = nonEmptyTrimmed(input?.providerOptions?.authTokenHelperCommand);
+
+  let authToken = explicitAuthToken;
+  if (!authToken && helperCommand) {
+    authToken = readClaudeAuthTokenFromHelperCommand(helperCommand, { env });
+  }
+
+  const baseURL = nonEmptyTrimmed(env.ANTHROPIC_BASE_URL ?? env.ANTHROPIC_API_BASE_URL);
+
+  return {
+    apiKey: authToken ? null : (explicitApiKey ?? null),
+    authToken: authToken ?? null,
+    ...(baseURL ? { baseURL } : {}),
+  };
+}
+
+function createAnthropicClient(options: ResolvedAnthropicClientOptions): AnthropicMessagesClient {
+  return new Anthropic({
+    ...(options.apiKey ? { apiKey: options.apiKey } : {}),
+    ...(options.authToken ? { authToken: options.authToken } : {}),
+    ...(options.baseURL ? { baseURL: options.baseURL } : {}),
+  });
+}
+
 export interface SendSmeViaAnthropicInput {
-  readonly client: AnthropicMessagesClient;
+  readonly client?: AnthropicMessagesClient;
+  readonly messages: Array<MessageParam>;
   readonly conversationId: string;
   readonly assistantMessageId: string;
   readonly model: string;
   readonly systemPrompt: string;
-  readonly messages: Array<{ role: "user" | "assistant"; content: string }>;
+  readonly clientOptions?: ResolvedAnthropicClientOptions;
   readonly onEvent?: ((event: SmeMessageEvent) => void) | undefined;
   readonly abortSignal?: AbortSignal | undefined;
 }
@@ -27,7 +72,10 @@ export function sendSmeViaAnthropic(input: SendSmeViaAnthropicInput) {
   return Effect.tryPromise({
     try: async () => {
       let result = "";
-      const stream = input.client.messages.stream(
+      const client =
+        input.client ??
+        createAnthropicClient(input.clientOptions ?? resolveAnthropicClientOptions());
+      const stream = client.messages.stream(
         {
           model: input.model,
           max_tokens: 8192,

@@ -52,34 +52,34 @@ conversation with the agent. Every pixel must earn its place.
 
 ### Typography
 
-| Role | Size | Weight | Tracking | Font Stack |
-|------|------|--------|----------|------------|
-| Thread title (sidebar) | `text-xs` (0.75rem) | `font-normal` | default | Inter, system-ui, sans-serif |
-| Thread subtitle / metadata | `text-[10px]` | `font-normal` | default | Inter, system-ui, sans-serif |
-| Badge text | `text-[10px]` | `font-medium` | default | Inter, system-ui, sans-serif |
-| Button text | `text-sm` (0.875rem) | `font-medium` | default | Inter, system-ui, sans-serif |
-| Heading / dialog title | `text-lg` (1.125rem) | `font-semibold` | `-0.01em` | Inter, system-ui, sans-serif |
-| Code / terminal | `text-sm` | `font-normal` | default | SF Mono, Consolas, monospace |
-| Project name | `text-xs` | `font-semibold` | default | Inter, system-ui, sans-serif |
+| Role                       | Size                 | Weight          | Tracking  | Font Stack                   |
+| -------------------------- | -------------------- | --------------- | --------- | ---------------------------- |
+| Thread title (sidebar)     | `text-xs` (0.75rem)  | `font-normal`   | default   | Inter, system-ui, sans-serif |
+| Thread subtitle / metadata | `text-[10px]`        | `font-normal`   | default   | Inter, system-ui, sans-serif |
+| Badge text                 | `text-[10px]`        | `font-medium`   | default   | Inter, system-ui, sans-serif |
+| Button text                | `text-sm` (0.875rem) | `font-medium`   | default   | Inter, system-ui, sans-serif |
+| Heading / dialog title     | `text-lg` (1.125rem) | `font-semibold` | `-0.01em` | Inter, system-ui, sans-serif |
+| Code / terminal            | `text-sm`            | `font-normal`   | default   | SF Mono, Consolas, monospace |
+| Project name               | `text-xs`            | `font-semibold` | default   | Inter, system-ui, sans-serif |
 
 ### Color Semantics
 
 Colors are referenced through CSS custom properties, never hardcoded hex values.
 
-| Token | Usage |
-|-------|-------|
-| `text-foreground` | Primary text |
-| `text-muted-foreground` | Secondary/deemphasized text |
+| Token                      | Usage                                             |
+| -------------------------- | ------------------------------------------------- |
+| `text-foreground`          | Primary text                                      |
+| `text-muted-foreground`    | Secondary/deemphasized text                       |
 | `text-muted-foreground/50` | Tertiary/metadata text (branch names, timestamps) |
-| `bg-background` | Page background |
-| `bg-accent` | Hover state, active row highlight |
-| `bg-accent/60` | Active sidebar item |
-| `bg-accent/40` | Selected sidebar item |
-| `text-emerald-600` | Additions / success (green) |
-| `text-rose-500` | Deletions / error (red) |
-| `text-warning` | Warning states, behind-upstream |
-| `text-destructive` | Destructive actions (delete) |
-| `border-border/60` | Subtle badge borders |
+| `bg-background`            | Page background                                   |
+| `bg-accent`                | Hover state, active row highlight                 |
+| `bg-accent/60`             | Active sidebar item                               |
+| `bg-accent/40`             | Selected sidebar item                             |
+| `text-emerald-600`         | Additions / success (green)                       |
+| `text-rose-500`            | Deletions / error (red)                           |
+| `text-warning`             | Warning states, behind-upstream                   |
+| `text-destructive`         | Destructive actions (delete)                      |
+| `border-border/60`         | Subtle badge borders                              |
 
 ### Spacing Rules
 
@@ -95,13 +95,13 @@ Colors are referenced through CSS custom properties, never hardcoded hex values.
 
 Five premium themes, each with light and dark variants:
 
-| Theme | Vibe |
-|-------|------|
-| **Iridescent Void** | Futuristic, expensive, slightly alien |
-| **Carbon** | Stark, modern, performance-focused |
-| **Vapor** | Refined, fluid, purposeful |
-| **Cotton Candy** | Sweet, dreamy, pink and blue |
-| **Cathedral Circuit** | Sacred machine, techno-gothic |
+| Theme                 | Vibe                                  |
+| --------------------- | ------------------------------------- |
+| **Iridescent Void**   | Futuristic, expensive, slightly alien |
+| **Carbon**            | Stark, modern, performance-focused    |
+| **Vapor**             | Refined, fluid, purposeful            |
+| **Cotton Candy**      | Sweet, dreamy, pink and blue          |
+| **Cathedral Circuit** | Sacred machine, techno-gothic         |
 
 All themes define the same set of CSS custom properties. Components must use semantic
 tokens (`bg-accent`, `text-muted-foreground`) — never theme-specific values.
@@ -249,6 +249,7 @@ a single flow:
 ```
 
 Quick action resolves automatically based on git state:
+
 - Has changes + no PR → "Commit, push & PR"
 - Has changes + existing PR → "Commit & push"
 - No changes + ahead → "Push & create PR"

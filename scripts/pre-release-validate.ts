@@ -165,6 +165,30 @@ function checkAssetManifest(rootDir: string, version: string): CheckResult {
   };
 }
 
+function checkRolloutChecklist(rootDir: string, version: string): CheckResult {
+  const checklistPath = resolve(rootDir, `docs/releases/v${version}/rollout-checklist.md`);
+  const exists = existsSync(checklistPath);
+  return {
+    name: "Rollout checklist",
+    passed: exists,
+    detail: exists
+      ? `docs/releases/v${version}/rollout-checklist.md exists`
+      : `docs/releases/v${version}/rollout-checklist.md missing`,
+  };
+}
+
+function checkSoakTestPlan(rootDir: string, version: string): CheckResult {
+  const soakPath = resolve(rootDir, `docs/releases/v${version}/soak-test-plan.md`);
+  const exists = existsSync(soakPath);
+  return {
+    name: "Soak test plan",
+    passed: exists,
+    detail: exists
+      ? `docs/releases/v${version}/soak-test-plan.md exists`
+      : `docs/releases/v${version}/soak-test-plan.md missing`,
+  };
+}
+
 function checkReleasesReadmeEntry(rootDir: string, version: string): CheckResult {
   const readmePath = resolve(rootDir, "docs/releases/README.md");
   if (!existsSync(readmePath)) {
@@ -223,7 +247,12 @@ function checkOnMain(rootDir: string): CheckResult {
 
 function checkReleaseReadyDocs(rootDir: string, version: string): CheckResult {
   // Validate the same conditions the release-ready.yml workflow checks
-  const requiredFiles = [`docs/releases/v${version}.md`, `docs/releases/v${version}/assets.md`];
+  const requiredFiles = [
+    `docs/releases/v${version}.md`,
+    `docs/releases/v${version}/assets.md`,
+    `docs/releases/v${version}/rollout-checklist.md`,
+    `docs/releases/v${version}/soak-test-plan.md`,
+  ];
   const missing = requiredFiles.filter((f) => !existsSync(resolve(rootDir, f)));
 
   if (missing.length === 0) {
@@ -254,6 +283,8 @@ function checkReleaseNotesContent(rootDir: string, version: string): CheckResult
   if (!content.includes("## Highlights")) issues.push("missing Highlights section");
   if (!content.includes("## Upgrade and install"))
     issues.push("missing Upgrade and install section");
+  if (!content.includes("rollout-checklist.md")) issues.push("missing rollout checklist link");
+  if (!content.includes("soak-test-plan.md")) issues.push("missing soak test plan link");
 
   if (issues.length === 0) {
     return { name: "Release notes content", passed: true, detail: "All expected sections present" };
@@ -279,6 +310,8 @@ function checkAssetManifestContent(rootDir: string, version: string): CheckResul
     issues.push("missing updater metadata section");
   if (!content.includes("iOS (TestFlight)")) issues.push("missing iOS section");
   if (!content.includes("Checksums")) issues.push("missing Checksums section");
+  if (!content.includes("rollout-checklist.md")) issues.push("missing rollout checklist reference");
+  if (!content.includes("soak-test-plan.md")) issues.push("missing soak test plan reference");
   if (!content.includes(version)) issues.push("version not mentioned in body");
 
   if (issues.length === 0) {
@@ -461,10 +494,13 @@ function main(): void {
     checkChangelogEntry(rootDir, version),
     checkReleaseNotes(rootDir, version),
     checkAssetManifest(rootDir, version),
+    checkRolloutChecklist(rootDir, version),
+    checkSoakTestPlan(rootDir, version),
     checkReleasesReadmeEntry(rootDir, version),
     checkReleaseReadyDocs(rootDir, version),
     checkReleaseNotesContent(rootDir, version),
     checkAssetManifestContent(rootDir, version),
+    checkAndroidVersion(rootDir, version),
     checkIosProjectVersion(rootDir, version),
     checkNoExistingTag(rootDir, version),
     checkCleanWorktree(rootDir),
@@ -547,4 +583,25 @@ const isMain =
 
 if (isMain) {
   main();
+}
+function checkAndroidVersion(rootDir: string, version: string): CheckResult {
+  const buildGradlePath = resolve(rootDir, "apps/mobile/android/app/build.gradle");
+  if (!existsSync(buildGradlePath)) {
+    return { name: "Android versionName", passed: true, detail: "No Android project (skipped)" };
+  }
+
+  const content = readFileSync(buildGradlePath, "utf8");
+  const versionPattern = new RegExp(`versionName\\s+"${version.replace(/\./g, "\\.")}"`);
+  const matches = content.match(versionPattern);
+
+  if (matches) {
+    return { name: "Android versionName", passed: true, detail: `Set to ${version}` };
+  }
+
+  const current = content.match(/versionName\s+"([^"]+)"/);
+  return {
+    name: "Android versionName",
+    passed: false,
+    detail: current ? `Currently ${current[1]} — expected ${version}` : "versionName not found",
+  };
 }

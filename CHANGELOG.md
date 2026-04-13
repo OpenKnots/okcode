@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-04-13
+
+See [docs/releases/v0.23.0.md](docs/releases/v0.23.0.md) for full notes and [docs/releases/v0.23.0/assets.md](docs/releases/v0.23.0/assets.md) for release asset inventory.
+
+### Added
+
+- Add GitHub Copilot provider support.
+- Add language switcher and Openclaw auth proxy.
+- Add API auth seamline and minimal Claude proxy.
+- Split SME chat list and add auto-scroll handling.
+- Add configurable browser preview start page.
+- Add provider availability settings and picker filtering.
+- Add in-app browser helper for Tweakcn settings.
+- Add hotkey settings editor and keybinding reset support.
+
+### Changed
+
+- Extract OpenClaw gateway settings flow.
+- Trim PR review history fetch and clean typecheck blockers.
+- Stabilize runtime event and config refresh handling.
+- Switch SME Chat to direct Anthropic messaging.
+- Show recent PR review activity in the dashboard.
+- Cache PR lookups and tighten project matching.
+- Support Claude auth tokens and OAuth failure handling.
+- Split settings into subroutes with shared shell.
+- Okcode/auth settings providers.
+- Update gateway connect handshake payload.
+- Restore default permission mode for chat turns.
+
+### Fixed
+
+- Fix main branch lint and typecheck regressions.
+- Resolve PR 432 merge conflicts against current main.
+- Resolve PR #395 merge conflicts against main.
+- Resolve PR #395 conflicts and integrate pr-365-merge fixes.
+
 ## [0.22.1] - 2026-04-10
 
 See [docs/releases/v0.22.1.md](docs/releases/v0.22.1.md) for full notes and [docs/releases/v0.22.1/assets.md](docs/releases/v0.22.1/assets.md) for release asset inventory.
@@ -691,3 +727,4 @@ First public version tag. See [docs/releases/v0.0.1.md](docs/releases/v0.0.1.md)
 [0.21.0]: https://github.com/OpenKnots/okcode/releases/tag/v0.21.0
 [0.22.0]: https://github.com/OpenKnots/okcode/releases/tag/v0.22.0
 [0.22.1]: https://github.com/OpenKnots/okcode/releases/tag/v0.22.1
+[0.23.0]: https://github.com/OpenKnots/okcode/releases/tag/v0.23.0

@@ -19,7 +19,7 @@
  *   --dry-run         Show what would be done without writing files or running commands.
  *   --skip-checks     Skip quality gate checks (format, lint, typecheck, test).
  *   --skip-commit     Generate documentation but do not commit, tag, or push.
- *   --full-matrix     Trigger the release with all platforms (not just macOS arm64).
+ *   --full-matrix     Deprecated compatibility flag. Tag pushes already run the full release matrix.
  *   --summary <text>  One-sentence summary for the release notes (prompted if omitted and TTY).
  *   --root <path>     Repository root directory (defaults to cwd).
  *   --help            Show this help message and exit.
@@ -44,6 +44,11 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createInterface } from "node:readline";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import {
+  releasePackageFiles,
+  updateReleasePackageVersions,
+} from "./update-release-package-versions.ts";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -265,6 +270,12 @@ ${highlights || "- See changelog for detailed changes."}
 ## Known limitations
 
 OK Code remains early work in progress. Expect rough edges around session recovery, streaming edge cases, and platform-specific desktop behavior. Report issues on GitHub.
+
+## Release operations
+
+- Review the [asset manifest](v${version}/assets.md) to confirm every expected GitHub Release attachment is present.
+- Use the [rollout checklist](v${version}/rollout-checklist.md) to walk the coordinated release from preflight through post-release verification.
+- Use the [soak test plan](v${version}/soak-test-plan.md) to validate the highest-risk surfaces after the tag is live.
 `;
 }
 
@@ -319,6 +330,125 @@ The iOS build is uploaded directly to App Store Connect / TestFlight by the [Rel
 ## Checksums
 
 SHA-256 checksums are not committed here; verify downloads via GitHub's release UI or \`gh release download\` if you use the GitHub CLI.
+
+## Operational references
+
+| File | Purpose |
+| ---- | ------- |
+| [rollout-checklist.md](rollout-checklist.md) | Step-by-step release playbook from preflight through post-release |
+| [soak-test-plan.md](soak-test-plan.md) | Structured release validation for the highest-risk surfaces |
+`;
+}
+
+function generateRolloutChecklist(version: string): string {
+  return `# v${version} Rollout Checklist
+
+Step-by-step playbook for the v${version} release. Each phase must complete before advancing.
+
+## Phase 0: Pre-flight
+
+- [ ] Verify all release package versions are \`${version}\`:
+  - \`apps/server/package.json\`
+  - \`apps/desktop/package.json\`
+  - \`apps/web/package.json\`
+  - \`apps/mobile/package.json\`
+  - \`packages/contracts/package.json\`
+- [ ] Verify Android \`versionName\` and iOS \`MARKETING_VERSION\` both match \`${version}\`.
+- [ ] Confirm \`CHANGELOG.md\` has \`## [${version}] - ${today()}\`.
+- [ ] Confirm \`docs/releases/v${version}.md\` exists with Summary, Highlights, Upgrade and install, and Release operations sections.
+- [ ] Confirm \`docs/releases/v${version}/assets.md\` exists and lists every expected attachment class.
+- [ ] Confirm \`docs/releases/v${version}/rollout-checklist.md\` and \`docs/releases/v${version}/soak-test-plan.md\` exist.
+- [ ] Confirm \`docs/releases/README.md\` includes the v${version} row.
+- [ ] Run \`bun run release:validate ${version}\`.
+- [ ] Confirm the working tree is clean.
+- [ ] Confirm you are on \`main\`.
+
+### Quality gates
+
+- [ ] \`bun run fmt:check\`
+- [ ] \`bun run lint\`
+- [ ] \`bun run typecheck\`
+- [ ] \`bun run test\`
+- [ ] \`bun run --cwd apps/web test:browser\`
+- [ ] \`bun run test:desktop-smoke\`
+- [ ] \`bun run release:smoke\`
+
+## Phase 1: Publish
+
+- [ ] Push the release-prep commit to \`main\`.
+- [ ] Create and push tag \`v${version}\`.
+- [ ] Verify the coordinated \`release.yml\` workflow starts.
+- [ ] Monitor the pipeline through Preflight, Desktop builds, iOS signing preflight, optional iOS TestFlight, Publish GitHub Release, Finalize release, and optional CLI publish if started through manual dispatch.
+
+### Asset verification
+
+- [ ] GitHub Release body matches \`docs/releases/v${version}.md\`.
+- [ ] \`okcode-CHANGELOG.md\` is attached.
+- [ ] \`okcode-RELEASE-NOTES.md\` is attached.
+- [ ] \`okcode-ASSETS-MANIFEST.md\` is attached.
+- [ ] macOS release artifacts are attached: DMG, ZIP, updater manifest, and blockmaps.
+- [ ] Linux release artifacts are attached: AppImage and updater manifest if generated.
+- [ ] Windows release artifacts are attached: installer, updater manifest, and blockmaps.
+- [ ] If the Intel compatibility workflow is run, confirm the x64 macOS DMG is attached separately.
+
+## Phase 2: Post-release verification
+
+- [ ] \`npx --yes okcodes@${version} --version\` returns \`${version}\`.
+- [ ] macOS installer launches and passes Gatekeeper.
+- [ ] Linux AppImage launches.
+- [ ] Windows installer installs and launches.
+- [ ] Desktop auto-update metadata is present for supported platforms.
+- [ ] If iOS signing was enabled, confirm the new TestFlight build appears.
+- [ ] Confirm the finalize job did not need to push another version-alignment commit, or review its no-op output if versions were already aligned before tagging.
+
+## Phase 3: Follow-through
+
+- [ ] Trigger the Intel compatibility workflow if macOS x64 artifacts are required for this train.
+- [ ] Update external release references or announcements.
+- [ ] Monitor reports for regressions in provider onboarding, auth flows, release packaging, and cross-platform install/update behavior.
+`;
+}
+
+function generateSoakTestPlan(version: string): string {
+  return `# v${version} Soak Test Plan
+
+Structured validation plan for the highest-risk surfaces in v${version}.
+
+## 1. Provider onboarding and auth flows
+
+| Step | Expected | Pass |
+| ---- | -------- | ---- |
+| Configure each primary provider from Settings | Provider setup screens save cleanly and validation messages stay actionable | [ ] |
+| Exercise Claude and OpenClaw auth flows after reload | Saved credentials and provider state restore without stale or conflicting UI | [ ] |
+| Start a Codex or Copilot-backed conversation after provider setup | Turn creation, streaming, and provider selection remain consistent | [ ] |
+| Trigger an auth failure intentionally | Errors surface clearly without leaking secrets or breaking follow-up retries | [ ] |
+
+## 2. Settings and configuration surfaces
+
+| Step | Expected | Pass |
+| ---- | -------- | ---- |
+| Open the settings route on desktop and narrow layouts | Navigation stays stable and each section is reachable | [ ] |
+| Change provider availability and default options | Picker filtering and availability controls update without stale state | [ ] |
+| Use hotkey configuration controls and reset actions | Shortcuts persist, restore, and do not regress the editor UI | [ ] |
+| Open the browser-preview-related settings and helper links | The helper flow launches correctly and does not break the app shell | [ ] |
+
+## 3. Runtime and review workflows
+
+| Step | Expected | Pass |
+| ---- | -------- | ---- |
+| Run a thread that emits runtime events and reconnect mid-stream | Session state and event feeds remain consistent after reconnect | [ ] |
+| Open the PR review dashboard with recent review history | Dashboard loads quickly and shows the expected recent activity | [ ] |
+| Navigate between threads, projects, and restored sessions | Cached lookups, projections, and route transitions stay responsive | [ ] |
+| Trigger browser preview and workspace activity during a turn | The app avoids flicker, stale panes, and blocked input | [ ] |
+
+## 4. Desktop, CLI, and release packaging
+
+| Step | Expected | Pass |
+| ---- | -------- | ---- |
+| Run \`bun run test:desktop-smoke\` on the release branch | Desktop packaging smoke remains green | [ ] |
+| Run \`bun run release:smoke\` before and after tagging | Release-specific workflow checks remain green | [ ] |
+| Verify a packaged desktop artifact launches and reports the new version | Installed app opens cleanly and reports v${version} | [ ] |
+| Verify the CLI package after publish or from a packed tarball | \`okcode --version\` and help commands resolve correctly | [ ] |
 `;
 }
 
@@ -448,7 +578,7 @@ function printHelp(): void {
     --dry-run           Show what would be done without writing files or running commands
     --skip-checks       Skip quality gate checks (format, lint, typecheck, test)
     --skip-commit       Generate documentation but do not commit, tag, or push
-    --full-matrix       Trigger the release with all platforms (not just macOS arm64)
+    --full-matrix       Deprecated compatibility flag; tag pushes already run the full release matrix
     --summary <text>    One-sentence summary for the release notes
     --root <path>       Repository root directory (defaults to parent of scripts/)
     --help              Show this help message and exit
@@ -597,6 +727,20 @@ async function main(): Promise<void> {
   const notesPath = resolve(rootDir, `docs/releases/v${version}.md`);
   const assetsDirPath = resolve(rootDir, `docs/releases/v${version}`);
   const assetsPath = resolve(rootDir, `docs/releases/v${version}/assets.md`);
+  const rolloutChecklistPath = resolve(rootDir, `docs/releases/v${version}/rollout-checklist.md`);
+  const soakTestPlanPath = resolve(rootDir, `docs/releases/v${version}/soak-test-plan.md`);
+
+  if (dryRun) {
+    log("--", `Would update release package and mobile platform versions to ${version}`);
+  } else {
+    const { changed } = updateReleasePackageVersions(version, { rootDir });
+    log(
+      changed ? "OK" : "--",
+      changed
+        ? `Updated package and mobile version metadata to ${version}`
+        : `Package and mobile version metadata already matched ${version}`,
+    );
+  }
 
   // Check if docs already exist
   if (existsSync(notesPath)) {
@@ -621,6 +765,38 @@ async function main(): Promise<void> {
       mkdirSync(assetsDirPath, { recursive: true });
       writeFileSync(assetsPath, manifest);
       log("OK", `Created: docs/releases/v${version}/assets.md`);
+    }
+  }
+
+  if (existsSync(rolloutChecklistPath)) {
+    log(
+      "--",
+      `Rollout checklist already exists: docs/releases/v${version}/rollout-checklist.md (skipping)`,
+    );
+  } else {
+    const checklist = generateRolloutChecklist(version);
+    if (dryRun) {
+      log("--", `Would create: docs/releases/v${version}/rollout-checklist.md`);
+    } else {
+      mkdirSync(assetsDirPath, { recursive: true });
+      writeFileSync(rolloutChecklistPath, checklist);
+      log("OK", `Created: docs/releases/v${version}/rollout-checklist.md`);
+    }
+  }
+
+  if (existsSync(soakTestPlanPath)) {
+    log(
+      "--",
+      `Soak test plan already exists: docs/releases/v${version}/soak-test-plan.md (skipping)`,
+    );
+  } else {
+    const soakPlan = generateSoakTestPlan(version);
+    if (dryRun) {
+      log("--", `Would create: docs/releases/v${version}/soak-test-plan.md`);
+    } else {
+      mkdirSync(assetsDirPath, { recursive: true });
+      writeFileSync(soakTestPlanPath, soakPlan);
+      log("OK", `Created: docs/releases/v${version}/soak-test-plan.md`);
     }
   }
 
@@ -658,7 +834,12 @@ async function main(): Promise<void> {
         "CHANGELOG.md",
         `docs/releases/v${version}.md`,
         `docs/releases/v${version}/assets.md`,
+        `docs/releases/v${version}/rollout-checklist.md`,
+        `docs/releases/v${version}/soak-test-plan.md`,
         "docs/releases/README.md",
+        ...releasePackageFiles,
+        "apps/mobile/android/app/build.gradle",
+        "apps/mobile/ios/App/App.xcodeproj/project.pbxproj",
       ],
       {
         cwd: rootDir,
@@ -687,7 +868,7 @@ async function main(): Promise<void> {
       if (fullMatrix) {
         log(
           "--",
-          `Would trigger full-matrix release via: gh workflow run release.yml -f version=${version} -f mac_arm64_only=false`,
+          `Would optionally publish the CLI after release via: gh workflow run release.yml -f version=${version} -f publish_cli=true`,
         );
       }
     } else {
@@ -700,13 +881,18 @@ async function main(): Promise<void> {
       "docs/releases/README.md",
       `docs/releases/v${version}.md`,
       `docs/releases/v${version}/assets.md`,
+      `docs/releases/v${version}/rollout-checklist.md`,
+      `docs/releases/v${version}/soak-test-plan.md`,
+      ...releasePackageFiles,
+      "apps/mobile/android/app/build.gradle",
+      "apps/mobile/ios/App/App.xcodeproj/project.pbxproj",
     ];
 
     log("==>", "Staging release documentation...");
     execFileSync("git", ["add", ...filesToStage], { cwd: rootDir, stdio: "inherit" });
 
     log("==>", "Committing...");
-    execFileSync("git", ["commit", "-m", `docs(release): prepare release notes for v${version}`], {
+    execFileSync("git", ["commit", "-m", `release: prepare v${version}`], {
       cwd: rootDir,
       stdio: "inherit",
     });
@@ -721,42 +907,18 @@ async function main(): Promise<void> {
     log("==>", `Creating tag ${tag}...`);
     execFileSync("git", ["tag", tag], { cwd: rootDir, stdio: "inherit" });
 
+    log("==>", `Pushing tag ${tag}...`);
+    execFileSync("git", ["push", "origin", tag], { cwd: rootDir, stdio: "inherit" });
+    log("OK", `Tag ${tag} pushed. Release workflow will run automatically.`);
     if (fullMatrix) {
-      // For full matrix, use workflow_dispatch so we can set mac_arm64_only=false
-      log("==>", `Pushing tag ${tag} and triggering full-matrix release...`);
-      execFileSync("git", ["push", "origin", tag], { cwd: rootDir, stdio: "inherit" });
-
-      // Also trigger via workflow_dispatch for full matrix
-      log("==>", "Triggering full-matrix workflow via gh...");
-      try {
-        execFileSync(
-          "gh",
-          [
-            "workflow",
-            "run",
-            "release.yml",
-            "-f",
-            `version=${version}`,
-            "-f",
-            "mac_arm64_only=false",
-          ],
-          { cwd: rootDir, stdio: "inherit" },
-        );
-        log("OK", "Full-matrix release workflow triggered.");
-      } catch {
-        log(
-          "!!",
-          "Could not trigger workflow_dispatch via gh CLI. The tag push will still trigger an arm64-only build.",
-        );
-        log(
-          "!!",
-          `To manually trigger full matrix: gh workflow run release.yml -f version=${version} -f mac_arm64_only=false`,
-        );
-      }
-    } else {
-      log("==>", `Pushing tag ${tag} (arm64-only release)...`);
-      execFileSync("git", ["push", "origin", tag], { cwd: rootDir, stdio: "inherit" });
-      log("OK", `Tag ${tag} pushed. Release workflow will run automatically.`);
+      log(
+        "!!",
+        "The current release workflow already runs the full platform matrix on tag push. Use workflow_dispatch with publish_cli=true only if you need the optional CLI publish lane.",
+      );
+      log(
+        "!!",
+        `Optional CLI publish dispatch: gh workflow run release.yml -f version=${version} -f publish_cli=true`,
+      );
     }
   }
 
@@ -785,12 +947,12 @@ async function main(): Promise<void> {
     console.log("  Documentation generated. To finish the release manually:");
     console.log(`    1. Review the generated files.`);
     console.log(`    2. git add CHANGELOG.md docs/releases/`);
-    console.log(`    3. git commit -m "docs(release): prepare release notes for v${version}"`);
+    console.log(`    3. git commit -m "release: prepare v${version}"`);
     console.log(`    4. git push origin main`);
     console.log(`    5. git tag ${tag} && git push origin ${tag}`);
     if (fullMatrix) {
       console.log(
-        `    6. gh workflow run release.yml -f version=${version} -f mac_arm64_only=false`,
+        `    6. Optional CLI publish dispatch: gh workflow run release.yml -f version=${version} -f publish_cli=true`,
       );
     }
     console.log("");

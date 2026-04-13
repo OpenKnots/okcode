@@ -9,6 +9,7 @@ Use this directory for versioned release notes and asset manifests only:
 
 | Version              | Summary                                                                                                   | Assets                        |
 | -------------------- | --------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| [0.23.0](v0.23.0.md) | Copilot support, provider/auth hardening, richer settings controls, and release-stability cleanup         | [manifest](v0.23.0/assets.md) |
 | [0.22.1](v0.22.1.md) | Sidebar density controls, notification diagnostics, decision workspace groundwork, and OpenClaw hardening | [manifest](v0.22.1/assets.md) |
 | [0.22.0](v0.22.0.md) | Provider-aware SME auth, refreshed SME chat, settings navigation, and websocket redaction                 | [manifest](v0.22.0/assets.md) |
 | [0.21.0](v0.21.0.md) | Terminal startup and project continuity improvements, SME auth recovery, and release alignment            | [manifest](v0.21.0/assets.md) |

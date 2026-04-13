@@ -410,7 +410,9 @@ export function PrReviewShell({
     ...(conflictQuery.data?.status === "conflicted" ? ["Merge conflicts must be resolved"] : []),
     ...checksSummary.failing.map((name) => `Failing check: ${name}`),
     ...checksSummary.pending.map((name) => `Pending check: ${name}`),
-    ...blockingWorkflowStepsComputed.map((step) => `Workflow blocked: ${step.title}`),
+    ...blockingWorkflowStepsComputed.map(
+      (step) => `Workflow blocked: ${step.detail ?? step.stepId}`,
+    ),
   ];
   const approveDisabled =
     submitReviewMutation.isPending ||

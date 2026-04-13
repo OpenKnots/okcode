@@ -1,7 +1,7 @@
 import { EventId, ThreadId, TurnId, type ProviderRuntimeEvent } from "@okcode/contracts";
 import { it } from "@effect/vitest";
 import { describe, expect } from "vitest";
-import { Effect, Layer, Stream } from "effect";
+import { Effect, Fiber, Stream } from "effect";
 
 import { ProviderRuntimeEventFeedLive } from "./ProviderRuntimeEventFeed.ts";
 import { ProviderRuntimeEventFeed } from "../Services/ProviderRuntimeEventFeed.ts";
@@ -11,6 +11,7 @@ function makeTurnStartedEvent(id: string): ProviderRuntimeEvent {
     type: "turn.started",
     eventId: EventId.makeUnsafe(id),
     provider: "codex",
+    payload: {},
     threadId: ThreadId.makeUnsafe("thread-1"),
     turnId: TurnId.makeUnsafe(`turn-${id}`),
     createdAt: "2026-01-01T00:00:00.000Z",
@@ -27,17 +28,17 @@ describe("ProviderRuntimeEventFeedLive", () => {
 
       const events = yield* Stream.take(feed.subscribeWithReplay(), 3).pipe(
         Stream.runCollect,
-        Effect.fork,
+        Effect.forkScoped,
       );
 
       yield* feed.publish(makeTurnStartedEvent("evt-3"));
 
-      const collected = yield* Effect.fromFiber(events);
+      const collected = yield* Fiber.join(events);
       expect(Array.from(collected).map((event) => event.eventId)).toEqual([
         "evt-1",
         "evt-2",
         "evt-3",
       ]);
-    }).pipe(Effect.provide(Layer.mergeAll(ProviderRuntimeEventFeedLive))),
+    }).pipe(Effect.provide(ProviderRuntimeEventFeedLive)),
   );
 });

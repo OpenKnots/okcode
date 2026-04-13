@@ -61,7 +61,7 @@ query PullRequestReviewDashboard($owner: String!, $name: String!, $number: Int!)
       headRefName
       baseRefOid
       headRefOid
-      reviews(last: 100) {
+      reviews(last: 10) {
         nodes {
           state
           body

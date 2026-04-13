@@ -209,7 +209,7 @@ async function waitForGitRefExists(cwd: string, ref: string, timeoutMs = 15_000)
 
 describe("CheckpointReactor", () => {
   let runtime: ManagedRuntime.ManagedRuntime<
-    OrchestrationEngineService | CheckpointReactor | CheckpointStore,
+    OrchestrationEngineService | CheckpointReactor | CheckpointStore | ProviderRuntimeEventFeed,
     unknown
   > | null = null;
   let scope: Scope.Closeable | null = null;
@@ -331,10 +331,12 @@ describe("CheckpointReactor", () => {
 
     return {
       engine,
-      provider,
+      provider: {
+        ...provider,
+        emit: (event: LegacyProviderRuntimeEvent) =>
+          Effect.runSync(eventFeed.publish(event as unknown as ProviderRuntimeEvent)),
+      },
       cwd,
-      emit: (event: LegacyProviderRuntimeEvent) =>
-        Effect.runSync(eventFeed.publish(event as unknown as ProviderRuntimeEvent)),
       drain,
     };
   }

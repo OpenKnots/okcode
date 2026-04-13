@@ -48,8 +48,9 @@ const makeProviderRuntimeEventFeed = Effect.gen(function* () {
     );
 
   const subscribeWithReplay: ProviderRuntimeEventFeedShape["subscribeWithReplay"] = () =>
-    Stream.unwrapScoped(
+    Stream.unwrap(
       Effect.gen(function* () {
+        const scope = yield* Effect.scope;
         const subscriber = yield* Queue.unbounded<ProviderRuntimeEvent>();
         const replay = yield* mutex.withPermits(1)(
           Ref.modify(stateRef, (state) => {
@@ -69,7 +70,8 @@ const makeProviderRuntimeEventFeed = Effect.gen(function* () {
           discard: true,
         });
 
-        yield* Scope.addFinalizer(() =>
+        yield* Scope.addFinalizer(
+          scope,
           mutex.withPermits(1)(
             Ref.update(stateRef, (state) => {
               const subscribers = new Set(state.subscribers);

@@ -734,10 +734,29 @@ async function main(): Promise<void> {
     log("--", `Would update release package and mobile platform versions to ${version}`);
   } else {
     const { changed } = updateReleasePackageVersions(version, { rootDir });
+    if (changed) {
+      execFileSync(
+        "bunx",
+        [
+          "oxfmt",
+          ...releasePackageFiles,
+          "apps/mobile/android/app/build.gradle",
+          "apps/mobile/ios/App/App.xcodeproj/project.pbxproj",
+        ],
+        {
+          cwd: rootDir,
+          stdio: "inherit",
+        },
+      );
+      execFileSync("bun", ["install", "--lockfile-only", "--ignore-scripts"], {
+        cwd: rootDir,
+        stdio: "inherit",
+      });
+    }
     log(
       changed ? "OK" : "--",
       changed
-        ? `Updated package and mobile version metadata to ${version}`
+        ? `Updated package, mobile version metadata, and lockfile to ${version}`
         : `Package and mobile version metadata already matched ${version}`,
     );
   }
@@ -840,6 +859,7 @@ async function main(): Promise<void> {
         ...releasePackageFiles,
         "apps/mobile/android/app/build.gradle",
         "apps/mobile/ios/App/App.xcodeproj/project.pbxproj",
+        "bun.lock",
       ],
       {
         cwd: rootDir,
@@ -886,6 +906,7 @@ async function main(): Promise<void> {
       ...releasePackageFiles,
       "apps/mobile/android/app/build.gradle",
       "apps/mobile/ios/App/App.xcodeproj/project.pbxproj",
+      "bun.lock",
     ];
 
     log("==>", "Staging release documentation...");

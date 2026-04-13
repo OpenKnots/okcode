@@ -194,6 +194,7 @@ function mapProjectsFromReadModel(
             : (project.defaultModel ?? DEFAULT_MODEL_BY_PROVIDER.codex),
         ),
       defaultModelSelection: project.defaultModelSelection ?? null,
+      iconPath: project.iconPath ?? null,
       expanded: resolveProjectExpandedState({
         existingExpanded: existing?.expanded,
         persistedExpanded: persistedProjectExpansionByCwd.get(project.workspaceRoot),

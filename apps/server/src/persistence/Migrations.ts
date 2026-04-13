@@ -36,6 +36,7 @@ import Migration0021 from "./Migrations/021_ProjectionPendingUserInputs.ts";
 import Migration0022 from "./Migrations/022_DecisionWorkspace.ts";
 import Migration0023 from "./Migrations/023_ProjectionPendingUserInputsBackfill.ts";
 import Migration0024 from "./Migrations/024_OpenclawGatewayConfig.ts";
+import Migration0025 from "./Migrations/025_ProjectionProjectIconPath.ts";
 import { Effect } from "effect";
 
 /**
@@ -73,6 +74,7 @@ const loader = Migrator.fromRecord({
   "22_DecisionWorkspace": Migration0022,
   "23_ProjectionPendingUserInputsBackfill": Migration0023,
   "24_OpenclawGatewayConfig": Migration0024,
+  "25_ProjectionProjectIconPath": Migration0025,
 });
 
 /**

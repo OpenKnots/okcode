@@ -24,7 +24,11 @@ import {
   RuntimeMode,
 } from "@okcode/contracts";
 import { applyClaudePromptEffortPrefix, getDefaultModel } from "@okcode/shared/model";
-import { getModelSelectionModel, getModelSelectionOptions, modelSelectionsAreEqual } from "@okcode/shared/modelSelection";
+import {
+  getModelSelectionModel,
+  getModelSelectionOptions,
+  modelSelectionsAreEqual,
+} from "@okcode/shared/modelSelection";
 import {
   Suspense,
   lazy,

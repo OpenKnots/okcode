@@ -90,6 +90,7 @@ it.effect("trims branded ids and command string fields at decode boundaries", ()
       title: " Project Title ",
       workspaceRoot: " /tmp/workspace ",
       defaultModel: " gpt-5.2 ",
+      iconPath: " public/icon.svg ",
       createdAt: "2026-01-01T00:00:00.000Z",
     });
     assert.strictEqual(parsed.commandId, "cmd-1");
@@ -97,6 +98,7 @@ it.effect("trims branded ids and command string fields at decode boundaries", ()
     assert.strictEqual(parsed.title, "Project Title");
     assert.strictEqual(parsed.workspaceRoot, "/tmp/workspace");
     assert.strictEqual(parsed.defaultModel, "gpt-5.2");
+    assert.strictEqual(parsed.iconPath, "public/icon.svg");
   }),
 );
 

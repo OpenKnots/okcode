@@ -138,6 +138,7 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
                   undefined,
                 )
               : null),
+          iconPath: command.iconPath ?? null,
           scripts: command.scripts ?? [],
           createdAt: command.createdAt,
           updatedAt: command.createdAt,
@@ -206,6 +207,7 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
                   ),
                 }
               : {}),
+          ...(command.iconPath !== undefined ? { iconPath: command.iconPath } : {}),
           ...(command.scripts !== undefined ? { scripts: command.scripts } : {}),
           updatedAt: occurredAt,
         },

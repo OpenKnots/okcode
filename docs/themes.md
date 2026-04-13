@@ -97,16 +97,16 @@ The goal is to avoid generic editor skins and instead build themes that feel lik
 
 ---
 
-### 9. Cotton Candy
+### 9. Purple Stuff
 
-**Vibe:** sweet, dreamy, adorably feminine
-**Palette:** pastel pink, baby blue, lavender, soft rose, cream
+**Vibe:** plush, nocturnal, grape-soda futuristic
+**Palette:** powdered lilac, black plum, electric violet, cool periwinkle, mint
 
-- Soft pink and baby blue create a whimsical, cotton candy fairground feel
-- Light mode is airy and bright with rosy card backgrounds
-- Dark mode wraps everything in a cozy plum-kissed night
-- Info/accent colors lean baby blue; primary leans hot pink
-- Playful yet legible — sugar rush without the eye strain
+- Light mode stays soft and airy without drifting into candy pink
+- Dark mode goes all the way to black with vivid violet focus accents
+- Primary surfaces feel syrupy purple instead of rosy or baby-blue
+- Sidebars and panels read cleaner and more premium with frosted lilac neutrals
+- Playful, but less twee and more intentional than the old Cotton Candy direction
 
 ---
 
@@ -153,7 +153,7 @@ If narrowing to a stronger first shortlist, these feel the most distinctive:
 ### Playful / expressive
 
 - Candy Reactor
-- Cotton Candy
+- Purple Stuff
 - Velvet Casino
 
 ### Atmospheric / weird

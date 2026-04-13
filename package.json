@@ -66,16 +66,16 @@
     "prepare": "husky && node scripts/patch-effect-language-service.ts && node scripts/patch-effect-smol-peer-installs.mjs"
   },
   "dependencies": {
-    "@pierre/diffs": "1.1.0-beta.16",
-    "lucide-react": "^1.7.0"
+    "@pierre/diffs": "1.1.13",
+    "lucide-react": "^1.8.0"
   },
   "devDependencies": {
     "@types/node": "catalog:",
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
-    "oxfmt": "^0.42.0",
-    "oxlint": "^1.58.0",
-    "turbo": "^2.9.4",
+    "oxfmt": "^0.44.0",
+    "oxlint": "^1.59.0",
+    "turbo": "^2.9.5",
     "vitest": "catalog:"
   },
   "overrides": {

@@ -36,12 +36,16 @@ import { ORCHESTRATION_PROJECTOR_NAMES } from "./ProjectionPipeline.ts";
 
 const ProjectionProjectOverviewRow = Schema.Struct({
   ...ProjectionProject.fields,
+  defaultModelSelection: Schema.NullOr(
+    Schema.fromJsonString(ProjectionProject.fields.defaultModelSelection),
+  ),
   scripts: Schema.fromJsonString(Schema.Array(ProjectScript)),
   activeThreadCount: NonNegativeInt,
 });
 
 const ProjectionThreadOverviewRow = Schema.Struct({
   ...ProjectionThread.fields,
+  modelSelection: Schema.NullOr(Schema.fromJsonString(ProjectionThread.fields.modelSelection)),
   lastUserMessageAt: Schema.NullOr(IsoDateTime),
   pendingApprovalCount: NonNegativeInt,
   pendingUserInputCount: NonNegativeInt,

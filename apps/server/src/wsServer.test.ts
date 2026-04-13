@@ -49,6 +49,10 @@ import { SqlClient, SqlError } from "effect/unstable/sql";
 import { ProviderService, type ProviderServiceShape } from "./provider/Services/ProviderService";
 import { ProviderHealth, type ProviderHealthShape } from "./provider/Services/ProviderHealth";
 import { ProviderRuntimeEventFeedLive } from "./provider/Layers/ProviderRuntimeEventFeed";
+import {
+  ProviderRuntimeEventFeed,
+  type ProviderRuntimeEventFeedShape,
+} from "./provider/Services/ProviderRuntimeEventFeed";
 import { Open, type OpenShape } from "./open";
 import { GitManager, type GitManagerShape } from "./git/Services/GitManager.ts";
 import type { GitCoreShape } from "./git/Services/GitCore.ts";
@@ -508,6 +512,7 @@ describe("WebSocket Server", () => {
       baseDir?: string;
       staticDir?: string;
       providerLayer?: Layer.Layer<ProviderService, never>;
+      providerRuntimeEventFeed?: ProviderRuntimeEventFeedShape;
       providerHealth?: ProviderHealthShape;
       open?: OpenShape;
       gitManager?: GitManagerShape;
@@ -528,11 +533,9 @@ describe("WebSocket Server", () => {
     const scope = await Effect.runPromise(Scope.make("sequential"));
     const persistenceLayer = options.persistenceLayer ?? SqlitePersistenceMemory;
     const providerLayer = options.providerLayer ?? makeServerProviderLayer();
-    const providerRuntimeEventFeedLayer = ProviderRuntimeEventFeedLive;
-    const providerHealthLayer = Layer.succeed(
-      ProviderHealth,
-      options.providerHealth ?? defaultProviderHealthService,
-    );
+    const providerRuntimeEventFeedLayer = options.providerRuntimeEventFeed
+      ? Layer.succeed(ProviderRuntimeEventFeed, options.providerRuntimeEventFeed)
+      : ProviderRuntimeEventFeedLive;
     const openLayer = Layer.succeed(Open, options.open ?? defaultOpenService);
     const serverConfigLayer = Layer.succeed(ServerConfig, {
       mode: "web",
@@ -556,6 +559,7 @@ describe("WebSocket Server", () => {
       ? Layer.succeed(ProjectionSnapshotQuery, options.projectionSnapshotQuery)
       : OrchestrationProjectionSnapshotQueryLive;
     const runtimeOverrides = Layer.mergeAll(
+      Layer.succeed(ProviderHealth, options.providerHealth ?? defaultProviderHealthService),
       options.gitManager ? Layer.succeed(GitManager, options.gitManager) : Layer.empty,
       options.gitCore
         ? Layer.succeed(GitCore, options.gitCore as unknown as GitCoreShape)
@@ -575,7 +579,6 @@ describe("WebSocket Server", () => {
     );
     const dependenciesLayer = Layer.empty.pipe(
       Layer.provideMerge(runtimeLayer),
-      Layer.provideMerge(providerHealthLayer),
       Layer.provideMerge(providerRuntimeEventFeedLayer),
       Layer.provideMerge(openLayer),
       Layer.provideMerge(serverConfigLayer),
@@ -908,9 +911,9 @@ describe("WebSocket Server", () => {
         return [
           {
             provider: "codex",
-            status: callCount === 1 ? "ready" : "error",
-            available: callCount === 1,
-            authStatus: callCount === 1 ? "authenticated" : "unauthenticated",
+            status: callCount <= 2 ? "ready" : "error",
+            available: callCount <= 2,
+            authStatus: callCount <= 2 ? "authenticated" : "unauthenticated",
             checkedAt: `2026-01-01T00:00:0${callCount}.000Z`,
           },
         ] satisfies ReadonlyArray<ServerProviderStatus>;
@@ -935,7 +938,7 @@ describe("WebSocket Server", () => {
             status: "ready",
             available: true,
             authStatus: "authenticated",
-            checkedAt: "2026-01-01T00:00:01.000Z",
+            checkedAt: "2026-01-01T00:00:02.000Z",
           },
         ],
       }),
@@ -948,7 +951,7 @@ describe("WebSocket Server", () => {
             status: "error",
             available: false,
             authStatus: "unauthenticated",
-            checkedAt: "2026-01-01T00:00:02.000Z",
+            checkedAt: "2026-01-01T00:00:03.000Z",
           },
         ],
       }),
@@ -1135,12 +1138,15 @@ describe("WebSocket Server", () => {
       },
     ];
     const providerHealth: ProviderHealthShape = {
-      getStatuses: Effect.sync(() => {
+      getStatuses: Effect.suspend(() => {
         callCount += 1;
-        if (callCount === 1) {
-          return liveStatuses;
+        if (callCount <= 2) {
+          return Effect.succeed(liveStatuses);
         }
-        throw new Error("provider health probe failed");
+        return Effect.fail(new Error("provider health probe failed")) as unknown as Effect.Effect<
+          ReadonlyArray<ServerProviderStatus>,
+          never
+        >;
       }),
     };
 
@@ -1458,9 +1464,13 @@ describe("WebSocket Server", () => {
 
   it("keeps orchestration domain push behavior for provider runtime events", async () => {
     const runtimeEventPubSub = Effect.runSync(PubSub.unbounded<ProviderRuntimeEvent>());
+    const providerRuntimeEventFeed: ProviderRuntimeEventFeedShape = {
+      publish: (event) => PubSub.publish(runtimeEventPubSub, event).pipe(Effect.asVoid),
+      subscribeWithReplay: () => Stream.fromPubSub(runtimeEventPubSub),
+    };
     const { cwd } = makeWorkspaceFixture("test");
     const emitRuntimeEvent = (event: ProviderRuntimeEvent) => {
-      Effect.runSync(PubSub.publish(runtimeEventPubSub, event));
+      Effect.runSync(providerRuntimeEventFeed.publish(event));
     };
     const unsupported = () => Effect.die(new Error("Unsupported provider call in test")) as never;
     const providerService: ProviderServiceShape = {
@@ -1485,13 +1495,14 @@ describe("WebSocket Server", () => {
       listSessions: () => Effect.succeed([]),
       getCapabilities: () => Effect.succeed({ sessionModelSwitch: "in-session" }),
       rollbackConversation: () => unsupported(),
-      streamEvents: Stream.fromPubSub(runtimeEventPubSub),
+      streamEvents: Stream.empty,
     };
     const providerLayer = Layer.succeed(ProviderService, providerService);
 
     server = await createTestServer({
       cwd,
       providerLayer,
+      providerRuntimeEventFeed: providerRuntimeEventFeed,
     });
     const addr = server.address();
     const port = typeof addr === "object" && addr !== null ? addr.port : 0;
@@ -1549,12 +1560,32 @@ describe("WebSocket Server", () => {
     });
 
     emitRuntimeEvent({
+      type: "turn.started",
+      eventId: asEventId("evt-ws-runtime-turn-started"),
+      provider: "codex",
+      threadId: asThreadId("thread-1"),
+      createdAt: new Date().toISOString(),
+      turnId: asTurnId("provider-turn-1"),
+    } as unknown as ProviderRuntimeEvent);
+
+    await waitForPush(ws, ORCHESTRATION_WS_CHANNELS.domainEvent, (push) => {
+      const event = push.data as {
+        type?: string;
+        payload?: { session?: { activeTurnId?: string } };
+      };
+      return (
+        event.type === "thread.session-set" &&
+        event.payload?.session?.activeTurnId === "provider-turn-1"
+      );
+    });
+
+    emitRuntimeEvent({
       type: "content.delta",
       eventId: asEventId("evt-ws-runtime-message-delta"),
       provider: "codex",
       threadId: asThreadId("thread-1"),
       createdAt: new Date().toISOString(),
-      turnId: asTurnId("turn-1"),
+      turnId: asTurnId("provider-turn-1"),
       itemId: asProviderItemId("item-1"),
       payload: {
         streamKind: "assistant_text",
@@ -1562,20 +1593,61 @@ describe("WebSocket Server", () => {
       },
     } as unknown as ProviderRuntimeEvent);
 
-    const domainPush = await waitForPush(ws, ORCHESTRATION_WS_CHANNELS.domainEvent, (push) => {
-      const event = push.data as { type?: string; payload?: { messageId?: string; text?: string } };
+    const streamedPush = await waitForPush(ws, ORCHESTRATION_WS_CHANNELS.domainEvent, (push) => {
+      const event = push.data as {
+        type?: string;
+        payload?: { messageId?: string; text?: string; streaming?: boolean };
+      };
       return (
-        event.type === "thread.message-sent" && event.payload?.messageId === "assistant:item-1"
+        event.type === "thread.message-sent" &&
+        event.payload?.messageId === "assistant:item-1" &&
+        event.payload?.streaming === true
       );
     });
 
-    const domainEvent = domainPush.data as {
+    const streamedEvent = streamedPush.data as {
       type: string;
-      payload: { messageId: string; text: string };
+      payload: { messageId: string; text: string; streaming: boolean };
     };
-    expect(domainEvent.type).toBe("thread.message-sent");
-    expect(domainEvent.payload.messageId).toBe("assistant:item-1");
-    expect(domainEvent.payload.text).toBe("hello from runtime");
+    expect(streamedEvent.type).toBe("thread.message-sent");
+    expect(streamedEvent.payload.messageId).toBe("assistant:item-1");
+    expect(streamedEvent.payload.text).toBe("hello from runtime");
+    expect(streamedEvent.payload.streaming).toBe(true);
+
+    emitRuntimeEvent({
+      type: "item.completed",
+      eventId: asEventId("evt-ws-runtime-message-complete"),
+      provider: "codex",
+      threadId: asThreadId("thread-1"),
+      createdAt: new Date().toISOString(),
+      turnId: asTurnId("provider-turn-1"),
+      itemId: asProviderItemId("item-1"),
+      payload: {
+        itemType: "assistant_message",
+        status: "completed",
+      },
+    } as unknown as ProviderRuntimeEvent);
+
+    const completedPush = await waitForPush(ws, ORCHESTRATION_WS_CHANNELS.domainEvent, (push) => {
+      const event = push.data as {
+        type?: string;
+        payload?: { messageId?: string; streaming?: boolean };
+      };
+      return (
+        event.type === "thread.message-sent" &&
+        event.payload?.messageId === "assistant:item-1" &&
+        event.payload?.streaming === false
+      );
+    });
+
+    const completedEvent = completedPush.data as {
+      type: string;
+      payload: { messageId: string; text: string; streaming: boolean };
+    };
+    expect(completedEvent.type).toBe("thread.message-sent");
+    expect(completedEvent.payload.messageId).toBe("assistant:item-1");
+    expect(completedEvent.payload.text).toBe("");
+    expect(completedEvent.payload.streaming).toBe(false);
   });
 
   it("routes terminal RPC methods and broadcasts terminal events", async () => {

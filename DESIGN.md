@@ -141,6 +141,7 @@ const buttonVariants = cva("base classes", {
 ### Focus States
 
 All interactive elements use the same focus ring:
+
 ```
 focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]
 ```

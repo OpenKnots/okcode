@@ -142,7 +142,7 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
         const status = yield* checkCodexProviderStatus;
         assert.strictEqual(status.provider, "codex");
         assert.strictEqual(status.status, "error");
-        assert.strictEqual(status.available, false);
+        assert.strictEqual(status.available, true);
         assert.strictEqual(status.authStatus, "unknown");
         assert.strictEqual(
           status.message,

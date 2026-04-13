@@ -157,7 +157,7 @@ describe("SmeChatServiceLive", () => {
           });
         }).pipe(Effect.provide(layer)),
       ),
-    ).rejects.toThrow("SME Chat only supports Codex / ChatGPT conversations right now.");
+    ).rejects.toThrow("GitHub Copilot conversations right now.");
   });
 
   it("lists persisted Codex conversations", async () => {

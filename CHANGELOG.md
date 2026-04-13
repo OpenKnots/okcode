@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.23.1] - 2026-04-13
+
+See [docs/releases/v0.23.1.md](docs/releases/v0.23.1.md) for full notes and [docs/releases/v0.23.1/assets.md](docs/releases/v0.23.1/assets.md) for release asset inventory.
+
+### Added
+
+- Feature/claude sme direct auth.
+- Add per-project icon overrides.
+- Add canonical model selection and Gemini provider.
+- Add keyboard shortcuts for panel navigation.
+
+### Changed
+
+- Treat error notifications as preview overlays.
+- Rename Cotton Candy theme to Purple Stuff.
+- Use direct Anthropic auth for Claude SME Chat.
+- Memoize PR review file grouping.
+- Clarify OpenClaw gateway auth labels and guidance.
+
+### Fixed
+
+- Run iOS sync from apps/mobile.
+- Allow shared-secret openclaw auth without device token.
+
+### Removed
+
+- Remove retired theme variants.
+
 ## [0.23.0] - 2026-04-13
 
 See [docs/releases/v0.23.0.md](docs/releases/v0.23.0.md) for full notes and [docs/releases/v0.23.0/assets.md](docs/releases/v0.23.0/assets.md) for release asset inventory.
@@ -728,3 +756,4 @@ First public version tag. See [docs/releases/v0.0.1.md](docs/releases/v0.0.1.md)
 [0.22.0]: https://github.com/OpenKnots/okcode/releases/tag/v0.22.0
 [0.22.1]: https://github.com/OpenKnots/okcode/releases/tag/v0.22.1
 [0.23.0]: https://github.com/OpenKnots/okcode/releases/tag/v0.23.0
+[0.23.1]: https://github.com/OpenKnots/okcode/releases/tag/v0.23.1

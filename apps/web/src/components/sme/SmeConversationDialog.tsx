@@ -153,6 +153,7 @@ export function SmeConversationDialog({
           claudeAgent: settings.customClaudeModels,
           copilot: settings.customCopilotModels,
           openclaw: settings.customOpenClawModels,
+          gemini: settings.customGeminiModels,
         },
         nextProvider === "openclaw" ? "default" : null,
       ),

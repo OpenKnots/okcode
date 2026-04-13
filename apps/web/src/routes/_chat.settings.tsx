@@ -386,7 +386,7 @@ const PROVIDER_AUTH_GUIDES: Record<
   },
   openclaw: {
     verifyCmd: "Test Connection",
-    note: "OpenClaw uses the gateway URL and password below rather than a local CLI login. A configured gateway unlocks it for new-thread selection.",
+    note: "OpenClaw uses the gateway URL and shared secret below rather than a local CLI login. Shared-secret auth usually works without device pairing and is the recommended default for Tailscale and remote gateways.",
   },
   copilot: {
     installCmd: "npm install -g @github/copilot",
@@ -2935,8 +2935,9 @@ function SettingsRouteView() {
                             autoComplete="off"
                           />
                           <span className="mt-1 block text-xs text-muted-foreground">
-                            Shared secret used for gateway auth. Leave blank to keep the saved
-                            secret unchanged.
+                            Shared secret used for gateway auth. This is the recommended default for
+                            remote and Tailscale gateways. Leave blank to keep the saved secret
+                            unchanged.
                           </span>
                         </label>
 

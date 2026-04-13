@@ -41,9 +41,9 @@ export function getSmeAuthMethodOptions(
       ];
     case "openclaw":
       return [
-        { value: "password", label: "Gateway Password" },
-        { value: "none", label: "No Password" },
-        { value: "auto", label: "Auto" },
+        { value: "password", label: "Gateway Shared Secret" },
+        { value: "none", label: "Device Token Only" },
+        { value: "auto", label: "Auto (prefer shared secret)" },
       ];
   }
 }

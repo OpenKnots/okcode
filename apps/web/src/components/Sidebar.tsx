@@ -559,7 +559,7 @@ export default function Sidebar() {
   const navigate = useNavigate();
   const pathname = useLocation({ select: (loc) => loc.pathname });
   const isOnSubPage =
-    pathname === "/settings" ||
+    pathname.startsWith("/settings") ||
     pathname === "/pr-review" ||
     pathname === "/merge-conflicts" ||
     pathname === "/sme-chat";

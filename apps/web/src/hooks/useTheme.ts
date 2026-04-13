@@ -59,20 +59,15 @@ function getStored(): Theme {
 
 function getStoredColorTheme(): ColorTheme {
   const raw = localStorage.getItem(COLOR_THEME_STORAGE_KEY);
-  const normalized = raw === "cotton-candy" ? "purple-stuff" : raw;
 
   if (
-    normalized === "default" ||
-    normalized === "iridescent-void" ||
-    normalized === "carbon" ||
-    normalized === "purple-stuff" ||
-    normalized === "custom"
+    raw === "default" ||
+    raw === "iridescent-void" ||
+    raw === "carbon" ||
+    raw === "purple-stuff" ||
+    raw === "custom"
   ) {
-    if (normalized !== raw) {
-      localStorage.setItem(COLOR_THEME_STORAGE_KEY, normalized);
-    }
-
-    return normalized;
+    return raw;
   }
   return DEFAULT_COLOR_THEME;
 }

@@ -15,6 +15,7 @@ import { NetService } from "@okcode/shared/Net";
 import { CliConfig, okcodeCli, type CliConfigShape } from "./main";
 import { ServerConfig, type ServerConfigShape } from "./config";
 import { Open, type OpenShape } from "./open";
+import { OpenclawGatewayConfig } from "./persistence/Services/OpenclawGatewayConfig";
 import { Server, type ServerShape } from "./wsServer";
 
 const start = vi.fn(() => undefined);
@@ -54,6 +55,37 @@ const testLayer = Layer.mergeAll(
     start: serverStart,
     stopSignal: Effect.void,
   } satisfies ServerShape),
+  Layer.succeed(OpenclawGatewayConfig, {
+    getSummary: () =>
+      Effect.succeed({
+        gatewayUrl: null,
+        hasSharedSecret: false,
+        deviceId: null,
+        devicePublicKey: null,
+        deviceFingerprint: null,
+        hasDeviceToken: false,
+        deviceTokenRole: null,
+        deviceTokenScopes: [],
+        updatedAt: null,
+      }),
+    getStored: () => Effect.succeed(null),
+    save: () => Effect.die("unexpected openclaw save"),
+    resolveForConnect: () => Effect.succeed(null),
+    saveDeviceToken: () => Effect.void,
+    clearDeviceToken: () => Effect.void,
+    resetDeviceState: () =>
+      Effect.succeed({
+        gatewayUrl: null,
+        hasSharedSecret: false,
+        deviceId: null,
+        devicePublicKey: null,
+        deviceFingerprint: null,
+        hasDeviceToken: false,
+        deviceTokenRole: null,
+        deviceTokenScopes: [],
+        updatedAt: null,
+      }),
+  }),
   Layer.succeed(Open, {
     openBrowser: (_target: string) => Effect.void,
     openInEditor: () => Effect.void,

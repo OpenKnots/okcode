@@ -49,7 +49,7 @@ export function isValidSmeAuthMethod(provider: ProviderKind, authMethod: SmeAuth
   return getAllowedSmeAuthMethods(provider).includes(authMethod);
 }
 
-export function validateClaudeSetup(input: {
+export function validateAnthropicSetup(input: {
   readonly authMethod: Extract<SmeAuthMethod, "auto" | "apiKey" | "authToken">;
   readonly providerStatus?: ServerProviderStatus | null | undefined;
 }): SmeValidateSetupResult {
@@ -105,6 +105,8 @@ export function validateClaudeSetup(input: {
     resolvedAccountType: "unknown",
   };
 }
+
+export const validateClaudeSetup = validateAnthropicSetup;
 
 async function readCodexConfigModelProvider(
   providerOptions?: CodexAppServerStartSessionInput["providerOptions"],
@@ -334,12 +336,12 @@ export async function validateCodexSetup(input: {
 
 export function validateOpenClawSetup(input: {
   readonly authMethod: Extract<SmeAuthMethod, "auto" | "password" | "none">;
-  readonly providerOptions?: CodexAppServerStartSessionInput["providerOptions"];
+  readonly gatewayUrl: string | null;
+  readonly hasSharedSecret: boolean;
+  readonly hasDeviceToken: boolean;
+  readonly providerStatus?: ServerProviderStatus;
 }): SmeValidateSetupResult {
-  const gatewayUrl = normalizeOptionalValue(input.providerOptions?.openclaw?.gatewayUrl);
-  const password = normalizeOptionalValue(input.providerOptions?.openclaw?.password);
-
-  if (!gatewayUrl) {
+  if (!input.gatewayUrl) {
     return {
       ok: false,
       severity: "error",
@@ -349,13 +351,45 @@ export function validateOpenClawSetup(input: {
   }
 
   const resolvedAuthMethod =
-    input.authMethod === "auto" ? (password ? "password" : "none") : input.authMethod;
+    input.authMethod === "auto" ? (input.hasSharedSecret ? "password" : "none") : input.authMethod;
 
-  if (resolvedAuthMethod === "password" && !password) {
+  if (resolvedAuthMethod === "password" && !input.hasSharedSecret) {
     return {
       ok: false,
       severity: "error",
-      message: "OpenClaw password auth is selected, but no gateway password is configured.",
+      message: "OpenClaw shared-secret auth is selected, but no shared secret is configured.",
+      resolvedAuthMethod,
+    };
+  }
+
+  if (input.providerStatus?.authStatus === "unauthenticated") {
+    return {
+      ok: false,
+      severity: "error",
+      message:
+        input.providerStatus.message ??
+        "OpenClaw is configured, but pairing or device authentication is not complete.",
+      resolvedAuthMethod,
+    };
+  }
+
+  if (input.providerStatus?.status === "warning") {
+    return {
+      ok: false,
+      severity: "warning",
+      message:
+        input.providerStatus.message ??
+        "OpenClaw gateway health could not be verified. Test the gateway in Settings.",
+      resolvedAuthMethod,
+    };
+  }
+
+  if (!input.hasDeviceToken) {
+    return {
+      ok: false,
+      severity: "warning",
+      message:
+        "OpenClaw gateway settings are saved, but no device token is cached yet. Test the gateway in Settings and approve the device if prompted.",
       resolvedAuthMethod,
     };
   }
@@ -365,8 +399,8 @@ export function validateOpenClawSetup(input: {
     severity: "ready",
     message:
       resolvedAuthMethod === "password"
-        ? "OpenClaw gateway URL and password are configured."
-        : "OpenClaw gateway URL is configured.",
+        ? "OpenClaw gateway, shared secret, and device pairing are configured."
+        : "OpenClaw gateway and device pairing are configured.",
     resolvedAuthMethod,
   };
 }

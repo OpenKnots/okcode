@@ -84,8 +84,10 @@ import {
   ExchangeCompanionBootstrapInput,
   GenerateCompanionPairingBundleInput,
   GeneratePairingLinkInput,
+  ResetOpenclawGatewayDeviceStateInput,
   RevokePairedDeviceInput,
   RevokeTokenInput,
+  SaveOpenclawGatewayConfigInput,
   ServerConfigUpdatedPayload,
   ServerReplaceKeybindingRulesInput,
   TestOpenclawGatewayInput,
@@ -218,6 +220,9 @@ export const WS_METHODS = {
   serverRotateToken: "server.rotateToken",
   serverRevokeToken: "server.revokeToken",
   serverListTokens: "server.listTokens",
+  serverGetOpenclawGatewayConfig: "server.getOpenclawGatewayConfig",
+  serverSaveOpenclawGatewayConfig: "server.saveOpenclawGatewayConfig",
+  serverResetOpenclawGatewayDeviceState: "server.resetOpenclawGatewayDeviceState",
 
   // Companion pairing
   serverGenerateCompanionPairingBundle: "server.generateCompanionPairingBundle",
@@ -400,6 +405,12 @@ const WebSocketRequestBody = Schema.Union([
   tagRequestBody(WS_METHODS.serverRotateToken, Schema.Struct({})),
   tagRequestBody(WS_METHODS.serverRevokeToken, RevokeTokenInput),
   tagRequestBody(WS_METHODS.serverListTokens, Schema.Struct({})),
+  tagRequestBody(WS_METHODS.serverGetOpenclawGatewayConfig, Schema.Struct({})),
+  tagRequestBody(WS_METHODS.serverSaveOpenclawGatewayConfig, SaveOpenclawGatewayConfigInput),
+  tagRequestBody(
+    WS_METHODS.serverResetOpenclawGatewayDeviceState,
+    ResetOpenclawGatewayDeviceStateInput,
+  ),
 
   // Companion pairing
   tagRequestBody(

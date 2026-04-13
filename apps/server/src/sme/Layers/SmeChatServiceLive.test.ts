@@ -2,6 +2,7 @@ import { ProjectId, SmeConversationId } from "@okcode/contracts";
 import { Effect, Layer, Option, Queue, Stream } from "effect";
 import { describe, expect, it } from "vitest";
 
+import { OpenclawGatewayConfig } from "../../persistence/Services/OpenclawGatewayConfig.ts";
 import {
   SmeKnowledgeDocumentRepository,
   type SmeKnowledgeDocumentRepositoryShape,
@@ -184,6 +185,40 @@ function makeProviderService() {
   return { service, startedSessions, sentTurns };
 }
 
+function makeOpenclawGatewayConfig() {
+  return {
+    getSummary: () =>
+      Effect.succeed({
+        gatewayUrl: null,
+        hasSharedSecret: false,
+        deviceId: null,
+        devicePublicKey: null,
+        deviceFingerprint: null,
+        hasDeviceToken: false,
+        deviceTokenRole: null,
+        deviceTokenScopes: [],
+        updatedAt: null,
+      }),
+    getStored: () => Effect.succeed(null),
+    save: () => Effect.die("unexpected openclaw save"),
+    resolveForConnect: () => Effect.succeed(null),
+    saveDeviceToken: () => Effect.void,
+    clearDeviceToken: () => Effect.void,
+    resetDeviceState: () =>
+      Effect.succeed({
+        gatewayUrl: null,
+        hasSharedSecret: false,
+        deviceId: null,
+        devicePublicKey: null,
+        deviceFingerprint: null,
+        hasDeviceToken: false,
+        deviceTokenRole: null,
+        deviceTokenScopes: [],
+        updatedAt: null,
+      }),
+  };
+}
+
 describe("SmeChatServiceLive", () => {
   it("routes Claude conversations through the provider runtime and stores the reply", async () => {
     const projectId = ProjectId.makeUnsafe("project-1");
@@ -223,6 +258,7 @@ describe("SmeChatServiceLive", () => {
         Layer.succeed(SmeConversationRepository, makeConversationRepository([conversationRow])),
       ),
       Layer.provideMerge(Layer.succeed(SmeMessageRepository, messageRepo)),
+      Layer.provideMerge(Layer.succeed(OpenclawGatewayConfig, makeOpenclawGatewayConfig())),
       Layer.provideMerge(Layer.succeed(ProviderService, providerService.service)),
     );
 
@@ -337,6 +373,7 @@ describe("SmeChatServiceLive", () => {
         Layer.succeed(SmeConversationRepository, makeConversationRepository([conversationRow])),
       ),
       Layer.provideMerge(Layer.succeed(SmeMessageRepository, messageRepo)),
+      Layer.provideMerge(Layer.succeed(OpenclawGatewayConfig, makeOpenclawGatewayConfig())),
       Layer.provideMerge(Layer.succeed(ProviderService, providerService.service)),
     );
 

@@ -20,6 +20,7 @@ import {
 import { DateTime, Effect, Layer, Option, Random, Ref } from "effect";
 import crypto from "node:crypto";
 
+import { OpenclawGatewayConfig } from "../../persistence/Services/OpenclawGatewayConfig.ts";
 import { SmeConversationRepository } from "../../persistence/Services/SmeConversations.ts";
 import { SmeKnowledgeDocumentRepository } from "../../persistence/Services/SmeKnowledgeDocuments.ts";
 import { SmeMessageRepository } from "../../persistence/Services/SmeMessages.ts";
@@ -107,6 +108,7 @@ const makeSmeChatService = () =>
     const documentRepo = yield* SmeKnowledgeDocumentRepository;
     const conversationRepo = yield* SmeConversationRepository;
     const messageRepo = yield* SmeMessageRepository;
+    const openclawGatewayConfig = yield* OpenclawGatewayConfig;
     const providerService = yield* ProviderService;
     const providerHealth = yield* ProviderHealth;
 
@@ -174,12 +176,21 @@ const makeSmeChatService = () =>
             });
 
           case "openclaw":
+            const openclawSummary = yield* openclawGatewayConfig
+              .getSummary()
+              .pipe(Effect.mapError((e) => new SmeChatError("validateSetup", e.message)));
+            const openclawStatus = (yield* providerHealth.getStatuses).find(
+              (status) => status.provider === "openclaw",
+            );
             return validateOpenClawSetup({
               authMethod: conversation.authMethod as Extract<
                 SmeAuthMethod,
                 "auto" | "password" | "none"
               >,
-              providerOptions,
+              gatewayUrl: openclawSummary.gatewayUrl,
+              hasSharedSecret: openclawSummary.hasSharedSecret,
+              hasDeviceToken: openclawSummary.hasDeviceToken,
+              ...(openclawStatus ? { providerStatus: openclawStatus } : {}),
             });
         }
       });

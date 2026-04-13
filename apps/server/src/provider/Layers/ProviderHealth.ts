@@ -130,9 +130,10 @@ function extractAuthString(value: unknown): string | undefined {
   return undefined;
 }
 
-const CLAUDE_OAUTH_AUTH_METHODS = new Set(["claude.ai", "oauth"]);
-const CLAUDE_SUPPORTED_AUTH_METHODS = new Set(["apiKey", "authToken"]);
-const CLAUDE_AUTH_GUIDANCE = "Set ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN and try again.";
+const CLAUDE_CLI_AUTH_METHODS = new Set(["claude.ai", "oauth"]);
+const CLAUDE_SUPPORTED_AUTH_METHODS = new Set(["apiKey", "authToken", "claude.ai", "oauth"]);
+const CLAUDE_AUTH_GUIDANCE =
+  "Run `claude auth login`, or set ANTHROPIC_API_KEY / ANTHROPIC_AUTH_TOKEN, and try again.";
 
 export function parseAuthStatusFromOutput(result: CommandResult): {
   readonly status: ServerProviderStatusState;
@@ -619,20 +620,19 @@ export function parseClaudeAuthStatusFromOutput(result: CommandResult): {
 
   const authMethod = parsedAuth.authMethod?.trim();
   const normalizedAuthMethod = authMethod?.toLowerCase();
-  if (normalizedAuthMethod && CLAUDE_OAUTH_AUTH_METHODS.has(normalizedAuthMethod)) {
-    return {
-      status: "error",
-      authStatus: "unauthenticated",
-      message: `Claude Code is signed in with OAuth, which is not supported here. ${CLAUDE_AUTH_GUIDANCE}`,
-    };
-  }
-
   if (parsedAuth.auth === true) {
     if (authMethod && !CLAUDE_SUPPORTED_AUTH_METHODS.has(authMethod)) {
       return {
         status: "warning",
         authStatus: "unknown",
         message: `Claude authentication status reported an unsupported credential type '${authMethod}'. ${CLAUDE_AUTH_GUIDANCE}`,
+      };
+    }
+    if (normalizedAuthMethod && CLAUDE_CLI_AUTH_METHODS.has(normalizedAuthMethod)) {
+      return {
+        status: "ready",
+        authStatus: "authenticated",
+        message: "Claude Code CLI is ready via Claude.ai login.",
       };
     }
     return { status: "ready", authStatus: "authenticated" };

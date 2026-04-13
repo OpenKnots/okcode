@@ -30,6 +30,17 @@ const prReviewRepoConfigUpdatedListeners = new Set<
 const projectFileTreeChangedListeners = new Set<(payload: ProjectFileTreeChangedPayload) => void>();
 const smeMessageEventListeners = new Set<(event: SmeMessageEvent) => void>();
 const transportStateListeners = new Set<(state: TransportState) => void>();
+const pendingReconnectedListeners = new Set<() => void>();
+const activeReconnectedUnsubscribers = new Map<() => void, () => void>();
+
+function registerDeferredReconnectedListeners(transport: WsTransport): void {
+  for (const listener of pendingReconnectedListeners) {
+    if (activeReconnectedUnsubscribers.has(listener)) {
+      continue;
+    }
+    activeReconnectedUnsubscribers.set(listener, transport.onReconnected(listener));
+  }
+}
 
 /**
  * Subscribe to the server welcome message. If a welcome was already received
@@ -113,11 +124,14 @@ export function onTransportReconnected(listener: () => void): () => void {
     return instance.transport.onReconnected(listener);
   }
 
-  // Transport not ready yet – defer until it exists.
-  const reconnectedListeners = new Set<() => void>();
-  reconnectedListeners.add(listener);
+  pendingReconnectedListeners.add(listener);
   return () => {
-    reconnectedListeners.delete(listener);
+    pendingReconnectedListeners.delete(listener);
+    const unsubscribe = activeReconnectedUnsubscribers.get(listener);
+    if (unsubscribe) {
+      activeReconnectedUnsubscribers.delete(listener);
+      unsubscribe();
+    }
   };
 }
 
@@ -125,6 +139,7 @@ export function createWsNativeApi(): NativeApi {
   if (instance) return instance.api;
 
   const transport = new WsTransport();
+  registerDeferredReconnectedListeners(transport);
 
   // Initialize mobile push notifications when running in the mobile shell.
   initMobileNotifications(transport);

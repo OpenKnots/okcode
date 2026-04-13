@@ -15,10 +15,12 @@ import { projectQueryKeys } from "./projectReactQuery";
 import { serverQueryKeys } from "./serverReactQuery";
 import { prReviewQueryKeys } from "./prReviewReactQuery";
 import { skillQueryKeys } from "./skillReactQuery";
-import type { WsTransport } from "../wsTransport";
+export interface ReconnectableTransport {
+  readonly onReconnected: (listener: () => void) => () => void;
+}
 
 export interface ConnectionSyncManagerOptions {
-  transport: WsTransport;
+  transport: ReconnectableTransport;
   queryClient: QueryClient;
   /**
    * Called after the query caches have been invalidated so the

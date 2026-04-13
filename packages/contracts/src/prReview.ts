@@ -227,6 +227,14 @@ export const PrReviewSummary = Schema.Struct({
   statusChecks: Schema.Array(PrReviewStatusCheck),
   participants: Schema.Array(PrReviewParticipant),
   reviewRequests: Schema.Array(PrReviewParticipant),
+  recentReviews: Schema.Array(
+    Schema.Struct({
+      authorLogin: TrimmedNonEmptyString,
+      state: TrimmedNonEmptyString,
+      body: Schema.String,
+      submittedAt: Schema.String,
+    }),
+  ),
   totalThreadCount: NonNegativeInt,
   unresolvedThreadCount: NonNegativeInt,
   headSha: Schema.NullOr(TrimmedNonEmptyString),

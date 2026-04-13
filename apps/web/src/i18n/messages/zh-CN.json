@@ -133,7 +133,7 @@
   "settings.advanced.keybindings.opening": "打开中...",
   "settings.advanced.keybindings.resolvingPath": "正在解析 keybindings 路径...",
   "settings.advanced.keybindings.title": "快捷键",
-  "settings.advanced.providerInstalls.claude.binaryDescription": "留空则使用 PATH 中的 <code>claude</code>。认证使用 <code>claude auth login</code>。",
+  "settings.advanced.providerInstalls.claude.binaryDescription": "留空则使用 PATH 中的 <code>claude</code>。Claude Code 需要在运行环境中提供 <code>ANTHROPIC_API_KEY</code> 或 <code>ANTHROPIC_AUTH_TOKEN</code>。",
   "settings.advanced.providerInstalls.claude.binaryPathLabel": "Claude Code 二进制路径",
   "settings.advanced.providerInstalls.claude.binaryPlaceholder": "Claude Code 二进制路径",
   "settings.advanced.providerInstalls.codex.binaryDescription": "留空则使用 PATH 中的 <code>codex</code>。认证通常使用 <code>codex login</code>，除非你的 Codex 配置指向了自定义模型提供方。",

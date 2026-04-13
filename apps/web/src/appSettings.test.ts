@@ -9,6 +9,7 @@ import {
   DEFAULT_SIDEBAR_PROJECT_ROW_HEIGHT,
   DEFAULT_SIDEBAR_SPACING,
   DEFAULT_SIDEBAR_THREAD_ROW_HEIGHT,
+  getProviderStartOptions,
   resolveBrowserPreviewStartPageUrl,
 } from "./appSettings";
 
@@ -25,6 +26,7 @@ describe("AppSettingsSchema", () => {
     expect(settings.showNotificationDetails).toBe(false);
     expect(settings.includeDiagnosticsTipsInCopy).toBe(false);
     expect(settings.browserPreviewStartPageUrl).toBe("");
+    expect(settings.claudeAuthTokenHelperCommand).toBe("");
   });
 
   it("defaults sidebar appearance controls", () => {
@@ -58,6 +60,27 @@ describe("AppSettingsSchema", () => {
     const settings = Schema.decodeUnknownSync(AppSettingsSchema)({});
 
     expect(settings.prReviewRequestChangesTone).toBe(DEFAULT_PR_REVIEW_REQUEST_CHANGES_TONE);
+  });
+});
+
+describe("getProviderStartOptions", () => {
+  it("includes the Claude auth token helper command when configured", () => {
+    expect(
+      getProviderStartOptions({
+        claudeBinaryPath: "",
+        claudeAuthTokenHelperCommand: "op read op://shared/anthropic/token --no-newline",
+        codexBinaryPath: "",
+        codexHomePath: "",
+        copilotBinaryPath: "",
+        copilotConfigDir: "",
+        openclawGatewayUrl: "",
+        openclawPassword: "",
+      }),
+    ).toEqual({
+      claudeAgent: {
+        authTokenHelperCommand: "op read op://shared/anthropic/token --no-newline",
+      },
+    });
   });
 });
 

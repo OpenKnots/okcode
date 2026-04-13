@@ -26,8 +26,8 @@ export function getSmeAuthMethodOptions(
   switch (provider) {
     case "claudeAgent":
       return [
-        { value: "apiKey", label: "OAuth" },
-        { value: "authToken", label: "Setup Token" },
+        { value: "apiKey", label: "Anthropic API Key" },
+        { value: "authToken", label: "Auth Token" },
         { value: "auto", label: "CLI" },
       ];
     case "copilot":

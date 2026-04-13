@@ -24,10 +24,9 @@ import { terminalRunningSubprocessFromEvent } from "../terminalActivity";
 import { onServerConfigUpdated, onServerWelcome, onTransportReconnected } from "../wsNativeApi";
 import { providerQueryKeys } from "../lib/providerReactQuery";
 import { projectQueryKeys } from "../lib/projectReactQuery";
-import { gitQueryKeys } from "../lib/gitReactQuery";
-import { prReviewQueryKeys } from "../lib/prReviewReactQuery";
-import { skillQueryKeys } from "../lib/skillReactQuery";
 import { collectActiveTerminalThreadIds } from "../lib/terminalStateCleanup";
+import { createConnectionSyncManager } from "../lib/connectionSync";
+import { createSnapshotSyncManager } from "../lib/snapshotSyncManager";
 import { OnboardingDialog } from "../components/onboarding/OnboardingDialog";
 import { MobileConnectionBanner } from "../components/mobile/MobileConnectionBanner";
 import { MobilePairingScreen } from "../components/mobile/MobilePairingScreen";
@@ -201,44 +200,24 @@ function EventRouter() {
     if (!api) return;
     let disposed = false;
     let latestSequence = 0;
-    let syncing = false;
-    let pending = false;
     let needsProviderInvalidation = false;
-
-    const flushSnapshotSync = async (): Promise<void> => {
-      const snapshot = await api.orchestration.getSnapshot();
-      if (disposed) return;
-      latestSequence = Math.max(latestSequence, snapshot.snapshotSequence);
-      syncServerReadModel(snapshot);
-      clearPromotedDraftThreads(new Set(snapshot.threads.map((t) => t.id)));
-      const draftThreadIds = Object.keys(
-        useComposerDraftStore.getState().draftThreadsByThreadId,
-      ) as ThreadId[];
-      const activeThreadIds = collectActiveTerminalThreadIds({
-        snapshotThreads: snapshot.threads,
-        draftThreadIds,
-      });
-      removeOrphanedTerminalStates(activeThreadIds);
-      if (pending) {
-        pending = false;
-        await flushSnapshotSync();
-      }
-    };
-
-    const syncSnapshot = async () => {
-      if (syncing) {
-        pending = true;
-        return;
-      }
-      syncing = true;
-      pending = false;
-      try {
-        await flushSnapshotSync();
-      } catch {
-        // Keep prior state and wait for next domain event to trigger a resync.
-      }
-      syncing = false;
-    };
+    const snapshotSync = createSnapshotSyncManager({
+      fetchSnapshot: () => api.orchestration.getSnapshot(),
+      applySnapshot: (snapshot) => {
+        if (disposed) return;
+        latestSequence = Math.max(latestSequence, snapshot.snapshotSequence);
+        syncServerReadModel(snapshot);
+        clearPromotedDraftThreads(new Set(snapshot.threads.map((t) => t.id)));
+        const draftThreadIds = Object.keys(
+          useComposerDraftStore.getState().draftThreadsByThreadId,
+        ) as ThreadId[];
+        const activeThreadIds = collectActiveTerminalThreadIds({
+          snapshotThreads: snapshot.threads,
+          draftThreadIds,
+        });
+        removeOrphanedTerminalStates(activeThreadIds);
+      },
+    });
 
     const domainEventFlushThrottler = new Throttler(
       () => {
@@ -249,7 +228,7 @@ function EventRouter() {
           // reflects files created, deleted, or restored during this turn.
           void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
         }
-        void syncSnapshot();
+        snapshotSync.scheduleSync();
       },
       {
         wait: 100,
@@ -284,7 +263,7 @@ function EventRouter() {
     });
     const unsubWelcome = onServerWelcome((payload) => {
       void (async () => {
-        await syncSnapshot();
+        await snapshotSync.scheduleSync();
         if (disposed) {
           return;
         }
@@ -308,24 +287,16 @@ function EventRouter() {
         handledBootstrapThreadIdRef.current = payload.bootstrapThreadId;
       })().catch(() => undefined);
     });
-    // ── Reconnection sync ──────────────────────────────────────────────
-    // When the WebSocket re-opens after a network interruption, invalidate
-    // all query caches and re-fetch the orchestration snapshot so the UI
-    // converges back to the server's truth.
     const unsubReconnected = onTransportReconnected(() => {
-      // Reset the sequence tracker so replayed domain events are accepted.
       latestSequence = 0;
-
-      // Invalidate all domain query caches.
-      void queryClient.invalidateQueries({ queryKey: gitQueryKeys.all });
-      void queryClient.invalidateQueries({ queryKey: providerQueryKeys.all });
-      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
-      void queryClient.invalidateQueries({ queryKey: serverQueryKeys.all });
-      void queryClient.invalidateQueries({ queryKey: prReviewQueryKeys.all });
-      void queryClient.invalidateQueries({ queryKey: skillQueryKeys.all });
-
-      // Trigger a full snapshot sync.
-      void syncSnapshot();
+    });
+    const unsubConnectionSync = createConnectionSyncManager({
+      transport: { onReconnected: onTransportReconnected },
+      queryClient,
+      onResync: () => {
+        latestSequence = 0;
+        snapshotSync.scheduleSync();
+      },
     });
 
     // onServerConfigUpdated replays the latest cached value synchronously
@@ -377,11 +348,13 @@ function EventRouter() {
     return () => {
       disposed = true;
       needsProviderInvalidation = false;
+      snapshotSync.dispose();
       domainEventFlushThrottler.cancel();
       unsubDomainEvent();
       unsubTerminalEvent();
       unsubWelcome();
       unsubReconnected();
+      unsubConnectionSync();
       unsubServerConfigUpdated();
     };
   }, [

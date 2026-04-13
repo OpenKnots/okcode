@@ -27,6 +27,7 @@ import { ProviderHealthLive } from "./provider/Layers/ProviderHealth";
 import { ProviderAdapterRegistryLive } from "./provider/Layers/ProviderAdapterRegistry";
 import { makeProviderServiceLive } from "./provider/Layers/ProviderService";
 import { ProviderSessionDirectoryLive } from "./provider/Layers/ProviderSessionDirectory";
+import { ProviderRuntimeEventFeed } from "./provider/Services/ProviderRuntimeEventFeed";
 import { ProviderService } from "./provider/Services/ProviderService";
 import { makeEventNdjsonLogger } from "./provider/Layers/EventNdjsonLogger";
 import { EnvironmentVariablesLive } from "./persistence/Services/EnvironmentVariables";
@@ -72,7 +73,7 @@ const makeRuntimePtyAdapterLayer = () =>
 export function makeServerProviderLayer(): Layer.Layer<
   ProviderService,
   ProviderUnsupportedError,
-  SqlClient.SqlClient | ServerConfig | FileSystem.FileSystem
+  SqlClient.SqlClient | ServerConfig | FileSystem.FileSystem | ProviderRuntimeEventFeed
 > {
   return Effect.gen(function* () {
     const { providerEventLogPath } = yield* ServerConfig;

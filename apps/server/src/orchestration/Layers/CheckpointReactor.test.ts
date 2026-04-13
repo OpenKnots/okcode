@@ -14,7 +14,7 @@ import {
   TurnId,
 } from "@okcode/contracts";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { Effect, Exit, Layer, ManagedRuntime, PubSub, Scope, Stream } from "effect";
+import { Effect, Exit, Layer, ManagedRuntime, Scope, Stream } from "effect";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { CheckpointStoreLive } from "../../checkpointing/Layers/CheckpointStore.ts";
@@ -36,6 +36,8 @@ import {
   ProviderService,
   type ProviderServiceShape,
 } from "../../provider/Services/ProviderService.ts";
+import { ProviderRuntimeEventFeedLive } from "../../provider/Layers/ProviderRuntimeEventFeed.ts";
+import { ProviderRuntimeEventFeed } from "../../provider/Services/ProviderRuntimeEventFeed.ts";
 import { checkpointRefForThreadTurn } from "../../checkpointing/Utils.ts";
 import { ServerConfig } from "../../config.ts";
 
@@ -62,7 +64,6 @@ function createProviderServiceHarness(
   providerName: ProviderSession["provider"] = "codex",
 ) {
   const now = new Date().toISOString();
-  const runtimeEventPubSub = Effect.runSync(PubSub.unbounded<ProviderRuntimeEvent>());
   const rollbackConversation = vi.fn(
     (_input: { readonly threadId: ThreadId; readonly numTurns: number }) => Effect.void,
   );
@@ -93,17 +94,12 @@ function createProviderServiceHarness(
     listSessions,
     getCapabilities: () => Effect.succeed({ sessionModelSwitch: "in-session" }),
     rollbackConversation,
-    streamEvents: Stream.fromPubSub(runtimeEventPubSub),
-  };
-
-  const emit = (event: LegacyProviderRuntimeEvent): void => {
-    Effect.runSync(PubSub.publish(runtimeEventPubSub, event as unknown as ProviderRuntimeEvent));
+    streamEvents: Stream.empty,
   };
 
   return {
     service,
     rollbackConversation,
-    emit,
   };
 }
 
@@ -267,6 +263,7 @@ describe("CheckpointReactor", () => {
       Layer.provideMerge(orchestrationLayer),
       Layer.provideMerge(RuntimeReceiptBusLive),
       Layer.provideMerge(Layer.succeed(ProviderService, provider.service)),
+      Layer.provideMerge(ProviderRuntimeEventFeedLive),
       Layer.provideMerge(CheckpointStoreLive.pipe(Layer.provide(GitCoreLive))),
       Layer.provideMerge(ServerConfigLayer),
       Layer.provideMerge(NodeServices.layer),
@@ -276,6 +273,7 @@ describe("CheckpointReactor", () => {
     const engine = await runtime.runPromise(Effect.service(OrchestrationEngineService));
     const reactor = await runtime.runPromise(Effect.service(CheckpointReactor));
     const checkpointStore = await runtime.runPromise(Effect.service(CheckpointStore));
+    const eventFeed = await runtime.runPromise(Effect.service(ProviderRuntimeEventFeed));
     scope = await Effect.runPromise(Scope.make("sequential"));
     await Effect.runPromise(reactor.start.pipe(Scope.provide(scope)));
     const drain = () => Effect.runPromise(reactor.drain);
@@ -335,6 +333,8 @@ describe("CheckpointReactor", () => {
       engine,
       provider,
       cwd,
+      emit: (event: LegacyProviderRuntimeEvent) =>
+        Effect.runSync(eventFeed.publish(event as unknown as ProviderRuntimeEvent)),
       drain,
     };
   }

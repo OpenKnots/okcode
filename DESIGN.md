@@ -93,12 +93,11 @@ Colors are referenced through CSS custom properties, never hardcoded hex values.
 
 ### Themes
 
-Six premium themes, each with light and dark variants:
+Five premium themes, each with light and dark variants:
 
 | Theme                 | Vibe                                  |
 | --------------------- | ------------------------------------- |
 | **Iridescent Void**   | Futuristic, expensive, slightly alien |
-| **Solar Witch**       | Magical, cozy, ritualistic            |
 | **Carbon**            | Stark, modern, performance-focused    |
 | **Vapor**             | Refined, fluid, purposeful            |
 | **Cotton Candy**      | Sweet, dreamy, pink and blue          |

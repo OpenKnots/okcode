@@ -23,11 +23,19 @@ const PROVIDER_CONFIG = {
     installCmd: "npm install -g @openai/codex",
     authCmd: "codex login",
     verifyCmd: "codex login status",
+    note: undefined,
   },
   claudeAgent: {
     installCmd: "npm install -g @anthropic-ai/claude-code",
-    authCmd: "claude auth login",
+    authCmd: "set ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN",
     verifyCmd: "claude auth status",
+    note: "You can also configure a Claude auth token helper command or one-click secret-manager preset in Settings.",
+  },
+  copilot: {
+    installCmd: "npm install -g @github/copilot",
+    authCmd: "copilot login",
+    verifyCmd: "gh auth status",
+    note: undefined,
   },
   copilot: {
     installCmd: "npm install -g @github/copilot",
@@ -98,6 +106,7 @@ function ProviderRow({ status }: { status: ServerProviderStatus }) {
               <Code>{config.verifyCmd}</Code>
             </Step>
           </div>
+          {config.note ? <p className="text-xs text-muted-foreground">{config.note}</p> : null}
         </div>
       )}
 

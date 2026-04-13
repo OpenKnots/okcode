@@ -386,7 +386,7 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
     ),
   );
 
-  const providerStatuses = yield* providerHealth.getStatuses;
+  let lastKnownProviderStatuses = yield* providerHealth.getStatuses;
 
   const clients = yield* Ref.make(new Set<WebSocket>());
   const logger = createLogger("ws");
@@ -488,7 +488,23 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
   const pushBus = yield* makeServerPushBus({
     clients,
     logOutgoingPush,
+    logDeliveryFailure: (input) => {
+      logger.warn("failed to deliver websocket push", input);
+    },
   });
+  const getProviderStatuses = () =>
+    providerHealth.getStatuses.pipe(
+      Effect.tap((statuses) =>
+        Effect.sync(() => {
+          lastKnownProviderStatuses = statuses;
+        }),
+      ),
+      Effect.catch((cause) =>
+        Effect.logWarning("failed to refresh provider statuses", {
+          cause,
+        }).pipe(Effect.as(lastKnownProviderStatuses)),
+      ),
+    );
   yield* readiness.markPushBusReady;
   yield* keybindingsManager.start.pipe(
     Effect.mapError(
@@ -854,18 +870,23 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
   ).pipe(Effect.forkIn(subscriptionsScope));
 
   yield* Stream.runForEach(keybindingsManager.streamChanges, (event) =>
-    pushBus.publishAll(WS_CHANNELS.serverConfigUpdated, {
-      issues: event.issues,
-      providers: providerStatuses,
-    }),
+    getProviderStatuses().pipe(
+      Effect.flatMap((providers) =>
+        pushBus.publishAll(WS_CHANNELS.serverConfigUpdated, {
+          issues: event.issues,
+          providers,
+        }),
+      ),
+    ),
   ).pipe(Effect.forkIn(subscriptionsScope));
 
   const publishServerConfigUpdated = () =>
     Effect.gen(function* () {
       const keybindingsConfig = yield* keybindingsManager.loadConfigState;
+      const providers = yield* getProviderStatuses();
       yield* pushBus.publishAll(WS_CHANNELS.serverConfigUpdated, {
         issues: keybindingsConfig.issues,
-        providers: providerStatuses,
+        providers,
       });
     });
 
@@ -1579,12 +1600,13 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
 
       case WS_METHODS.serverGetConfig:
         const keybindingsConfig = yield* keybindingsManager.loadConfigState;
+        const providers = yield* getProviderStatuses();
         return {
           cwd,
           keybindingsConfigPath,
           keybindings: keybindingsConfig.keybindings,
           issues: keybindingsConfig.issues,
-          providers: providerStatuses,
+          providers,
           availableEditors,
           buildInfo: serverBuildInfo,
         };

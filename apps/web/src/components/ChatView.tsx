@@ -870,8 +870,9 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
       getSelectableThreadProviders({
         statuses: providerStatuses,
         openclawGatewayUrl: settings.openclawGatewayUrl,
+        claudeAuthTokenHelperCommand: settings.claudeAuthTokenHelperCommand,
       }),
-    [providerStatuses, settings.openclawGatewayUrl],
+    [providerStatuses, settings.claudeAuthTokenHelperCommand, settings.openclawGatewayUrl],
   );
   const hasThreadStarted = Boolean(
     activeThread &&

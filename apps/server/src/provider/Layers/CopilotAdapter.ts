@@ -944,11 +944,13 @@ const makeCopilotAdapter = (options?: CopilotAdapterLiveOptions) =>
       Effect.gen(function* () {
         const context = yield* getContext(input.threadId);
         if (context.turnState) {
-          return yield* new ProviderAdapterRequestError({
-            provider: PROVIDER,
-            method: "session.send",
-            detail: "GitHub Copilot already has an active turn for this thread.",
-          });
+          return yield* Effect.fail(
+            new ProviderAdapterRequestError({
+              provider: PROVIDER,
+              method: "session.send",
+              detail: "GitHub Copilot already has an active turn for this thread.",
+            }),
+          );
         }
 
         const turnId = TurnId.makeUnsafe(crypto.randomUUID());

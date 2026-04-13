@@ -48,7 +48,7 @@ describe("projectScriptKeybindings", () => {
     ).toThrowError(PROJECT_SCRIPT_KEYBINDING_INVALID_MESSAGE);
   });
 
-  it("reads latest matching keybinding value for a command", () => {
+  it("reads the highest-priority matching keybinding value for a command", () => {
     const command = commandForProjectScript("test");
     const value = keybindingValueForCommand(
       [
@@ -78,6 +78,6 @@ describe("projectScriptKeybindings", () => {
       command,
     );
 
-    expect(value).toBe("mod+shift+k");
+    expect(value).toBe("mod+esc");
   });
 });

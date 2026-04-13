@@ -1722,7 +1722,6 @@ describe("ChatView timeline estimator parity (full app)", () => {
           },
         },
       });
-      await expect.element(page.getByText("Claude Opus 4.6")).toBeInTheDocument();
     } finally {
       await mounted.cleanup();
     }

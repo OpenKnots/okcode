@@ -53,6 +53,13 @@ const subscribeStateMock = vi.fn<(listener: (state: string) => void) => () => vo
   return () => {};
 });
 const getStateMock = vi.fn<() => string>(() => "connecting");
+const reconnectedListeners = new Set<() => void>();
+const onReconnectedMock = vi.fn<(listener: () => void) => () => void>((listener) => {
+  reconnectedListeners.add(listener);
+  return () => {
+    reconnectedListeners.delete(listener);
+  };
+});
 
 vi.mock("./wsTransport", () => {
   return {
@@ -61,6 +68,7 @@ vi.mock("./wsTransport", () => {
       subscribe = subscribeMock;
       subscribeState = subscribeStateMock;
       getState = getStateMock;
+      onReconnected = onReconnectedMock;
       getLatestPush(channel: string) {
         return latestPushByChannel.get(channel) ?? null;
       }
@@ -116,8 +124,10 @@ beforeEach(() => {
   subscribeMock.mockClear();
   subscribeStateMock.mockClear();
   getStateMock.mockClear();
+  onReconnectedMock.mockClear();
   channelListeners.clear();
   latestPushByChannel.clear();
+  reconnectedListeners.clear();
   nextPushSequence = 1;
   Reflect.deleteProperty(getWindowForTest(), "desktopBridge");
 });
@@ -240,6 +250,26 @@ describe("wsNativeApi", () => {
       issues: [],
       providers: defaultProviders,
     });
+  });
+
+  it("registers reconnect listeners that were added before transport creation", async () => {
+    const { createWsNativeApi, onTransportReconnected } = await import("./wsNativeApi");
+    const listener = vi.fn();
+
+    const unsubscribe = onTransportReconnected(listener);
+    expect(onReconnectedMock).not.toHaveBeenCalled();
+
+    createWsNativeApi();
+    expect(onReconnectedMock).toHaveBeenCalledTimes(1);
+
+    for (const reconnectListener of reconnectedListeners) {
+      reconnectListener();
+    }
+
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    unsubscribe();
+    expect(reconnectedListeners.size).toBe(0);
   });
 
   it("forwards valid terminal and orchestration events", async () => {

@@ -25,6 +25,7 @@ import { Effect, Layer, Option, PubSub, Queue, Schema, SchemaIssue, Stream } fro
 
 import { ProviderValidationError } from "../Errors.ts";
 import { ProviderAdapterRegistry } from "../Services/ProviderAdapterRegistry.ts";
+import { ProviderRuntimeEventFeed } from "../Services/ProviderRuntimeEventFeed.ts";
 import { ProviderService, type ProviderServiceShape } from "../Services/ProviderService.ts";
 import {
   ProviderSessionDirectory,
@@ -153,6 +154,7 @@ const makeProviderService = (options?: ProviderServiceLiveOptions) =>
         : undefined);
 
     const registry = yield* ProviderAdapterRegistry;
+    const runtimeEventFeed = yield* ProviderRuntimeEventFeed;
     const directory = yield* ProviderSessionDirectory;
     const runtimeEventQueue = yield* Queue.unbounded<ProviderRuntimeEvent>();
     const runtimeEventPubSub = yield* PubSub.unbounded<ProviderRuntimeEvent>();
@@ -162,6 +164,7 @@ const makeProviderService = (options?: ProviderServiceLiveOptions) =>
         Effect.tap((canonicalEvent) =>
           canonicalEventLogger ? canonicalEventLogger.write(canonicalEvent, null) : Effect.void,
         ),
+        Effect.tap((canonicalEvent) => runtimeEventFeed.publish(canonicalEvent)),
         Effect.flatMap((canonicalEvent) => PubSub.publish(runtimeEventPubSub, canonicalEvent)),
         Effect.asVoid,
       );

@@ -17,6 +17,7 @@ import { Cache, Cause, Duration, Effect, Layer, Option, Ref, Stream } from "effe
 import { makeDrainableWorker } from "@okcode/shared/DrainableWorker";
 
 import { ProviderService } from "../../provider/Services/ProviderService.ts";
+import { ProviderRuntimeEventFeed } from "../../provider/Services/ProviderRuntimeEventFeed.ts";
 import { ProjectionTurnRepository } from "../../persistence/Services/ProjectionTurns.ts";
 import { ProjectionTurnRepositoryLive } from "../../persistence/Layers/ProjectionTurns.ts";
 import { resolveThreadWorkspaceCwd } from "../../checkpointing/Utils.ts";
@@ -537,6 +538,7 @@ function runtimeEventToActivities(
 const make = Effect.gen(function* () {
   const orchestrationEngine = yield* OrchestrationEngineService;
   const providerService = yield* ProviderService;
+  const providerRuntimeEventFeed = yield* ProviderRuntimeEventFeed;
   const projectionTurnRepository = yield* ProjectionTurnRepository;
 
   const assistantDeliveryModeRef = yield* Ref.make<AssistantDeliveryMode>(
@@ -1285,7 +1287,7 @@ const make = Effect.gen(function* () {
 
   const start: ProviderRuntimeIngestionShape["start"] = Effect.gen(function* () {
     yield* Effect.forkScoped(
-      Stream.runForEach(providerService.streamEvents, (event) =>
+      Stream.runForEach(providerRuntimeEventFeed.subscribeWithReplay(), (event) =>
         worker.enqueue({ source: "runtime", event }),
       ),
     );

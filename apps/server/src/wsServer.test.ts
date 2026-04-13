@@ -48,6 +48,7 @@ import { makeSqlitePersistenceLive, SqlitePersistenceMemory } from "./persistenc
 import { SqlClient, SqlError } from "effect/unstable/sql";
 import { ProviderService, type ProviderServiceShape } from "./provider/Services/ProviderService";
 import { ProviderHealth, type ProviderHealthShape } from "./provider/Services/ProviderHealth";
+import { ProviderRuntimeEventFeedLive } from "./provider/Layers/ProviderRuntimeEventFeed";
 import { Open, type OpenShape } from "./open";
 import { GitManager, type GitManagerShape } from "./git/Services/GitManager.ts";
 import type { GitCoreShape } from "./git/Services/GitCore.ts";
@@ -527,6 +528,7 @@ describe("WebSocket Server", () => {
     const scope = await Effect.runPromise(Scope.make("sequential"));
     const persistenceLayer = options.persistenceLayer ?? SqlitePersistenceMemory;
     const providerLayer = options.providerLayer ?? makeServerProviderLayer();
+    const providerRuntimeEventFeedLayer = ProviderRuntimeEventFeedLive;
     const providerHealthLayer = Layer.succeed(
       ProviderHealth,
       options.providerHealth ?? defaultProviderHealthService,
@@ -546,7 +548,10 @@ describe("WebSocket Server", () => {
       autoBootstrapProjectFromCwd: options.autoBootstrapProjectFromCwd ?? false,
       logWebSocketEvents: options.logWebSocketEvents ?? Boolean(options.devUrl),
     } satisfies ServerConfigShape);
-    const infrastructureLayer = providerLayer.pipe(Layer.provideMerge(persistenceLayer));
+    const infrastructureLayer = providerLayer.pipe(
+      Layer.provideMerge(persistenceLayer),
+      Layer.provideMerge(providerRuntimeEventFeedLayer),
+    );
     const projectionSnapshotQueryLayer = options.projectionSnapshotQuery
       ? Layer.succeed(ProjectionSnapshotQuery, options.projectionSnapshotQuery)
       : OrchestrationProjectionSnapshotQueryLive;
@@ -571,6 +576,7 @@ describe("WebSocket Server", () => {
     const dependenciesLayer = Layer.empty.pipe(
       Layer.provideMerge(runtimeLayer),
       Layer.provideMerge(providerHealthLayer),
+      Layer.provideMerge(providerRuntimeEventFeedLayer),
       Layer.provideMerge(openLayer),
       Layer.provideMerge(serverConfigLayer),
       Layer.provideMerge(NodeServices.layer),
@@ -893,6 +899,62 @@ describe("WebSocket Server", () => {
     expectAvailableEditors((response.result as { availableEditors: unknown }).availableEditors);
   });
 
+  it("refreshes provider statuses on each server.getConfig call", async () => {
+    const { cwd } = makeWorkspaceFixture("workspace");
+    let callCount = 0;
+    const providerHealth: ProviderHealthShape = {
+      getStatuses: Effect.sync(() => {
+        callCount += 1;
+        return [
+          {
+            provider: "codex",
+            status: callCount === 1 ? "ready" : "error",
+            available: callCount === 1,
+            authStatus: callCount === 1 ? "authenticated" : "unauthenticated",
+            checkedAt: `2026-01-01T00:00:0${callCount}.000Z`,
+          },
+        ] satisfies ReadonlyArray<ServerProviderStatus>;
+      }),
+    };
+
+    server = await createTestServer({ cwd, providerHealth });
+    const addr = server.address();
+    const port = typeof addr === "object" && addr !== null ? addr.port : 0;
+
+    const [ws] = await connectAndAwaitWelcome(port);
+    connections.push(ws);
+
+    const firstResponse = await sendRequest(ws, WS_METHODS.serverGetConfig);
+    const secondResponse = await sendRequest(ws, WS_METHODS.serverGetConfig);
+
+    expect(firstResponse.result).toEqual(
+      expect.objectContaining({
+        providers: [
+          {
+            provider: "codex",
+            status: "ready",
+            available: true,
+            authStatus: "authenticated",
+            checkedAt: "2026-01-01T00:00:01.000Z",
+          },
+        ],
+      }),
+    );
+    expect(secondResponse.result).toEqual(
+      expect.objectContaining({
+        providers: [
+          {
+            provider: "codex",
+            status: "error",
+            available: false,
+            authStatus: "unauthenticated",
+            checkedAt: "2026-01-01T00:00:02.000Z",
+          },
+        ],
+      }),
+    );
+  });
+
   it("bootstraps default keybindings file when missing", async () => {
     const baseDir = makeTempDir("okcode-state-bootstrap-keybindings-");
     const { keybindingsConfigPath: keybindingsPath } = deriveServerPathsSync(baseDir, undefined);
@@ -1053,6 +1115,59 @@ describe("WebSocket Server", () => {
       (push) => Array.isArray(push.data.issues) && push.data.issues.length === 0,
     );
     expect(successPush.data).toEqual({ issues: [], providers: defaultProviderStatuses });
+  });
+
+  it("falls back to last known provider statuses when a later refresh fails", async () => {
+    const baseDir = makeTempDir("okcode-state-provider-status-fallback-");
+    const { keybindingsConfigPath: keybindingsPath } = deriveServerPathsSync(baseDir, undefined);
+    ensureParentDir(keybindingsPath);
+    fs.writeFileSync(keybindingsPath, "[]", "utf8");
+
+    const { cwd } = makeWorkspaceFixture("workspace");
+    let callCount = 0;
+    const liveStatuses: ReadonlyArray<ServerProviderStatus> = [
+      {
+        provider: "codex",
+        status: "ready",
+        available: true,
+        authStatus: "authenticated",
+        checkedAt: "2026-01-01T00:00:01.000Z",
+      },
+    ];
+    const providerHealth: ProviderHealthShape = {
+      getStatuses: Effect.sync(() => {
+        callCount += 1;
+        if (callCount === 1) {
+          return liveStatuses;
+        }
+        throw new Error("provider health probe failed");
+      }),
+    };
+
+    server = await createTestServer({ cwd, baseDir, providerHealth });
+    const addr = server.address();
+    const port = typeof addr === "object" && addr !== null ? addr.port : 0;
+
+    const [ws] = await connectAndAwaitWelcome(port);
+    connections.push(ws);
+
+    const firstResponse = await sendRequest(ws, WS_METHODS.serverGetConfig);
+    expect(firstResponse.result).toEqual(expect.objectContaining({ providers: liveStatuses }));
+
+    const malformedPush = await rewriteKeybindingsAndWaitForPush(
+      ws,
+      keybindingsPath,
+      "{ not-json",
+      (push) =>
+        Array.isArray(push.data.issues) &&
+        Boolean(push.data.issues[0]) &&
+        push.data.issues[0]!.kind === "keybindings.malformed-config",
+    );
+
+    expect(malformedPush.data).toEqual({
+      issues: [{ kind: "keybindings.malformed-config", message: expect.any(String) }],
+      providers: liveStatuses,
+    });
   });
 
   it("routes shell.openInEditor through the injected open service", async () => {

@@ -318,3 +318,26 @@ export function terminalNavigationShortcutData(
 
   return null;
 }
+
+export type PanelNavigationShortcutTarget = "sidebar" | "right-panel";
+
+export function panelNavigationShortcutData(
+  event: ShortcutEventLike,
+): PanelNavigationShortcutTarget | null {
+  if (event.type !== undefined && event.type !== "keydown") {
+    return null;
+  }
+
+  if (event.metaKey || event.altKey || event.shiftKey || !event.ctrlKey) {
+    return null;
+  }
+
+  const key = normalizeEventKey(event.key);
+  if (key === "arrowleft") {
+    return "sidebar";
+  }
+  if (key === "arrowright") {
+    return "right-panel";
+  }
+  return null;
+}

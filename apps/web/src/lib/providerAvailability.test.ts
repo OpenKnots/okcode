@@ -49,6 +49,16 @@ describe("providerAvailability", () => {
     ).toBe(false);
   });
 
+  it("allows Claude when a local auth token helper is configured", () => {
+    expect(
+      isProviderReadyForThreadSelection({
+        provider: "claudeAgent",
+        statuses: [makeStatus("claudeAgent", { status: "error", authStatus: "unauthenticated" })],
+        claudeAuthTokenHelperCommand: "op read op://shared/anthropic/token --no-newline",
+      }),
+    ).toBe(true);
+  });
+
   it("treats configured OpenClaw as selectable even when server auth state is unknown", () => {
     expect(
       isProviderReadyForThreadSelection({
@@ -67,8 +77,9 @@ describe("providerAvailability", () => {
           makeStatus("codex"),
           makeStatus("claudeAgent", { status: "error", authStatus: "unauthenticated" }),
         ],
+        claudeAuthTokenHelperCommand: "op read op://shared/anthropic/token --no-newline",
       }),
-    ).toEqual(["codex", "openclaw"]);
+    ).toEqual(["codex", "claudeAgent", "openclaw"]);
   });
 
   it("falls back to the first selectable provider when the preferred one is unavailable", () => {

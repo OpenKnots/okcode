@@ -75,6 +75,7 @@ import {
   extractTextAttachmentContents,
 } from "../../attachmentText.ts";
 import { ServerConfig } from "../../config.ts";
+import { readClaudeAuthTokenFromHelperCommand } from "../claudeAuthTokenHelper.ts";
 import {
   ProviderAdapterProcessError,
   ProviderAdapterRequestError,
@@ -186,6 +187,7 @@ export interface ClaudeAdapterLiveOptions {
     readonly prompt: AsyncIterable<SDKUserMessage>;
     readonly options: ClaudeQueryOptions;
   }) => ClaudeQueryRuntime;
+  readonly readAuthTokenFromHelperCommand?: typeof readClaudeAuthTokenFromHelperCommand;
   readonly nativeEventLogPath?: string;
   readonly nativeEventLogger?: EventNdjsonLogger;
 }
@@ -207,6 +209,12 @@ function toMessage(cause: unknown, fallback: string): string {
 
 function toError(cause: unknown, fallback: string): Error {
   return cause instanceof Error ? cause : new Error(toMessage(cause, fallback));
+}
+
+function nonEmptyTrimmed(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
 }
 
 function normalizeClaudeStreamMessages(cause: Cause.Cause<Error>): ReadonlyArray<string> {
@@ -235,6 +243,27 @@ function isClaudeInterruptedCause(cause: Cause.Cause<Error>): boolean {
     Cause.hasInterruptsOnly(cause) ||
     normalizeClaudeStreamMessages(cause).some(isClaudeInterruptedMessage)
   );
+}
+
+const CLAUDE_AUTH_ERROR_PATTERNS = [
+  "oauth authentication is currently not supported",
+  "could not resolve authentication method",
+  "expected either apiKey or authToken to be set",
+  "no access token was provided",
+  "no auth token was provided",
+] as const;
+
+function isClaudeAuthErrorMessage(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return CLAUDE_AUTH_ERROR_PATTERNS.some((pattern) => normalized.includes(pattern.toLowerCase()));
+}
+
+function isClaudeAuthCause(cause: Cause.Cause<Error>): boolean {
+  return normalizeClaudeStreamMessages(cause).some(isClaudeAuthErrorMessage);
+}
+
+function claudeAuthFailureMessage(): string {
+  return "Claude Code is not configured with a supported Anthropic credential. Set ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN and try again.";
 }
 
 function messageFromClaudeStreamCause(cause: Cause.Cause<Error>, fallback: string): string {
@@ -996,6 +1025,8 @@ function makeClaudeAdapter(options?: ClaudeAdapterLiveOptions) {
             stream: "native",
           })
         : undefined);
+    const readAuthTokenFromHelperCommand =
+      options?.readAuthTokenFromHelperCommand ?? readClaudeAuthTokenFromHelperCommand;
 
     const createQuery =
       options?.createQuery ??
@@ -2349,6 +2380,10 @@ function makeClaudeAdapter(options?: ClaudeAdapterLiveOptions) {
                 interruptionMessageFromClaudeCause(exit.cause),
               );
             }
+          } else if (isClaudeAuthCause(exit.cause)) {
+            const message = claudeAuthFailureMessage();
+            yield* emitRuntimeError(context, message, Cause.pretty(exit.cause));
+            yield* completeTurn(context, "failed", message);
           } else {
             const message = messageFromClaudeStreamCause(
               exit.cause,
@@ -2796,6 +2831,29 @@ function makeClaudeAdapter(options?: ClaudeAdapterLiveOptions) {
           ...(fastMode ? { fastMode: true } : {}),
         };
         const runtimeEnv = input.env ? compactNodeProcessEnv(input.env) : undefined;
+        const baseEnv = mergeNodeProcessEnv(process.env, runtimeEnv);
+        const explicitAuthToken = nonEmptyTrimmed(baseEnv.ANTHROPIC_AUTH_TOKEN);
+        const helperCommand = providerOptions?.authTokenHelperCommand;
+        let authToken = explicitAuthToken;
+        if (!authToken && helperCommand) {
+          authToken = yield* Effect.try({
+            try: () =>
+              readAuthTokenFromHelperCommand(helperCommand, {
+                ...(input.cwd ? { cwd: input.cwd } : {}),
+                env: baseEnv,
+              }),
+            catch: (cause) =>
+              new ProviderAdapterProcessError({
+                provider: PROVIDER,
+                threadId,
+                detail: `Failed to resolve Claude auth token from helper command: ${toMessage(cause, "unknown error")}`,
+                cause,
+              }),
+          });
+        }
+        const queryEnv = authToken
+          ? mergeNodeProcessEnv(baseEnv, { ANTHROPIC_AUTH_TOKEN: authToken })
+          : baseEnv;
 
         const queryOptions: ClaudeQueryOptions = {
           ...(input.cwd ? { cwd: input.cwd } : {}),
@@ -2815,7 +2873,7 @@ function makeClaudeAdapter(options?: ClaudeAdapterLiveOptions) {
           ...(newSessionId ? { sessionId: newSessionId } : {}),
           includePartialMessages: true,
           canUseTool,
-          env: sanitizeShellEnvironment(mergeNodeProcessEnv(process.env, runtimeEnv)),
+          env: sanitizeShellEnvironment(queryEnv),
           ...(input.cwd ? { additionalDirectories: [input.cwd] } : {}),
         };
 
@@ -2829,7 +2887,9 @@ function makeClaudeAdapter(options?: ClaudeAdapterLiveOptions) {
             new ProviderAdapterProcessError({
               provider: PROVIDER,
               threadId,
-              detail: toMessage(cause, "Failed to start Claude runtime session."),
+              detail: isClaudeAuthErrorMessage(toMessage(cause, ""))
+                ? claudeAuthFailureMessage()
+                : toMessage(cause, "Failed to start Claude runtime session."),
               cause,
             }),
         });

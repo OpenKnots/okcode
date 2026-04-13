@@ -79,7 +79,9 @@ const doctorProgram = Effect.gen(function* () {
     console.log("No providers are ready. Set up at least one provider to start coding:");
     console.log("");
     console.log("  Codex:  npm install -g @openai/codex && codex login");
-    console.log("  Claude Code: npm install -g @anthropic-ai/claude-code && claude auth login");
+    console.log(
+      "  Claude Code: npm install -g @anthropic-ai/claude-code && set ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN",
+    );
   } else if (readyCount === statuses.length) {
     console.log("All providers are ready.");
   } else {

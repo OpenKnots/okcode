@@ -4,6 +4,7 @@ import {
   CheckCircle2Icon,
   ChevronDownIcon,
   CpuIcon,
+  GlobeIcon,
   GitBranchIcon,
   ImportIcon,
   KeyboardIcon,
@@ -95,6 +96,7 @@ import {
   setStoredRadiusOverride,
   type CustomThemeData,
 } from "../lib/customTheme";
+import { openUrlInAppBrowser } from "../lib/openUrlInAppBrowser";
 import { serverConfigQueryOptions, serverQueryKeys } from "../lib/serverReactQuery";
 import { cn } from "../lib/utils";
 import { ensureNativeApi, readNativeApi } from "../nativeApi";
@@ -598,6 +600,7 @@ function SettingsRouteView() {
   const serverConfigQuery = useQuery(serverConfigQueryOptions());
   const queryClient = useQueryClient();
   const projects = useStore((state) => state.projects);
+  const threads = useStore((state) => state.threads);
   const [selectedProjectId, setSelectedProjectId] = useState<ProjectId | null>(
     () => projects[0]?.id ?? null,
   );
@@ -644,6 +647,15 @@ function SettingsRouteView() {
   const selectedProjectEnvironmentVariablesQuery = useQuery(
     projectEnvironmentVariablesQueryOptions(activeProjectId),
   );
+  const activeProjectPreviewThreadId =
+    activeProjectId === null
+      ? null
+      : (threads
+          .filter((thread) => thread.projectId === activeProjectId)
+          .toSorted((a, b) =>
+            (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt),
+          )
+          .at(0)?.id ?? null);
 
   useEffect(() => {
     if (projects.length === 0) {
@@ -775,6 +787,19 @@ function SettingsRouteView() {
     ...(fontOverride ? ["Font family"] : []),
     ...(fontSizeOverride !== null ? ["Code font size"] : []),
   ];
+
+  const openTweakcn = useCallback(() => {
+    void openUrlInAppBrowser({
+      url: "https://tweakcn.com",
+      projectId: activeProjectId,
+      threadId: activeProjectPreviewThreadId,
+      popOut: true,
+      nativeApi: readNativeApi(),
+    }).catch(() => {
+      const nativeApi = ensureNativeApi();
+      return nativeApi.shell.openExternal("https://tweakcn.com");
+    });
+  }, [activeProjectId, activeProjectPreviewThreadId]);
 
   const openKeybindingsFile = useCallback(() => {
     if (!keybindingsConfigPath) return;
@@ -1140,6 +1165,23 @@ function SettingsRouteView() {
                               ))}
                             </SelectPopup>
                           </Select>
+                          <Tooltip>
+                            <TooltipTrigger
+                              render={
+                                <Button
+                                  size="xs"
+                                  variant="outline"
+                                  onClick={openTweakcn}
+                                  aria-label="Open tweakcn"
+                                >
+                                  <GlobeIcon className="size-3.5" />
+                                </Button>
+                              }
+                            />
+                            <TooltipPopup side="top">
+                              Open tweakcn in the in-app browser
+                            </TooltipPopup>
+                          </Tooltip>
                           <Tooltip>
                             <TooltipTrigger
                               render={

@@ -40,7 +40,6 @@ import { ProviderUnsupportedError } from "../src/provider/Errors.ts";
 import { ProviderAdapterRegistry } from "../src/provider/Services/ProviderAdapterRegistry.ts";
 import { ProviderRuntimeEventFeedLive } from "../src/provider/Layers/ProviderRuntimeEventFeed.ts";
 import { ProviderSessionDirectoryLive } from "../src/provider/Layers/ProviderSessionDirectory.ts";
-import { ProviderRuntimeEventFeedLive } from "../src/provider/Layers/ProviderRuntimeEventFeed.ts";
 import { makeProviderServiceLive } from "../src/provider/Layers/ProviderService.ts";
 import { makeCodexAdapterLive } from "../src/provider/Layers/CodexAdapter.ts";
 import { CodexAdapter } from "../src/provider/Services/CodexAdapter.ts";

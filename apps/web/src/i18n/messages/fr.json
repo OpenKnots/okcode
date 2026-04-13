@@ -133,7 +133,7 @@
   "settings.advanced.keybindings.opening": "Ouverture...",
   "settings.advanced.keybindings.resolvingPath": "Résolution du chemin de keybindings...",
   "settings.advanced.keybindings.title": "Raccourcis",
-  "settings.advanced.providerInstalls.claude.binaryDescription": "Laissez vide pour utiliser <code>claude</code> depuis votre PATH. L'authentification utilise <code>claude auth login</code>.",
+  "settings.advanced.providerInstalls.claude.binaryDescription": "Laissez vide pour utiliser <code>claude</code> depuis votre PATH. Claude Code a besoin de <code>ANTHROPIC_API_KEY</code> ou <code>ANTHROPIC_AUTH_TOKEN</code> dans l'environnement d'exécution.",
   "settings.advanced.providerInstalls.claude.binaryPathLabel": "Chemin du binaire Claude Code",
   "settings.advanced.providerInstalls.claude.binaryPlaceholder": "Chemin du binaire Claude Code",
   "settings.advanced.providerInstalls.codex.binaryDescription": "Laissez vide pour utiliser <code>codex</code> depuis votre PATH. L'authentification utilise normalement <code>codex login</code>, sauf si votre configuration Codex pointe vers un fournisseur de modèle personnalisé.",

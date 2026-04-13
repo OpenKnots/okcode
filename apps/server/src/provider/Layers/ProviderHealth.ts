@@ -98,6 +98,32 @@ function extractAuthBoolean(value: unknown): boolean | undefined {
   return undefined;
 }
 
+function extractAuthString(value: unknown): string | undefined {
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      const nested = extractAuthString(entry);
+      if (nested !== undefined) return nested;
+    }
+    return undefined;
+  }
+
+  if (!value || typeof value !== "object") return undefined;
+
+  const record = value as Record<string, unknown>;
+  for (const key of ["authMethod", "auth_method", "method"] as const) {
+    if (typeof record[key] === "string") return record[key];
+  }
+  for (const key of ["auth", "session", "account"] as const) {
+    const nested = extractAuthString(record[key]);
+    if (nested !== undefined) return nested;
+  }
+  return undefined;
+}
+
+const CLAUDE_OAUTH_AUTH_METHODS = new Set(["claude.ai", "oauth"]);
+const CLAUDE_SUPPORTED_AUTH_METHODS = new Set(["apiKey", "authToken"]);
+const CLAUDE_AUTH_GUIDANCE = "Set ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN and try again.";
+
 export function parseAuthStatusFromOutput(result: CommandResult): {
   readonly status: ServerProviderStatusState;
   readonly authStatus: ServerProviderAuthStatus;
@@ -449,13 +475,14 @@ export function parseClaudeAuthStatusFromOutput(result: CommandResult): {
     lowerOutput.includes("not logged in") ||
     lowerOutput.includes("login required") ||
     lowerOutput.includes("authentication required") ||
+    lowerOutput.includes("oauth authentication is currently not supported") ||
     lowerOutput.includes("run `claude login`") ||
     lowerOutput.includes("run claude login")
   ) {
     return {
       status: "error",
       authStatus: "unauthenticated",
-      message: "Claude is not authenticated. Run `claude auth login` and try again.",
+      message: `Claude is not configured with a supported Anthropic credential. ${CLAUDE_AUTH_GUIDANCE}`,
     };
   }
 
@@ -463,29 +490,63 @@ export function parseClaudeAuthStatusFromOutput(result: CommandResult): {
   const parsedAuth = (() => {
     const trimmed = result.stdout.trim();
     if (!trimmed || (!trimmed.startsWith("{") && !trimmed.startsWith("["))) {
-      return { attemptedJsonParse: false as const, auth: undefined as boolean | undefined };
+      return {
+        attemptedJsonParse: false as const,
+        auth: undefined as boolean | undefined,
+        authMethod: undefined as string | undefined,
+      };
     }
     try {
+      const parsed = JSON.parse(trimmed);
       return {
         attemptedJsonParse: true as const,
-        auth: extractAuthBoolean(JSON.parse(trimmed)),
+        auth: extractAuthBoolean(parsed),
+        authMethod: extractAuthString(parsed),
       };
     } catch {
-      return { attemptedJsonParse: false as const, auth: undefined as boolean | undefined };
+      return {
+        attemptedJsonParse: false as const,
+        auth: undefined as boolean | undefined,
+        authMethod: undefined as string | undefined,
+      };
     }
   })();
 
+  const authMethod = parsedAuth.authMethod?.trim();
+  const normalizedAuthMethod = authMethod?.toLowerCase();
+  if (normalizedAuthMethod && CLAUDE_OAUTH_AUTH_METHODS.has(normalizedAuthMethod)) {
+    return {
+      status: "error",
+      authStatus: "unauthenticated",
+      message: `Claude Code is signed in with OAuth, which is not supported here. ${CLAUDE_AUTH_GUIDANCE}`,
+    };
+  }
+
   if (parsedAuth.auth === true) {
+    if (authMethod && !CLAUDE_SUPPORTED_AUTH_METHODS.has(authMethod)) {
+      return {
+        status: "warning",
+        authStatus: "unknown",
+        message: `Claude authentication status reported an unsupported credential type '${authMethod}'. ${CLAUDE_AUTH_GUIDANCE}`,
+      };
+    }
     return { status: "ready", authStatus: "authenticated" };
   }
   if (parsedAuth.auth === false) {
     return {
       status: "error",
       authStatus: "unauthenticated",
-      message: "Claude is not authenticated. Run `claude auth login` and try again.",
+      message: `Claude is not configured with a supported Anthropic credential. ${CLAUDE_AUTH_GUIDANCE}`,
     };
   }
   if (parsedAuth.attemptedJsonParse) {
+    if (authMethod && !CLAUDE_SUPPORTED_AUTH_METHODS.has(authMethod)) {
+      return {
+        status: "error",
+        authStatus: "unauthenticated",
+        message: `Claude authentication status reported an unsupported credential type '${authMethod}'. ${CLAUDE_AUTH_GUIDANCE}`,
+      };
+    }
     return {
       status: "warning",
       authStatus: "unknown",

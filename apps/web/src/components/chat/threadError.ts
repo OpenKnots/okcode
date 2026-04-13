@@ -18,6 +18,10 @@ const AUTH_FAILURE_PATTERNS = [
   "run claude auth login",
   "codex cli is not authenticated",
   "claude is not authenticated",
+  "supported anthropic credential",
+  "signed in with oauth",
+  "oauth authentication is currently not supported",
+  "could not resolve authentication method",
   "authentication required",
 ] as const;
 
@@ -34,7 +38,7 @@ function extractWorktreeDetail(error: string): string | null {
 function getProviderLoginCommand(error: string): string | null {
   const lower = error.toLowerCase();
   if (lower.includes("claude")) {
-    return "`claude auth login`";
+    return "`ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN`";
   }
   if (lower.includes("codex")) {
     return "`codex login`";
@@ -48,9 +52,11 @@ function buildTroubleshootingTips(error: string, presentation: ThreadErrorPresen
   if (isAuthenticationThreadError(error)) {
     const loginCommand = getProviderLoginCommand(error);
     tips.push(
-      loginCommand
-        ? `Run ${loginCommand} and retry the turn.`
-        : "Run the provider login command for this CLI, then retry the turn.",
+      loginCommand?.includes("ANTHROPIC")
+        ? `Set ${loginCommand} in the runtime environment and retry the turn.`
+        : loginCommand
+          ? `Run ${loginCommand} and retry the turn.`
+          : "Run the provider login command for this CLI, then retry the turn.",
     );
   }
 

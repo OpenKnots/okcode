@@ -367,8 +367,7 @@ const PROVIDER_AUTH_GUIDES: Record<
     installCmd: "npm install -g @openai/codex",
     authCmd: "codex login",
     verifyCmd: "codex login status",
-    note:
-      "Codex stays available in thread creation when the CLI is ready and its auth is either confirmed or delegated to a custom model provider.",
+    note: "Codex stays available in thread creation when the CLI is ready and its auth is either confirmed or delegated to a custom model provider.",
   },
   claudeAgent: {
     installCmd: "npm install -g @anthropic-ai/claude-code",
@@ -378,8 +377,7 @@ const PROVIDER_AUTH_GUIDES: Record<
   },
   openclaw: {
     verifyCmd: "Test Connection",
-    note:
-      "OpenClaw uses the gateway URL and password below rather than a local CLI login. A configured gateway unlocks it for new-thread selection.",
+    note: "OpenClaw uses the gateway URL and password below rather than a local CLI login. A configured gateway unlocks it for new-thread selection.",
   },
 };
 
@@ -2381,7 +2379,8 @@ function SettingsRouteView() {
                             key={provider}
                             provider={provider}
                             status={
-                              providerStatuses.find((status) => status.provider === provider) ?? null
+                              providerStatuses.find((status) => status.provider === provider) ??
+                              null
                             }
                             openclawGatewayUrl={settings.openclawGatewayUrl}
                           />

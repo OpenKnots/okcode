@@ -861,6 +861,7 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
     markThreadVisited,
   ]);
 
+  const serverConfigQuery = useQuery(serverConfigQueryOptions());
   const sessionProvider = activeThread?.session?.provider ?? null;
   const selectedProviderByThreadId = composerDraft.provider;
   const providerStatuses = serverConfigQuery.data?.providers ?? EMPTY_PROVIDER_STATUSES;
@@ -1330,7 +1331,6 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
   );
   const effectivePathQuery = pathTriggerQuery.length > 0 ? debouncedPathQuery : "";
   const branchesQuery = useQuery(gitBranchesQueryOptions(gitCwd));
-  const serverConfigQuery = useQuery(serverConfigQueryOptions());
   const workspaceEntriesQuery = useQuery(
     projectSearchEntriesQueryOptions({
       cwd: gitCwd,

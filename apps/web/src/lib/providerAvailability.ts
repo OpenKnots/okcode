@@ -57,10 +57,7 @@ export function resolveThreadProviderSelection(input: {
   preferredProvider?: ProviderKind | null | undefined;
   selectableProviders: ReadonlyArray<ProviderKind>;
 }): ProviderKind {
-  if (
-    input.preferredProvider &&
-    input.selectableProviders.includes(input.preferredProvider)
-  ) {
+  if (input.preferredProvider && input.selectableProviders.includes(input.preferredProvider)) {
     return input.preferredProvider;
   }
 

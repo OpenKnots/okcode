@@ -13,17 +13,7 @@ import type {
   ServerProviderStatus,
   ServerProviderStatusState,
 } from "@okcode/contracts";
-import {
-  Array,
-  Data,
-  Effect,
-  FileSystem,
-  Layer,
-  Option,
-  Path,
-  Result,
-  Stream,
-} from "effect";
+import { Array, Data, Effect, FileSystem, Layer, Option, Path, Result, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
 import {
@@ -681,16 +671,30 @@ const checkOpenClawProviderStatus: Effect.Effect<ServerProviderStatus, never, ne
 
 // ── Layer ───────────────────────────────────────────────────────────
 
-const loadProviderStatuses = Effect.all(
-  [checkCodexProviderStatus, checkClaudeProviderStatus, checkOpenClawProviderStatus],
-  {
-    concurrency: "unbounded",
-  },
-);
-
 export const ProviderHealthLive = Layer.effect(
   ProviderHealth,
-  Effect.succeed({
-    getStatuses: loadProviderStatuses,
-  } satisfies ProviderHealthShape),
+  Effect.gen(function* () {
+    const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+    const fileSystem = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+
+    return {
+      getStatuses: Effect.all(
+        [
+          checkCodexProviderStatus.pipe(
+            Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
+            Effect.provideService(FileSystem.FileSystem, fileSystem),
+            Effect.provideService(Path.Path, path),
+          ),
+          checkClaudeProviderStatus.pipe(
+            Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
+          ),
+          checkOpenClawProviderStatus,
+        ],
+        {
+          concurrency: "unbounded",
+        },
+      ),
+    } satisfies ProviderHealthShape;
+  }),
 );

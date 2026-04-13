@@ -937,6 +937,11 @@ export async function runOpenclawGatewayTest(
       const challenge = await waitForGatewayEvent(ws, "connect.challenge");
       captureEarlyGatewayEvents = false;
       earlyGatewayEvents.length = 0;
+      if (typeof challenge?.nonce !== "string" || challenge.nonce.length === 0) {
+        const detail = "Gateway challenge did not include a nonce.";
+        pushStep("Gateway handshake", "fail", Date.now() - handshakeStart, detail);
+        return finalize(false, detail, "Gateway handshake");
+      }
       const connectResult = await sendGatewayRequest(
         ws,
         "connect",

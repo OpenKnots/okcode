@@ -383,7 +383,7 @@ export function validateOpenClawSetup(input: {
     };
   }
 
-  if (!input.hasDeviceToken) {
+  if (!input.hasDeviceToken && resolvedAuthMethod === "none") {
     return {
       ok: false,
       severity: "warning",
@@ -398,8 +398,10 @@ export function validateOpenClawSetup(input: {
     severity: "ready",
     message:
       resolvedAuthMethod === "password"
-        ? "OpenClaw gateway, shared secret, and device pairing are configured."
-        : "OpenClaw gateway and device pairing are configured.",
+        ? "OpenClaw gateway and shared secret are configured. Device pairing is optional when token auth succeeds."
+        : input.hasDeviceToken
+          ? "OpenClaw gateway and device pairing are configured."
+          : "OpenClaw gateway is configured.",
     resolvedAuthMethod,
   };
 }

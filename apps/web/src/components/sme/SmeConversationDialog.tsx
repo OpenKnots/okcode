@@ -35,7 +35,7 @@ import {
   SME_PROVIDER_LABELS,
 } from "./smeConversationConfig";
 
-const SME_CHAT_SUPPORTED_PROVIDERS = new Set<ProviderKind>(["claudeAgent"]);
+const SME_CHAT_SUPPORTED_PROVIDERS = new Set<ProviderKind>(["codex", "copilot"]);
 
 interface SmeConversationDialogProps {
   open: boolean;
@@ -57,11 +57,9 @@ export function SmeConversationDialog({
   const setActiveConversationId = useSmeStore((state) => state.setActiveConversationId);
   const [saving, setSaving] = useState(false);
   const [title, setTitle] = useState("New Conversation");
-  const [provider, setProvider] = useState<ProviderKind>("claudeAgent");
-  const [authMethod, setAuthMethod] = useState<SmeAuthMethod>(
-    getDefaultSmeAuthMethod("claudeAgent"),
-  );
-  const [model, setModel] = useState("claude-sonnet-4-6");
+  const [provider, setProvider] = useState<ProviderKind>("codex");
+  const [authMethod, setAuthMethod] = useState<SmeAuthMethod>(getDefaultSmeAuthMethod("codex"));
+  const [model, setModel] = useState("gpt-5");
   const [error, setError] = useState<string | null>(null);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
@@ -86,7 +84,7 @@ export function SmeConversationDialog({
       return;
     }
 
-    const nextProvider = conversation?.provider ?? "claudeAgent";
+    const nextProvider = conversation?.provider === "copilot" ? "copilot" : "codex";
     const nextTitle = conversation?.title ?? "New Conversation";
     const nextAuthMethod = conversation?.authMethod ?? getDefaultSmeAuthMethod(nextProvider);
     const nextModel =
@@ -155,7 +153,6 @@ export function SmeConversationDialog({
           claudeAgent: settings.customClaudeModels,
           copilot: settings.customCopilotModels,
           openclaw: settings.customOpenClawModels,
-          gemini: settings.customGeminiModels,
         },
         nextProvider === "openclaw" ? "default" : null,
       ),
@@ -204,8 +201,8 @@ export function SmeConversationDialog({
             {conversation ? "Conversation settings" : "New SME conversation"}
           </DialogTitle>
           <DialogDescription>
-            Choose the provider, auth method, and model used for future SME replies. SME Chat uses
-            direct provider credentials, not the Claude CLI login.
+            Choose the provider, auth method, and model used for future SME replies. SME Chat
+            supports Codex / ChatGPT and GitHub Copilot. Claude has been removed from SME chat.
           </DialogDescription>
         </DialogHeader>
         <DialogPanel className="space-y-4">
@@ -221,7 +218,7 @@ export function SmeConversationDialog({
               onChange={(event) => handleProviderChange(event.target.value as ProviderKind)}
               className="h-10 rounded-xl border border-border bg-background px-3 text-sm"
             >
-              {(["claudeAgent", "codex", "openclaw"] as const).map((value) => (
+              {(["claudeAgent", "codex", "copilot", "openclaw", "gemini"] as const).map((value) => (
                 <option
                   key={value}
                   value={value}
@@ -232,8 +229,8 @@ export function SmeConversationDialog({
               ))}
             </select>
             <p className="text-xs text-muted-foreground">
-              Claude Code is the only SME Chat provider that currently supports direct replies
-              without tool workflows.
+              SME Chat currently supports Codex / ChatGPT and GitHub Copilot. Claude, OpenClaw, and
+              Gemini are disabled here.
             </p>
           </label>
 
@@ -250,11 +247,13 @@ export function SmeConversationDialog({
                 </option>
               ))}
             </select>
-            {provider === "claudeAgent" ? (
+            {provider === "codex" ? (
               <p className="text-xs text-muted-foreground">
-                Claude SME Chat talks to Anthropic directly. "Auto" prefers an auth token or helper
-                command, then falls back to ANTHROPIC_API_KEY. A Claude Max / claude.ai CLI login
-                alone does not power SME Chat.
+                Codex SME chat uses the working ChatGPT OAuth path by default.
+              </p>
+            ) : provider === "copilot" ? (
+              <p className="text-xs text-muted-foreground">
+                Copilot SME chat uses the configured GitHub Copilot provider path.
               </p>
             ) : null}
           </label>

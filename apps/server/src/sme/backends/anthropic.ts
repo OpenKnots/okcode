@@ -42,7 +42,7 @@ export function resolveAnthropicClientOptions(
   const baseURL = nonEmptyTrimmed(env.ANTHROPIC_BASE_URL ?? env.ANTHROPIC_API_BASE_URL);
 
   return {
-    apiKey: authToken ? null : explicitApiKey ?? null,
+    apiKey: authToken ? null : (explicitApiKey ?? null),
     authToken: authToken ?? null,
     ...(baseURL ? { baseURL } : {}),
   };
@@ -58,7 +58,7 @@ function createAnthropicClient(options: ResolvedAnthropicClientOptions): Anthrop
 
 export interface SendSmeViaAnthropicInput {
   readonly client?: AnthropicMessagesClient;
-  readonly messages: ReadonlyArray<MessageParam>;
+  readonly messages: Array<MessageParam>;
   readonly conversationId: string;
   readonly assistantMessageId: string;
   readonly model: string;
@@ -73,7 +73,8 @@ export function sendSmeViaAnthropic(input: SendSmeViaAnthropicInput) {
     try: async () => {
       let result = "";
       const client =
-        input.client ?? createAnthropicClient(input.clientOptions ?? resolveAnthropicClientOptions());
+        input.client ??
+        createAnthropicClient(input.clientOptions ?? resolveAnthropicClientOptions());
       const stream = client.messages.stream(
         {
           model: input.model,

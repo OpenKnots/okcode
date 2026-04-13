@@ -123,7 +123,9 @@ describe("SmeChatServiceLive", () => {
 
     const layer = makeSmeChatServiceLive({ sendSmeViaAnthropic: sendClaudeMessage }).pipe(
       Layer.provideMerge(Layer.succeed(SmeKnowledgeDocumentRepository, makeDocumentRepository())),
-      Layer.provideMerge(Layer.succeed(SmeConversationRepository, makeConversationRepository([conversationRow]))),
+      Layer.provideMerge(
+        Layer.succeed(SmeConversationRepository, makeConversationRepository([conversationRow])),
+      ),
       Layer.provideMerge(Layer.succeed(SmeMessageRepository, messageRepo)),
     );
 
@@ -249,9 +251,13 @@ describe("SmeChatServiceLive", () => {
       deletedAt: null,
     };
     const { repository: messageRepo, rowsByConversation } = makeMessageRepository();
-    const layer = makeSmeChatServiceLive({ sendSmeViaAnthropic: () => Effect.die("unexpected send") }).pipe(
+    const layer = makeSmeChatServiceLive({
+      sendSmeViaAnthropic: () => Effect.succeed("unexpected send"),
+    }).pipe(
       Layer.provideMerge(Layer.succeed(SmeKnowledgeDocumentRepository, makeDocumentRepository())),
-      Layer.provideMerge(Layer.succeed(SmeConversationRepository, makeConversationRepository([conversationRow]))),
+      Layer.provideMerge(
+        Layer.succeed(SmeConversationRepository, makeConversationRepository([conversationRow])),
+      ),
       Layer.provideMerge(Layer.succeed(SmeMessageRepository, messageRepo)),
     );
 
@@ -310,5 +316,29 @@ describe("SmeChatServiceLive", () => {
         isStreaming: false,
       }),
     ]);
+  });
+
+  it("rejects unsupported SME providers before a conversation can be created", async () => {
+    const projectId = ProjectId.makeUnsafe("project-3");
+    const layer = makeSmeChatServiceLive().pipe(
+      Layer.provideMerge(Layer.succeed(SmeKnowledgeDocumentRepository, makeDocumentRepository())),
+      Layer.provideMerge(Layer.succeed(SmeConversationRepository, makeConversationRepository([]))),
+      Layer.provideMerge(Layer.succeed(SmeMessageRepository, makeMessageRepository().repository)),
+    );
+
+    await expect(
+      Effect.runPromise(
+        Effect.gen(function* () {
+          const service = yield* SmeChatService;
+          yield* service.createConversation({
+            projectId,
+            title: "Unsupported provider",
+            provider: "codex",
+            authMethod: "chatgpt",
+            model: "codex-mini",
+          });
+        }).pipe(Effect.provide(layer)),
+      ),
+    ).rejects.toThrow("SME Chat only supports Claude Code conversations right now.");
   });
 });

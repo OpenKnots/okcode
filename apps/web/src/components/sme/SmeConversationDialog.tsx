@@ -35,6 +35,8 @@ import {
   SME_PROVIDER_LABELS,
 } from "./smeConversationConfig";
 
+const SME_CHAT_SUPPORTED_PROVIDERS = new Set<ProviderKind>(["claudeAgent"]);
+
 interface SmeConversationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -216,11 +218,19 @@ export function SmeConversationDialog({
               className="h-10 rounded-xl border border-border bg-background px-3 text-sm"
             >
               {(["claudeAgent", "codex", "openclaw"] as const).map((value) => (
-                <option key={value} value={value}>
+                <option
+                  key={value}
+                  value={value}
+                  disabled={!SME_CHAT_SUPPORTED_PROVIDERS.has(value)}
+                >
                   {SME_PROVIDER_LABELS[value]}
                 </option>
               ))}
             </select>
+            <p className="text-xs text-muted-foreground">
+              Claude Code is the only SME Chat provider that currently supports direct replies
+              without tool workflows.
+            </p>
           </label>
 
           <label className="grid gap-1.5">

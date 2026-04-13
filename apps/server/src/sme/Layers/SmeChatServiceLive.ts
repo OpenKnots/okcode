@@ -7,7 +7,6 @@
  * @module SmeChatServiceLive
  */
 import type {
-  ProviderStartOptions,
   SmeAuthMethod,
   SmeConversation,
   SmeKnowledgeDocument,
@@ -25,10 +24,7 @@ import { SmeConversationRepository } from "../../persistence/Services/SmeConvers
 import { SmeKnowledgeDocumentRepository } from "../../persistence/Services/SmeKnowledgeDocuments.ts";
 import { SmeMessageRepository } from "../../persistence/Services/SmeMessages.ts";
 import { isValidSmeAuthMethod } from "../authValidation.ts";
-import {
-  resolveAnthropicClientOptions,
-  sendSmeViaAnthropic,
-} from "../backends/anthropic.ts";
+import { resolveAnthropicClientOptions, sendSmeViaAnthropic } from "../backends/anthropic.ts";
 import { buildSmeSystemPrompt } from "../promptBuilder.ts";
 import {
   SmeChatError,
@@ -192,7 +188,8 @@ const makeSmeChatService = (options?: SmeChatServiceLiveOptions) =>
               ? "Claude SME Chat can use the configured Anthropic API key."
               : "Claude SME Chat can use the configured Anthropic auth token.",
           resolvedAuthMethod: conversation.authMethod,
-          resolvedAccountType: clientOptions.apiKey !== null ? "apiKey" : "unknown",
+          resolvedAccountType:
+            clientOptions.apiKey !== null ? ("apiKey" as const) : ("unknown" as const),
         };
       });
 
@@ -462,8 +459,7 @@ const makeSmeChatService = (options?: SmeChatServiceLiveOptions) =>
             resolveAnthropicClientOptions({
               providerOptions: input.providerOptions?.claudeAgent,
             }),
-          catch: (cause) =>
-            new SmeChatError("sendMessage:providerRuntime", String(cause), cause),
+          catch: (cause) => new SmeChatError("sendMessage:providerRuntime", String(cause), cause),
         });
 
         if (!anthropicClientOptions.apiKey && !anthropicClientOptions.authToken) {
@@ -476,13 +472,13 @@ const makeSmeChatService = (options?: SmeChatServiceLiveOptions) =>
         }
 
         const systemPrompt = buildSmeSystemPrompt(docs);
-        const messages: ReadonlyArray<MessageParam> = [
-          ...promptHistory
+        const messages: Array<MessageParam> = [
+          ...(promptHistory
             .filter((message) => message.role === "user" || message.role === "assistant")
             .map((message) => ({
               role: message.role,
               content: message.text,
-            })) as Array<MessageParam>,
+            })) as Array<MessageParam>),
           {
             role: "user",
             content: input.text,
@@ -502,13 +498,19 @@ const makeSmeChatService = (options?: SmeChatServiceLiveOptions) =>
           abortSignal: abortController.signal,
         });
 
-        yield* input.setInterruptEffect(
+        yield* setInterrupt(
+          input.conversationId,
           Effect.sync(() => {
             abortController.abort();
           }),
         );
 
         const responseText = yield* sendEffect.pipe(
+          Effect.ensuring(
+            Effect.gen(function* () {
+              yield* clearInterrupt(input.conversationId);
+            }),
+          ),
           Effect.mapError((cause) =>
             cause instanceof SmeChatError
               ? cause

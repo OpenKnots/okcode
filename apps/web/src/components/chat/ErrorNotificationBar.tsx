@@ -241,7 +241,7 @@ export const ErrorNotificationBar = memo(function ErrorNotificationBar({
   }, "info");
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-3 pt-2 sm:px-5">
+    <div data-slot="error-notification-bar" className="mx-auto w-full max-w-7xl px-3 pt-2 sm:px-5">
       <div
         className={cn(
           "overflow-hidden rounded-lg border transition-all duration-200",

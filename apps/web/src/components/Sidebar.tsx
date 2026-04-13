@@ -33,7 +33,6 @@ import {
   ChevronsDownUpIcon,
   ChevronsUpDownIcon,
   CircleDotIcon,
-  ExternalLinkIcon,
   FolderIcon,
   GitBranchIcon,
   GitMergeIcon,
@@ -2290,8 +2289,8 @@ export default function Sidebar() {
                   className="gap-2 px-2 py-1.5 text-muted-foreground/70 hover:bg-accent hover:text-foreground"
                   onClick={() => void navigate({ to: "/pr-review" })}
                 >
-                  <ExternalLinkIcon className="size-3.5" />
-                  <span className="text-xs">Open Workspace</span>
+                  <GitPullRequestIcon className="size-3.5" />
+                  <span className="text-xs">PR Review</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>

@@ -23,32 +23,32 @@ import crypto from "node:crypto";
 import { SmeConversationRepository } from "../../persistence/Services/SmeConversations.ts";
 import { SmeKnowledgeDocumentRepository } from "../../persistence/Services/SmeKnowledgeDocuments.ts";
 import { SmeMessageRepository } from "../../persistence/Services/SmeMessages.ts";
-import { isValidSmeAuthMethod, resolveClaudeSmeSetup } from "../authValidation.ts";
-import { sendSmeViaAnthropic } from "../backends/anthropic.ts";
-import { buildSmeSystemPrompt } from "../promptBuilder.ts";
+import { ProviderService } from "../../provider/Services/ProviderService.ts";
+import { isValidSmeAuthMethod, validateCodexSetup } from "../authValidation.ts";
+import { sendSmeViaProviderRuntime } from "../backends/providerRuntime.ts";
+import { buildSmeCompiledPrompt } from "../promptBuilder.ts";
 import {
   SmeChatError,
   SmeChatService,
   type SmeChatServiceShape,
 } from "../Services/SmeChatService.ts";
-import type { MessageParam } from "@anthropic-ai/sdk/resources";
 
 type ActiveRequest = {
   readonly interrupt: Effect.Effect<void, never>;
 };
 
 interface SmeChatServiceLiveOptions {
-  readonly sendSmeViaAnthropic?: typeof sendSmeViaAnthropic;
+  readonly sendSmeViaProviderRuntime?: typeof sendSmeViaProviderRuntime;
 }
 
-const SME_CHAT_SUPPORTED_PROVIDER: SmeConversation["provider"] = "claudeAgent";
+const SME_CHAT_SUPPORTED_PROVIDERS = new Set<SmeConversation["provider"]>(["codex", "copilot"]);
 
 function isSmeChatProviderSupported(provider: SmeConversation["provider"]) {
-  return provider === SME_CHAT_SUPPORTED_PROVIDER;
+  return SME_CHAT_SUPPORTED_PROVIDERS.has(provider);
 }
 
 function unsupportedProviderMessage(provider: SmeConversation["provider"]) {
-  return `SME Chat only supports Claude Code conversations right now. '${provider}' can still request tools or interactive approvals, which SME Chat does not implement.`;
+  return `SME Chat only supports Codex / ChatGPT and GitHub Copilot conversations right now. '${provider}' is no longer supported for SME chat.`;
 }
 
 function ensureValidConversationAuth(
@@ -115,7 +115,8 @@ const makeSmeChatService = (options?: SmeChatServiceLiveOptions) =>
     const documentRepo = yield* SmeKnowledgeDocumentRepository;
     const conversationRepo = yield* SmeConversationRepository;
     const messageRepo = yield* SmeMessageRepository;
-    const sendClaudeMessage = options?.sendSmeViaAnthropic ?? sendSmeViaAnthropic;
+    const providerService = yield* ProviderService;
+    const sendRuntimeMessage = options?.sendSmeViaProviderRuntime ?? sendSmeViaProviderRuntime;
 
     const activeRequests = yield* Ref.make(new Map<string, ActiveRequest>());
 
@@ -161,19 +162,27 @@ const makeSmeChatService = (options?: SmeChatServiceLiveOptions) =>
           };
         }
 
-        const resolvedSetup = yield* Effect.try({
+        if (conversation.provider === "copilot") {
+          return {
+            ok: true,
+            severity: "ready" as const,
+            message: "GitHub Copilot SME chat is enabled.",
+            resolvedAuthMethod: conversation.authMethod,
+            resolvedAccountType: "unknown" as const,
+          };
+        }
+
+        return yield* Effect.tryPromise({
           try: () =>
-            resolveClaudeSmeSetup({
+            validateCodexSetup({
               authMethod: conversation.authMethod as Extract<
                 SmeAuthMethod,
-                "auto" | "apiKey" | "authToken"
+                "auto" | "apiKey" | "chatgpt" | "customProvider"
               >,
-              providerOptions: providerOptions?.claudeAgent,
+              providerOptions,
             }),
           catch: (cause) => new SmeChatError("validateSetup", String(cause), cause),
         });
-
-        return resolvedSetup.validation;
       });
 
     const uploadDocument: SmeChatServiceShape["uploadDocument"] = (input) =>
@@ -437,69 +446,26 @@ const makeSmeChatService = (options?: SmeChatServiceLiveOptions) =>
           role: message.role,
           text: message.text,
         }));
-        const resolvedAnthropicSetup = yield* Effect.try({
-          try: () =>
-            resolveClaudeSmeSetup({
-              authMethod: conv.authMethod as Extract<
-                SmeAuthMethod,
-                "auto" | "apiKey" | "authToken"
-              >,
-              providerOptions: input.providerOptions?.claudeAgent,
-            }),
-          catch: (cause) => new SmeChatError("sendMessage:providerRuntime", String(cause), cause),
+        const compiledPrompt = buildSmeCompiledPrompt({
+          docs,
+          history: promptHistory,
+          userText: input.text,
         });
 
-        if (!resolvedAnthropicSetup.clientOptions) {
-          return yield* Effect.fail(
-            new SmeChatError(
-              "sendMessage:providerRuntime",
-              resolvedAnthropicSetup.validation.message,
-            ),
-          );
-        }
-
-        const anthropicClientOptions = resolvedAnthropicSetup.clientOptions;
-
-        const systemPrompt = buildSmeSystemPrompt(docs);
-        const messages: Array<MessageParam> = [
-          ...(promptHistory
-            .filter((message) => message.role === "user" || message.role === "assistant")
-            .map((message) => ({
-              role: message.role,
-              content: message.text,
-            })) as Array<MessageParam>),
-          {
-            role: "user",
-            content: input.text,
-          },
-        ];
-
-        const abortController = new AbortController();
-
-        const sendEffect = sendClaudeMessage({
-          clientOptions: anthropicClientOptions,
+        const sendEffect = sendRuntimeMessage({
+          providerService,
+          provider: conv.provider,
           conversationId: input.conversationId,
           assistantMessageId,
           model: conv.model,
-          systemPrompt,
-          messages,
+          compiledPrompt,
+          providerOptions: input.providerOptions,
           ...(onEvent ? { onEvent } : {}),
-          abortSignal: abortController.signal,
+          setInterruptEffect: (interrupt) => setInterrupt(input.conversationId, interrupt),
+          clearInterruptEffect: clearInterrupt(input.conversationId),
         });
 
-        yield* setInterrupt(
-          input.conversationId,
-          Effect.sync(() => {
-            abortController.abort();
-          }),
-        );
-
         const responseText = yield* sendEffect.pipe(
-          Effect.ensuring(
-            Effect.gen(function* () {
-              yield* clearInterrupt(input.conversationId);
-            }),
-          ),
           Effect.mapError((cause) =>
             cause instanceof SmeChatError
               ? cause

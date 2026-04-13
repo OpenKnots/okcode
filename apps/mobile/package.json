@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "bun run scripts/build-mobile-shell.mjs",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "bunx tsc@5.7.3 --noEmit",
     "test": "vitest run --passWithNoTests",
     "sync": "cap sync",
     "open:ios": "cap open ios",

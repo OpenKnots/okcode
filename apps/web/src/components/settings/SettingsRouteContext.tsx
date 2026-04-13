@@ -106,6 +106,7 @@ export function SettingsRouteContextProvider({ children }: { children: ReactNode
           ? ["PR request changes button"]
           : []),
         ...(settings.timestampFormat !== defaults.timestampFormat ? ["Time format"] : []),
+        ...(settings.locale !== defaults.locale ? ["Language"] : []),
         ...(settings.showStitchBorder !== defaults.showStitchBorder ? ["Stitch border"] : []),
         ...(settings.enableAssistantStreaming !== defaults.enableAssistantStreaming
           ? ["Assistant output"]

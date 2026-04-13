@@ -746,7 +746,7 @@ export type ProjectDeletedReason = typeof ProjectDeletedReason.Type;
 export const ProjectDeletedPayload = Schema.Struct({
   projectId: ProjectId,
   deletedAt: IsoDateTime,
-  reason: ProjectDeletedReason.pipe(Schema.withDecodingDefault(() => "manual")),
+  reason: ProjectDeletedReason.pipe(Schema.withDecodingDefault(() => "manual" as const)),
 });
 
 export const ThreadCreatedPayload = Schema.Struct({
@@ -771,7 +771,7 @@ export type ThreadDeletedReason = typeof ThreadDeletedReason.Type;
 export const ThreadDeletedPayload = Schema.Struct({
   threadId: ThreadId,
   deletedAt: IsoDateTime,
-  reason: ThreadDeletedReason.pipe(Schema.withDecodingDefault(() => "manual")),
+  reason: ThreadDeletedReason.pipe(Schema.withDecodingDefault(() => "manual" as const)),
 });
 
 export const ThreadMetaUpdatedPayload = Schema.Struct({

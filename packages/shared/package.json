@@ -63,7 +63,7 @@
   },
   "scripts": {
     "prepare": "node -e \"process.exit(process.env.CI ? 0 : 1)\" || node ../../scripts/patch-effect-language-service.ts",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "bunx tsc@5.7.3 --noEmit",
     "test": "vitest run"
   },
   "dependencies": {

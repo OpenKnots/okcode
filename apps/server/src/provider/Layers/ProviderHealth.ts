@@ -1,8 +1,7 @@
 /**
  * ProviderHealthLive - Startup-time provider health checks.
  *
- * Performs one-time provider readiness probes when the server starts and
- * keeps the resulting snapshot in memory for `server.getConfig`.
+ * Performs provider readiness probes on demand for `server.getConfig`.
  *
  * Uses effect's ChildProcessSpawner to run CLI probes natively.
  *
@@ -18,7 +17,6 @@ import {
   Array,
   Data,
   Effect,
-  Fiber,
   FileSystem,
   Layer,
   Option,
@@ -683,18 +681,16 @@ const checkOpenClawProviderStatus: Effect.Effect<ServerProviderStatus, never, ne
 
 // ── Layer ───────────────────────────────────────────────────────────
 
+const loadProviderStatuses = Effect.all(
+  [checkCodexProviderStatus, checkClaudeProviderStatus, checkOpenClawProviderStatus],
+  {
+    concurrency: "unbounded",
+  },
+);
+
 export const ProviderHealthLive = Layer.effect(
   ProviderHealth,
-  Effect.gen(function* () {
-    const statusesFiber = yield* Effect.all(
-      [checkCodexProviderStatus, checkClaudeProviderStatus, checkOpenClawProviderStatus],
-      {
-        concurrency: "unbounded",
-      },
-    ).pipe(Effect.forkScoped);
-
-    return {
-      getStatuses: Fiber.join(statusesFiber),
-    } satisfies ProviderHealthShape;
-  }),
+  Effect.succeed({
+    getStatuses: loadProviderStatuses,
+  } satisfies ProviderHealthShape),
 );

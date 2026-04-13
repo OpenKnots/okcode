@@ -22,6 +22,7 @@ async function mountPicker(props: {
   provider: ProviderKind;
   model: ModelSlug;
   lockedProvider: ProviderKind | null;
+  availableProviders?: ReadonlyArray<ProviderKind>;
 }) {
   const host = document.createElement("div");
   document.body.append(host);
@@ -31,6 +32,7 @@ async function mountPicker(props: {
       provider={props.provider}
       model={props.model}
       lockedProvider={props.lockedProvider}
+      availableProviders={props.availableProviders ?? ["codex", "claudeAgent", "openclaw"]}
       modelOptionsByProvider={MODEL_OPTIONS_BY_PROVIDER}
       onProviderModelChange={onProviderModelChange}
     />,
@@ -56,6 +58,7 @@ describe("ProviderModelPicker", () => {
       provider: "claudeAgent",
       model: "claude-opus-4-6",
       lockedProvider: null,
+      availableProviders: ["codex", "claudeAgent"],
     });
 
     try {
@@ -110,6 +113,28 @@ describe("ProviderModelPicker", () => {
         "claudeAgent",
         "claude-sonnet-4-6",
       );
+    } finally {
+      await mounted.cleanup();
+    }
+  });
+
+  it("only shows authenticated providers when switching is allowed", async () => {
+    const mounted = await mountPicker({
+      provider: "codex",
+      model: "gpt-5-codex",
+      lockedProvider: null,
+      availableProviders: ["codex"],
+    });
+
+    try {
+      await page.getByRole("button").click();
+
+      await vi.waitFor(() => {
+        const text = document.body.textContent ?? "";
+        expect(text).toContain("Codex");
+        expect(text).toContain("GPT-5.3 Codex");
+        expect(text).not.toContain("Claude Code");
+      });
     } finally {
       await mounted.cleanup();
     }

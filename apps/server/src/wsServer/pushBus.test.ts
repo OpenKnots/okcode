@@ -12,9 +12,13 @@ class MockWebSocket {
   readonly OPEN = MockWebSocket.OPEN;
   readyState = MockWebSocket.OPEN;
   readonly sent: string[] = [];
+  throwOnSend = false;
   private readonly waiters = new Set<() => void>();
 
   send(message: string) {
+    if (this.throwOnSend) {
+      throw new Error("send failed");
+    }
     this.sent.push(message);
     for (const waiter of this.waiters) {
       waiter();
@@ -49,6 +53,7 @@ describe("makeServerPushBus", () => {
         const pushBus = yield* makeServerPushBus({
           clients,
           logOutgoingPush: () => {},
+          logDeliveryFailure: () => {},
         });
 
         yield* pushBus.publishAll(WS_CHANNELS.serverConfigUpdated, {
@@ -98,6 +103,62 @@ describe("makeServerPushBus", () => {
             providers: [],
           },
         });
+      }),
+    ),
+  );
+
+  it.live("continues broadcasting when one client send throws", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const failingClient = new MockWebSocket();
+        failingClient.throwOnSend = true;
+        const healthyClient = new MockWebSocket();
+        const clients = yield* Ref.make(
+          new Set<WebSocket>([
+            failingClient as unknown as WebSocket,
+            healthyClient as unknown as WebSocket,
+          ]),
+        );
+        const pushBus = yield* makeServerPushBus({
+          clients,
+          logOutgoingPush: () => {},
+          logDeliveryFailure: () => {},
+        });
+
+        yield* pushBus.publishAll(WS_CHANNELS.serverConfigUpdated, {
+          issues: [],
+          providers: [],
+        });
+
+        yield* Effect.promise(() => healthyClient.waitForSentCount(1));
+        expect(healthyClient.sent).toHaveLength(1);
+        expect(failingClient.sent).toHaveLength(0);
+      }),
+    ),
+  );
+
+  it.live("returns false when a targeted client send throws", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const client = new MockWebSocket();
+        client.throwOnSend = true;
+        const clients = yield* Ref.make(new Set<WebSocket>());
+        const pushBus = yield* makeServerPushBus({
+          clients,
+          logOutgoingPush: () => {},
+          logDeliveryFailure: () => {},
+        });
+
+        const delivered = yield* pushBus.publishClient(
+          client as unknown as WebSocket,
+          WS_CHANNELS.serverWelcome,
+          {
+            cwd: "/tmp/project",
+            projectName: "project",
+          },
+        );
+
+        expect(delivered).toBe(false);
       }),
     ),
   );

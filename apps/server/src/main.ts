@@ -23,6 +23,7 @@ import * as SqlitePersistence from "./persistence/Layers/Sqlite";
 import { OpenclawGatewayConfigLive } from "./persistence/Layers/OpenclawGatewayConfig";
 import { makeServerProviderLayer, makeServerRuntimeServicesLayer } from "./serverLayers";
 import { ProviderHealthLive } from "./provider/Layers/ProviderHealth";
+import { ProviderRuntimeEventFeedLive } from "./provider/Layers/ProviderRuntimeEventFeed";
 import { Server } from "./wsServer";
 import { ServerLoggerLive } from "./serverLogger";
 import { doctorCmd } from "./doctor";
@@ -195,6 +196,7 @@ const LayerLive = (input: CliInput) =>
   Layer.empty.pipe(
     Layer.provideMerge(makeServerRuntimeServicesLayer()),
     Layer.provideMerge(makeServerProviderLayer()),
+    Layer.provideMerge(ProviderRuntimeEventFeedLive),
     Layer.provideMerge(OpenclawGatewayConfigLive),
     Layer.provideMerge(ProviderHealthLive),
     Layer.provideMerge(SqlitePersistence.layerConfig),

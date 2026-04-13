@@ -99,6 +99,7 @@ function createProviderServiceHarness(
 
   return {
     service,
+    emit: (event: LegacyProviderRuntimeEvent) => event,
     rollbackConversation,
   };
 }
@@ -209,7 +210,7 @@ async function waitForGitRefExists(cwd: string, ref: string, timeoutMs = 15_000)
 
 describe("CheckpointReactor", () => {
   let runtime: ManagedRuntime.ManagedRuntime<
-    OrchestrationEngineService | CheckpointReactor | CheckpointStore,
+    OrchestrationEngineService | CheckpointReactor | CheckpointStore | ProviderRuntimeEventFeed,
     unknown
   > | null = null;
   let scope: Scope.Closeable | null = null;

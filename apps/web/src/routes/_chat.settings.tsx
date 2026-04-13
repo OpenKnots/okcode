@@ -108,7 +108,11 @@ import {
   getSelectableThreadProviders,
   isProviderReadyForThreadSelection,
 } from "../lib/providerAvailability";
-import { serverConfigQueryOptions, serverQueryKeys } from "../lib/serverReactQuery";
+import {
+  openclawGatewayConfigQueryOptions,
+  serverConfigQueryOptions,
+  serverQueryKeys,
+} from "../lib/serverReactQuery";
 import { cn } from "../lib/utils";
 import { ensureNativeApi, readNativeApi } from "../nativeApi";
 import { useStore } from "../store";
@@ -797,6 +801,7 @@ function SettingsRouteView() {
   const { theme, setTheme, colorTheme, setColorTheme, fontFamily, setFontFamily } = useTheme();
   const { settings, defaults, updateSettings, resetSettings } = useAppSettings();
   const serverConfigQuery = useQuery(serverConfigQueryOptions());
+  const openclawGatewayConfigQuery = useQuery(openclawGatewayConfigQueryOptions());
   const queryClient = useQueryClient();
   const trimmedBrowserPreviewStartPageUrl = settings.browserPreviewStartPageUrl.trim();
   const browserPreviewStartPageValidation =
@@ -847,6 +852,12 @@ function SettingsRouteView() {
     null,
   );
   const [openclawTestLoading, setOpenclawTestLoading] = useState(false);
+  const [openclawGatewayDraft, setOpenclawGatewayDraft] = useState<string | null>(null);
+  const [openclawSharedSecretDraft, setOpenclawSharedSecretDraft] = useState("");
+  const [openclawSaveLoading, setOpenclawSaveLoading] = useState(false);
+  const [openclawResetLoading, setOpenclawResetLoading] = useState<"token" | "identity" | null>(
+    null,
+  );
   const { copyToClipboard: copyOpenclawDebugReport, isCopied: openclawDebugReportCopied } =
     useCopyToClipboard();
 
@@ -887,14 +898,21 @@ function SettingsRouteView() {
     CLAUDE_AUTH_TOKEN_HELPER_PRESETS.find(
       (preset) => preset.command === claudeAuthTokenHelperCommand,
     )?.label ?? "";
+  const savedOpenclawGatewayUrl = openclawGatewayConfigQuery.data?.gatewayUrl ?? "";
+  const savedOpenclawHasSharedSecret = openclawGatewayConfigQuery.data?.hasSharedSecret ?? false;
+  const effectiveOpenclawGatewayUrl = openclawGatewayDraft ?? savedOpenclawGatewayUrl;
   const keybindingsConfigPath = serverConfigQuery.data?.keybindingsConfigPath ?? null;
   const availableEditors = serverConfigQuery.data?.availableEditors;
   const providerStatuses = serverConfigQuery.data?.providers ?? [];
   const selectableProviders = getSelectableThreadProviders({
     statuses: providerStatuses,
-    openclawGatewayUrl: settings.openclawGatewayUrl,
+    openclawGatewayUrl: effectiveOpenclawGatewayUrl,
     claudeAuthTokenHelperCommand: settings.claudeAuthTokenHelperCommand,
   });
+  const canImportLegacyOpenclawSettings =
+    openclawGatewayConfigQuery.isSuccess &&
+    !savedOpenclawGatewayUrl &&
+    Boolean(settings.openclawGatewayUrl || settings.openclawPassword);
 
   const gitTextGenerationModelOptions = getAppModelOptions(
     "codex",
@@ -934,8 +952,8 @@ function SettingsRouteView() {
     settings.codexBinaryPath !== defaults.codexBinaryPath ||
     settings.codexHomePath !== defaults.codexHomePath;
   const isOpenClawSettingsDirty =
-    settings.openclawGatewayUrl !== defaults.openclawGatewayUrl ||
-    settings.openclawPassword !== defaults.openclawPassword;
+    (openclawGatewayDraft !== null && openclawGatewayDraft !== savedOpenclawGatewayUrl) ||
+    openclawSharedSecretDraft.length > 0;
   const changedSettingLabels = [
     ...(theme !== "system" ? ["Theme"] : []),
     ...(colorTheme !== DEFAULT_COLOR_THEME ? ["Color theme"] : []),
@@ -1090,9 +1108,11 @@ function SettingsRouteView() {
     setOpenclawTestResult(null);
     try {
       const api = ensureNativeApi();
+      const gatewayUrl = effectiveOpenclawGatewayUrl.trim();
+      const sharedSecret = openclawSharedSecretDraft.trim();
       const result = await api.server.testOpenclawGateway({
-        gatewayUrl: settings.openclawGatewayUrl,
-        password: settings.openclawPassword || undefined,
+        ...(gatewayUrl ? { gatewayUrl } : {}),
+        password: sharedSecret || undefined,
       });
       setOpenclawTestResult(result);
     } catch (err) {
@@ -1105,12 +1125,109 @@ function SettingsRouteView() {
     } finally {
       setOpenclawTestLoading(false);
     }
-  }, [openclawTestLoading, settings.openclawGatewayUrl, settings.openclawPassword]);
+  }, [effectiveOpenclawGatewayUrl, openclawSharedSecretDraft, openclawTestLoading]);
 
   const handleCopyOpenclawDebugReport = useCallback(() => {
     if (!openclawTestResult) return;
     copyOpenclawDebugReport(formatOpenclawGatewayDebugReport(openclawTestResult), undefined);
   }, [copyOpenclawDebugReport, openclawTestResult]);
+
+  const saveOpenclawGatewayConfig = useCallback(async () => {
+    if (openclawSaveLoading) return;
+    const gatewayUrl = effectiveOpenclawGatewayUrl.trim();
+    if (!gatewayUrl) {
+      throw new Error("Gateway URL is required.");
+    }
+
+    setOpenclawSaveLoading(true);
+    try {
+      const api = ensureNativeApi();
+      const sharedSecret = openclawSharedSecretDraft.trim();
+      const summary = await api.server.saveOpenclawGatewayConfig({
+        gatewayUrl,
+        ...(sharedSecret ? { sharedSecret } : {}),
+      });
+      queryClient.setQueryData(serverQueryKeys.openclawGatewayConfig(), summary);
+      setOpenclawGatewayDraft(null);
+      setOpenclawSharedSecretDraft("");
+      setOpenclawTestResult(null);
+    } finally {
+      setOpenclawSaveLoading(false);
+    }
+  }, [effectiveOpenclawGatewayUrl, openclawSaveLoading, openclawSharedSecretDraft, queryClient]);
+
+  const clearSavedOpenclawSharedSecret = useCallback(async () => {
+    const gatewayUrl = effectiveOpenclawGatewayUrl.trim();
+    if (!gatewayUrl) {
+      throw new Error("Gateway URL is required before clearing the saved secret.");
+    }
+
+    setOpenclawSaveLoading(true);
+    try {
+      const api = ensureNativeApi();
+      const summary = await api.server.saveOpenclawGatewayConfig({
+        gatewayUrl,
+        clearSharedSecret: true,
+      });
+      queryClient.setQueryData(serverQueryKeys.openclawGatewayConfig(), summary);
+      setOpenclawSharedSecretDraft("");
+      setOpenclawTestResult(null);
+    } finally {
+      setOpenclawSaveLoading(false);
+    }
+  }, [effectiveOpenclawGatewayUrl, queryClient]);
+
+  const resetOpenclawDeviceState = useCallback(
+    async (regenerateIdentity: boolean) => {
+      if (openclawResetLoading) return;
+      setOpenclawResetLoading(regenerateIdentity ? "identity" : "token");
+      try {
+        const api = ensureNativeApi();
+        const summary = await api.server.resetOpenclawGatewayDeviceState({
+          regenerateIdentity,
+        });
+        queryClient.setQueryData(serverQueryKeys.openclawGatewayConfig(), summary);
+        setOpenclawTestResult(null);
+      } finally {
+        setOpenclawResetLoading(null);
+      }
+    },
+    [openclawResetLoading, queryClient],
+  );
+
+  const importLegacyOpenclawSettings = useCallback(async () => {
+    const gatewayUrl = settings.openclawGatewayUrl.trim();
+    if (!gatewayUrl) {
+      throw new Error("Legacy OpenClaw settings do not contain a gateway URL.");
+    }
+
+    setOpenclawSaveLoading(true);
+    try {
+      const api = ensureNativeApi();
+      const sharedSecret = settings.openclawPassword.trim();
+      const summary = await api.server.saveOpenclawGatewayConfig({
+        gatewayUrl,
+        ...(sharedSecret ? { sharedSecret } : {}),
+      });
+      queryClient.setQueryData(serverQueryKeys.openclawGatewayConfig(), summary);
+      updateSettings({
+        openclawGatewayUrl: defaults.openclawGatewayUrl,
+        openclawPassword: defaults.openclawPassword,
+      });
+      setOpenclawGatewayDraft(null);
+      setOpenclawSharedSecretDraft("");
+      setOpenclawTestResult(null);
+    } finally {
+      setOpenclawSaveLoading(false);
+    }
+  }, [
+    defaults.openclawGatewayUrl,
+    defaults.openclawPassword,
+    queryClient,
+    settings.openclawGatewayUrl,
+    settings.openclawPassword,
+    updateSettings,
+  ]);
 
   const addCustomModel = useCallback(
     (provider: ProviderKind) => {
@@ -2499,7 +2616,7 @@ function SettingsRouteView() {
                               providerStatuses.find((status) => status.provider === provider) ??
                               null
                             }
-                            openclawGatewayUrl={settings.openclawGatewayUrl}
+                            openclawGatewayUrl={effectiveOpenclawGatewayUrl}
                             claudeAuthTokenHelperCommand={settings.claudeAuthTokenHelperCommand}
                           />
                         ))}
@@ -2737,25 +2854,45 @@ function SettingsRouteView() {
                       title="OpenClaw gateway"
                       description="Connect to an OpenClaw gateway for remote agent sessions."
                       status={
-                        settings.openclawGatewayUrl.trim().length > 0
-                          ? `Configured for ${settings.openclawGatewayUrl}`
+                        savedOpenclawGatewayUrl
+                          ? `Saved for ${savedOpenclawGatewayUrl}`
                           : "Not configured"
                       }
                       resetAction={
                         isOpenClawSettingsDirty ? (
                           <SettingResetButton
                             label="OpenClaw gateway"
-                            onClick={() =>
-                              updateSettings({
-                                openclawGatewayUrl: defaults.openclawGatewayUrl,
-                                openclawPassword: defaults.openclawPassword,
-                              })
-                            }
+                            onClick={() => {
+                              setOpenclawGatewayDraft(null);
+                              setOpenclawSharedSecretDraft("");
+                              setOpenclawTestResult(null);
+                            }}
                           />
                         ) : null
                       }
                     >
                       <div className="mt-4 space-y-3">
+                        {canImportLegacyOpenclawSettings ? (
+                          <div className="rounded-md border border-border/70 bg-muted/25 p-3 text-xs text-muted-foreground">
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                              <div>
+                                Legacy local settings were found for OpenClaw. Import them into the
+                                persisted gateway config to unlock saved credentials and device
+                                state.
+                              </div>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={openclawSaveLoading}
+                                onClick={() => {
+                                  void importLegacyOpenclawSettings();
+                                }}
+                              >
+                                Import legacy settings
+                              </Button>
+                            </div>
+                          </div>
+                        ) : null}
                         <label htmlFor="openclaw-gateway-url" className="block">
                           <span className="block text-xs font-medium text-foreground">
                             Gateway URL
@@ -2763,9 +2900,9 @@ function SettingsRouteView() {
                           <Input
                             id="openclaw-gateway-url"
                             className="mt-1"
-                            value={settings.openclawGatewayUrl}
+                            value={effectiveOpenclawGatewayUrl}
                             onChange={(event) => {
-                              updateSettings({ openclawGatewayUrl: event.target.value });
+                              setOpenclawGatewayDraft(event.target.value);
                               setOpenclawTestResult(null);
                             }}
                             placeholder="ws://localhost:8080"
@@ -2778,42 +2915,145 @@ function SettingsRouteView() {
                         </label>
                         <label htmlFor="openclaw-password" className="block">
                           <span className="block text-xs font-medium text-foreground">
-                            Password
+                            Shared secret
                           </span>
                           <Input
                             id="openclaw-password"
                             className="mt-1"
                             type="password"
-                            value={settings.openclawPassword}
+                            value={openclawSharedSecretDraft}
                             onChange={(event) => {
-                              updateSettings({ openclawPassword: event.target.value });
+                              setOpenclawSharedSecretDraft(event.target.value);
                               setOpenclawTestResult(null);
                             }}
-                            placeholder="Shared secret"
+                            placeholder={
+                              savedOpenclawHasSharedSecret
+                                ? "Leave blank to keep the saved secret"
+                                : "Shared secret"
+                            }
                             spellCheck={false}
                             autoComplete="off"
                           />
                           <span className="mt-1 block text-xs text-muted-foreground">
-                            Shared secret used to authenticate with the gateway.
+                            Shared secret used for gateway auth. Leave blank to keep the saved
+                            secret unchanged.
                           </span>
                         </label>
 
+                        <div className="rounded-md border border-border/70 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                          <div>
+                            Saved gateway:{" "}
+                            <span className="font-mono text-foreground">
+                              {savedOpenclawGatewayUrl || "Not saved"}
+                            </span>
+                          </div>
+                          <div className="mt-1">
+                            Saved shared secret:{" "}
+                            <span className="text-foreground">
+                              {savedOpenclawHasSharedSecret ? "Configured" : "Not configured"}
+                            </span>
+                          </div>
+                          <div className="mt-1">
+                            Device fingerprint:{" "}
+                            <span className="font-mono text-foreground">
+                              {openclawGatewayConfigQuery.data?.deviceFingerprint ?? "Not created"}
+                            </span>
+                          </div>
+                          <div className="mt-1">
+                            Cached device token:{" "}
+                            <span className="text-foreground">
+                              {openclawGatewayConfigQuery.data?.hasDeviceToken
+                                ? "Configured"
+                                : "Not configured"}
+                            </span>
+                          </div>
+                        </div>
+
                         <div className="pt-1">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={!settings.openclawGatewayUrl || openclawTestLoading}
-                            onClick={testOpenclawGateway}
-                          >
-                            {openclawTestLoading ? (
-                              <>
-                                <Loader2Icon className="mr-1.5 size-3.5 animate-spin" />
-                                Testing…
-                              </>
-                            ) : (
-                              "Test Connection"
-                            )}
-                          </Button>
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={!effectiveOpenclawGatewayUrl.trim() || openclawSaveLoading}
+                              onClick={() => {
+                                void saveOpenclawGatewayConfig();
+                              }}
+                            >
+                              {openclawSaveLoading ? (
+                                <>
+                                  <Loader2Icon className="mr-1.5 size-3.5 animate-spin" />
+                                  Saving…
+                                </>
+                              ) : (
+                                "Save gateway config"
+                              )}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={
+                                (!effectiveOpenclawGatewayUrl.trim() &&
+                                  !openclawGatewayConfigQuery.data?.gatewayUrl) ||
+                                openclawTestLoading
+                              }
+                              onClick={() => {
+                                void testOpenclawGateway();
+                              }}
+                            >
+                              {openclawTestLoading ? (
+                                <>
+                                  <Loader2Icon className="mr-1.5 size-3.5 animate-spin" />
+                                  Testing…
+                                </>
+                              ) : (
+                                "Test Connection"
+                              )}
+                            </Button>
+                            {savedOpenclawHasSharedSecret ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={
+                                  !effectiveOpenclawGatewayUrl.trim() || openclawSaveLoading
+                                }
+                                onClick={() => {
+                                  void clearSavedOpenclawSharedSecret();
+                                }}
+                              >
+                                Clear saved secret
+                              </Button>
+                            ) : null}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={
+                                !openclawGatewayConfigQuery.data?.gatewayUrl ||
+                                Boolean(openclawResetLoading)
+                              }
+                              onClick={() => {
+                                void resetOpenclawDeviceState(false);
+                              }}
+                            >
+                              {openclawResetLoading === "token"
+                                ? "Resetting token…"
+                                : "Reset token"}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={
+                                !openclawGatewayConfigQuery.data?.gatewayUrl ||
+                                Boolean(openclawResetLoading)
+                              }
+                              onClick={() => {
+                                void resetOpenclawDeviceState(true);
+                              }}
+                            >
+                              {openclawResetLoading === "identity"
+                                ? "Regenerating identity…"
+                                : "Regenerate identity"}
+                            </Button>
+                          </div>
                         </div>
 
                         {openclawTestResult ? (
@@ -2880,6 +3120,177 @@ function SettingsRouteView() {
                                     </div>
                                   </div>
                                 ))}
+                              </div>
+                            ) : null}
+
+                            {openclawTestResult.serverInfo ? (
+                              <div className="mt-2.5 border-t border-border pt-2">
+                                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                                  Server Info
+                                </span>
+                                <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                                  {openclawTestResult.serverInfo.version ? (
+                                    <div>
+                                      Version:{" "}
+                                      <span className="font-mono text-foreground">
+                                        {openclawTestResult.serverInfo.version}
+                                      </span>
+                                    </div>
+                                  ) : null}
+                                  {openclawTestResult.serverInfo.sessionId ? (
+                                    <div>
+                                      Session:{" "}
+                                      <span className="font-mono text-foreground">
+                                        {openclawTestResult.serverInfo.sessionId}
+                                      </span>
+                                    </div>
+                                  ) : null}
+                                </div>
+                              </div>
+                            ) : null}
+
+                            {openclawTestResult.diagnostics ? (
+                              <div className="mt-2.5 border-t border-border pt-2">
+                                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                                  Debugging Context
+                                </span>
+                                <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                                  {openclawTestResult.diagnostics.normalizedUrl ? (
+                                    <div>
+                                      Endpoint:{" "}
+                                      <span className="break-all font-mono text-foreground">
+                                        {openclawTestResult.diagnostics.normalizedUrl}
+                                      </span>
+                                    </div>
+                                  ) : null}
+                                  {openclawTestResult.diagnostics.hostKind ? (
+                                    <div>
+                                      Host type:{" "}
+                                      <span className="text-foreground">
+                                        {describeOpenclawGatewayHostKind(
+                                          openclawTestResult.diagnostics.hostKind,
+                                        )}
+                                      </span>
+                                    </div>
+                                  ) : null}
+                                  {openclawTestResult.diagnostics.resolvedAddresses.length > 0 ? (
+                                    <div>
+                                      Resolved:{" "}
+                                      <span className="break-all font-mono text-foreground">
+                                        {openclawTestResult.diagnostics.resolvedAddresses.join(
+                                          ", ",
+                                        )}
+                                      </span>
+                                    </div>
+                                  ) : null}
+                                  {describeOpenclawGatewayHealthStatus(openclawTestResult) ? (
+                                    <div>
+                                      Health probe:{" "}
+                                      <span className="text-foreground">
+                                        {describeOpenclawGatewayHealthStatus(openclawTestResult)}
+                                      </span>
+                                      {openclawTestResult.diagnostics.healthUrl ? (
+                                        <>
+                                          {" "}
+                                          at{" "}
+                                          <span className="break-all font-mono text-foreground">
+                                            {openclawTestResult.diagnostics.healthUrl}
+                                          </span>
+                                        </>
+                                      ) : null}
+                                    </div>
+                                  ) : null}
+                                  {openclawTestResult.diagnostics.socketCloseCode !== undefined ? (
+                                    <div>
+                                      Socket close:{" "}
+                                      <span className="text-foreground">
+                                        {openclawTestResult.diagnostics.socketCloseCode}
+                                        {openclawTestResult.diagnostics.socketCloseReason
+                                          ? ` (${openclawTestResult.diagnostics.socketCloseReason})`
+                                          : ""}
+                                      </span>
+                                    </div>
+                                  ) : null}
+                                  {openclawTestResult.diagnostics.socketError ? (
+                                    <div>
+                                      Socket error:{" "}
+                                      <span className="break-all text-foreground">
+                                        {openclawTestResult.diagnostics.socketError}
+                                      </span>
+                                    </div>
+                                  ) : null}
+                                  {openclawTestResult.diagnostics.gatewayErrorCode ? (
+                                    <div>
+                                      Gateway error code:{" "}
+                                      <span className="break-all font-mono text-foreground">
+                                        {openclawTestResult.diagnostics.gatewayErrorCode}
+                                      </span>
+                                    </div>
+                                  ) : null}
+                                  {openclawTestResult.diagnostics.gatewayErrorDetailCode ? (
+                                    <div>
+                                      Gateway detail code:{" "}
+                                      <span className="break-all font-mono text-foreground">
+                                        {openclawTestResult.diagnostics.gatewayErrorDetailCode}
+                                      </span>
+                                    </div>
+                                  ) : null}
+                                  {openclawTestResult.diagnostics.gatewayErrorDetailReason ? (
+                                    <div>
+                                      Gateway detail reason:{" "}
+                                      <span className="break-all font-mono text-foreground">
+                                        {openclawTestResult.diagnostics.gatewayErrorDetailReason}
+                                      </span>
+                                    </div>
+                                  ) : null}
+                                  {openclawTestResult.diagnostics.gatewayRecommendedNextStep ? (
+                                    <div>
+                                      Gateway next step:{" "}
+                                      <span className="break-all font-mono text-foreground">
+                                        {openclawTestResult.diagnostics.gatewayRecommendedNextStep}
+                                      </span>
+                                    </div>
+                                  ) : null}
+                                  {openclawTestResult.diagnostics.gatewayCanRetryWithDeviceToken !==
+                                  undefined ? (
+                                    <div>
+                                      Device-token retry available:{" "}
+                                      <span className="text-foreground">
+                                        {openclawTestResult.diagnostics
+                                          .gatewayCanRetryWithDeviceToken
+                                          ? "Yes"
+                                          : "No"}
+                                      </span>
+                                    </div>
+                                  ) : null}
+                                  {openclawTestResult.diagnostics.observedNotifications.length >
+                                  0 ? (
+                                    <div>
+                                      Gateway events:{" "}
+                                      <span className="break-all font-mono text-foreground">
+                                        {openclawTestResult.diagnostics.observedNotifications.join(
+                                          ", ",
+                                        )}
+                                      </span>
+                                    </div>
+                                  ) : null}
+                                </div>
+                              </div>
+                            ) : null}
+
+                            {openclawTestResult.diagnostics?.hints.length ? (
+                              <div className="mt-2.5 border-t border-border pt-2">
+                                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                                  Troubleshooting
+                                </span>
+                                <ul className="mt-1 space-y-1 text-xs text-muted-foreground">
+                                  {openclawTestResult.diagnostics.hints.map((hint) => (
+                                    <li key={hint} className="flex gap-2">
+                                      <span className="mt-[6px] size-1 shrink-0 rounded-full bg-muted-foreground/60" />
+                                      <span>{hint}</span>
+                                    </li>
+                                  ))}
+                                </ul>
                               </div>
                             ) : null}
 

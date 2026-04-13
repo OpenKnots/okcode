@@ -1616,7 +1616,6 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
           gatewayUrl: resolvedConfig.gatewayUrl,
           password: body.password ?? resolvedConfig.sharedSecret,
         });
-        yield* publishServerConfigUpdated();
         return result;
       }
 

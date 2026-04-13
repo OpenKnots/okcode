@@ -30,6 +30,15 @@ describe("PreviewPanel", () => {
     expect(hasBlockingPreviewOverlay(root)).toBe(true);
   });
 
+  it("treats error notifications as blocking overlays", () => {
+    const root = {
+      querySelector: (selector: string) =>
+        selector.includes('[data-slot="error-notification-bar"]') ? {} : null,
+    } as unknown as ParentNode;
+
+    expect(hasBlockingPreviewOverlay(root)).toBe(true);
+  });
+
   it("ignores empty overlay containers", () => {
     const root = {
       querySelector: () => null,

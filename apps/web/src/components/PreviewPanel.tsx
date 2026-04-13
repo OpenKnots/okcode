@@ -71,6 +71,7 @@ const POPUP_POSITIONER_SELECTOR = [
   '[data-slot="select-positioner"]',
   '[data-slot="combobox-positioner"]',
   '[data-slot="autocomplete-positioner"]',
+  '[data-slot="error-notification-bar"]',
   '[data-slot="toast-viewport"]:not(:empty)',
   '[data-slot="toast-viewport-anchored"]:not(:empty)',
   '[data-slot="toast-positioner"]:not(:empty)',
@@ -445,7 +446,7 @@ export function PreviewPanel({ projectId, threadId, onClose }: PreviewPanelProps
   const isFavorite = currentPageUrl !== null && favoriteUrls.includes(currentPageUrl);
 
   return (
-    <div className="flex h-full min-w-0 flex-col bg-background">
+    <div className="relative isolate flex h-full min-w-0 flex-col overflow-hidden bg-background">
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2 border-b border-border/60 px-3 py-2">
         <div className="flex items-center gap-2">

@@ -47,15 +47,13 @@ describe("createSnapshotSyncManager", () => {
   });
 
   it("coalesces overlapping sync requests and reruns once after success", async () => {
-    let resolveFetch: ((snapshot: OrchestrationReadModel) => void) | null = null;
+    let releaseFirstFetch!: (snapshot: OrchestrationReadModel) => void;
+    const firstFetchPromise = new Promise<OrchestrationReadModel>((resolve) => {
+      releaseFirstFetch = resolve;
+    });
     const fetchSnapshot = vi
       .fn<() => Promise<OrchestrationReadModel>>()
-      .mockImplementation(
-        () =>
-          new Promise<OrchestrationReadModel>((resolve) => {
-            resolveFetch = resolve;
-          }),
-      )
+      .mockImplementationOnce(() => firstFetchPromise)
       .mockResolvedValueOnce(makeSnapshot(2));
     const applySnapshot = vi.fn();
     const manager = createSnapshotSyncManager({
@@ -69,7 +67,7 @@ describe("createSnapshotSyncManager", () => {
     expect(fetchSnapshot).toHaveBeenCalledTimes(1);
     expect(firstSync).toBe(secondSync);
 
-    resolveFetch?.(makeSnapshot(1));
+    releaseFirstFetch(makeSnapshot(1));
     await firstSync;
     await Promise.resolve();
 

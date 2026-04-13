@@ -68,6 +68,14 @@ export const PrReviewStatusCheck = Schema.Struct({
 });
 export type PrReviewStatusCheck = typeof PrReviewStatusCheck.Type;
 
+export const PrReviewHistoryEntry = Schema.Struct({
+  authorLogin: TrimmedNonEmptyString,
+  state: TrimmedNonEmptyString,
+  body: Schema.String,
+  submittedAt: Schema.String,
+});
+export type PrReviewHistoryEntry = typeof PrReviewHistoryEntry.Type;
+
 export const PrReviewComment = Schema.Struct({
   id: TrimmedNonEmptyString,
   databaseId: Schema.NullOr(PositiveInt),
@@ -227,14 +235,7 @@ export const PrReviewSummary = Schema.Struct({
   statusChecks: Schema.Array(PrReviewStatusCheck),
   participants: Schema.Array(PrReviewParticipant),
   reviewRequests: Schema.Array(PrReviewParticipant),
-  recentReviews: Schema.Array(
-    Schema.Struct({
-      authorLogin: TrimmedNonEmptyString,
-      state: TrimmedNonEmptyString,
-      body: Schema.String,
-      submittedAt: Schema.String,
-    }),
-  ),
+  recentReviews: Schema.Array(PrReviewHistoryEntry),
   totalThreadCount: NonNegativeInt,
   unresolvedThreadCount: NonNegativeInt,
   headSha: Schema.NullOr(TrimmedNonEmptyString),

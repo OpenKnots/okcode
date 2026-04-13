@@ -2,15 +2,7 @@ import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { initCustomTheme } from "../lib/customTheme";
 
 type Theme = "light" | "dark" | "system";
-type ColorTheme =
-  | "default"
-  | "iridescent-void"
-  | "solar-witch"
-  | "carbon"
-  | "vapor"
-  | "cathedral-circuit"
-  | "cotton-candy"
-  | "custom";
+type ColorTheme = "default" | "iridescent-void" | "carbon" | "cotton-candy" | "custom";
 
 type FontFamily = "dm-sans" | "inter" | "plus-jakarta-sans";
 
@@ -24,10 +16,7 @@ type ThemeSnapshot = {
 export const COLOR_THEMES: { id: ColorTheme; label: string }[] = [
   { id: "default", label: "Default" },
   { id: "iridescent-void", label: "Iridescent Void" },
-  { id: "solar-witch", label: "Solar Witch" },
   { id: "carbon", label: "Carbon" },
-  { id: "vapor", label: "Vapor" },
-  { id: "cathedral-circuit", label: "Cathedral Circuit" },
   { id: "cotton-candy", label: "Cotton Candy" },
   { id: "custom", label: "Custom" },
 ];
@@ -73,10 +62,7 @@ function getStoredColorTheme(): ColorTheme {
   if (
     raw === "default" ||
     raw === "iridescent-void" ||
-    raw === "solar-witch" ||
     raw === "carbon" ||
-    raw === "vapor" ||
-    raw === "cathedral-circuit" ||
     raw === "cotton-candy" ||
     raw === "custom"
   ) {

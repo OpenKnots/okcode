@@ -137,18 +137,6 @@ const themes: ThemeDef[] = [
     foreground: hexToRgb("#e8e4f0"),
   },
   {
-    name: "Solar Witch Light",
-    primary: oklchToRgb(0.62, 0.18, 55),
-    background: hexToRgb("#faf5ee"),
-    foreground: hexToRgb("#2d2118"),
-  },
-  {
-    name: "Solar Witch Dark",
-    primary: oklchToRgb(0.72, 0.17, 60),
-    background: hexToRgb("#120e0a"),
-    foreground: hexToRgb("#f0e6d6"),
-  },
-  {
     name: "Cursor Dark Light",
     primary: oklchToRgb(0.55, 0.18, 260),
     background: hexToRgb("#f5f5f5"),
@@ -159,18 +147,6 @@ const themes: ThemeDef[] = [
     primary: oklchToRgb(0.68, 0.16, 260),
     background: hexToRgb("#181818"),
     foreground: hexToRgb("#cccccc"),
-  },
-  {
-    name: "Cathedral Circuit Light",
-    primary: oklchToRgb(0.48, 0.2, 260),
-    background: hexToRgb("#f2f0ed"),
-    foreground: hexToRgb("#1c1a18"),
-  },
-  {
-    name: "Cathedral Circuit Dark",
-    primary: oklchToRgb(0.62, 0.2, 260),
-    background: hexToRgb("#121214"),
-    foreground: hexToRgb("#dcd8d2"),
   },
 ];
 
@@ -420,7 +396,7 @@ describe("WCAG selection contrast ratios", () => {
 
       it("selection is perceivable (selection bg vs page bg ≥ 1.9:1)", () => {
         const ratio = contrastRatio(selBgLum, bgLum);
-        // Warm-on-warm themes (e.g. Solar Witch amber on cream) have
+        // Warm-on-warm themes can have
         // inherently lower perceived contrast at the default 55%
         // opacity.  The forced-colors and prefers-contrast: more media
         // queries provide fallbacks for those users.  We enforce a

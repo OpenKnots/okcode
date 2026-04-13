@@ -71,6 +71,8 @@ describe("getProviderStartOptions", () => {
         claudeAuthTokenHelperCommand: "op read op://shared/anthropic/token --no-newline",
         codexBinaryPath: "",
         codexHomePath: "",
+        copilotBinaryPath: "",
+        copilotConfigDir: "",
         openclawGatewayUrl: "",
         openclawPassword: "",
       }),

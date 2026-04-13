@@ -13,6 +13,7 @@ import {
   SunIcon,
   GitBranchIcon,
   GitMergeIcon,
+  GitPullRequestIcon,
   SearchIcon,
   KeyboardIcon,
 } from "lucide-react";
@@ -220,6 +221,17 @@ function CommandsView() {
       onSelect: () => {
         closePalette();
         void navigate({ to: "/skills", search: { create: undefined, name: undefined } });
+      },
+    });
+    cmds.push({
+      id: "nav-pr-review",
+      label: "Open PR Review",
+      keywords: ["pr review", "pull request", "review", "github", "maintainer"],
+      icon: GitPullRequestIcon,
+      group: "Navigation",
+      onSelect: () => {
+        closePalette();
+        void navigate({ to: "/pr-review" });
       },
     });
 

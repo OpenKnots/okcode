@@ -339,16 +339,20 @@ export const OpenclawGatewayConfigLive = Layer.effect(
           : input.sharedSecret?.trim() !== undefined && input.sharedSecret.trim().length > 0
             ? input.sharedSecret.trim()
             : existing?.sharedSecret;
-        const generatedIdentity = fromGeneratedIdentity(generateOpenclawDeviceIdentity());
-        const identity = existing ?? {
-          ...generatedIdentity,
-          deviceToken: undefined,
-          deviceTokenRole: undefined,
-          deviceTokenScopes: [],
-          updatedAt: new Date().toISOString(),
-          gatewayUrl: input.gatewayUrl,
-          sharedSecret,
-        };
+        const identity =
+          existing ??
+          (() => {
+            const generatedIdentity = fromGeneratedIdentity(generateOpenclawDeviceIdentity());
+            return {
+              ...generatedIdentity,
+              deviceToken: undefined,
+              deviceTokenRole: undefined,
+              deviceTokenScopes: [],
+              updatedAt: new Date().toISOString(),
+              gatewayUrl: input.gatewayUrl,
+              sharedSecret,
+            };
+          })();
         const nextConfig = makeStoredConfig({
           gatewayUrl: input.gatewayUrl,
           sharedSecret,

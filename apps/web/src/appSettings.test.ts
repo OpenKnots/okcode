@@ -3,11 +3,13 @@ import { describe, expect, it } from "vitest";
 
 import {
   AppSettingsSchema,
+  DEFAULT_BROWSER_PREVIEW_START_PAGE_URL,
   DEFAULT_PR_REVIEW_REQUEST_CHANGES_TONE,
   DEFAULT_SIDEBAR_FONT_SIZE,
   DEFAULT_SIDEBAR_PROJECT_ROW_HEIGHT,
   DEFAULT_SIDEBAR_SPACING,
   DEFAULT_SIDEBAR_THREAD_ROW_HEIGHT,
+  resolveBrowserPreviewStartPageUrl,
 } from "./appSettings";
 
 describe("AppSettingsSchema", () => {
@@ -22,6 +24,7 @@ describe("AppSettingsSchema", () => {
 
     expect(settings.showNotificationDetails).toBe(false);
     expect(settings.includeDiagnosticsTipsInCopy).toBe(false);
+    expect(settings.browserPreviewStartPageUrl).toBe("");
   });
 
   it("defaults sidebar appearance controls", () => {
@@ -55,5 +58,21 @@ describe("AppSettingsSchema", () => {
     const settings = Schema.decodeUnknownSync(AppSettingsSchema)({});
 
     expect(settings.prReviewRequestChangesTone).toBe(DEFAULT_PR_REVIEW_REQUEST_CHANGES_TONE);
+  });
+});
+
+describe("resolveBrowserPreviewStartPageUrl", () => {
+  it("falls back to the default start page for blank or invalid values", () => {
+    expect(resolveBrowserPreviewStartPageUrl("")).toBe(DEFAULT_BROWSER_PREVIEW_START_PAGE_URL);
+    expect(resolveBrowserPreviewStartPageUrl("not-a-url")).toBe(
+      DEFAULT_BROWSER_PREVIEW_START_PAGE_URL,
+    );
+  });
+
+  it("normalizes valid http and https URLs", () => {
+    expect(resolveBrowserPreviewStartPageUrl(" https://example.com ")).toBe("https://example.com/");
+    expect(resolveBrowserPreviewStartPageUrl("http://localhost:3000/path")).toBe(
+      "http://localhost:3000/path",
+    );
   });
 });

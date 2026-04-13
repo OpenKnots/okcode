@@ -313,6 +313,16 @@ const make = Effect.gen(function* () {
       });
     }
     if (
+      options?.modelSelection !== undefined &&
+      getModelSelectionProvider(options.modelSelection) !== threadProvider
+    ) {
+      return yield* new ProviderAdapterRequestError({
+        provider: threadProvider,
+        method: "thread.turn.start",
+        detail: `Thread '${threadId}' is bound to provider '${threadProvider}' and cannot use model selection for '${getModelSelectionProvider(options.modelSelection)}'.`,
+      });
+    }
+    if (
       options?.model !== undefined &&
       getModelSelectionProvider(requestedSelection) !== threadProvider
     ) {

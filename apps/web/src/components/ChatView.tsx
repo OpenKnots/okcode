@@ -24,7 +24,7 @@ import {
   RuntimeMode,
 } from "@okcode/contracts";
 import { applyClaudePromptEffortPrefix, getDefaultModel } from "@okcode/shared/model";
-import { getModelSelectionModel, getModelSelectionOptions } from "@okcode/shared/modelSelection";
+import { getModelSelectionModel, getModelSelectionOptions, modelSelectionsAreEqual } from "@okcode/shared/modelSelection";
 import {
   Suspense,
   lazy,
@@ -2266,7 +2266,7 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
 
       if (
         input.modelSelection !== undefined &&
-        JSON.stringify(input.modelSelection) !== JSON.stringify(serverThread.modelSelection ?? null)
+        !modelSelectionsAreEqual(input.modelSelection, serverThread.modelSelection ?? null)
       ) {
         await api.orchestration.dispatchCommand({
           type: "thread.meta.update",

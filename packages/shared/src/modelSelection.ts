@@ -64,6 +64,27 @@ export function getModelSelectionOptions(
   return { [selection.provider]: selection.options } as ProviderModelOptions;
 }
 
+export function modelSelectionsAreEqual(
+  a: ModelSelection | null | undefined,
+  b: ModelSelection | null | undefined,
+): boolean {
+  if (a == null && b == null) return true;
+  if (a == null || b == null) return false;
+  if (a.provider !== b.provider || a.model !== b.model) return false;
+  const aOpts = a.options ?? null;
+  const bOpts = b.options ?? null;
+  if (aOpts === null && bOpts === null) return true;
+  if (aOpts === null || bOpts === null) return false;
+  const aKeys = Object.keys(aOpts).sort();
+  const bKeys = Object.keys(bOpts).sort();
+  if (aKeys.length !== bKeys.length) return false;
+  return aKeys.every(
+    (k) =>
+      bKeys.includes(k) &&
+      (aOpts as Record<string, unknown>)[k] === (bOpts as Record<string, unknown>)[k],
+  );
+}
+
 export function normalizeModelSelectionWithCapabilities(
   selection: ModelSelection,
   models: ReadonlyArray<SelectableModel>,

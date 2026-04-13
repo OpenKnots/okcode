@@ -14,7 +14,9 @@ import {
 
 const ProjectionThreadDbRowSchema = ProjectionThread.mapFields(
   Struct.assign({
-    modelSelection: Schema.fromJsonString(ProjectionThread.fields.modelSelection),
+    modelSelection: Schema.NullOr(
+      Schema.fromJsonString(ProjectionThread.fields.modelSelection),
+    ),
   }),
 );
 
@@ -136,7 +138,10 @@ const makeProjectionThreadRepository = Effect.gen(function* () {
   });
 
   const upsert: ProjectionThreadRepositoryShape["upsert"] = (row) =>
-    upsertProjectionThreadRow(row).pipe(
+    upsertProjectionThreadRow({
+      ...row,
+      modelSelection: row.modelSelection ?? null,
+    }).pipe(
       Effect.mapError(toPersistenceSqlError("ProjectionThreadRepository.upsert:query")),
     );
 

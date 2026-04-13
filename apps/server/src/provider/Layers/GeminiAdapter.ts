@@ -159,7 +159,7 @@ const makeGeminiAdapter = Effect.gen(function* () {
         nextModel,
         "--sandbox",
         "--approval-mode",
-        "yolo",
+        existing.session.runtimeMode === "full-access" ? "yolo" : "suggest",
       ];
       if (existing.resumeId) {
         args.push("--resume", existing.resumeId);

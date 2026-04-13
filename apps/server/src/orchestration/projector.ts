@@ -219,7 +219,15 @@ export function projectEvent(
                     : {}),
                   ...(payload.defaultModelSelection !== undefined
                     ? { defaultModelSelection: payload.defaultModelSelection }
-                    : {}),
+                    : payload.defaultModel !== undefined
+                      ? {
+                          defaultModelSelection: toCanonicalModelSelection(
+                            inferProviderForModel(payload.defaultModel),
+                            payload.defaultModel,
+                            undefined,
+                          ),
+                        }
+                      : {}),
                   ...(payload.scripts !== undefined ? { scripts: payload.scripts } : {}),
                   updatedAt: payload.updatedAt,
                 }

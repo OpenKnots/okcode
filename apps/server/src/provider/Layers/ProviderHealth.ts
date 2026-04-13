@@ -993,7 +993,7 @@ const checkOpenClawProviderStatus: Effect.Effect<
         return createServerProviderStatus({
           provider: OPENCLAW_PROVIDER,
           enabled: true,
-          installed: false,
+          installed: true,
           version: null,
           status: "error" as const,
           auth: { status: "unauthenticated" as const },
@@ -1007,7 +1007,7 @@ const checkOpenClawProviderStatus: Effect.Effect<
   return createServerProviderStatus({
     provider: OPENCLAW_PROVIDER,
     enabled: true,
-    installed: false,
+    installed: true,
     version: null,
     status: "warning" as const,
     auth: { status: "unknown" as const },

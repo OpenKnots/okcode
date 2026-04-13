@@ -122,37 +122,6 @@
   --warning: #fbbf24;
   --warning-foreground: #fcd34d;
 }
-/* ─── Solar Witch ─── mystical, radiant, high-contrast sunset magic ─── */
-
-:root.theme-solar-witch {
-  color-scheme: light;
-  --background: #fff7ed;
-  --foreground: #3b0764;
-  --card: #ffedd5;
-  --card-foreground: #3b0764;
-  --popover: #fff7ed;
-  --popover-foreground: #3b0764;
-  --primary: oklch(0.68 0.23 35);
-  --primary-foreground: #ffffff;
-  --secondary: rgba(251, 146, 60, 0.12);
-  --secondary-foreground: #7c2d12;
-  --muted: rgba(245, 158, 11, 0.12);
-  --muted-foreground: #9a3412;
-  --accent: rgba(236, 72, 153, 0.12);
-  --accent-foreground: #831843;
-  --destructive: #dc2626;
-  --destructive-foreground: #b91c1c;
-  --border: rgba(234, 88, 12, 0.18);
-  --input: rgba(234, 88, 12, 0.14);
-  --ring: oklch(0.68 0.23 35);
-  --info: #7c3aed;
-  --info-foreground: #6d28d9;
-  --success: #16a34a;
-  --success-foreground: #15803d;
-  --warning: #f59e0b;
-  --warning-foreground: #b45309;
-}
-
 :root.theme-solar-witch.dark {
   color-scheme: dark;
   --background: #140b1f;

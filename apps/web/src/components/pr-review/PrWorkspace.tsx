@@ -77,6 +77,34 @@ export function PrWorkspace({
     [dashboard?.pullRequest.number, patch],
   );
 
+  const threadsByPath = useMemo<Record<string, PrReviewThread[]>>(() => {
+    if (!dashboard) return {};
+    return dashboard.threads.reduce<Record<string, PrReviewThread[]>>((acc, thread) => {
+      if (!thread.path) return acc;
+      if (!acc[thread.path]) acc[thread.path] = [];
+      acc[thread.path]!.push(thread);
+      return acc;
+    }, {});
+  }, [dashboard]);
+
+  const patchFiles = useMemo(
+    () => (renderablePatch?.kind === "files" ? renderablePatch.files : []),
+    [renderablePatch],
+  );
+
+  const visibleFiles = useMemo(
+    () =>
+      fileViewMode === "single" && selectedFilePath
+        ? patchFiles.filter((file) => resolveFileDiffPath(file) === selectedFilePath)
+        : patchFiles,
+    [fileViewMode, patchFiles, selectedFilePath],
+  );
+
+  const renderedFiles = useMemo(
+    () => visibleFiles.map(withInferredFileDiffLanguage),
+    [visibleFiles],
+  );
+
   if (!dashboard) {
     return (
       <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
@@ -84,28 +112,6 @@ export function PrWorkspace({
       </div>
     );
   }
-
-  const threadsByPath = dashboard.threads.reduce<Record<string, PrReviewThread[]>>(
-    (acc, thread) => {
-      if (!thread.path) return acc;
-      if (!acc[thread.path]) acc[thread.path] = [];
-      acc[thread.path]!.push(thread);
-      return acc;
-    },
-    {},
-  );
-
-  const patchFiles = renderablePatch?.kind === "files" ? renderablePatch.files : [];
-
-  // In single-file mode, filter to just the selected file
-  const visibleFiles =
-    fileViewMode === "single" && selectedFilePath
-      ? patchFiles.filter((f) => resolveFileDiffPath(f) === selectedFilePath)
-      : patchFiles;
-  const renderedFiles = useMemo(
-    () => visibleFiles.map(withInferredFileDiffLanguage),
-    [visibleFiles],
-  );
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-[radial-gradient(circle_at_top,_color-mix(in_srgb,var(--background)_86%,var(--foreground))_0%,transparent_54%)]">

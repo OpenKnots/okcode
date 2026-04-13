@@ -122,37 +122,6 @@
   --warning: #fbbf24;
   --warning-foreground: #fcd34d;
 }
-/* ─── Solar Witch ─── mystical, radiant, high-contrast sunset magic ─── */
-
-:root.theme-solar-witch {
-  color-scheme: light;
-  --background: #fff7ed;
-  --foreground: #3b0764;
-  --card: #ffedd5;
-  --card-foreground: #3b0764;
-  --popover: #fff7ed;
-  --popover-foreground: #3b0764;
-  --primary: oklch(0.68 0.23 35);
-  --primary-foreground: #ffffff;
-  --secondary: rgba(251, 146, 60, 0.12);
-  --secondary-foreground: #7c2d12;
-  --muted: rgba(245, 158, 11, 0.12);
-  --muted-foreground: #9a3412;
-  --accent: rgba(236, 72, 153, 0.12);
-  --accent-foreground: #831843;
-  --destructive: #dc2626;
-  --destructive-foreground: #b91c1c;
-  --border: rgba(234, 88, 12, 0.18);
-  --input: rgba(234, 88, 12, 0.14);
-  --ring: oklch(0.68 0.23 35);
-  --info: #7c3aed;
-  --info-foreground: #6d28d9;
-  --success: #16a34a;
-  --success-foreground: #15803d;
-  --warning: #f59e0b;
-  --warning-foreground: #b45309;
-}
-
 :root.theme-solar-witch.dark {
   color-scheme: dark;
   --background: #140b1f;
@@ -302,116 +271,64 @@
   --warning-foreground: #e8b830;
 }
 
-/* ─── Cotton Candy ─── warm paper light, neon candy dark ─── */
+/* ─── Cotton Candy ─── sweet, dreamy pink & blue ─── */
 
 :root.theme-cotton-candy {
   color-scheme: light;
-  --background: rgb(249, 249, 249);
-  --foreground: rgb(32, 32, 32);
-  --card: rgb(252, 252, 252);
-  --card-foreground: rgb(32, 32, 32);
-  --popover: rgb(252, 252, 252);
-  --popover-foreground: rgb(32, 32, 32);
-  --primary: rgb(107, 71, 57);
-  --primary-foreground: rgb(255, 255, 255);
-  --secondary: rgb(255, 223, 181);
-  --secondary-foreground: rgb(100, 40, 17);
-  --muted: rgb(239, 239, 239);
-  --muted-foreground: rgb(100, 100, 100);
-  --accent: rgb(232, 232, 232);
-  --accent-foreground: rgb(32, 32, 32);
-  --destructive: rgb(255, 60, 20);
-  --destructive-foreground: rgb(255, 255, 255);
-  --border: rgb(216, 216, 216);
-  --input: rgb(216, 216, 216);
-  --ring: rgb(107, 71, 57);
-  --chart-1: rgb(107, 71, 57);
-  --chart-2: rgb(255, 223, 181);
-  --chart-3: rgb(232, 232, 232);
-  --chart-4: rgb(255, 230, 196);
-  --chart-5: rgb(110, 69, 54);
-  --sidebar: rgb(251, 251, 251);
-  --sidebar-foreground: rgb(37, 37, 37);
-  --sidebar-primary: rgb(52, 52, 52);
-  --sidebar-primary-foreground: rgb(251, 251, 251);
-  --sidebar-accent: rgb(247, 247, 247);
-  --sidebar-accent-foreground: rgb(52, 52, 52);
-  --sidebar-border: rgb(235, 235, 235);
-  --sidebar-ring: rgb(181, 181, 181);
-  --font-sans: Oxanium, sans-serif;
-  --font-serif: "Space Grotesk", serif;
-  --font-mono: Oxanium, sans-serif;
-  --radius: 0.6rem;
-  --shadow-x: 0;
-  --shadow-y: 1px;
-  --shadow-blur: 3px;
-  --shadow-spread: 0px;
-  --shadow-opacity: 0.1;
-  --shadow-color: oklch(0 0 0);
-  --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
-  --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
-  --shadow-sm: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
-  --shadow: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
-  --shadow-md: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 2px 4px -1px hsl(0 0% 0% / 0.1);
-  --shadow-lg: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 4px 6px -1px hsl(0 0% 0% / 0.1);
-  --shadow-xl: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 8px 10px -1px hsl(0 0% 0% / 0.1);
-  --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
-  --tracking-normal: 0em;
-  --spacing: 0.2rem;
+  --background: #fdf6f9;
+  --foreground: #2a1f2e;
+  --card: #fceef5;
+  --card-foreground: #2a1f2e;
+  --popover: #fceef5;
+  --popover-foreground: #2a1f2e;
+  --primary: oklch(0.72 0.14 350);
+  --primary-foreground: #ffffff;
+  --secondary: rgba(248, 185, 215, 0.12);
+  --secondary-foreground: #2a1f2e;
+  --muted: rgba(160, 210, 248, 0.1);
+  --muted-foreground: #8a7e94;
+  --accent: rgba(150, 212, 252, 0.14);
+  --accent-foreground: #2a1f2e;
+  --destructive: #e85475;
+  --destructive-foreground: #d03058;
+  --border: rgba(248, 180, 215, 0.2);
+  --input: rgba(248, 180, 215, 0.22);
+  --ring: oklch(0.72 0.14 350);
+  --info: #7ec8ee;
+  --info-foreground: #5aaedb;
+  --success: #6cc4a0;
+  --success-foreground: #4aaa82;
+  --warning: #f5baca;
+  --warning-foreground: #d8929e;
 }
 
 :root.theme-cotton-candy.dark {
   color-scheme: dark;
-  --background: rgb(13, 13, 13);
-  --foreground: rgb(237, 237, 237);
-  --card: rgb(28, 28, 28);
-  --card-foreground: rgb(238, 238, 238);
-  --popover: rgb(26, 26, 26);
-  --popover-foreground: rgb(238, 238, 238);
-  --primary: rgb(255, 178, 238);
-  --primary-foreground: rgb(45, 6, 45);
-  --secondary: rgb(60, 37, 55);
-  --secondary-foreground: rgb(254, 194, 255);
-  --muted: rgb(28, 28, 28);
-  --muted-foreground: rgb(181, 181, 181);
-  --accent: rgb(13, 13, 13);
-  --accent-foreground: rgb(237, 237, 237);
-  --destructive: rgb(255, 60, 20);
-  --destructive-foreground: rgb(255, 255, 255);
-  --border: rgb(34, 22, 33);
-  --input: rgb(71, 71, 71);
-  --ring: rgb(255, 194, 244);
-  --chart-1: rgb(255, 194, 244);
-  --chart-2: rgb(60, 37, 56);
-  --chart-3: rgb(41, 41, 41);
-  --chart-4: rgb(70, 42, 65);
-  --chart-5: rgb(255, 194, 247);
-  --sidebar: rgb(23, 23, 28);
-  --sidebar-foreground: rgb(245, 244, 245);
-  --sidebar-primary: rgb(245, 0, 143);
-  --sidebar-primary-foreground: rgb(255, 255, 255);
-  --sidebar-accent: rgb(43, 38, 43);
-  --sidebar-accent-foreground: rgb(245, 244, 245);
-  --sidebar-border: rgb(43, 38, 43);
-  --sidebar-ring: rgb(217, 211, 216);
-  --font-sans: Oxanium, sans-serif;
-  --font-serif: "Space Grotesk", serif;
-  --font-mono: Oxanium, sans-serif;
-  --radius: 0.6rem;
-  --shadow-x: 0;
-  --shadow-y: 1px;
-  --shadow-blur: 3px;
-  --shadow-spread: 0px;
-  --shadow-opacity: 0.1;
-  --shadow-color: oklch(0 0 0);
-  --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
-  --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
-  --shadow-sm: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
-  --shadow: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
-  --shadow-md: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 2px 4px -1px hsl(0 0% 0% / 0.1);
-  --shadow-lg: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 4px 6px -1px hsl(0 0% 0% / 0.1);
-  --shadow-xl: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 8px 10px -1px hsl(0 0% 0% / 0.1);
-  --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
+  --background: #170e1a;
+  --foreground: #f4e8f2;
+  --card: #1e1222;
+  --card-foreground: #f4e8f2;
+  --popover: #1e1222;
+  --popover-foreground: #f4e8f2;
+  --primary: oklch(0.75 0.14 350);
+  --primary-foreground: #170e1a;
+  --secondary: rgba(250, 170, 210, 0.08);
+  --secondary-foreground: #f4e8f2;
+  --muted: rgba(150, 210, 250, 0.08);
+  --muted-foreground: #a090aa;
+  --accent: rgba(150, 215, 255, 0.1);
+  --accent-foreground: #f4e8f2;
+  --destructive: #ff6b8a;
+  --destructive-foreground: #ff95aa;
+  --border: rgba(250, 170, 215, 0.1);
+  --input: rgba(250, 170, 215, 0.12);
+  --ring: oklch(0.75 0.14 350);
+  --info: #8ed4f5;
+  --info-foreground: #aee0f8;
+  --success: #7dd4b0;
+  --success-foreground: #90e0c0;
+  --warning: #f5bfcc;
+  --warning-foreground: #f8cdd8;
 }
 
 /* ─── Cathedral Circuit ─── sacred machine, techno-gothic ─── */

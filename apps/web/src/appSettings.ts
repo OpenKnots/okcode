@@ -416,6 +416,22 @@ export function getProviderStartOptions(
           },
         }
       : {}),
+    ...(settings.copilotBinaryPath || settings.copilotConfigDir
+      ? {
+          copilot: {
+            ...(settings.copilotBinaryPath ? { binaryPath: settings.copilotBinaryPath } : {}),
+            ...(settings.copilotConfigDir ? { configDir: settings.copilotConfigDir } : {}),
+          },
+        }
+      : {}),
+    ...(settings.openclawGatewayUrl || settings.openclawPassword
+      ? {
+          openclaw: {
+            ...(settings.openclawGatewayUrl ? { gatewayUrl: settings.openclawGatewayUrl } : {}),
+            ...(settings.openclawPassword ? { password: settings.openclawPassword } : {}),
+          },
+        }
+      : {}),
   };
 
   return Object.keys(providerOptions).length > 0 ? providerOptions : undefined;

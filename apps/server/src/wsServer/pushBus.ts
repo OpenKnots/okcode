@@ -34,6 +34,13 @@ export interface ServerPushBus {
 export const makeServerPushBus = (input: {
   readonly clients: Ref.Ref<Set<WebSocket>>;
   readonly logOutgoingPush: (push: WsPushEnvelopeBase, recipients: number) => void;
+  readonly logDeliveryFailure: (input: {
+    readonly channel: WsPushChannel;
+    readonly sequence: number;
+    readonly target: PushTarget["kind"];
+    readonly readyState: number;
+    readonly error: unknown;
+  }) => void;
 }): Effect.Effect<ServerPushBus, never, Scope.Scope> =>
   Effect.gen(function* () {
     const nextSequence = yield* Ref.make(0);
@@ -63,8 +70,18 @@ export const makeServerPushBus = (input: {
             if (client.readyState !== client.OPEN) {
               continue;
             }
-            client.send(message);
-            recipientCount += 1;
+            try {
+              client.send(message);
+              recipientCount += 1;
+            } catch (error) {
+              input.logDeliveryFailure({
+                channel: job.channel,
+                sequence,
+                target: job.target.kind,
+                readyState: client.readyState,
+                error,
+              });
+            }
           }
 
           input.logOutgoingPush(push, recipientCount);

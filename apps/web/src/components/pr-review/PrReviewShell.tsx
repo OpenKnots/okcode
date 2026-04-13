@@ -54,15 +54,8 @@ import {
 
 const BOOL_SCHEMA = Schema.Boolean;
 
-function resolvePrReviewConfigPath(projectCwd: string, configPath: string): string {
-  if (/^(?:[A-Za-z]:[\\/]|\/)/.test(configPath)) {
-    return configPath;
-  }
-  return joinPath(projectCwd, configPath);
-}
-
 function formatReviewDecision(decision: string | null | undefined): string {
-  if (!decision) return "No decision";
+  if (!decision) return "No decision yet";
   return decision.toLowerCase().replaceAll("_", " ");
 }
 
@@ -76,6 +69,20 @@ function reviewDecisionTone(decision: string | null | undefined): string {
     default:
       return "text-muted-foreground";
   }
+}
+
+function formatConflictStatus(status: string | null | undefined): string {
+  if (!status) return "Conflict status unknown";
+  if (status === "clean") return "No merge conflicts";
+  if (status === "conflicted") return "Merge conflicts";
+  return status.replaceAll("_", " ");
+}
+
+function resolvePrReviewConfigPath(projectCwd: string, configPath: string): string {
+  if (/^(?:[A-Za-z]:[\\/]|\/)/.test(configPath)) {
+    return configPath;
+  }
+  return joinPath(projectCwd, configPath);
 }
 
 function formatReviewTimestamp(value: string): string {
@@ -388,6 +395,28 @@ export function PrReviewShell({
   const blockingWorkflowStepsComputed = (dashboardQuery.data?.workflowSteps ?? []).filter(
     (step) => step.status === "blocked" || step.status === "failed",
   );
+  const fileStats = useMemo(() => {
+    const files = dashboardQuery.data?.files ?? [];
+    return files.reduce(
+      (totals, file) => ({
+        changedFileCount: totals.changedFileCount + 1,
+        additions: totals.additions + file.additions,
+        deletions: totals.deletions + file.deletions,
+      }),
+      { changedFileCount: 0, additions: 0, deletions: 0 },
+    );
+  }, [dashboardQuery.data?.files]);
+  const approvalBlockers = [
+    ...(conflictQuery.data?.status === "conflicted" ? ["Merge conflicts must be resolved"] : []),
+    ...checksSummary.failing.map((name) => `Failing check: ${name}`),
+    ...checksSummary.pending.map((name) => `Pending check: ${name}`),
+    ...blockingWorkflowStepsComputed.map((step) => `Workflow blocked: ${step.title}`),
+  ];
+  const approveDisabled =
+    submitReviewMutation.isPending ||
+    conflictQuery.data?.status === "conflicted" ||
+    checksSummary.failing.length > 0 ||
+    checksSummary.pending.length > 0;
   const recentReviews = dashboardQuery.data?.pullRequest.recentReviews ?? [];
   const displayedRecentReviews = recentReviews.slice(0, 3);
 
@@ -521,26 +550,40 @@ export function PrReviewShell({
         {/* Collapsed bar */}
         <div
           className={cn(
-            "flex h-10 items-center justify-between gap-3 px-4",
+            "flex min-h-10 items-center justify-between gap-3 px-4 py-2",
             actionRailExpanded && "border-b border-border/50",
           )}
         >
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
             <span className="font-medium text-foreground">Submit review</span>
+            <span
+              className={cn(
+                "capitalize font-medium",
+                reviewDecisionTone(dashboardQuery.data?.pullRequest.reviewDecision),
+              )}
+            >
+              {formatReviewDecision(dashboardQuery.data?.pullRequest.reviewDecision)}
+            </span>
             <span className="flex items-center gap-1">
               <MessageSquareIcon className="size-3" />
               {dashboardQuery.data?.pullRequest.unresolvedThreadCount ?? 0} open
             </span>
+            <span>{fileStats.changedFileCount} files</span>
             <span className="flex items-center gap-1">
               <ShieldCheckIcon className="size-3" />
-              {conflictQuery.data?.status ?? "unknown"}
+              {formatConflictStatus(conflictQuery.data?.status)}
             </span>
-            {blockingWorkflowStepsComputed.length > 0 ? (
+            {approvalBlockers.length > 0 ? (
               <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
                 <SparklesIcon className="size-3" />
-                blocked
+                {approvalBlockers.length} blocker{approvalBlockers.length === 1 ? "" : "s"}
               </span>
-            ) : null}
+            ) : (
+              <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                <CheckCircle2Icon className="size-3" />
+                ready to approve
+              </span>
+            )}
           </div>
           <Button
             onClick={() => setActionRailExpanded(!actionRailExpanded)}
@@ -562,19 +605,49 @@ export function PrReviewShell({
         >
           <div className="overflow-hidden">
             <div className="space-y-3 px-4 py-3">
-              <div className="flex flex-wrap items-start gap-x-4 gap-y-2 rounded-xl border border-border/60 bg-muted/30 px-3 py-2.5 text-xs">
-                <div className="space-y-0.5">
+              <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.3fr)]">
+                <div className="rounded-xl border border-border/60 bg-muted/30 px-3 py-2.5 text-xs">
                   <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
                     Review decision
                   </div>
                   <div
                     className={cn(
-                      "font-medium capitalize",
+                      "mt-1 font-medium capitalize",
                       reviewDecisionTone(dashboardQuery.data?.pullRequest.reviewDecision),
                     )}
                   >
                     {formatReviewDecision(dashboardQuery.data?.pullRequest.reviewDecision)}
                   </div>
+                </div>
+                <div className="rounded-xl border border-border/60 bg-muted/30 px-3 py-2.5 text-xs">
+                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                    File impact
+                  </div>
+                  <div className="mt-1 font-medium text-foreground">
+                    {fileStats.changedFileCount}{" "}
+                    {fileStats.changedFileCount === 1 ? "file" : "files"}, +{fileStats.additions} /
+                    -{fileStats.deletions}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-border/60 bg-muted/30 px-3 py-2.5 text-xs">
+                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                    Approval status
+                  </div>
+                  {approvalBlockers.length > 0 ? (
+                    <ul className="mt-1 space-y-1 text-muted-foreground">
+                      {approvalBlockers.slice(0, 4).map((blocker) => (
+                        <li className="flex items-start gap-1.5" key={blocker}>
+                          <AlertTriangleIcon className="mt-0.5 size-3 shrink-0 text-amber-500" />
+                          <span>{blocker}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="mt-1 flex items-center gap-1.5 font-medium text-emerald-600 dark:text-emerald-400">
+                      <CheckCircle2Icon className="size-3.5" />
+                      Ready to approve
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="space-y-1.5">
@@ -626,45 +699,49 @@ export function PrReviewShell({
                   }
                 }}
               />
-              <div className="flex flex-wrap items-center justify-end gap-2">
-                <Button
-                  disabled={submitReviewMutation.isPending}
-                  onClick={() => {
-                    void submitReviewMutation.mutateAsync("COMMENT");
-                  }}
-                  size="sm"
-                  variant="outline"
-                >
-                  <MessageSquareIcon className="size-3.5" />
-                  Comment
-                </Button>
-                <Button
-                  disabled={
-                    submitReviewMutation.isPending ||
-                    conflictQuery.data?.status === "conflicted" ||
-                    checksSummary.failing.length > 0 ||
-                    checksSummary.pending.length > 0
-                  }
-                  onClick={() => {
-                    void submitReviewMutation.mutateAsync("APPROVE");
-                  }}
-                  size="sm"
-                  variant="secondary"
-                >
-                  <CheckCircle2Icon className="size-3.5" />
-                  Approve
-                </Button>
-                <Button
-                  disabled={submitReviewMutation.isPending}
-                  onClick={() => {
-                    void submitReviewMutation.mutateAsync("REQUEST_CHANGES");
-                  }}
-                  size="sm"
-                  variant={resolveRequestChangesButtonVariant(settings.prReviewRequestChangesTone)}
-                >
-                  <AlertTriangleIcon className="size-3.5" />
-                  Request changes
-                </Button>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="text-xs text-muted-foreground">
+                  {approveDisabled
+                    ? "Approval is gated until blockers are cleared."
+                    : "Approval is available once your summary is ready."}
+                </div>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <Button
+                    disabled={submitReviewMutation.isPending}
+                    onClick={() => {
+                      void submitReviewMutation.mutateAsync("COMMENT");
+                    }}
+                    size="sm"
+                    variant="outline"
+                  >
+                    <MessageSquareIcon className="size-3.5" />
+                    Comment
+                  </Button>
+                  <Button
+                    disabled={approveDisabled}
+                    onClick={() => {
+                      void submitReviewMutation.mutateAsync("APPROVE");
+                    }}
+                    size="sm"
+                    variant="secondary"
+                  >
+                    <CheckCircle2Icon className="size-3.5" />
+                    Approve
+                  </Button>
+                  <Button
+                    disabled={submitReviewMutation.isPending}
+                    onClick={() => {
+                      void submitReviewMutation.mutateAsync("REQUEST_CHANGES");
+                    }}
+                    size="sm"
+                    variant={resolveRequestChangesButtonVariant(
+                      settings.prReviewRequestChangesTone,
+                    )}
+                  >
+                    <AlertTriangleIcon className="size-3.5" />
+                    Request changes
+                  </Button>
+                </div>
               </div>
             </div>
           </div>

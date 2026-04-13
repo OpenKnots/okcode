@@ -19,7 +19,7 @@ import {
   ThreadId,
   TurnId,
 } from "@okcode/contracts";
-import { Effect, Exit, Layer, ManagedRuntime, PubSub, Scope, Stream } from "effect";
+import { Effect, Exit, Layer, ManagedRuntime, Scope, Stream } from "effect";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { OrchestrationEventStoreLive } from "../../persistence/Layers/OrchestrationEventStore.ts";
@@ -29,6 +29,8 @@ import {
   ProviderService,
   type ProviderServiceShape,
 } from "../../provider/Services/ProviderService.ts";
+import { ProviderRuntimeEventFeedLive } from "../../provider/Layers/ProviderRuntimeEventFeed.ts";
+import { ProviderRuntimeEventFeed } from "../../provider/Services/ProviderRuntimeEventFeed.ts";
 import { OrchestrationEngineLive } from "./OrchestrationEngine.ts";
 import { OrchestrationProjectionPipelineLive } from "./ProjectionPipeline.ts";
 import { ProviderRuntimeIngestionLive } from "./ProviderRuntimeIngestion.ts";
@@ -61,7 +63,6 @@ type LegacyProviderRuntimeEvent = {
 };
 
 function createProviderServiceHarness() {
-  const runtimeEventPubSub = Effect.runSync(PubSub.unbounded<ProviderRuntimeEvent>());
   const runtimeSessions: ProviderSession[] = [];
 
   const unsupported = () => Effect.die(new Error("Unsupported provider call in test")) as never;
@@ -75,7 +76,7 @@ function createProviderServiceHarness() {
     listSessions: () => Effect.succeed([...runtimeSessions]),
     getCapabilities: () => Effect.succeed({ sessionModelSwitch: "in-session" }),
     rollbackConversation: () => unsupported(),
-    streamEvents: Stream.fromPubSub(runtimeEventPubSub),
+    streamEvents: Stream.empty,
   };
 
   const setSession = (session: ProviderSession): void => {
@@ -87,13 +88,8 @@ function createProviderServiceHarness() {
     runtimeSessions.push(session);
   };
 
-  const emit = (event: LegacyProviderRuntimeEvent): void => {
-    Effect.runSync(PubSub.publish(runtimeEventPubSub, event as unknown as ProviderRuntimeEvent));
-  };
-
   return {
     service,
-    emit,
     setSession,
   };
 }
@@ -169,12 +165,14 @@ describe("ProviderRuntimeIngestion", () => {
       Layer.provideMerge(orchestrationLayer),
       Layer.provideMerge(SqlitePersistenceMemory),
       Layer.provideMerge(Layer.succeed(ProviderService, provider.service)),
+      Layer.provideMerge(ProviderRuntimeEventFeedLive),
       Layer.provideMerge(ServerConfig.layerTest(process.cwd(), process.cwd())),
       Layer.provideMerge(NodeServices.layer),
     );
     runtime = ManagedRuntime.make(layer);
     const engine = await runtime.runPromise(Effect.service(OrchestrationEngineService));
     const ingestion = await runtime.runPromise(Effect.service(ProviderRuntimeIngestionService));
+    const eventFeed = await runtime.runPromise(Effect.service(ProviderRuntimeEventFeed));
     scope = await Effect.runPromise(Scope.make("sequential"));
     await Effect.runPromise(ingestion.start.pipe(Scope.provide(scope)));
     const drain = () => Effect.runPromise(ingestion.drain);
@@ -234,7 +232,8 @@ describe("ProviderRuntimeIngestion", () => {
 
     return {
       engine,
-      emit: provider.emit,
+      emit: (event: LegacyProviderRuntimeEvent) =>
+        Effect.runSync(eventFeed.publish(event as unknown as ProviderRuntimeEvent)),
       setProviderSession: provider.setSession,
       drain,
     };

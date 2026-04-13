@@ -1,8 +1,7 @@
 /**
  * ProviderHealthLive - Startup-time provider health checks.
  *
- * Performs one-time provider readiness probes when the server starts and
- * keeps the resulting snapshot in memory for `server.getConfig`.
+ * Performs provider readiness probes on demand for `server.getConfig`.
  *
  * Uses effect's ChildProcessSpawner to run CLI probes natively.
  *
@@ -14,18 +13,7 @@ import type {
   ServerProviderStatus,
   ServerProviderStatusState,
 } from "@okcode/contracts";
-import {
-  Array,
-  Data,
-  Effect,
-  Fiber,
-  FileSystem,
-  Layer,
-  Option,
-  Path,
-  Result,
-  Stream,
-} from "effect";
+import { Array, Data, Effect, FileSystem, Layer, Option, Path, Result, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
 import {
@@ -686,15 +674,27 @@ const checkOpenClawProviderStatus: Effect.Effect<ServerProviderStatus, never, ne
 export const ProviderHealthLive = Layer.effect(
   ProviderHealth,
   Effect.gen(function* () {
-    const statusesFiber = yield* Effect.all(
-      [checkCodexProviderStatus, checkClaudeProviderStatus, checkOpenClawProviderStatus],
-      {
-        concurrency: "unbounded",
-      },
-    ).pipe(Effect.forkScoped);
+    const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+    const fileSystem = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
 
     return {
-      getStatuses: Fiber.join(statusesFiber),
+      getStatuses: Effect.all(
+        [
+          checkCodexProviderStatus.pipe(
+            Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
+            Effect.provideService(FileSystem.FileSystem, fileSystem),
+            Effect.provideService(Path.Path, path),
+          ),
+          checkClaudeProviderStatus.pipe(
+            Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
+          ),
+          checkOpenClawProviderStatus,
+        ],
+        {
+          concurrency: "unbounded",
+        },
+      ),
     } satisfies ProviderHealthShape;
   }),
 );

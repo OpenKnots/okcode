@@ -104,8 +104,8 @@ export function ProjectIconEditorDialog({
         <DialogHeader>
           <DialogTitle>Project icon</DialogTitle>
           <DialogDescription>
-            Set a path relative to the project root. Leave it blank to fall back to the detected
-            favicon or icon file.
+            Set a path relative to the project root or an absolute image URL. Leave it blank to fall
+            back to the detected favicon or icon file.
           </DialogDescription>
         </DialogHeader>
 
@@ -142,7 +142,9 @@ export function ProjectIconEditorDialog({
                 draftWasTouchedRef.current = true;
                 setDraft(event.target.value);
               }}
-              placeholder={suggestedIconPath ?? "public/favicon.svg"}
+              placeholder={
+                suggestedIconPath ?? "public/favicon.svg or https://example.com/icon.png"
+              }
               autoComplete="off"
               spellCheck={false}
             />

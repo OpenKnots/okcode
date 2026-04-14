@@ -1896,7 +1896,7 @@ function SettingsRouteView() {
 
             <SettingsRow
               title="Project icon"
-              description="Override the icon shown next to this project in the sidebar. Use a path relative to the project root, such as `public/icon.svg`."
+              description="Override the icon shown next to this project in the sidebar. Use a path relative to the project root or an absolute image URL, such as `public/icon.svg` or `https://example.com/icon.png`."
               status={
                 selectedProject ? (
                   <span className="inline-flex items-center gap-2 text-[11px] text-muted-foreground">
@@ -1930,7 +1930,7 @@ function SettingsRouteView() {
                         setProjectIconDraft(selectedProject?.iconPath ?? "");
                       }
                     }}
-                    placeholder="public/icon.svg"
+                    placeholder="public/icon.svg or https://example.com/icon.png"
                     className="w-full sm:w-64"
                     aria-label="Project icon path"
                     disabled={!selectedProject}

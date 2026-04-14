@@ -146,7 +146,7 @@ export function isLatestTurnSettled(
   if (!latestTurn?.startedAt) return false;
   if (!latestTurn.completedAt) return false;
   if (!session) return true;
-  if (session.orchestrationStatus === "running") return false;
+  if (session.activeTurnId !== undefined && session.activeTurnId !== null) return false;
   return true;
 }
 

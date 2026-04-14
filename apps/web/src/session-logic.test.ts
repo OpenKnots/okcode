@@ -1057,6 +1057,15 @@ describe("isLatestTurnSettled", () => {
     ).toBe(false);
   });
 
+  it("returns true when the session is running but no turn is active", () => {
+    expect(
+      isLatestTurnSettled(latestTurn, {
+        orchestrationStatus: "running",
+        activeTurnId: undefined,
+      }),
+    ).toBe(true);
+  });
+
   it("returns true once the session is no longer running that turn", () => {
     expect(
       isLatestTurnSettled(latestTurn, {

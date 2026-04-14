@@ -91,9 +91,6 @@ export const AppSettingsSchema = Schema.Struct({
   claudeBinaryPath: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
   copilotBinaryPath: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
   copilotConfigDir: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
-  claudeAuthTokenHelperCommand: Schema.String.check(Schema.isMaxLength(4096)).pipe(
-    withDefaults(() => ""),
-  ),
   codexBinaryPath: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
   codexHomePath: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
   backgroundImageUrl: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
@@ -392,9 +389,7 @@ export function getProviderStartOptions(
     | "codexHomePath"
     | "openclawGatewayUrl"
     | "openclawPassword"
-  > & {
-    claudeAuthTokenHelperCommand?: AppSettings["claudeAuthTokenHelperCommand"];
-  },
+  >,
 ): ProviderStartOptions | undefined {
   const providerOptions: ProviderStartOptions = {
     ...(settings.codexBinaryPath || settings.codexHomePath
@@ -405,13 +400,10 @@ export function getProviderStartOptions(
           },
         }
       : {}),
-    ...(settings.claudeBinaryPath || settings.claudeAuthTokenHelperCommand
+    ...(settings.claudeBinaryPath
       ? {
           claudeAgent: {
-            ...(settings.claudeBinaryPath ? { binaryPath: settings.claudeBinaryPath } : {}),
-            ...(settings.claudeAuthTokenHelperCommand
-              ? { authTokenHelperCommand: settings.claudeAuthTokenHelperCommand }
-              : {}),
+            binaryPath: settings.claudeBinaryPath,
           },
         }
       : {}),

@@ -49,7 +49,7 @@ describe("providerAvailability", () => {
     ).toBe(false);
   });
 
-  it("blocks claudeAgent when status is error even if claudeAuthTokenHelperCommand is set and available is true", () => {
+  it("blocks claudeAgent when status is error", () => {
     expect(
       isProviderReadyForThreadSelection({
         provider: "claudeAgent",
@@ -60,12 +60,11 @@ describe("providerAvailability", () => {
             authStatus: "unauthenticated",
           }),
         ],
-        claudeAuthTokenHelperCommand: "my-token-helper",
       }),
     ).toBe(false);
   });
 
-  it("allows claudeAgent with claudeAuthTokenHelperCommand when status is ready but auth is unauthenticated", () => {
+  it("blocks unauthenticated claudeAgent even when the status is otherwise ready", () => {
     expect(
       isProviderReadyForThreadSelection({
         provider: "claudeAgent",
@@ -76,9 +75,8 @@ describe("providerAvailability", () => {
             authStatus: "unauthenticated",
           }),
         ],
-        claudeAuthTokenHelperCommand: "my-token-helper",
       }),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("treats configured OpenClaw as selectable even when server auth state is unknown", () => {

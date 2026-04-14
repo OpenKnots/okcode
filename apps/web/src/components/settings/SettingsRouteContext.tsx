@@ -90,7 +90,6 @@ export function SettingsRouteContextProvider({ children }: { children: ReactNode
     currentGitTextGenerationModel !== defaultGitTextGenerationModel;
   const isInstallSettingsDirty =
     settings.claudeBinaryPath !== defaults.claudeBinaryPath ||
-    settings.claudeAuthTokenHelperCommand !== defaults.claudeAuthTokenHelperCommand ||
     settings.copilotBinaryPath !== defaults.copilotBinaryPath ||
     settings.copilotConfigDir !== defaults.copilotConfigDir ||
     settings.codexBinaryPath !== defaults.codexBinaryPath ||

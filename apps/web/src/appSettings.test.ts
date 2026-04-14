@@ -80,6 +80,20 @@ describe("getProviderStartOptions", () => {
       },
     });
   });
+
+  it("does not emit Claude start options without a Claude binary path", () => {
+    expect(
+      getProviderStartOptions({
+        claudeBinaryPath: "",
+        codexBinaryPath: "",
+        codexHomePath: "",
+        copilotBinaryPath: "",
+        copilotConfigDir: "",
+        openclawGatewayUrl: "",
+        openclawPassword: "",
+      }),
+    ).toBeUndefined();
+  });
 });
 
 describe("resolveBrowserPreviewStartPageUrl", () => {

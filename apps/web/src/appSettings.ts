@@ -91,9 +91,6 @@ export const AppSettingsSchema = Schema.Struct({
   claudeBinaryPath: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
   copilotBinaryPath: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
   copilotConfigDir: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
-  claudeAuthTokenHelperCommand: Schema.String.check(Schema.isMaxLength(4096)).pipe(
-    withDefaults(() => ""),
-  ),
   codexBinaryPath: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
   codexHomePath: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
   backgroundImageUrl: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
@@ -265,7 +262,6 @@ function normalizeAppSettings(settings: AppSettings): AppSettings {
     ...settings,
     backgroundImageUrl: settings.backgroundImageUrl.trim(),
     browserPreviewStartPageUrl: settings.browserPreviewStartPageUrl.trim(),
-    claudeAuthTokenHelperCommand: settings.claudeAuthTokenHelperCommand.trim(),
     backgroundImageOpacity: clampBackgroundOpacity(settings.backgroundImageOpacity),
     sidebarOpacity: clampOpacity(settings.sidebarOpacity),
     sidebarProjectRowHeight: clampSidebarProjectRowHeight(settings.sidebarProjectRowHeight),
@@ -389,7 +385,6 @@ export function getProviderStartOptions(
     | "claudeBinaryPath"
     | "copilotBinaryPath"
     | "copilotConfigDir"
-    | "claudeAuthTokenHelperCommand"
     | "codexBinaryPath"
     | "codexHomePath"
     | "openclawGatewayUrl"
@@ -405,13 +400,10 @@ export function getProviderStartOptions(
           },
         }
       : {}),
-    ...(settings.claudeBinaryPath || settings.claudeAuthTokenHelperCommand
+    ...(settings.claudeBinaryPath
       ? {
           claudeAgent: {
             ...(settings.claudeBinaryPath ? { binaryPath: settings.claudeBinaryPath } : {}),
-            ...(settings.claudeAuthTokenHelperCommand
-              ? { authTokenHelperCommand: settings.claudeAuthTokenHelperCommand }
-              : {}),
           },
         }
       : {}),

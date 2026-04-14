@@ -68,7 +68,6 @@ export const ClaudeProviderStartOptions = Schema.Struct({
   binaryPath: Schema.optional(TrimmedNonEmptyString),
   permissionMode: Schema.optional(TrimmedNonEmptyString),
   maxThinkingTokens: Schema.optional(NonNegativeInt),
-  authTokenHelperCommand: Schema.optional(TrimmedNonEmptyString),
 });
 
 export const OpenClawProviderStartOptions = Schema.Struct({

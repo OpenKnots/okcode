@@ -48,7 +48,7 @@ describe("humanizeThreadError", () => {
     ).toBe(true);
     expect(
       isAuthenticationThreadError(
-        "Claude is not configured with a supported Anthropic credential. Set ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN and try again.",
+        "Claude Code must be authenticated with `claude auth login` before starting a session. API key and auth token credentials are not supported.",
       ),
     ).toBe(true);
   });
@@ -81,11 +81,9 @@ describe("humanizeThreadError", () => {
     ).toContain("Troubleshooting:");
     expect(
       buildThreadErrorDiagnosticsCopy(
-        "Claude Code is signed in with OAuth, which is not supported here. Set ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN and try again.",
+        "Claude Code must be authenticated with `claude auth login` before starting a session. API key and auth token credentials are not supported.",
         { includeTips: true },
       ),
-    ).toContain(
-      "Set `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN` in the runtime environment and retry the turn.",
-    );
+    ).toContain("Run `claude auth login` and retry the turn.");
   });
 });

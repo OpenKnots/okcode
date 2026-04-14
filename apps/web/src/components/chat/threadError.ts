@@ -38,7 +38,7 @@ function extractWorktreeDetail(error: string): string | null {
 function getProviderLoginCommand(error: string): string | null {
   const lower = error.toLowerCase();
   if (lower.includes("claude")) {
-    return "`ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN`";
+    return "`claude auth login`";
   }
   if (lower.includes("codex")) {
     return "`codex login`";

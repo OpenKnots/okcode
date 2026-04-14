@@ -106,7 +106,6 @@ import {
   type CustomThemeData,
 } from "../lib/customTheme";
 import { openUrlInAppBrowser } from "../lib/openUrlInAppBrowser";
-import { CLAUDE_AUTH_TOKEN_HELPER_PRESETS } from "../lib/claudeAuthTokenHelperPresets";
 import {
   getSelectableThreadProviders,
   isProviderReadyForThreadSelection,
@@ -361,9 +360,8 @@ const INSTALL_PROVIDER_SETTINGS: readonly InstallProviderSettings[] = [
     binaryPlaceholder: "Claude Code binary path",
     binaryDescription: (
       <>
-        Leave blank to use <code>claude</code> from your PATH. Claude Code sessions need an{" "}
-        <code>ANTHROPIC_API_KEY</code> or <code>ANTHROPIC_AUTH_TOKEN</code> in the runtime
-        environment. You can also source the token automatically with a helper command.
+        Leave blank to use <code>claude</code> from your PATH. Authentication uses{" "}
+        <code>claude auth login</code>.
       </>
     ),
   },
@@ -386,9 +384,9 @@ const PROVIDER_AUTH_GUIDES: Record<
   },
   claudeAgent: {
     installCmd: "npm install -g @anthropic-ai/claude-code",
-    authCmd: "set ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN",
+    authCmd: "claude auth login",
     verifyCmd: "claude auth status",
-    note: "Claude Code must be installed and configured with an Anthropic API key or auth token before it appears in the thread picker. Use Environment to add a Claude auth token in one click, or configure a helper command in the Claude install panel.",
+    note: "Claude Code must be installed and signed in through the CLI before it appears in the thread picker.",
   },
   gemini: {
     installCmd: "npm install -g @google/gemini-cli",
@@ -412,26 +410,15 @@ function getAuthenticationBadgeCopy(input: {
   status: ServerProviderStatus | null;
   provider: ProviderKind;
   openclawGatewayUrl: string;
-  hasClaudeAuthTokenHelper: boolean;
 }): {
   tone: "success" | "warning" | "error";
   label: string;
 } {
   if (
-    input.provider === "claudeAgent" &&
-    input.hasClaudeAuthTokenHelper &&
-    input.status?.available === true &&
-    input.status?.authStatus === "unauthenticated"
-  ) {
-    return { tone: "success", label: "Token helper configured" };
-  }
-
-  if (
     isProviderReadyForThreadSelection({
       provider: input.provider,
       statuses: input.status ? [input.status] : [],
       openclawGatewayUrl: input.openclawGatewayUrl,
-      claudeAuthTokenHelperCommand: input.hasClaudeAuthTokenHelper ? "configured" : undefined,
     })
   ) {
     return { tone: "success", label: "Available in thread picker" };
@@ -456,21 +443,16 @@ function AuthenticationStatusCard({
   provider,
   status,
   openclawGatewayUrl,
-  claudeAuthTokenHelperCommand,
 }: {
   provider: ProviderKind;
   status: ServerProviderStatus | null;
   openclawGatewayUrl: string;
-  claudeAuthTokenHelperCommand: string;
 }) {
   const guide = PROVIDER_AUTH_GUIDES[provider];
-  const hasClaudeAuthTokenHelper =
-    provider === "claudeAgent" && claudeAuthTokenHelperCommand.trim().length > 0;
   const badge = getAuthenticationBadgeCopy({
     status,
     provider,
     openclawGatewayUrl,
-    hasClaudeAuthTokenHelper,
   });
   const badgeClassName =
     badge.tone === "success"
@@ -480,23 +462,13 @@ function AuthenticationStatusCard({
         : "border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300";
   const heading =
     status !== null
-      ? hasClaudeAuthTokenHelper &&
-        status.provider === "claudeAgent" &&
-        status.available &&
-        status.authStatus === "unauthenticated"
-        ? "Claude Code will source its auth token automatically"
-        : getProviderStatusHeading(status)
+      ? getProviderStatusHeading(status)
       : provider === "openclaw" && openclawGatewayUrl.trim().length > 0
         ? "OpenClaw gateway is configured locally"
         : `${getProviderStatusLabelName(provider)} needs configuration`;
   const description =
     status !== null
-      ? hasClaudeAuthTokenHelper &&
-        status.provider === "claudeAgent" &&
-        status.available &&
-        status.authStatus === "unauthenticated"
-        ? "The configured helper command will run locally at session start and print ANTHROPIC_AUTH_TOKEN to stdout."
-        : getProviderStatusDescription(status)
+      ? getProviderStatusDescription(status)
       : provider === "openclaw" && openclawGatewayUrl.trim().length > 0
         ? "OpenClaw is configured in local settings. Use Test Connection below to verify the gateway before starting a thread."
         : guide.note;
@@ -832,7 +804,7 @@ function SettingsRouteView() {
   const [openKeybindingsError, setOpenKeybindingsError] = useState<string | null>(null);
   const [openInstallProviders, setOpenInstallProviders] = useState<Record<ProviderKind, boolean>>({
     codex: Boolean(settings.codexBinaryPath || settings.codexHomePath),
-    claudeAgent: Boolean(settings.claudeBinaryPath || settings.claudeAuthTokenHelperCommand),
+    claudeAgent: Boolean(settings.claudeBinaryPath),
     gemini: false,
     openclaw: Boolean(settings.openclawGatewayUrl || settings.openclawPassword),
     copilot: Boolean(settings.copilotBinaryPath || settings.copilotConfigDir),
@@ -912,11 +884,6 @@ function SettingsRouteView() {
   const codexBinaryPath = settings.codexBinaryPath;
   const codexHomePath = settings.codexHomePath;
   const claudeBinaryPath = settings.claudeBinaryPath;
-  const claudeAuthTokenHelperCommand = settings.claudeAuthTokenHelperCommand;
-  const selectedClaudeAuthTokenHelperPreset =
-    CLAUDE_AUTH_TOKEN_HELPER_PRESETS.find(
-      (preset) => preset.command === claudeAuthTokenHelperCommand,
-    )?.label ?? "";
   const savedOpenclawGatewayUrl = openclawGatewayConfigQuery.data?.gatewayUrl ?? "";
   const savedOpenclawHasSharedSecret = openclawGatewayConfigQuery.data?.hasSharedSecret ?? false;
   const effectiveOpenclawGatewayUrl = openclawGatewayDraft ?? savedOpenclawGatewayUrl;
@@ -926,7 +893,6 @@ function SettingsRouteView() {
   const selectableProviders = getSelectableThreadProviders({
     statuses: providerStatuses,
     openclawGatewayUrl: effectiveOpenclawGatewayUrl,
-    claudeAuthTokenHelperCommand: settings.claudeAuthTokenHelperCommand,
   });
   const canImportLegacyOpenclawSettings =
     openclawGatewayConfigQuery.isSuccess &&
@@ -967,7 +933,6 @@ function SettingsRouteView() {
     : savedCustomModelRows.slice(0, 5);
   const isInstallSettingsDirty =
     settings.claudeBinaryPath !== defaults.claudeBinaryPath ||
-    settings.claudeAuthTokenHelperCommand !== defaults.claudeAuthTokenHelperCommand ||
     settings.codexBinaryPath !== defaults.codexBinaryPath ||
     settings.codexHomePath !== defaults.codexHomePath;
   const isOpenClawSettingsDirty =
@@ -2652,7 +2617,6 @@ function SettingsRouteView() {
                               null
                             }
                             openclawGatewayUrl={effectiveOpenclawGatewayUrl}
-                            claudeAuthTokenHelperCommand={settings.claudeAuthTokenHelperCommand}
                           />
                         ))}
                       </div>
@@ -2669,7 +2633,6 @@ function SettingsRouteView() {
                             onClick={() => {
                               updateSettings({
                                 claudeBinaryPath: defaults.claudeBinaryPath,
-                                claudeAuthTokenHelperCommand: defaults.claudeAuthTokenHelperCommand,
                                 codexBinaryPath: defaults.codexBinaryPath,
                                 codexHomePath: defaults.codexHomePath,
                               });
@@ -2693,9 +2656,7 @@ function SettingsRouteView() {
                               providerSettings.provider === "codex"
                                 ? settings.codexBinaryPath !== defaults.codexBinaryPath ||
                                   settings.codexHomePath !== defaults.codexHomePath
-                                : settings.claudeBinaryPath !== defaults.claudeBinaryPath ||
-                                  settings.claudeAuthTokenHelperCommand !==
-                                    defaults.claudeAuthTokenHelperCommand;
+                                : settings.claudeBinaryPath !== defaults.claudeBinaryPath;
                             const binaryPathValue =
                               providerSettings.binaryPathKey === "claudeBinaryPath"
                                 ? claudeBinaryPath
@@ -2769,85 +2730,6 @@ function SettingsRouteView() {
                                             {providerSettings.binaryDescription}
                                           </span>
                                         </label>
-
-                                        {providerSettings.provider === "claudeAgent" ? (
-                                          <label
-                                            htmlFor="provider-install-claude-auth-token-helper"
-                                            className="block"
-                                          >
-                                            <span className="block text-xs font-medium text-foreground">
-                                              Claude auth token helper command
-                                            </span>
-                                            <div className="mt-1 flex flex-col gap-2 sm:flex-row">
-                                              <Input
-                                                id="provider-install-claude-auth-token-helper"
-                                                className="sm:flex-1"
-                                                value={claudeAuthTokenHelperCommand}
-                                                onChange={(event) =>
-                                                  updateSettings({
-                                                    claudeAuthTokenHelperCommand:
-                                                      event.target.value,
-                                                  })
-                                                }
-                                                placeholder="op read op://shared/anthropic/token --no-newline"
-                                                spellCheck={false}
-                                              />
-                                              <Select
-                                                value={selectedClaudeAuthTokenHelperPreset}
-                                                onValueChange={(value) => {
-                                                  const preset =
-                                                    CLAUDE_AUTH_TOKEN_HELPER_PRESETS.find(
-                                                      (entry) => entry.label === value,
-                                                    ) ?? null;
-                                                  if (!preset) return;
-                                                  updateSettings({
-                                                    claudeAuthTokenHelperCommand: preset.command,
-                                                  });
-                                                }}
-                                              >
-                                                <SelectTrigger
-                                                  className="w-full sm:w-44"
-                                                  aria-label="Claude auth token helper preset"
-                                                >
-                                                  <SelectValue placeholder="Secret manager" />
-                                                </SelectTrigger>
-                                                <SelectPopup
-                                                  align="end"
-                                                  alignItemWithTrigger={false}
-                                                >
-                                                  {CLAUDE_AUTH_TOKEN_HELPER_PRESETS.map(
-                                                    (preset) => (
-                                                      <SelectItem
-                                                        hideIndicator
-                                                        key={preset.label}
-                                                        value={preset.label}
-                                                        title={preset.description}
-                                                      >
-                                                        <div className="flex min-w-0 flex-col">
-                                                          <span className="truncate">
-                                                            {preset.label}
-                                                          </span>
-                                                          <span className="truncate text-[11px] text-muted-foreground">
-                                                            {preset.command}
-                                                          </span>
-                                                        </div>
-                                                      </SelectItem>
-                                                    ),
-                                                  )}
-                                                </SelectPopup>
-                                              </Select>
-                                            </div>
-                                            <span className="mt-1 block text-xs text-muted-foreground">
-                                              Runs locally before Claude sessions start. The command
-                                              should print the token to stdout so OK Code can set
-                                              ANTHROPIC_AUTH_TOKEN automatically.
-                                            </span>
-                                            <span className="mt-1 block text-[11px] text-muted-foreground">
-                                              Choose a secret manager to prefill the command.
-                                            </span>
-                                          </label>
-                                        ) : null}
-
                                         {providerSettings.homePathKey ? (
                                           <label
                                             htmlFor={`provider-install-${providerSettings.homePathKey}`}
@@ -3391,14 +3273,6 @@ function SettingsRouteView() {
                         }
                         saveButtonLabel="Save global"
                         addButtonLabel="Add variable"
-                        quickAddPresets={[
-                          {
-                            label: "Add Claude token",
-                            description:
-                              "Create ANTHROPIC_AUTH_TOKEN in your global environment so Claude sessions can pick it up.",
-                            entry: { key: "ANTHROPIC_AUTH_TOKEN", value: "" },
-                          },
-                        ]}
                         onSave={saveGlobalEnvironmentVariables}
                         disabled={
                           globalEnvironmentVariablesQuery.isFetching ||

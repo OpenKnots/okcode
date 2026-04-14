@@ -26,7 +26,6 @@ describe("AppSettingsSchema", () => {
     expect(settings.showNotificationDetails).toBe(false);
     expect(settings.includeDiagnosticsTipsInCopy).toBe(false);
     expect(settings.browserPreviewStartPageUrl).toBe("");
-    expect(settings.claudeAuthTokenHelperCommand).toBe("");
   });
 
   it("defaults sidebar appearance controls", () => {
@@ -64,11 +63,10 @@ describe("AppSettingsSchema", () => {
 });
 
 describe("getProviderStartOptions", () => {
-  it("includes the Claude auth token helper command when configured", () => {
+  it("includes the Claude binary path when configured", () => {
     expect(
       getProviderStartOptions({
-        claudeBinaryPath: "",
-        claudeAuthTokenHelperCommand: "op read op://shared/anthropic/token --no-newline",
+        claudeBinaryPath: "/usr/local/bin/claude",
         codexBinaryPath: "",
         codexHomePath: "",
         copilotBinaryPath: "",
@@ -78,7 +76,7 @@ describe("getProviderStartOptions", () => {
       }),
     ).toEqual({
       claudeAgent: {
-        authTokenHelperCommand: "op read op://shared/anthropic/token --no-newline",
+        binaryPath: "/usr/local/bin/claude",
       },
     });
   });

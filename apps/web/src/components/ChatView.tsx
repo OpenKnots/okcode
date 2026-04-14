@@ -973,11 +973,14 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
     [lockedProvider, providerModelsByProvider, selectableProviders],
   );
   const phase = derivePhase(activeThread?.session ?? null);
+  const isTurnActive =
+    activeThread?.session?.activeTurnId !== undefined &&
+    activeThread?.session?.activeTurnId !== null;
   const isSendBusy = sendPhase !== "idle";
   const isPreparingWorktree = sendPhase === "preparing-worktree";
   const isTransportReady = transportState === "open";
   const isRemoteActionBlocked = !isTransportReady;
-  const isWorking = phase === "running" || isSendBusy || isConnecting || isRevertingCheckpoint;
+  const isWorking = isTurnActive || isSendBusy || isConnecting || isRevertingCheckpoint;
   const nowIso = new Date(nowTick).toISOString();
   const activeWorkStartedAt = deriveActiveWorkStartedAt(
     activeLatestTurn,
@@ -2529,10 +2532,10 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
     scheduleStickToBottom();
   }, [messageCount, scheduleStickToBottom]);
   useEffect(() => {
-    if (phase !== "running") return;
+    if (!isTurnActive) return;
     if (!shouldAutoScrollRef.current) return;
     scheduleStickToBottom();
-  }, [phase, scheduleStickToBottom, timelineEntries]);
+  }, [isTurnActive, scheduleStickToBottom, timelineEntries]);
 
   // Aggressively scroll to bottom after the user submits a new message.
   // The virtualizer may not have settled by the time the first scroll fires,
@@ -2777,14 +2780,14 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
       : "local";
 
   useEffect(() => {
-    if (phase !== "running") return;
+    if (!isTurnActive) return;
     const timer = window.setInterval(() => {
       setNowTick(Date.now());
     }, 1000);
     return () => {
       window.clearInterval(timer);
     };
-  }, [phase]);
+  }, [isTurnActive]);
 
   const beginSendPhase = useCallback((nextPhase: Exclude<SendPhase, "idle">) => {
     setSendStartedAt((current) => current ?? new Date().toISOString());
@@ -2801,7 +2804,7 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
       return;
     }
     if (
-      phase === "running" ||
+      isTurnActive ||
       activePendingApproval !== null ||
       activePendingUserInput !== null ||
       activeThread?.error
@@ -2812,7 +2815,7 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
     activePendingApproval,
     activePendingUserInput,
     activeThread?.error,
-    phase,
+    isTurnActive,
     resetSendPhase,
     sendPhase,
   ]);
@@ -3170,7 +3173,7 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
       const api = readNativeApi();
       if (!api || !activeThread || isRevertingCheckpoint) return;
 
-      if (phase === "running" || isSendBusy || isConnecting) {
+      if (isTurnActive || isSendBusy || isConnecting) {
         setThreadError(activeThread.id, "Interrupt the current turn before reverting checkpoints.");
         return;
       }
@@ -3203,7 +3206,7 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
       }
       setIsRevertingCheckpoint(false);
     },
-    [activeThread, isConnecting, isRevertingCheckpoint, isSendBusy, phase, setThreadError],
+    [activeThread, isConnecting, isRevertingCheckpoint, isSendBusy, isTurnActive, setThreadError],
   );
 
   const readLiveComposerDraftSnapshot = useCallback(() => {
@@ -3447,7 +3450,7 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
     }
 
     // ── Queue message if a turn is already running ────────────────────
-    if (phase === "running") {
+    if (isTurnActive) {
       const composerAttachmentsSnapshot = [...composerAttachmentsForSend];
       const hiddenProviderInput = buildHiddenProviderInput({
         prompt: promptForSend,
@@ -5547,7 +5550,7 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
                               Preparing worktree...
                             </span>
                           ) : null}
-                          {queuedMessages.length > 0 && phase === "running" ? (
+                          {queuedMessages.length > 0 && isTurnActive ? (
                             <button
                               type="button"
                               className="flex items-center gap-1 text-muted-foreground/60 text-xs transition-colors hover:text-destructive"
@@ -5604,7 +5607,7 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
                                     : "Next question"}
                               </Button>
                             </div>
-                          ) : phase === "running" ? (
+                          ) : isTurnActive ? (
                             <div className="flex items-center gap-1.5">
                               <button
                                 type="button"

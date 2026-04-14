@@ -16,6 +16,8 @@ const AUTH_FAILURE_PATTERNS = [
   "run codex login",
   "run `claude auth login`",
   "run claude auth login",
+  "authenticated with `claude auth login`",
+  "authenticated with claude auth login",
   "codex cli is not authenticated",
   "claude is not authenticated",
   "supported anthropic credential",

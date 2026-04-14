@@ -63,12 +63,14 @@ import {
   globalEnvironmentVariablesQueryOptions,
   projectEnvironmentVariablesQueryOptions,
 } from "../lib/environmentVariablesReactQuery";
+import { normalizeProjectIconPath } from "../lib/projectIcons";
+import { updateProjectIconOverride } from "../lib/projectMeta";
 import {
   getSelectableThreadProviders,
   isProviderReadyForThreadSelection,
 } from "../lib/providerAvailability";
 import { serverConfigQueryOptions, serverQueryKeys } from "../lib/serverReactQuery";
-import { cn, newCommandId } from "../lib/utils";
+import { cn } from "../lib/utils";
 import { ensureNativeApi } from "../nativeApi";
 import { useStore } from "../store";
 import { PairingLink } from "../components/mobile/PairingLink";
@@ -672,19 +674,14 @@ function SettingsRouteView() {
     if (!selectedProject) {
       throw new Error("Select a project before saving the project icon.");
     }
-    const nextIconPath = projectIconDraft.trim();
-    const currentIconPath = selectedProject.iconPath ?? "";
+    const nextIconPath = normalizeProjectIconPath(projectIconDraft);
+    const currentIconPath = normalizeProjectIconPath(selectedProject.iconPath);
     if (nextIconPath === currentIconPath) {
       return;
     }
 
     const api = ensureNativeApi();
-    await api.orchestration.dispatchCommand({
-      type: "project.meta.update",
-      commandId: newCommandId(),
-      projectId: selectedProject.id,
-      iconPath: nextIconPath.length > 0 ? nextIconPath : null,
-    });
+    await updateProjectIconOverride(api, selectedProject.id, nextIconPath);
   }, [projectIconDraft, selectedProject]);
 
   const testOpenclawGateway = useCallback(async () => {

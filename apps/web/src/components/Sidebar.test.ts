@@ -14,6 +14,7 @@ describe("Sidebar file tree shortcut", () => {
   it("uses the project context menu for renaming instead of double click", () => {
     const src = readFileSync(resolve(import.meta.dirname, "./Sidebar.tsx"), "utf8");
 
+    expect(src).toContain('{ id: "edit-icon", label: "Change project icon" }');
     expect(src).toContain('{ id: "rename", label: "Rename project" }');
     expect(src).toContain("onContextMenu={(event) => {");
     expect(src).not.toContain("onDoubleClick={(e) => {");

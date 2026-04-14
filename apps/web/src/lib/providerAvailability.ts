@@ -50,6 +50,7 @@ export function isProviderReadyForThreadSelection(input: {
     input.provider === "claudeAgent" &&
     (input.claudeAuthTokenHelperCommand ?? "").trim().length > 0 &&
     status.available &&
+    status.status === "ready" &&
     (status.authStatus ?? status.auth?.status) === "unauthenticated"
   ) {
     return true;

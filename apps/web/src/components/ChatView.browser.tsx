@@ -9,6 +9,7 @@ import {
   type ProjectId,
   type ServerConfig,
   type ThreadId,
+  type TurnId,
   type WsWelcomePayload,
   WS_CHANNELS,
   WS_METHODS,
@@ -193,6 +194,7 @@ function createSnapshotForTargetUser(options: {
   targetText: string;
   targetAttachmentCount?: number;
   sessionStatus?: OrchestrationSessionStatus;
+  activeTurnId?: TurnId | null;
 }): OrchestrationReadModel {
   const messages: Array<OrchestrationReadModel["threads"][number]["messages"][number]> = [];
 
@@ -266,7 +268,7 @@ function createSnapshotForTargetUser(options: {
           status: options.sessionStatus ?? "ready",
           providerName: "codex",
           runtimeMode: "full-access",
-          activeTurnId: null,
+          activeTurnId: options.activeTurnId ?? null,
           lastError: null,
           updatedAt: NOW_ISO,
         },
@@ -1546,6 +1548,7 @@ describe("ChatView timeline estimator parity (full app)", () => {
         targetMessageId: "msg-user-stop-button-cursor" as MessageId,
         targetText: "stop button cursor target",
         sessionStatus: "running",
+        activeTurnId: "turn-stop-button-cursor" as TurnId,
       }),
     });
 

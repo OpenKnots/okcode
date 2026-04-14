@@ -1,6 +1,6 @@
 # v0.24.0 — Release assets (manifest)
 
-Binaries are **not** stored in this git repository; they are attached to the [GitHub Release for `v0.24.0`](https://github.com/OpenKnots/okcode/releases/tag/v0.24.0) by the [Release Desktop workflow](../../.github/workflows/release.yml).
+Binaries are **not** stored in this git repository; they are attached to the [GitHub Release for `v0.24.0`](https://github.com/OpenKnots/okcode/releases/tag/v0.24.0) by the [Release workflow](../../.github/workflows/release.yml).
 
 The GitHub Release also includes **documentation attachments** (same content as in-repo, stable filenames for download):
 

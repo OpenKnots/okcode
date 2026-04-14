@@ -10,11 +10,6 @@ on:
         description: "Release version (for example 1.2.3 or v1.2.3)"
         required: true
         type: string
-      publish_cli:
-        description: "Publish the okcodes CLI to npm after the desktop release finalizes"
-        required: false
-        default: false
-        type: boolean
 
 permissions:
   contents: write
@@ -228,6 +223,9 @@ jobs:
               "$AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME" \
               "$AZURE_TRUSTED_SIGNING_PUBLISHER_NAME"; then
               args+=(--signed --require-signed)
+            elif [[ "${{ needs.preflight.outputs.is_prerelease }}" == "false" ]]; then
+              echo "Missing Azure Trusted Signing secrets for a stable Windows release." >&2
+              exit 1
             else
               echo "Azure Trusted Signing secrets not configured; building unsigned Windows artifact." >&2
             fi
@@ -288,12 +286,8 @@ jobs:
     name: iOS signing preflight
     needs: [preflight]
     runs-on: ubuntu-24.04
-    outputs:
-      enabled: ${{ steps.check.outputs.enabled }}
-      missing: ${{ steps.check.outputs.missing }}
     steps:
-      - id: check
-        name: Check iOS signing secrets
+      - name: Check iOS signing secrets
         shell: bash
         env:
           IOS_CERTIFICATE_P12: ${{ secrets.IOS_CERTIFICATE_P12 }}
@@ -325,21 +319,17 @@ jobs:
             fi
           done
 
-          if (( ${#missing[@]} == 0 )); then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-            echo "missing=" >> "$GITHUB_OUTPUT"
-            echo "All required iOS signing secrets are configured."
-          else
+          if (( ${#missing[@]} > 0 )); then
             missing_csv="$(IFS=,; echo "${missing[*]}")"
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "missing=$missing_csv" >> "$GITHUB_OUTPUT"
-            echo "Skipping iOS TestFlight because the following required secrets are missing: $missing_csv"
+            echo "Missing required iOS signing secrets: $missing_csv" >&2
+            exit 1
           fi
+
+          echo "All required iOS signing secrets are configured."
 
   ios_testflight:
     name: iOS TestFlight
     needs: [preflight, ios_signing_preflight]
-    if: ${{ needs.ios_signing_preflight.outputs.enabled == 'true' }}
     runs-on: macos-14
     env:
       RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
@@ -525,9 +515,8 @@ jobs:
 
   publish_cli:
     name: Publish CLI
-    needs: [preflight, finalize]
-    if: ${{ !cancelled() && needs.finalize.result == 'success' && github.event_name == 'workflow_dispatch' && inputs.publish_cli }}
-    continue-on-error: true
+    needs: [preflight, desktop_build, ios_signing_preflight, ios_testflight]
+    if: ${{ !cancelled() && needs.preflight.result == 'success' && needs.desktop_build.result == 'success' && needs.ios_signing_preflight.result == 'success' && needs.ios_testflight.result == 'success' }}
     runs-on: ubuntu-24.04
     env:
       NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
@@ -535,10 +524,10 @@ jobs:
       OKCODE_BUILD_TIMESTAMP: ${{ needs.preflight.outputs.build_timestamp }}
       OKCODE_RELEASE_CHANNEL: ${{ needs.preflight.outputs.release_channel }}
     steps:
-      - name: Checkout finalized main
+      - name: Checkout release commit
         uses: actions/checkout@v6
         with:
-          ref: main
+          ref: ${{ needs.preflight.outputs.ref }}
           fetch-depth: 0
 
       - name: Setup Bun
@@ -555,29 +544,14 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Assert package versions match stated release version
-        env:
-          RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
+      - name: Validate npm publish token
+        shell: bash
         run: |
-          node <<'NODE'
-          const fs = require('fs');
-          const files = [
-            'apps/server/package.json',
-            'apps/desktop/package.json',
-            'apps/web/package.json',
-            'apps/mobile/package.json',
-            'packages/contracts/package.json',
-          ];
-          const expected = process.env.RELEASE_VERSION;
-          const mismatches = files.filter((file) => {
-            const version = JSON.parse(fs.readFileSync(file, 'utf8')).version;
-            return version !== expected;
-          });
-          if (mismatches.length > 0) {
-            console.error(`Package version mismatch for release ${expected}: ${mismatches.join(', ')}`);
-            process.exit(1);
-          }
-          NODE
+          set -euo pipefail
+          [[ -n "$NODE_AUTH_TOKEN" ]] || { echo "Missing secret NODE_AUTH_TOKEN" >&2; exit 1; }
+
+      - name: Align package versions to release version
+        run: node scripts/update-release-package-versions.ts "${{ needs.preflight.outputs.version }}"
 
       - name: Build CLI package
         run: bun run build --filter=@okcode/web --filter=okcodes
@@ -607,8 +581,8 @@ jobs:
 
   release:
     name: Publish GitHub Release
-    needs: [preflight, desktop_build, ios_signing_preflight, ios_testflight]
-    if: ${{ always() && !cancelled() && needs.preflight.result == 'success' && needs.desktop_build.result == 'success' && needs.ios_signing_preflight.result == 'success' && (needs.ios_testflight.result == 'success' || needs.ios_testflight.result == 'skipped') }}
+    needs: [preflight, desktop_build, ios_signing_preflight, ios_testflight, publish_cli]
+    if: ${{ always() && !cancelled() && needs.preflight.result == 'success' && needs.desktop_build.result == 'success' && needs.ios_signing_preflight.result == 'success' && needs.ios_testflight.result == 'success' && needs.publish_cli.result == 'success' }}
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
@@ -642,6 +616,9 @@ jobs:
           cp CHANGELOG.md release-assets/okcode-CHANGELOG.md
           cp "$notes" release-assets/okcode-RELEASE-NOTES.md
           cp "$manifest" release-assets/okcode-ASSETS-MANIFEST.md
+
+      - name: Validate release asset completeness
+        run: node scripts/validate-release-assets.ts release-assets
 
       - name: Publish release
         uses: softprops/action-gh-release@v2

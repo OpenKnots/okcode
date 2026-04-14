@@ -70,6 +70,27 @@ releaseDate: '2026-03-08T10:36:07.540Z'
   return { arm64Path, x64Path };
 }
 
+function writeReleaseAssetFixtures(targetRoot: string): void {
+  const assetDirectory = resolve(targetRoot, "release-assets");
+  mkdirSync(assetDirectory, { recursive: true });
+
+  for (const assetName of [
+    "OK-Code-9.9.9-smoke.0-arm64.dmg",
+    "OK-Code-9.9.9-smoke.0-arm64.zip",
+    "OK-Code-9.9.9-smoke.0-arm64.zip.blockmap",
+    "OK-Code-9.9.9-smoke.0.AppImage",
+    "OK-Code-9.9.9-smoke.0.exe",
+    "OK-Code-9.9.9-smoke.0.exe.blockmap",
+    "latest-linux.yml",
+    "latest.yml",
+    "okcode-CHANGELOG.md",
+    "okcode-RELEASE-NOTES.md",
+    "okcode-ASSETS-MANIFEST.md",
+  ]) {
+    writeFileSync(resolve(assetDirectory, assetName), `${assetName}\n`);
+  }
+}
+
 function assertContains(haystack: string, needle: string, message: string): void {
   if (!haystack.includes(needle)) {
     throw new Error(message);
@@ -108,6 +129,7 @@ try {
   );
 
   const { arm64Path, x64Path } = writeMacManifestFixtures(tempRoot);
+  writeReleaseAssetFixtures(tempRoot);
   execFileSync(
     process.execPath,
     [resolve(repoRoot, "scripts/merge-mac-update-manifests.ts"), arm64Path, x64Path],
@@ -127,6 +149,15 @@ try {
     mergedManifest,
     "OK-Code-9.9.9-smoke.0-x64.zip",
     "Merged manifest is missing the x64 asset.",
+  );
+
+  execFileSync(
+    process.execPath,
+    [resolve(repoRoot, "scripts/validate-release-assets.ts"), resolve(tempRoot, "release-assets")],
+    {
+      cwd: repoRoot,
+      stdio: "inherit",
+    },
   );
 
   console.log("Release smoke checks passed.");

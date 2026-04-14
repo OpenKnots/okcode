@@ -263,7 +263,7 @@ ${highlights || "- See changelog for detailed changes."}
 
 ## Upgrade and install
 
-- **CLI:** \`npm install -g okcodes@${version}\` (after the package is published to npm manually).
+- **CLI:** \`npm install -g okcodes@${version}\` once the coordinated release workflow finishes.
 - **Desktop:** Download from [GitHub Releases](${REPO_URL}/releases/tag/v${version}). Filenames are listed in [assets.md](v${version}/assets.md).
 - **iOS:** Available via TestFlight (uploaded automatically by the Release iOS workflow).
 
@@ -282,7 +282,7 @@ OK Code remains early work in progress. Expect rough edges around session recove
 function generateAssetManifest(version: string): string {
   return `# v${version} — Release assets (manifest)
 
-Binaries are **not** stored in this git repository; they are attached to the [GitHub Release for \`v${version}\`](${REPO_URL}/releases/tag/v${version}) by the [Release Desktop workflow](../../.github/workflows/release.yml).
+Binaries are **not** stored in this git repository; they are attached to the [GitHub Release for \`v${version}\`](${REPO_URL}/releases/tag/v${version}) by the [Release workflow](../../.github/workflows/release.yml).
 
 The GitHub Release also includes **documentation attachments** (same content as in-repo, stable filenames for download):
 
@@ -378,7 +378,7 @@ Step-by-step playbook for the v${version} release. Each phase must complete befo
 - [ ] Push the release-prep commit to \`main\`.
 - [ ] Create and push tag \`v${version}\`.
 - [ ] Verify the coordinated \`release.yml\` workflow starts.
-- [ ] Monitor the pipeline through Preflight, Desktop builds, iOS signing preflight, optional iOS TestFlight, Publish GitHub Release, Finalize release, and optional CLI publish if started through manual dispatch.
+- [ ] Monitor the pipeline through Preflight, Desktop builds, iOS signing preflight, iOS TestFlight, Publish CLI, Publish GitHub Release, and Finalize release.
 
 ### Asset verification
 
@@ -885,12 +885,6 @@ async function main(): Promise<void> {
       log("--", "Would commit release documentation.");
       log("--", `Would create tag: ${tag}`);
       log("--", `Would push tag: ${tag}`);
-      if (fullMatrix) {
-        log(
-          "--",
-          `Would optionally publish the CLI after release via: gh workflow run release.yml -f version=${version} -f publish_cli=true`,
-        );
-      }
     } else {
       log("--", "Skipping commit/tag/push (--skip-commit).");
     }
@@ -934,11 +928,7 @@ async function main(): Promise<void> {
     if (fullMatrix) {
       log(
         "!!",
-        "The current release workflow already runs the full platform matrix on tag push. Use workflow_dispatch with publish_cli=true only if you need the optional CLI publish lane.",
-      );
-      log(
-        "!!",
-        `Optional CLI publish dispatch: gh workflow run release.yml -f version=${version} -f publish_cli=true`,
+        "The current release workflow already runs the full platform matrix on tag push. The --full-matrix flag is deprecated and no longer changes release behavior.",
       );
     }
   }
@@ -971,11 +961,6 @@ async function main(): Promise<void> {
     console.log(`    3. git commit -m "release: prepare v${version}"`);
     console.log(`    4. git push origin main`);
     console.log(`    5. git tag ${tag} && git push origin ${tag}`);
-    if (fullMatrix) {
-      console.log(
-        `    6. Optional CLI publish dispatch: gh workflow run release.yml -f version=${version} -f publish_cli=true`,
-      );
-    }
     console.log("");
   }
 }

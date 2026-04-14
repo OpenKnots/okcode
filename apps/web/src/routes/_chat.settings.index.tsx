@@ -81,7 +81,6 @@ import {
   getProviderStatusDescription,
   getProviderStatusHeading,
 } from "../components/chat/providerStatusPresentation";
-import { CLAUDE_AUTH_TOKEN_HELPER_PRESETS } from "../lib/claudeAuthTokenHelperPresets";
 import {
   INSTALL_PROVIDER_SETTINGS,
   PROVIDER_AUTH_GUIDES,
@@ -236,7 +235,6 @@ function getAuthenticationBadgeCopy(input: {
   status: ServerProviderStatus | null;
   provider: ProviderKind;
   openclawGatewayUrl: string;
-  claudeAuthTokenHelperCommand: string;
 }): {
   tone: "success" | "warning" | "error";
   label: string;
@@ -246,7 +244,6 @@ function getAuthenticationBadgeCopy(input: {
       provider: input.provider,
       statuses: input.status ? [input.status] : [],
       openclawGatewayUrl: input.openclawGatewayUrl,
-      claudeAuthTokenHelperCommand: input.claudeAuthTokenHelperCommand,
     })
   ) {
     return { tone: "success", label: "Available in thread picker" };
@@ -271,19 +268,16 @@ function AuthenticationStatusCard({
   provider,
   status,
   openclawGatewayUrl,
-  claudeAuthTokenHelperCommand,
 }: {
   provider: ProviderKind;
   status: ServerProviderStatus | null;
   openclawGatewayUrl: string;
-  claudeAuthTokenHelperCommand: string;
 }) {
   const guide = PROVIDER_AUTH_GUIDES[provider];
   const badge = getAuthenticationBadgeCopy({
     status,
     provider,
     openclawGatewayUrl,
-    claudeAuthTokenHelperCommand,
   });
   const badgeClassName =
     badge.tone === "success"
@@ -419,7 +413,7 @@ function SettingsRouteView() {
   const [openKeybindingsError, setOpenKeybindingsError] = useState<string | null>(null);
   const [openInstallProviders, setOpenInstallProviders] = useState<Record<ProviderKind, boolean>>({
     codex: Boolean(settings.codexBinaryPath || settings.codexHomePath),
-    claudeAgent: Boolean(settings.claudeBinaryPath || settings.claudeAuthTokenHelperCommand),
+    claudeAgent: Boolean(settings.claudeBinaryPath),
     gemini: false,
     copilot: Boolean(settings.copilotBinaryPath || settings.copilotConfigDir),
     openclaw: Boolean(settings.openclawGatewayUrl || settings.openclawPassword),
@@ -474,18 +468,12 @@ function SettingsRouteView() {
   const codexBinaryPath = settings.codexBinaryPath;
   const codexHomePath = settings.codexHomePath;
   const claudeBinaryPath = settings.claudeBinaryPath;
-  const claudeAuthTokenHelperCommand = settings.claudeAuthTokenHelperCommand;
-  const selectedClaudeAuthTokenHelperPreset =
-    CLAUDE_AUTH_TOKEN_HELPER_PRESETS.find(
-      (preset) => preset.command === claudeAuthTokenHelperCommand,
-    )?.label ?? "";
   const keybindingsConfigPath = serverConfigQuery.data?.keybindingsConfigPath ?? null;
   const availableEditors = serverConfigQuery.data?.availableEditors;
   const providerStatuses = serverConfigQuery.data?.providers ?? [];
   const selectableProviders = getSelectableThreadProviders({
     statuses: providerStatuses,
     openclawGatewayUrl: settings.openclawGatewayUrl,
-    claudeAuthTokenHelperCommand,
   });
 
   const gitTextGenerationModelOptions = getAppModelOptions(
@@ -527,7 +515,6 @@ function SettingsRouteView() {
     : savedCustomModelRows.slice(0, 5);
   const isInstallSettingsDirty =
     settings.claudeBinaryPath !== defaults.claudeBinaryPath ||
-    settings.claudeAuthTokenHelperCommand !== defaults.claudeAuthTokenHelperCommand ||
     settings.copilotBinaryPath !== defaults.copilotBinaryPath ||
     settings.copilotConfigDir !== defaults.copilotConfigDir ||
     settings.codexBinaryPath !== defaults.codexBinaryPath ||
@@ -1361,7 +1348,6 @@ function SettingsRouteView() {
                     provider={provider}
                     status={providerStatuses.find((status) => status.provider === provider) ?? null}
                     openclawGatewayUrl={settings.openclawGatewayUrl}
-                    claudeAuthTokenHelperCommand={claudeAuthTokenHelperCommand}
                   />
                 ))}
               </div>
@@ -1378,7 +1364,6 @@ function SettingsRouteView() {
                     onClick={() => {
                       updateSettings({
                         claudeBinaryPath: defaults.claudeBinaryPath,
-                        claudeAuthTokenHelperCommand: defaults.claudeAuthTokenHelperCommand,
                         codexBinaryPath: defaults.codexBinaryPath,
                         codexHomePath: defaults.codexHomePath,
                         copilotBinaryPath: defaults.copilotBinaryPath,
@@ -1405,9 +1390,7 @@ function SettingsRouteView() {
                         ? settings.codexBinaryPath !== defaults.codexBinaryPath ||
                           settings.codexHomePath !== defaults.codexHomePath
                         : providerSettings.provider === "claudeAgent"
-                          ? settings.claudeBinaryPath !== defaults.claudeBinaryPath ||
-                            settings.claudeAuthTokenHelperCommand !==
-                              defaults.claudeAuthTokenHelperCommand
+                          ? settings.claudeBinaryPath !== defaults.claudeBinaryPath
                           : settings.copilotBinaryPath !== defaults.copilotBinaryPath ||
                             settings.copilotConfigDir !== defaults.copilotConfigDir;
                     const binaryPathValue =
@@ -1493,76 +1476,6 @@ function SettingsRouteView() {
                                     {providerSettings.binaryDescription}
                                   </span>
                                 </label>
-
-                                {providerSettings.provider === "claudeAgent" ? (
-                                  <label
-                                    htmlFor="provider-install-claude-auth-token-helper"
-                                    className="block"
-                                  >
-                                    <span className="block text-xs font-medium text-foreground">
-                                      Claude auth token helper command
-                                    </span>
-                                    <div className="mt-1 flex flex-col gap-2 sm:flex-row">
-                                      <Input
-                                        id="provider-install-claude-auth-token-helper"
-                                        className="sm:flex-1"
-                                        value={claudeAuthTokenHelperCommand}
-                                        onChange={(event) =>
-                                          updateSettings({
-                                            claudeAuthTokenHelperCommand: event.target.value,
-                                          })
-                                        }
-                                        placeholder="op read op://shared/anthropic/token --no-newline"
-                                        spellCheck={false}
-                                      />
-                                      <Select
-                                        value={selectedClaudeAuthTokenHelperPreset}
-                                        onValueChange={(value) => {
-                                          const preset =
-                                            CLAUDE_AUTH_TOKEN_HELPER_PRESETS.find(
-                                              (entry) => entry.label === value,
-                                            ) ?? null;
-                                          if (!preset) return;
-                                          updateSettings({
-                                            claudeAuthTokenHelperCommand: preset.command,
-                                          });
-                                        }}
-                                      >
-                                        <SelectTrigger
-                                          className="w-full sm:w-44"
-                                          aria-label="Claude auth token helper preset"
-                                        >
-                                          <SelectValue placeholder="Secret manager" />
-                                        </SelectTrigger>
-                                        <SelectPopup align="end" alignItemWithTrigger={false}>
-                                          {CLAUDE_AUTH_TOKEN_HELPER_PRESETS.map((preset) => (
-                                            <SelectItem
-                                              hideIndicator
-                                              key={preset.label}
-                                              value={preset.label}
-                                              title={preset.description}
-                                            >
-                                              <div className="flex min-w-0 flex-col">
-                                                <span className="truncate">{preset.label}</span>
-                                                <span className="truncate text-[11px] text-muted-foreground">
-                                                  {preset.command}
-                                                </span>
-                                              </div>
-                                            </SelectItem>
-                                          ))}
-                                        </SelectPopup>
-                                      </Select>
-                                    </div>
-                                    <span className="mt-1 block text-xs text-muted-foreground">
-                                      Runs locally before Claude sessions start. The command should
-                                      print the token to stdout so OK Code can set
-                                      ANTHROPIC_AUTH_TOKEN automatically.
-                                    </span>
-                                    <span className="mt-1 block text-[11px] text-muted-foreground">
-                                      Choose a secret manager to prefill the command.
-                                    </span>
-                                  </label>
-                                ) : null}
 
                                 {homePathKey ? (
                                   <label

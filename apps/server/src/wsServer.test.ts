@@ -91,6 +91,12 @@ const defaultProviderHealthService: ProviderHealthShape = {
   getStatuses: Effect.succeed(defaultProviderStatuses),
 };
 
+const defaultCodexConfigSummary = {
+  selectedModelProviderId: null,
+  entries: [],
+  parseError: null,
+} as const;
+
 const expectedServerBuildInfo = expect.objectContaining({
   surface: "server",
   version: serverBuildInfo.version,
@@ -489,6 +495,7 @@ function makeWorkspaceFixture(name: string): { baseDir: string; cwd: string } {
 describe("WebSocket Server", () => {
   let server: Http.Server | null = null;
   let serverScope: Scope.Closeable | null = null;
+  let originalCodexHome: string | undefined;
   const connections: WebSocket[] = [];
   const tempDirs: string[] = [];
 
@@ -526,6 +533,10 @@ describe("WebSocket Server", () => {
     }
 
     const baseDir = options.baseDir ?? makeTempDir("okcode-ws-base-");
+    originalCodexHome = process.env.CODEX_HOME;
+    const codexHome = path.join(baseDir, ".codex");
+    fs.mkdirSync(codexHome, { recursive: true });
+    process.env.CODEX_HOME = codexHome;
     const devUrl = options.devUrl ? new URL(options.devUrl) : undefined;
     const derivedPaths = deriveServerPathsSync(baseDir, devUrl);
     const cwd = options.cwd ?? path.join(baseDir, "project");
@@ -603,6 +614,12 @@ describe("WebSocket Server", () => {
       return runtime;
     } catch (error) {
       await Effect.runPromise(Scope.close(scope, Exit.void));
+      if (originalCodexHome !== undefined) {
+        process.env.CODEX_HOME = originalCodexHome;
+      } else {
+        delete process.env.CODEX_HOME;
+      }
+      originalCodexHome = undefined;
       throw error;
     }
   }
@@ -612,6 +629,12 @@ describe("WebSocket Server", () => {
     const scope = serverScope;
     serverScope = null;
     await Effect.runPromise(Scope.close(scope, Exit.void));
+    if (originalCodexHome !== undefined) {
+      process.env.CODEX_HOME = originalCodexHome;
+    } else {
+      delete process.env.CODEX_HOME;
+    }
+    originalCodexHome = undefined;
   }
 
   afterEach(async () => {
@@ -896,6 +919,7 @@ describe("WebSocket Server", () => {
       keybindings: DEFAULT_RESOLVED_KEYBINDINGS,
       issues: [],
       providers: defaultProviderStatuses,
+      codexConfig: defaultCodexConfigSummary,
       availableEditors: expect.any(Array),
       buildInfo: expectedServerBuildInfo,
     });
@@ -979,6 +1003,7 @@ describe("WebSocket Server", () => {
       keybindings: DEFAULT_RESOLVED_KEYBINDINGS,
       issues: [],
       providers: defaultProviderStatuses,
+      codexConfig: defaultCodexConfigSummary,
       availableEditors: expect.any(Array),
       buildInfo: expectedServerBuildInfo,
     });
@@ -1017,6 +1042,7 @@ describe("WebSocket Server", () => {
         },
       ],
       providers: defaultProviderStatuses,
+      codexConfig: defaultCodexConfigSummary,
       availableEditors: expect.any(Array),
       buildInfo: expectedServerBuildInfo,
     });
@@ -1290,6 +1316,7 @@ describe("WebSocket Server", () => {
       keybindings: compileKeybindings(persistedConfig),
       issues: [],
       providers: defaultProviderStatuses,
+      codexConfig: defaultCodexConfigSummary,
       availableEditors: expect.any(Array),
       buildInfo: expectedServerBuildInfo,
     });
@@ -1340,6 +1367,7 @@ describe("WebSocket Server", () => {
       keybindings: compileKeybindings(persistedConfig),
       issues: [],
       providers: defaultProviderStatuses,
+      codexConfig: defaultCodexConfigSummary,
       availableEditors: expect.any(Array),
       buildInfo: expectedServerBuildInfo,
     });

@@ -7,7 +7,6 @@
  *
  * @module ProviderHealthLive
  */
-import * as OS from "node:os";
 import { CopilotClient } from "@github/copilot-sdk";
 import type {
   ServerProvider,
@@ -15,7 +14,7 @@ import type {
   ServerProviderStatus,
   ServerProviderStatusState,
 } from "@okcode/contracts";
-import { Array, Data, Effect, FileSystem, Layer, Option, Path, Result, Stream } from "effect";
+import { Array, Data, Effect, FileSystem, Layer, Option, Result, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
 import { serverBuildInfo } from "../../buildInfo.ts";
@@ -26,6 +25,7 @@ import {
   isCodexCliVersionSupported,
   parseCodexCliVersion,
 } from "../codexCliVersion";
+import { readCodexConfigSummary, usesOpenAiLoginForSelectedCodexBackend } from "../codexConfig";
 import { withServerProviderModels } from "../providerCatalog.ts";
 import { ProviderHealth, type ProviderHealthShape } from "../Services/ProviderHealth";
 
@@ -243,72 +243,6 @@ export function parseAuthStatusFromOutput(result: CommandResult): {
   };
 }
 
-// ── Codex CLI config detection ──────────────────────────────────────
-
-/**
- * Providers that use OpenAI-native authentication via `codex login`.
- * When the configured `model_provider` is one of these, the `codex login
- * status` probe still runs. For any other provider value the auth probe
- * is skipped because authentication is handled externally (e.g. via
- * environment variables like `PORTKEY_API_KEY` or `AZURE_API_KEY`).
- */
-const OPENAI_AUTH_PROVIDERS = new Set(["openai"]);
-
-/**
- * Read the `model_provider` value from the Codex CLI config file.
- *
- * Looks for the file at `$CODEX_HOME/config.toml` (falls back to
- * `~/.codex/config.toml`). Uses a simple line-by-line scan rather than
- * a full TOML parser to avoid adding a dependency for a single key.
- *
- * Returns `undefined` when the file does not exist or does not set
- * `model_provider`.
- */
-export const readCodexConfigModelProvider = Effect.gen(function* () {
-  const fileSystem = yield* FileSystem.FileSystem;
-  const path = yield* Path.Path;
-  const codexHome = process.env.CODEX_HOME || path.join(OS.homedir(), ".codex");
-  const configPath = path.join(codexHome, "config.toml");
-
-  const content = yield* fileSystem
-    .readFileString(configPath)
-    .pipe(Effect.orElseSucceed(() => undefined));
-  if (content === undefined) {
-    return undefined;
-  }
-
-  // We need to find `model_provider = "..."` at the top level of the
-  // TOML file (i.e. before any `[section]` header). Lines inside
-  // `[profiles.*]`, `[model_providers.*]`, etc. are ignored.
-  let inTopLevel = true;
-  for (const line of content.split("\n")) {
-    const trimmed = line.trim();
-    // Skip comments and empty lines.
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    // Detect section headers — once we leave the top level, stop.
-    if (trimmed.startsWith("[")) {
-      inTopLevel = false;
-      continue;
-    }
-    if (!inTopLevel) continue;
-
-    const match = trimmed.match(/^model_provider\s*=\s*["']([^"']+)["']/);
-    if (match) return match[1];
-  }
-  return undefined;
-});
-
-/**
- * Returns `true` when the Codex CLI is configured with a custom
- * (non-OpenAI) model provider, meaning `codex login` auth is not
- * required because authentication is handled through provider-specific
- * environment variables.
- */
-export const hasCustomModelProvider = Effect.map(
-  readCodexConfigModelProvider,
-  (provider) => provider !== undefined && !OPENAI_AUTH_PROVIDERS.has(provider),
-);
-
 // ── Effect-native command execution ─────────────────────────────────
 
 const collectStreamAsString = <E>(stream: Stream.Stream<Uint8Array, E>): Effect.Effect<string, E> =>
@@ -496,7 +430,7 @@ export const checkCopilotProviderStatus: Effect.Effect<ServerProviderStatus, nev
 export const checkCodexProviderStatus: Effect.Effect<
   ServerProviderStatus,
   never,
-  ChildProcessSpawner.ChildProcessSpawner | FileSystem.FileSystem | Path.Path
+  ChildProcessSpawner.ChildProcessSpawner | FileSystem.FileSystem
 > = Effect.gen(function* () {
   const checkedAt = new Date().toISOString();
 
@@ -566,13 +500,13 @@ export const checkCodexProviderStatus: Effect.Effect<
     });
   }
 
+  const codexConfig = yield* readCodexConfigSummary();
+
   // Probe 2: `codex login status` — is the user authenticated?
   //
-  // Custom model providers (e.g. Portkey, Azure OpenAI proxy) handle
-  // authentication through their own environment variables, so `codex
-  // login status` will report "not logged in" even when the CLI works
-  // fine.  Skip the auth probe entirely for non-OpenAI providers.
-  if (yield* hasCustomModelProvider) {
+  // Non-OpenAI backends handle authentication externally, so `codex
+  // login status` is only meaningful for the default OpenAI backend.
+  if (!usesOpenAiLoginForSelectedCodexBackend(codexConfig)) {
     return createServerProviderStatus({
       provider: CODEX_PROVIDER,
       enabled: true,
@@ -581,7 +515,7 @@ export const checkCodexProviderStatus: Effect.Effect<
       status: "ready" as const,
       auth: { status: "unknown" as const },
       checkedAt,
-      message: "Using a custom Codex model provider; OpenAI login check skipped.",
+      message: `Codex is configured to use backend '${codexConfig.selectedModelProviderId}'; OpenAI login check skipped.`,
     });
   }
 
@@ -1100,7 +1034,6 @@ export const ProviderHealthLive = Layer.effect(
   ProviderHealth,
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
     const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
     const openclawGatewayConfig = yield* OpenclawGatewayConfig;
 
@@ -1118,7 +1051,6 @@ export const ProviderHealthLive = Layer.effect(
         },
       ).pipe(
         Effect.provideService(FileSystem.FileSystem, fileSystem),
-        Effect.provideService(Path.Path, path),
         Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
         Effect.provideService(OpenclawGatewayConfig, openclawGatewayConfig),
       ),

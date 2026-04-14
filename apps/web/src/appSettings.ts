@@ -91,6 +91,9 @@ export const AppSettingsSchema = Schema.Struct({
   claudeBinaryPath: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
   copilotBinaryPath: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
   copilotConfigDir: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
+  claudeAuthTokenHelperCommand: Schema.String.check(Schema.isMaxLength(4096)).pipe(
+    withDefaults(() => ""),
+  ),
   codexBinaryPath: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
   codexHomePath: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
   backgroundImageUrl: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
@@ -389,7 +392,9 @@ export function getProviderStartOptions(
     | "codexHomePath"
     | "openclawGatewayUrl"
     | "openclawPassword"
-  >,
+  > & {
+    claudeAuthTokenHelperCommand?: AppSettings["claudeAuthTokenHelperCommand"];
+  },
 ): ProviderStartOptions | undefined {
   const providerOptions: ProviderStartOptions = {
     ...(settings.codexBinaryPath || settings.codexHomePath
@@ -400,26 +405,13 @@ export function getProviderStartOptions(
           },
         }
       : {}),
-    ...(settings.claudeBinaryPath
+    ...(settings.claudeBinaryPath || settings.claudeAuthTokenHelperCommand
       ? {
           claudeAgent: {
-            binaryPath: settings.claudeBinaryPath,
-          },
-        }
-      : {}),
-    ...(settings.copilotBinaryPath || settings.copilotConfigDir
-      ? {
-          copilot: {
-            ...(settings.copilotBinaryPath ? { binaryPath: settings.copilotBinaryPath } : {}),
-            ...(settings.copilotConfigDir ? { configDir: settings.copilotConfigDir } : {}),
-          },
-        }
-      : {}),
-    ...(settings.openclawGatewayUrl || settings.openclawPassword
-      ? {
-          openclaw: {
-            ...(settings.openclawGatewayUrl ? { gatewayUrl: settings.openclawGatewayUrl } : {}),
-            ...(settings.openclawPassword ? { password: settings.openclawPassword } : {}),
+            ...(settings.claudeBinaryPath ? { binaryPath: settings.claudeBinaryPath } : {}),
+            ...(settings.claudeAuthTokenHelperCommand
+              ? { authTokenHelperCommand: settings.claudeAuthTokenHelperCommand }
+              : {}),
           },
         }
       : {}),

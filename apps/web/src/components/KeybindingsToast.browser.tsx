@@ -52,6 +52,11 @@ function createBaseServerConfig(): ServerConfig {
         checkedAt: NOW_ISO,
       },
     ],
+    codexConfig: {
+      selectedModelProviderId: null,
+      entries: [],
+      parseError: null,
+    },
     availableEditors: [],
   };
 }

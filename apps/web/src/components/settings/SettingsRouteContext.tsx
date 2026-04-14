@@ -90,6 +90,9 @@ export function SettingsRouteContextProvider({ children }: { children: ReactNode
     currentGitTextGenerationModel !== defaultGitTextGenerationModel;
   const isInstallSettingsDirty =
     settings.claudeBinaryPath !== defaults.claudeBinaryPath ||
+    settings.claudeAuthTokenHelperCommand !== defaults.claudeAuthTokenHelperCommand ||
+    settings.copilotBinaryPath !== defaults.copilotBinaryPath ||
+    settings.copilotConfigDir !== defaults.copilotConfigDir ||
     settings.codexBinaryPath !== defaults.codexBinaryPath ||
     settings.codexHomePath !== defaults.codexHomePath;
   const isOpenClawSettingsDirty =
@@ -151,6 +154,8 @@ export function SettingsRouteContextProvider({ children }: { children: ReactNode
         ...(isGitTextGenerationModelDirty ? ["Git writing model"] : []),
         ...(settings.customCodexModels.length > 0 ||
         settings.customClaudeModels.length > 0 ||
+        settings.customCopilotModels.length > 0 ||
+        settings.customGeminiModels.length > 0 ||
         settings.customOpenClawModels.length > 0
           ? ["Custom models"]
           : []),

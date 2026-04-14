@@ -7,19 +7,18 @@ import {
 } from "@okcode/contracts";
 
 import { resolveAnthropicClientOptions } from "./backends/anthropic.ts";
-import { homedir } from "node:os";
-import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { spawn } from "node:child_process";
-import { readFile } from "node:fs/promises";
 
 import {
   buildCodexInitializeParams,
   readCodexAccountSnapshot,
   type CodexAppServerStartSessionInput,
 } from "../codexAppServerManager.ts";
-
-const OPENAI_MODEL_PROVIDERS = new Set(["openai"]);
+import {
+  readCodexConfigSummaryFromFile,
+  usesOpenAiLoginForSelectedCodexBackend,
+} from "../provider/codexConfig.ts";
 const CLAUDE_SME_MISSING_CREDENTIALS_MESSAGE =
   "Claude SME Chat uses direct Anthropic credentials, not the Claude CLI login. Set ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN.";
 
@@ -189,31 +188,6 @@ export function validateAnthropicSetup(input: {
 
 export const validateClaudeSetup = validateAnthropicSetup;
 
-async function readCodexConfigModelProvider(
-  providerOptions?: CodexAppServerStartSessionInput["providerOptions"],
-): Promise<string | undefined> {
-  const homePath =
-    providerOptions?.codex?.homePath?.trim() || process.env.CODEX_HOME || join(homedir(), ".codex");
-  try {
-    const content = await readFile(join(homePath, "config.toml"), "utf-8");
-    let inTopLevel = true;
-    for (const line of content.split("\n")) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith("#")) continue;
-      if (trimmed.startsWith("[")) {
-        inTopLevel = false;
-        continue;
-      }
-      if (!inTopLevel) continue;
-      const match = trimmed.match(/^model_provider\s*=\s*["']([^"']+)["']/);
-      if (match) return match[1];
-    }
-    return undefined;
-  } catch {
-    return undefined;
-  }
-}
-
 async function readCodexAccountType(
   providerOptions?: CodexAppServerStartSessionInput["providerOptions"],
 ): Promise<"apiKey" | "chatgpt" | "unknown"> {
@@ -327,34 +301,37 @@ export async function validateCodexSetup(input: {
   readonly authMethod: Extract<SmeAuthMethod, "auto" | "apiKey" | "chatgpt" | "customProvider">;
   readonly providerOptions?: CodexAppServerStartSessionInput["providerOptions"];
 }): Promise<SmeValidateSetupResult> {
-  const modelProvider = await readCodexConfigModelProvider(input.providerOptions);
-  const customProviderConfigured =
-    modelProvider !== undefined && !OPENAI_MODEL_PROVIDERS.has(modelProvider);
+  const codexConfig = await readCodexConfigSummaryFromFile({
+    homePath: input.providerOptions?.codex?.homePath,
+  });
+  const modelProvider = codexConfig.selectedModelProviderId;
+  const nonOpenAiBackendConfigured =
+    modelProvider !== null && !usesOpenAiLoginForSelectedCodexBackend(codexConfig);
 
   if (input.authMethod === "customProvider") {
-    if (!customProviderConfigured) {
+    if (!nonOpenAiBackendConfigured) {
       return {
         ok: false,
         severity: "error",
         message:
-          "Codex custom provider mode requires a non-OpenAI `model_provider` in the Codex config.",
+          "Codex custom provider mode requires a non-OpenAI backend configured via `model_provider` in the Codex config.",
         resolvedAuthMethod: "customProvider",
       };
     }
     return {
       ok: true,
       severity: "ready",
-      message: `Codex is configured to use custom model provider '${modelProvider}'.`,
+      message: `Codex is configured to use non-OpenAI backend '${modelProvider}'.`,
       resolvedAuthMethod: "customProvider",
       resolvedAccountType: "unknown",
     };
   }
 
-  if (input.authMethod === "auto" && customProviderConfigured) {
+  if (input.authMethod === "auto" && nonOpenAiBackendConfigured) {
     return {
       ok: true,
       severity: "ready",
-      message: `Codex auto mode resolved to custom provider '${modelProvider}'.`,
+      message: `Codex auto mode resolved to non-OpenAI backend '${modelProvider}'.`,
       resolvedAuthMethod: "customProvider",
       resolvedAccountType: "unknown",
     };

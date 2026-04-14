@@ -8,6 +8,10 @@
       "types": "./src/model.ts",
       "import": "./src/model.ts"
     },
+    "./codexModelProviders": {
+      "types": "./src/codexModelProviders.ts",
+      "import": "./src/codexModelProviders.ts"
+    },
     "./modelSelection": {
       "types": "./src/modelSelection.ts",
       "import": "./src/modelSelection.ts"

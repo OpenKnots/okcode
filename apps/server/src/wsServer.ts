@@ -100,6 +100,7 @@ import { SkillService } from "./skills/SkillService.ts";
 import { SmeChatService } from "./sme/Services/SmeChatService.ts";
 import { TokenManager } from "./tokenManager.ts";
 import { resolveRuntimeEnvironment, RuntimeEnv } from "./runtimeEnvironment.ts";
+import { readCodexConfigSummary } from "./provider/codexConfig";
 import { TerminalRuntimeEnvResolver } from "./terminal/Services/RuntimeEnvResolver.ts";
 import { version as serverVersion } from "../package.json" with { type: "json" };
 import { serverBuildInfo } from "./buildInfo";
@@ -1601,12 +1602,14 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
       case WS_METHODS.serverGetConfig:
         const keybindingsConfig = yield* keybindingsManager.loadConfigState;
         const providers = yield* getProviderStatuses();
+        const codexConfig = yield* readCodexConfigSummary();
         return {
           cwd,
           keybindingsConfigPath,
           keybindings: keybindingsConfig.keybindings,
           issues: keybindingsConfig.issues,
           providers,
+          codexConfig,
           availableEditors,
           buildInfo: serverBuildInfo,
         };

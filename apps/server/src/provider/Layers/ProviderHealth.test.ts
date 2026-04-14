@@ -470,13 +470,17 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
   // ── checkClaudeProviderStatus tests ──────────────────────────
 
   describe("checkClaudeProviderStatus", () => {
-    it.effect("returns ready when claude is installed and authenticated", () =>
+    it.effect("rejects Claude API-key auth and requires CLI login", () =>
       Effect.gen(function* () {
         const status = yield* checkClaudeProviderStatus;
         assert.strictEqual(status.provider, "claudeAgent");
-        assert.strictEqual(status.status, "ready");
+        assert.strictEqual(status.status, "error");
         assert.strictEqual(status.available, true);
-        assert.strictEqual(status.authStatus, "authenticated");
+        assert.strictEqual(status.authStatus, "unauthenticated");
+        assert.strictEqual(
+          status.message,
+          "Claude authentication status reported unsupported credential type 'apiKey'. Run `claude auth login` and try again. API key and auth token credentials are not supported.",
+        );
       }).pipe(
         Effect.provide(
           mockSpawnerLayer((args) => {
@@ -535,7 +539,7 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
         assert.strictEqual(status.authStatus, "unauthenticated");
         assert.strictEqual(
           status.message,
-          "Claude is not configured with a supported Anthropic credential. Run `claude auth login`, or set ANTHROPIC_API_KEY / ANTHROPIC_AUTH_TOKEN, and try again.",
+          "Claude Code must be authenticated with `claude auth login` before starting a session. Run `claude auth login` and try again. API key and auth token credentials are not supported.",
         );
       }).pipe(
         Effect.provide(
@@ -561,7 +565,7 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
         assert.strictEqual(status.status, "ready");
         assert.strictEqual(status.available, true);
         assert.strictEqual(status.authStatus, "authenticated");
-        assert.strictEqual(status.message, "Claude Code CLI is ready via Claude.ai login.");
+        assert.strictEqual(status.message, "Claude Code CLI is ready via `claude auth login`.");
       }).pipe(
         Effect.provide(
           mockSpawnerLayer((args) => {
@@ -626,10 +630,10 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
   // ── parseClaudeAuthStatusFromOutput pure tests ────────────────────
 
   describe("parseClaudeAuthStatusFromOutput", () => {
-    it("exit code 0 with no auth markers is ready", () => {
+    it("exit code 0 with no auth markers is unknown", () => {
       const parsed = parseClaudeAuthStatusFromOutput({ stdout: "OK\n", stderr: "", code: 0 });
-      assert.strictEqual(parsed.status, "ready");
-      assert.strictEqual(parsed.authStatus, "authenticated");
+      assert.strictEqual(parsed.status, "warning");
+      assert.strictEqual(parsed.authStatus, "unknown");
     });
 
     it("JSON with loggedIn=true is authenticated", () => {
@@ -640,7 +644,7 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
       });
       assert.strictEqual(parsed.status, "ready");
       assert.strictEqual(parsed.authStatus, "authenticated");
-      assert.strictEqual(parsed.message, "Claude Code CLI is ready via Claude.ai login.");
+      assert.strictEqual(parsed.message, "Claude Code CLI is ready via `claude auth login`.");
     });
 
     it("JSON with loggedIn=false is unauthenticated", () => {

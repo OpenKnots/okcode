@@ -3,7 +3,6 @@ import type { MessageParam } from "@anthropic-ai/sdk/resources";
 import type { SmeMessageEvent } from "@okcode/contracts";
 import { Effect } from "effect";
 
-import { readClaudeAuthTokenFromHelperCommand } from "../../provider/claudeAuthTokenHelper.ts";
 import { SmeChatError } from "../Services/SmeChatService.ts";
 import type { ProviderStartOptions } from "@okcode/contracts";
 
@@ -32,18 +31,11 @@ export function resolveAnthropicClientOptions(
   const env = input?.env ?? process.env;
   const explicitApiKey = nonEmptyTrimmed(env.ANTHROPIC_API_KEY);
   const explicitAuthToken = nonEmptyTrimmed(env.ANTHROPIC_AUTH_TOKEN);
-  const helperCommand = nonEmptyTrimmed(input?.providerOptions?.authTokenHelperCommand);
-
-  let authToken = explicitAuthToken;
-  if (!authToken && helperCommand) {
-    authToken = readClaudeAuthTokenFromHelperCommand(helperCommand, { env });
-  }
-
   const baseURL = nonEmptyTrimmed(env.ANTHROPIC_BASE_URL ?? env.ANTHROPIC_API_BASE_URL);
 
   return {
-    apiKey: authToken ? null : (explicitApiKey ?? null),
-    authToken: authToken ?? null,
+    apiKey: explicitAuthToken ? null : (explicitApiKey ?? null),
+    authToken: explicitAuthToken ?? null,
     ...(baseURL ? { baseURL } : {}),
   };
 }

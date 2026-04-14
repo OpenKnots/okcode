@@ -403,7 +403,7 @@ export function getProviderStartOptions(
     ...(settings.claudeBinaryPath
       ? {
           claudeAgent: {
-            ...(settings.claudeBinaryPath ? { binaryPath: settings.claudeBinaryPath } : {}),
+            binaryPath: settings.claudeBinaryPath,
           },
         }
       : {}),

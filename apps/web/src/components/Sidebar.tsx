@@ -1263,7 +1263,7 @@ export default function Sidebar() {
       if (!project) return;
 
       const projectThreads = sortedThreadsByProjectId.get(projectId) ?? EMPTY_THREADS;
-      if (projectThreads.length > 0) {
+      if (projectThreads.length > 1) {
         toastManager.add({
           type: "warning",
           title: "Project is not empty",
@@ -1272,15 +1272,27 @@ export default function Sidebar() {
         return;
       }
 
-      const confirmed = await api.dialogs.confirm(`Remove project "${project.name}"?`);
+      const confirmed = await api.dialogs.confirm(
+        projectThreads.length === 1
+          ? `Remove project "${project.name}" and delete its only thread?`
+          : `Remove project "${project.name}"?`,
+      );
       if (!confirmed) return;
 
       try {
-        const projectDraftThread = getDraftThreadByProjectId(projectId);
-        if (projectDraftThread) {
-          clearComposerDraftForThread(projectDraftThread.threadId);
+        if (projectThreads.length === 1) {
+          const [projectThread] = projectThreads;
+          if (projectThread) {
+            clearSelection();
+            await deleteThread(projectThread.id);
+          }
+        } else {
+          const projectDraftThread = getDraftThreadByProjectId(projectId);
+          if (projectDraftThread) {
+            clearComposerDraftForThread(projectDraftThread.threadId);
+          }
+          clearProjectDraftThreadId(projectId);
         }
-        clearProjectDraftThreadId(projectId);
         await api.orchestration.dispatchCommand({
           type: "project.delete",
           commandId: newCommandId(),
@@ -1297,8 +1309,10 @@ export default function Sidebar() {
       }
     },
     [
+      clearSelection,
       clearComposerDraftForThread,
       clearProjectDraftThreadId,
+      deleteThread,
       getDraftThreadByProjectId,
       projectById,
       sortedThreadsByProjectId,

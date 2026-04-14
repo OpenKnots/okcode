@@ -6,6 +6,9 @@ import { normalizeProjectIconPath, resolveSuggestedProjectIconPath } from "./pro
 describe("project icon helpers", () => {
   it("normalizes icon paths by trimming and treating blanks as null", () => {
     expect(normalizeProjectIconPath("  public/icon.svg  ")).toBe("public/icon.svg");
+    expect(normalizeProjectIconPath("  https://cdn.example.com/icon.gif  ")).toBe(
+      "https://cdn.example.com/icon.gif",
+    );
     expect(normalizeProjectIconPath("   ")).toBeNull();
     expect(normalizeProjectIconPath(null)).toBeNull();
   });

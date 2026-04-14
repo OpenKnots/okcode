@@ -4,9 +4,14 @@ import path from "node:path";
 import { PROJECT_ICON_FALLBACK_CANDIDATES } from "@okcode/shared/projectIcons";
 
 const FAVICON_MIME_TYPES: Record<string, string> = {
+  ".avif": "image/avif",
+  ".bmp": "image/bmp",
+  ".gif": "image/gif",
+  ".jpeg": "image/jpeg",
   ".png": "image/png",
   ".jpg": "image/jpeg",
   ".svg": "image/svg+xml",
+  ".webp": "image/webp",
   ".ico": "image/x-icon",
 };
 
@@ -25,9 +30,10 @@ const ICON_SOURCE_FILES = [
 
 // Matches <link ...> tags or object-like icon metadata where rel/href can appear in any order.
 const LINK_ICON_HTML_RE =
-  /<link\b(?=[^>]*\brel=["'](?:icon|shortcut icon)["'])(?=[^>]*\bhref=["']([^"'?]+))[^>]*>/i;
+  /<link\b(?=[^>]*\brel=["'](?:icon|shortcut icon)["'])(?=[^>]*\bhref=["']([^"']+))[^>]*>/i;
 const LINK_ICON_OBJ_RE =
-  /(?=[^}]*\brel\s*:\s*["'](?:icon|shortcut icon)["'])(?=[^}]*\bhref\s*:\s*["']([^"'?]+))[^}]*/i;
+  /(?=[^}]*\brel\s*:\s*["'](?:icon|shortcut icon)["'])(?=[^}]*\bhref\s*:\s*["']([^"']+))[^}]*/i;
+const ICON_URL_SCHEME_RE = /^[a-z][a-z\d+.-]*:/i;
 
 function extractIconHref(source: string): string | null {
   const htmlMatch = source.match(LINK_ICON_HTML_RE);
@@ -37,8 +43,36 @@ function extractIconHref(source: string): string | null {
   return null;
 }
 
-function resolveIconHref(projectCwd: string, href: string): string[] {
-  const clean = href.replace(/^\//, "");
+function resolveExternalIconUrl(href: string): string | null {
+  const trimmed = href.trim();
+  if (trimmed.length === 0) return null;
+  if (trimmed.startsWith("//")) return trimmed;
+  try {
+    const url = new URL(trimmed);
+    if (url.protocol === "http:" || url.protocol === "https:") {
+      return url.toString();
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function hasUnsupportedIconScheme(href: string): boolean {
+  const trimmed = href.trim();
+  return trimmed.length > 0 && !trimmed.startsWith("//") && ICON_URL_SCHEME_RE.test(trimmed);
+}
+
+function stripHrefSearchAndHash(href: string): string {
+  const queryIndex = href.indexOf("?");
+  const hashIndex = href.indexOf("#");
+  const cutIndex =
+    queryIndex === -1 ? hashIndex : hashIndex === -1 ? queryIndex : Math.min(queryIndex, hashIndex);
+  return (cutIndex === -1 ? href : href.slice(0, cutIndex)).trim();
+}
+
+function resolveLocalIconHref(projectCwd: string, href: string): string[] {
+  const clean = stripHrefSearchAndHash(href).replace(/^\//, "");
   return [path.join(projectCwd, "public", clean), path.join(projectCwd, clean)];
 }
 
@@ -72,6 +106,14 @@ function serveFallbackFavicon(res: http.ServerResponse): void {
   res.end(FALLBACK_FAVICON_SVG);
 }
 
+function redirectToFaviconUrl(iconUrl: string, res: http.ServerResponse): void {
+  res.writeHead(302, {
+    Location: iconUrl,
+    "Cache-Control": "public, max-age=3600",
+  });
+  res.end();
+}
+
 export function tryHandleProjectFaviconRequest(url: URL, res: http.ServerResponse): boolean {
   if (url.pathname !== "/api/project-favicon") {
     return false;
@@ -86,7 +128,16 @@ export function tryHandleProjectFaviconRequest(url: URL, res: http.ServerRespons
 
   const overrideIconPath = url.searchParams.get("icon");
   if (overrideIconPath) {
-    const candidates = resolveIconHref(projectCwd, overrideIconPath);
+    const externalIconUrl = resolveExternalIconUrl(overrideIconPath);
+    if (externalIconUrl) {
+      redirectToFaviconUrl(externalIconUrl, res);
+      return true;
+    }
+    if (hasUnsupportedIconScheme(overrideIconPath)) {
+      serveFallbackFavicon(res);
+      return true;
+    }
+    const candidates = resolveLocalIconHref(projectCwd, overrideIconPath);
     const serveOverrideOrFallback = (index: number): void => {
       if (index >= candidates.length) {
         serveFallbackFavicon(res);
@@ -144,7 +195,16 @@ export function tryHandleProjectFaviconRequest(url: URL, res: http.ServerRespons
         trySourceFiles(index + 1);
         return;
       }
-      const candidates = resolveIconHref(projectCwd, href);
+      const externalIconUrl = resolveExternalIconUrl(href);
+      if (externalIconUrl) {
+        redirectToFaviconUrl(externalIconUrl, res);
+        return;
+      }
+      if (hasUnsupportedIconScheme(href)) {
+        trySourceFiles(index + 1);
+        return;
+      }
+      const candidates = resolveLocalIconHref(projectCwd, href);
       tryResolvedPaths(candidates, 0, () => trySourceFiles(index + 1));
     });
   };

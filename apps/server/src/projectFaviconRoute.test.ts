@@ -9,6 +9,7 @@ import { tryHandleProjectFaviconRequest } from "./projectFaviconRoute";
 interface HttpResponse {
   statusCode: number;
   contentType: string | null;
+  location: string | null;
   body: string;
 }
 
@@ -61,11 +62,16 @@ async function withRouteServer(run: (baseUrl: string) => Promise<void>): Promise
   }
 }
 
-async function request(baseUrl: string, pathname: string): Promise<HttpResponse> {
-  const response = await fetch(`${baseUrl}${pathname}`);
+async function request(
+  baseUrl: string,
+  pathname: string,
+  init?: Pick<RequestInit, "redirect">,
+): Promise<HttpResponse> {
+  const response = await fetch(`${baseUrl}${pathname}`, init);
   return {
     statusCode: response.status,
     contentType: response.headers.get("content-type"),
+    location: response.headers.get("location"),
     body: await response.text(),
   };
 }
@@ -113,6 +119,19 @@ describe("tryHandleProjectFaviconRequest", () => {
     });
   });
 
+  it("redirects to an explicit absolute icon override when provided", async () => {
+    const projectDir = makeTempDir("okcode-favicon-route-absolute-override-");
+    const remoteIconUrl = "https://cdn.example.com/assets/project-icon.gif?size=64";
+
+    await withRouteServer(async (baseUrl) => {
+      const pathname = `/api/project-favicon?cwd=${encodeURIComponent(projectDir)}&icon=${encodeURIComponent(remoteIconUrl)}`;
+      const response = await request(baseUrl, pathname, { redirect: "manual" });
+      expect(response.statusCode).toBe(302);
+      expect(response.location).toBe(remoteIconUrl);
+      expect(response.body).toBe("");
+    });
+  });
+
   it("resolves icon href from source files when no well-known favicon exists", async () => {
     const projectDir = makeTempDir("okcode-favicon-route-source-");
     const iconPath = path.join(projectDir, "public", "brand", "logo.svg");
@@ -129,6 +148,42 @@ describe("tryHandleProjectFaviconRequest", () => {
       expect(response.statusCode).toBe(200);
       expect(response.contentType).toContain("image/svg+xml");
       expect(response.body).toBe("<svg>brand</svg>");
+    });
+  });
+
+  it("redirects to an absolute icon href discovered from source files", async () => {
+    const projectDir = makeTempDir("okcode-favicon-route-absolute-source-");
+    const remoteIconUrl = "https://cdn.example.com/brand/logo.jpeg?version=42";
+    fs.writeFileSync(
+      path.join(projectDir, "index.html"),
+      `<link rel="icon" href="${remoteIconUrl}">`,
+    );
+
+    await withRouteServer(async (baseUrl) => {
+      const pathname = `/api/project-favicon?cwd=${encodeURIComponent(projectDir)}`;
+      const response = await request(baseUrl, pathname, { redirect: "manual" });
+      expect(response.statusCode).toBe(302);
+      expect(response.location).toBe(remoteIconUrl);
+      expect(response.body).toBe("");
+    });
+  });
+
+  it("resolves a local icon href discovered from source files with query params", async () => {
+    const projectDir = makeTempDir("okcode-favicon-route-source-query-");
+    const iconPath = path.join(projectDir, "public", "brand", "logo.svg");
+    fs.mkdirSync(path.dirname(iconPath), { recursive: true });
+    fs.writeFileSync(
+      path.join(projectDir, "index.html"),
+      '<link rel="icon" href="/brand/logo.svg?v=123#cache-bust">',
+    );
+    fs.writeFileSync(iconPath, "<svg>brand-query</svg>", "utf8");
+
+    await withRouteServer(async (baseUrl) => {
+      const pathname = `/api/project-favicon?cwd=${encodeURIComponent(projectDir)}`;
+      const response = await request(baseUrl, pathname);
+      expect(response.statusCode).toBe(200);
+      expect(response.contentType).toContain("image/svg+xml");
+      expect(response.body).toBe("<svg>brand-query</svg>");
     });
   });
 
@@ -169,6 +224,19 @@ describe("tryHandleProjectFaviconRequest", () => {
       expect(response.statusCode).toBe(200);
       expect(response.contentType).toContain("image/svg+xml");
       expect(response.body).toBe("<svg>brand-obj-order</svg>");
+    });
+  });
+
+  it("serves common image types such as jpeg with the correct content type", async () => {
+    const projectDir = makeTempDir("okcode-favicon-route-jpeg-");
+    fs.writeFileSync(path.join(projectDir, "favicon.jpeg"), "jpeg-bits", "utf8");
+
+    await withRouteServer(async (baseUrl) => {
+      const pathname = `/api/project-favicon?cwd=${encodeURIComponent(projectDir)}`;
+      const response = await request(baseUrl, pathname);
+      expect(response.statusCode).toBe(200);
+      expect(response.contentType).toContain("image/jpeg");
+      expect(response.body).toBe("jpeg-bits");
     });
   });
 

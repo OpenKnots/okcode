@@ -17,7 +17,7 @@ export const COLOR_THEMES: { id: ColorTheme; label: string }[] = [
   { id: "default", label: "Default" },
   { id: "iridescent-void", label: "Iridescent Void" },
   { id: "carbon", label: "Carbon" },
-  { id: "purple-stuff", label: "Purple Stuff" },
+  { id: "purple-stuff", label: "Deep Purple" },
   { id: "custom", label: "Custom" },
 ];
 

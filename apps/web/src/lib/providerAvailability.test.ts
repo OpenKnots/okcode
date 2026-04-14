@@ -54,7 +54,11 @@ describe("providerAvailability", () => {
       isProviderReadyForThreadSelection({
         provider: "claudeAgent",
         statuses: [
-          makeStatus("claudeAgent", { status: "error", available: true, authStatus: "unauthenticated" }),
+          makeStatus("claudeAgent", {
+            status: "error",
+            available: true,
+            authStatus: "unauthenticated",
+          }),
         ],
         claudeAuthTokenHelperCommand: "my-token-helper",
       }),
@@ -66,7 +70,11 @@ describe("providerAvailability", () => {
       isProviderReadyForThreadSelection({
         provider: "claudeAgent",
         statuses: [
-          makeStatus("claudeAgent", { status: "ready", available: true, authStatus: "unauthenticated" }),
+          makeStatus("claudeAgent", {
+            status: "ready",
+            available: true,
+            authStatus: "unauthenticated",
+          }),
         ],
         claudeAuthTokenHelperCommand: "my-token-helper",
       }),

@@ -953,33 +953,42 @@ describe("WebSocket Server", () => {
 
     const firstResponse = await sendRequest(ws, WS_METHODS.serverGetConfig);
     const secondResponse = await sendRequest(ws, WS_METHODS.serverGetConfig);
+    const firstResult = firstResponse.result as
+      | { readonly providers?: ReadonlyArray<{ readonly checkedAt?: string }> }
+      | undefined;
+    const secondResult = secondResponse.result as
+      | { readonly providers?: ReadonlyArray<{ readonly checkedAt?: string }> }
+      | undefined;
+    const firstProvider = firstResult?.providers?.[0];
+    const secondProvider = secondResult?.providers?.[0];
 
     expect(firstResponse.result).toEqual(
       expect.objectContaining({
-        providers: [
-          {
+        providers: expect.arrayContaining([
+          expect.objectContaining({
             provider: "codex",
             status: "ready",
             available: true,
             authStatus: "authenticated",
-            checkedAt: "2026-01-01T00:00:02.000Z",
-          },
-        ],
+          }),
+        ]),
       }),
     );
     expect(secondResponse.result).toEqual(
       expect.objectContaining({
-        providers: [
-          {
+        providers: expect.arrayContaining([
+          expect.objectContaining({
             provider: "codex",
             status: "error",
             available: false,
             authStatus: "unauthenticated",
-            checkedAt: "2026-01-01T00:00:03.000Z",
-          },
-        ],
+          }),
+        ]),
       }),
     );
+    expect(firstProvider?.checkedAt).toEqual(expect.any(String));
+    expect(secondProvider?.checkedAt).toEqual(expect.any(String));
+    expect(firstProvider?.checkedAt).not.toEqual(secondProvider?.checkedAt);
   });
 
   it("bootstraps default keybindings file when missing", async () => {

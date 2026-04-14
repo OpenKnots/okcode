@@ -132,7 +132,6 @@ class FakeClaudeQuery implements AsyncIterable<SDKMessage> {
 function makeHarness(config?: {
   readonly nativeEventLogPath?: string;
   readonly nativeEventLogger?: ClaudeAdapterLiveOptions["nativeEventLogger"];
-  readonly readAuthTokenFromHelperCommand?: ClaudeAdapterLiveOptions["readAuthTokenFromHelperCommand"];
   readonly cwd?: string;
   readonly baseDir?: string;
 }) {
@@ -149,11 +148,6 @@ function makeHarness(config?: {
       createInput = input;
       return query;
     },
-    ...(config?.readAuthTokenFromHelperCommand
-      ? {
-          readAuthTokenFromHelperCommand: config.readAuthTokenFromHelperCommand,
-        }
-      : {}),
     ...(config?.nativeEventLogger
       ? {
           nativeEventLogger: config.nativeEventLogger,
@@ -358,27 +352,8 @@ describe("ClaudeAdapterLive", () => {
     );
   });
 
-  it.effect("sources ANTHROPIC_AUTH_TOKEN from the configured helper command", () => {
-    const helperCommand = "op read op://shared/anthropic/token --no-newline";
-    const helperToken = "helper-token";
-    let helperCall: {
-      readonly command: string;
-      readonly options?: { readonly cwd?: string };
-    } | null = null;
-    const helper: NonNullable<ClaudeAdapterLiveOptions["readAuthTokenFromHelperCommand"]> = (
-      command,
-      options,
-    ) => {
-      helperCall = {
-        command,
-        ...(options?.cwd ? { options: { cwd: options.cwd } } : {}),
-      };
-      return helperToken;
-    };
-    const harness = makeHarness({
-      readAuthTokenFromHelperCommand: helper,
-    });
-
+  it.effect("strips Anthropic credential env vars before starting Claude Code", () => {
+    const harness = makeHarness();
     return Effect.gen(function* () {
       const adapter = yield* ClaudeAdapter;
       yield* adapter.startSession({
@@ -387,55 +362,14 @@ describe("ClaudeAdapterLive", () => {
         cwd: THREAD_CWD,
         runtimeMode: "full-access",
         env: {
-          ANTHROPIC_AUTH_TOKEN: "",
-        },
-        providerOptions: {
-          claudeAgent: {
-            authTokenHelperCommand: helperCommand,
-          },
-        },
-      });
-
-      const createInput = harness.getLastCreateQueryInput();
-      assert.equal(createInput?.options.env?.ANTHROPIC_AUTH_TOKEN, helperToken);
-      assert.equal(helperCall?.command, helperCommand);
-      assert.equal(helperCall?.options?.cwd, THREAD_CWD);
-    }).pipe(
-      Effect.provideService(Random.Random, makeDeterministicRandomService()),
-      Effect.provide(harness.layer),
-    );
-  });
-
-  it.effect("prefers an explicit ANTHROPIC_AUTH_TOKEN over the helper command", () => {
-    let helperCallCount = 0;
-    const helper: NonNullable<ClaudeAdapterLiveOptions["readAuthTokenFromHelperCommand"]> = () => {
-      helperCallCount += 1;
-      return "helper-token";
-    };
-    const harness = makeHarness({
-      readAuthTokenFromHelperCommand: helper,
-    });
-
-    return Effect.gen(function* () {
-      const adapter = yield* ClaudeAdapter;
-      yield* adapter.startSession({
-        threadId: THREAD_ID,
-        provider: "claudeAgent",
-        cwd: THREAD_CWD,
-        runtimeMode: "full-access",
-        env: {
+          ANTHROPIC_API_KEY: "api-key",
           ANTHROPIC_AUTH_TOKEN: "env-token",
         },
-        providerOptions: {
-          claudeAgent: {
-            authTokenHelperCommand: "op read op://shared/anthropic/token --no-newline",
-          },
-        },
       });
 
       const createInput = harness.getLastCreateQueryInput();
-      assert.equal(createInput?.options.env?.ANTHROPIC_AUTH_TOKEN, "env-token");
-      assert.equal(helperCallCount, 0);
+      assert.equal(createInput?.options.env?.ANTHROPIC_API_KEY, undefined);
+      assert.equal(createInput?.options.env?.ANTHROPIC_AUTH_TOKEN, undefined);
     }).pipe(
       Effect.provideService(Random.Random, makeDeterministicRandomService()),
       Effect.provide(harness.layer),

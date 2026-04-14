@@ -27,9 +27,9 @@ const PROVIDER_CONFIG = {
   },
   claudeAgent: {
     installCmd: "npm install -g @anthropic-ai/claude-code",
-    authCmd: "set ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN",
+    authCmd: "claude auth login",
     verifyCmd: "claude auth status",
-    note: "You can also configure a Claude auth token helper command or one-click secret-manager preset in Settings.",
+    note: "Claude Code must be installed and signed in through the CLI before it can be used.",
   },
   copilot: {
     installCmd: "npm install -g @github/copilot",

@@ -160,9 +160,8 @@ function hasGeminiHeadlessAuthEnv(): boolean {
 }
 
 const CLAUDE_CLI_AUTH_METHODS = new Set(["claude.ai", "oauth"]);
-const CLAUDE_SUPPORTED_AUTH_METHODS = new Set(["apiKey", "authToken", "claude.ai", "oauth"]);
 const CLAUDE_AUTH_GUIDANCE =
-  "Run `claude auth login`, or set ANTHROPIC_API_KEY / ANTHROPIC_AUTH_TOKEN, and try again.";
+  "Run `claude auth login` and try again. API key and auth token credentials are not supported.";
 
 export function parseAuthStatusFromOutput(result: CommandResult): {
   readonly status: ServerProviderStatusState;
@@ -660,14 +659,14 @@ export function parseClaudeAuthStatusFromOutput(result: CommandResult): {
     lowerOutput.includes("not logged in") ||
     lowerOutput.includes("login required") ||
     lowerOutput.includes("authentication required") ||
-    lowerOutput.includes("oauth authentication is currently not supported") ||
     lowerOutput.includes("run `claude login`") ||
-    lowerOutput.includes("run claude login")
+    lowerOutput.includes("run claude login") ||
+    lowerOutput.includes("api key and auth token credentials are not supported")
   ) {
     return {
       status: "error",
       authStatus: "unauthenticated",
-      message: `Claude is not configured with a supported Anthropic credential. ${CLAUDE_AUTH_GUIDANCE}`,
+      message: `Claude Code must be authenticated with \`claude auth login\` before starting a session. ${CLAUDE_AUTH_GUIDANCE}`,
     };
   }
 
@@ -700,35 +699,39 @@ export function parseClaudeAuthStatusFromOutput(result: CommandResult): {
   const authMethod = parsedAuth.authMethod?.trim();
   const normalizedAuthMethod = authMethod?.toLowerCase();
   if (parsedAuth.auth === true) {
-    if (authMethod && !CLAUDE_SUPPORTED_AUTH_METHODS.has(authMethod)) {
+    if (normalizedAuthMethod && !CLAUDE_CLI_AUTH_METHODS.has(normalizedAuthMethod)) {
       return {
-        status: "warning",
-        authStatus: "unknown",
-        message: `Claude authentication status reported an unsupported credential type '${authMethod}'. ${CLAUDE_AUTH_GUIDANCE}`,
+        status: "error",
+        authStatus: "unauthenticated",
+        message: `Claude authentication status reported unsupported credential type '${authMethod}'. ${CLAUDE_AUTH_GUIDANCE}`,
       };
     }
     if (normalizedAuthMethod && CLAUDE_CLI_AUTH_METHODS.has(normalizedAuthMethod)) {
       return {
         status: "ready",
         authStatus: "authenticated",
-        message: "Claude Code CLI is ready via Claude.ai login.",
+        message: "Claude Code CLI is ready via `claude auth login`.",
       };
     }
-    return { status: "ready", authStatus: "authenticated" };
+    return {
+      status: "warning",
+      authStatus: "unknown",
+      message: "Could not verify Claude CLI authentication method from status output.",
+    };
   }
   if (parsedAuth.auth === false) {
     return {
       status: "error",
       authStatus: "unauthenticated",
-      message: `Claude is not configured with a supported Anthropic credential. ${CLAUDE_AUTH_GUIDANCE}`,
+      message: `Claude Code must be authenticated with \`claude auth login\` before starting a session. ${CLAUDE_AUTH_GUIDANCE}`,
     };
   }
   if (parsedAuth.attemptedJsonParse) {
-    if (authMethod && !CLAUDE_SUPPORTED_AUTH_METHODS.has(authMethod)) {
+    if (normalizedAuthMethod && !CLAUDE_CLI_AUTH_METHODS.has(normalizedAuthMethod)) {
       return {
         status: "error",
         authStatus: "unauthenticated",
-        message: `Claude authentication status reported an unsupported credential type '${authMethod}'. ${CLAUDE_AUTH_GUIDANCE}`,
+        message: `Claude authentication status reported unsupported credential type '${authMethod}'. ${CLAUDE_AUTH_GUIDANCE}`,
       };
     }
     return {
@@ -738,10 +741,6 @@ export function parseClaudeAuthStatusFromOutput(result: CommandResult): {
         "Could not verify Claude authentication status from JSON output (missing auth marker).",
     };
   }
-  if (result.code === 0) {
-    return { status: "ready", authStatus: "authenticated" };
-  }
-
   const detail = detailFromResult(result);
   return {
     status: "warning",

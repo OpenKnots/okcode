@@ -21,7 +21,7 @@ import {
 
 const OPENAI_MODEL_PROVIDERS = new Set(["openai"]);
 const CLAUDE_SME_MISSING_CREDENTIALS_MESSAGE =
-  "Claude SME Chat uses direct Anthropic credentials, not the Claude CLI login. Set ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN, or configure `authTokenHelperCommand` in Settings.";
+  "Claude SME Chat uses direct Anthropic credentials, not the Claude CLI login. Set ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN.";
 
 export function getAllowedSmeAuthMethods(provider: ProviderKind): readonly SmeAuthMethod[] {
   switch (provider) {
@@ -116,7 +116,7 @@ export function resolveClaudeSmeSetup(input: {
           ok: false,
           severity: "error",
           message:
-            "Claude SME Chat is set to Auth Token, but no ANTHROPIC_AUTH_TOKEN or auth token helper command is configured.",
+            "Claude SME Chat is set to Auth Token, but no ANTHROPIC_AUTH_TOKEN is configured.",
           resolvedAuthMethod: "authToken",
           resolvedAccountType: "unknown",
         },

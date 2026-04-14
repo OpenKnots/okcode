@@ -6,8 +6,6 @@ import {
   FileCode2Icon,
   SparklesIcon,
 } from "lucide-react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { Button } from "~/components/ui/button";
 import {
   Select,
@@ -17,6 +15,9 @@ import {
   SelectValue,
 } from "~/components/ui/select";
 import { Badge } from "~/components/ui/badge";
+import MarkdownHtml from "~/components/MarkdownHtml";
+import { useTheme } from "~/hooks/useTheme";
+import { resolveMarkdownPreviewTheme } from "~/lib/markdownHtml";
 import { resolveWorkflow } from "./pr-review-utils";
 
 export function PrWorkflowPanel({
@@ -41,6 +42,8 @@ export function PrWorkflowPanel({
   const workflow = resolveWorkflow(config, workflowId);
   const workflowStepMap = new Map(workflowSteps.map((step) => [step.stepId, step]));
   const isPreviewingNonDefault = workflow?.id !== config?.defaultWorkflowId;
+  const { resolvedTheme } = useTheme();
+  const theme = resolveMarkdownPreviewTheme(resolvedTheme);
 
   return (
     <div className="space-y-5">
@@ -175,8 +178,8 @@ export function PrWorkflowPanel({
       ) : null}
 
       {workflow?.body ? (
-        <div className="prose prose-sm max-w-none rounded-2xl border border-border/70 bg-background/92 p-4 dark:prose-invert">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{workflow.body}</ReactMarkdown>
+        <div className="rounded-2xl border border-border/70 bg-background/92 p-4">
+          <MarkdownHtml markdown={workflow.body} theme={theme} />
         </div>
       ) : null}
     </div>

@@ -125,7 +125,8 @@
 
 /* ─── Deep Purple ─── minimal cool elegant dashboard portfolio ─── */
 
-:root.theme-purple-stuff {
+:root.theme-purple-stuff,
+:root.theme-hot-tamale {
   color-scheme: light;
   --background: oklch(0.9838 0.0035 247.8583);
   --foreground: oklch(0.1284 0.0267 261.5937);
@@ -187,7 +188,8 @@
   --spacing: 0.25rem;
 }
 
-:root.theme-purple-stuff.dark {
+:root.theme-purple-stuff.dark,
+:root.theme-hot-tamale.dark {
   color-scheme: dark;
   --background: oklch(0.1091 0.0091 301.6956);
   --foreground: oklch(0.9838 0.0035 247.8583);

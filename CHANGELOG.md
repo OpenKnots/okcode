@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-04-14
+
+See [docs/releases/v0.24.0.md](docs/releases/v0.24.0.md) for full notes and [docs/releases/v0.24.0/assets.md](docs/releases/v0.24.0/assets.md) for release asset inventory.
+
+### Added
+
+- Unify markdown rendering and add theme presets.
+- Add project icon context menu and shared icon helpers.
+
+### Changed
+
+- Treat active turn as the source of working state.
+- Support absolute project icon URLs and more image formats.
+- Retheme Purple Stuff as Deep Purple.
+
+### Removed
+
+- Remove Claude auth token helper support.
+- Remove marketing fog and simplify background.
+- Delete the last thread when removing a project.
+
 ## [0.23.3] - 2026-04-13
 
 See [docs/releases/v0.23.3.md](docs/releases/v0.23.3.md) for full notes and [docs/releases/v0.23.3/assets.md](docs/releases/v0.23.3/assets.md) for release asset inventory.
@@ -775,3 +796,4 @@ First public version tag. See [docs/releases/v0.0.1.md](docs/releases/v0.0.1.md)
 [0.23.1]: https://github.com/OpenKnots/okcode/releases/tag/v0.23.1
 [0.23.2]: https://github.com/OpenKnots/okcode/releases/tag/v0.23.2
 [0.23.3]: https://github.com/OpenKnots/okcode/releases/tag/v0.23.3
+[0.24.0]: https://github.com/OpenKnots/okcode/releases/tag/v0.24.0

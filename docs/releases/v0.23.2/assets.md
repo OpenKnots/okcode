@@ -51,7 +51,7 @@ SHA-256 checksums are not committed here; verify downloads via GitHub's release 
 
 ## Operational references
 
-| File | Purpose |
-| ---- | ------- |
+| File                                         | Purpose                                                           |
+| -------------------------------------------- | ----------------------------------------------------------------- |
 | [rollout-checklist.md](rollout-checklist.md) | Step-by-step release playbook from preflight through post-release |
-| [soak-test-plan.md](soak-test-plan.md) | Structured release validation for the highest-risk surfaces |
+| [soak-test-plan.md](soak-test-plan.md)       | Structured release validation for the highest-risk surfaces       |

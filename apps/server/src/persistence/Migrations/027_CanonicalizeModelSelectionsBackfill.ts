@@ -97,10 +97,7 @@ export default Effect.gen(function* () {
   `;
 
   for (const row of projectRows) {
-    const nextSelection = toCanonicalSelectionJson(
-      row.defaultModelSelection,
-      row.defaultModel,
-    );
+    const nextSelection = toCanonicalSelectionJson(row.defaultModelSelection, row.defaultModel);
     yield* sql`
       UPDATE projection_projects
       SET default_model_selection = ${nextSelection}

@@ -10,7 +10,7 @@ import {
   XCircleIcon,
   XIcon,
 } from "lucide-react";
-import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { TestOpenclawGatewayHostKind, TestOpenclawGatewayResult } from "@okcode/contracts";
 import {
   type BuildMetadata,
@@ -75,11 +75,18 @@ import { ensureNativeApi } from "../nativeApi";
 import { useStore } from "../store";
 import { PairingLink } from "../components/mobile/PairingLink";
 import { ProjectIcon } from "../components/ProjectIcon";
+import { CodexBackendSection } from "../components/settings/CodexBackendSection";
 import {
   getProviderLabel as getProviderStatusLabelName,
   getProviderStatusDescription,
   getProviderStatusHeading,
 } from "../components/chat/providerStatusPresentation";
+import { CLAUDE_AUTH_TOKEN_HELPER_PRESETS } from "../lib/claudeAuthTokenHelperPresets";
+import {
+  INSTALL_PROVIDER_SETTINGS,
+  PROVIDER_AUTH_GUIDES,
+  SETTINGS_AUTH_PROVIDER_ORDER,
+} from "../lib/settingsProviderMetadata";
 import { APP_LOCALE_PREFERENCES } from "../i18n/types";
 import { useT } from "../i18n/useI18n";
 
@@ -225,106 +232,11 @@ function formatOpenclawGatewayDebugReport(result: TestOpenclawGatewayResult): st
   return lines.join("\n");
 }
 
-type InstallBinarySettingsKey = "claudeBinaryPath" | "codexBinaryPath" | "copilotBinaryPath";
-type InstallProviderSettings = {
-  provider: ProviderKind;
-  title: string;
-  binaryPathKey: InstallBinarySettingsKey;
-  binaryPlaceholder: string;
-  binaryDescription: ReactNode;
-  homePathKey?: "codexHomePath" | "copilotConfigDir";
-  homePlaceholder?: string;
-  homeDescription?: ReactNode;
-};
-
-const INSTALL_PROVIDER_SETTINGS: readonly InstallProviderSettings[] = [
-  {
-    provider: "codex",
-    title: "Codex",
-    binaryPathKey: "codexBinaryPath",
-    binaryPlaceholder: "Codex binary path",
-    binaryDescription: (
-      <>
-        Leave blank to use <code>codex</code> from your PATH. Authentication normally uses{" "}
-        <code>codex login</code> unless your Codex config points at a custom model provider.
-      </>
-    ),
-    homePathKey: "codexHomePath",
-    homePlaceholder: "CODEX_HOME",
-    homeDescription: "Optional custom Codex home and config directory.",
-  },
-  {
-    provider: "claudeAgent",
-    title: "Claude Code",
-    binaryPathKey: "claudeBinaryPath",
-    binaryPlaceholder: "Claude Code binary path",
-    binaryDescription: (
-      <>
-        Leave blank to use <code>claude</code> from your PATH. Authentication uses{" "}
-        <code>claude auth login</code>.
-      </>
-    ),
-  },
-  {
-    provider: "copilot",
-    title: "GitHub Copilot",
-    binaryPathKey: "copilotBinaryPath",
-    binaryPlaceholder: "GitHub Copilot binary path",
-    binaryDescription: (
-      <>
-        Leave blank to use <code>copilot</code> from your PATH. Authentication uses{" "}
-        <code>copilot login</code> or GitHub CLI credentials.
-      </>
-    ),
-    homePathKey: "copilotConfigDir",
-    homePlaceholder: "Copilot config directory",
-    homeDescription: "Optional custom Copilot config directory.",
-  },
-];
-
-const PROVIDER_AUTH_GUIDES: Record<
-  ProviderKind,
-  {
-    installCmd?: string;
-    authCmd?: string;
-    verifyCmd?: string;
-    note: string;
-  }
-> = {
-  codex: {
-    installCmd: "npm install -g @openai/codex",
-    authCmd: "codex login",
-    verifyCmd: "codex login status",
-    note: "Codex stays available in thread creation when the CLI is ready and its auth is either confirmed or delegated to a custom model provider.",
-  },
-  claudeAgent: {
-    installCmd: "npm install -g @anthropic-ai/claude-code",
-    authCmd: "claude auth login",
-    verifyCmd: "claude auth status",
-    note: "Claude Code must be installed and signed in before it appears in the thread picker.",
-  },
-  copilot: {
-    installCmd: "npm install -g @github/copilot",
-    authCmd: "copilot login",
-    verifyCmd: "copilot auth status",
-    note: "GitHub Copilot must be installed and signed in before it appears in the thread picker.",
-  },
-  gemini: {
-    installCmd: "npm install -g @google/gemini-cli",
-    authCmd: "set GEMINI_API_KEY or GOOGLE_API_KEY",
-    verifyCmd: "gemini --version",
-    note: "Gemini CLI appears in the thread picker when the binary is installed and headless auth is available or locally cached.",
-  },
-  openclaw: {
-    verifyCmd: "Test Connection",
-    note: "OpenClaw uses the gateway URL and shared secret below rather than a local CLI login. Shared-secret auth usually works without device pairing and is the recommended default for Tailscale and remote gateways.",
-  },
-};
-
 function getAuthenticationBadgeCopy(input: {
   status: ServerProviderStatus | null;
   provider: ProviderKind;
   openclawGatewayUrl: string;
+  claudeAuthTokenHelperCommand: string;
 }): {
   tone: "success" | "warning" | "error";
   label: string;
@@ -334,6 +246,7 @@ function getAuthenticationBadgeCopy(input: {
       provider: input.provider,
       statuses: input.status ? [input.status] : [],
       openclawGatewayUrl: input.openclawGatewayUrl,
+      claudeAuthTokenHelperCommand: input.claudeAuthTokenHelperCommand,
     })
   ) {
     return { tone: "success", label: "Available in thread picker" };
@@ -358,13 +271,20 @@ function AuthenticationStatusCard({
   provider,
   status,
   openclawGatewayUrl,
+  claudeAuthTokenHelperCommand,
 }: {
   provider: ProviderKind;
   status: ServerProviderStatus | null;
   openclawGatewayUrl: string;
+  claudeAuthTokenHelperCommand: string;
 }) {
   const guide = PROVIDER_AUTH_GUIDES[provider];
-  const badge = getAuthenticationBadgeCopy({ status, provider, openclawGatewayUrl });
+  const badge = getAuthenticationBadgeCopy({
+    status,
+    provider,
+    openclawGatewayUrl,
+    claudeAuthTokenHelperCommand,
+  });
   const badgeClassName =
     badge.tone === "success"
       ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
@@ -499,7 +419,7 @@ function SettingsRouteView() {
   const [openKeybindingsError, setOpenKeybindingsError] = useState<string | null>(null);
   const [openInstallProviders, setOpenInstallProviders] = useState<Record<ProviderKind, boolean>>({
     codex: Boolean(settings.codexBinaryPath || settings.codexHomePath),
-    claudeAgent: Boolean(settings.claudeBinaryPath),
+    claudeAgent: Boolean(settings.claudeBinaryPath || settings.claudeAuthTokenHelperCommand),
     gemini: false,
     copilot: Boolean(settings.copilotBinaryPath || settings.copilotConfigDir),
     openclaw: Boolean(settings.openclawGatewayUrl || settings.openclawPassword),
@@ -554,12 +474,18 @@ function SettingsRouteView() {
   const codexBinaryPath = settings.codexBinaryPath;
   const codexHomePath = settings.codexHomePath;
   const claudeBinaryPath = settings.claudeBinaryPath;
+  const claudeAuthTokenHelperCommand = settings.claudeAuthTokenHelperCommand;
+  const selectedClaudeAuthTokenHelperPreset =
+    CLAUDE_AUTH_TOKEN_HELPER_PRESETS.find(
+      (preset) => preset.command === claudeAuthTokenHelperCommand,
+    )?.label ?? "";
   const keybindingsConfigPath = serverConfigQuery.data?.keybindingsConfigPath ?? null;
   const availableEditors = serverConfigQuery.data?.availableEditors;
   const providerStatuses = serverConfigQuery.data?.providers ?? [];
   const selectableProviders = getSelectableThreadProviders({
     statuses: providerStatuses,
     openclawGatewayUrl: settings.openclawGatewayUrl,
+    claudeAuthTokenHelperCommand,
   });
 
   const gitTextGenerationModelOptions = getAppModelOptions(
@@ -585,6 +511,7 @@ function SettingsRouteView() {
     settings.customCodexModels.length +
     settings.customClaudeModels.length +
     settings.customCopilotModels.length +
+    settings.customGeminiModels.length +
     settings.customOpenClawModels.length;
   const activeProjectEnvironmentVariables = selectedProjectEnvironmentVariablesQuery.data?.entries;
   const savedCustomModelRows = MODEL_PROVIDER_SETTINGS.flatMap((providerSettings) =>
@@ -600,6 +527,7 @@ function SettingsRouteView() {
     : savedCustomModelRows.slice(0, 5);
   const isInstallSettingsDirty =
     settings.claudeBinaryPath !== defaults.claudeBinaryPath ||
+    settings.claudeAuthTokenHelperCommand !== defaults.claudeAuthTokenHelperCommand ||
     settings.copilotBinaryPath !== defaults.copilotBinaryPath ||
     settings.copilotConfigDir !== defaults.copilotConfigDir ||
     settings.codexBinaryPath !== defaults.codexBinaryPath ||
@@ -1427,12 +1355,13 @@ function SettingsRouteView() {
               status={`${selectableProviders.length} provider${selectableProviders.length === 1 ? "" : "s"} currently selectable`}
             >
               <div className="mt-4 space-y-3">
-                {(["codex", "claudeAgent", "openclaw"] as const).map((provider) => (
+                {SETTINGS_AUTH_PROVIDER_ORDER.map((provider) => (
                   <AuthenticationStatusCard
                     key={provider}
                     provider={provider}
                     status={providerStatuses.find((status) => status.provider === provider) ?? null}
                     openclawGatewayUrl={settings.openclawGatewayUrl}
+                    claudeAuthTokenHelperCommand={claudeAuthTokenHelperCommand}
                   />
                 ))}
               </div>
@@ -1449,6 +1378,7 @@ function SettingsRouteView() {
                     onClick={() => {
                       updateSettings({
                         claudeBinaryPath: defaults.claudeBinaryPath,
+                        claudeAuthTokenHelperCommand: defaults.claudeAuthTokenHelperCommand,
                         codexBinaryPath: defaults.codexBinaryPath,
                         codexHomePath: defaults.codexHomePath,
                         copilotBinaryPath: defaults.copilotBinaryPath,
@@ -1475,7 +1405,9 @@ function SettingsRouteView() {
                         ? settings.codexBinaryPath !== defaults.codexBinaryPath ||
                           settings.codexHomePath !== defaults.codexHomePath
                         : providerSettings.provider === "claudeAgent"
-                          ? settings.claudeBinaryPath !== defaults.claudeBinaryPath
+                          ? settings.claudeBinaryPath !== defaults.claudeBinaryPath ||
+                            settings.claudeAuthTokenHelperCommand !==
+                              defaults.claudeAuthTokenHelperCommand
                           : settings.copilotBinaryPath !== defaults.copilotBinaryPath ||
                             settings.copilotConfigDir !== defaults.copilotConfigDir;
                     const binaryPathValue =
@@ -1484,6 +1416,16 @@ function SettingsRouteView() {
                         : providerSettings.provider === "copilot"
                           ? settings.copilotBinaryPath
                           : codexBinaryPath;
+                    const homePathKey =
+                      "homePathKey" in providerSettings ? providerSettings.homePathKey : undefined;
+                    const homePlaceholder =
+                      "homePlaceholder" in providerSettings
+                        ? providerSettings.homePlaceholder
+                        : undefined;
+                    const homeDescription =
+                      "homeDescription" in providerSettings
+                        ? providerSettings.homeDescription
+                        : undefined;
 
                     return (
                       <Collapsible
@@ -1552,37 +1494,107 @@ function SettingsRouteView() {
                                   </span>
                                 </label>
 
-                                {providerSettings.homePathKey ? (
+                                {providerSettings.provider === "claudeAgent" ? (
                                   <label
-                                    htmlFor={`provider-install-${providerSettings.homePathKey}`}
+                                    htmlFor="provider-install-claude-auth-token-helper"
                                     className="block"
                                   >
                                     <span className="block text-xs font-medium text-foreground">
-                                      {providerSettings.homePathKey === "codexHomePath"
+                                      Claude auth token helper command
+                                    </span>
+                                    <div className="mt-1 flex flex-col gap-2 sm:flex-row">
+                                      <Input
+                                        id="provider-install-claude-auth-token-helper"
+                                        className="sm:flex-1"
+                                        value={claudeAuthTokenHelperCommand}
+                                        onChange={(event) =>
+                                          updateSettings({
+                                            claudeAuthTokenHelperCommand: event.target.value,
+                                          })
+                                        }
+                                        placeholder="op read op://shared/anthropic/token --no-newline"
+                                        spellCheck={false}
+                                      />
+                                      <Select
+                                        value={selectedClaudeAuthTokenHelperPreset}
+                                        onValueChange={(value) => {
+                                          const preset =
+                                            CLAUDE_AUTH_TOKEN_HELPER_PRESETS.find(
+                                              (entry) => entry.label === value,
+                                            ) ?? null;
+                                          if (!preset) return;
+                                          updateSettings({
+                                            claudeAuthTokenHelperCommand: preset.command,
+                                          });
+                                        }}
+                                      >
+                                        <SelectTrigger
+                                          className="w-full sm:w-44"
+                                          aria-label="Claude auth token helper preset"
+                                        >
+                                          <SelectValue placeholder="Secret manager" />
+                                        </SelectTrigger>
+                                        <SelectPopup align="end" alignItemWithTrigger={false}>
+                                          {CLAUDE_AUTH_TOKEN_HELPER_PRESETS.map((preset) => (
+                                            <SelectItem
+                                              hideIndicator
+                                              key={preset.label}
+                                              value={preset.label}
+                                              title={preset.description}
+                                            >
+                                              <div className="flex min-w-0 flex-col">
+                                                <span className="truncate">{preset.label}</span>
+                                                <span className="truncate text-[11px] text-muted-foreground">
+                                                  {preset.command}
+                                                </span>
+                                              </div>
+                                            </SelectItem>
+                                          ))}
+                                        </SelectPopup>
+                                      </Select>
+                                    </div>
+                                    <span className="mt-1 block text-xs text-muted-foreground">
+                                      Runs locally before Claude sessions start. The command should
+                                      print the token to stdout so OK Code can set
+                                      ANTHROPIC_AUTH_TOKEN automatically.
+                                    </span>
+                                    <span className="mt-1 block text-[11px] text-muted-foreground">
+                                      Choose a secret manager to prefill the command.
+                                    </span>
+                                  </label>
+                                ) : null}
+
+                                {homePathKey ? (
+                                  <label
+                                    htmlFor={`provider-install-${homePathKey}`}
+                                    className="block"
+                                  >
+                                    <span className="block text-xs font-medium text-foreground">
+                                      {homePathKey === "codexHomePath"
                                         ? "CODEX_HOME path"
                                         : "Copilot config directory"}
                                     </span>
                                     <Input
-                                      id={`provider-install-${providerSettings.homePathKey}`}
+                                      id={`provider-install-${homePathKey}`}
                                       className="mt-1"
                                       value={
-                                        providerSettings.homePathKey === "codexHomePath"
+                                        homePathKey === "codexHomePath"
                                           ? codexHomePath
                                           : settings.copilotConfigDir
                                       }
                                       onChange={(event) =>
                                         updateSettings(
-                                          providerSettings.homePathKey === "codexHomePath"
+                                          homePathKey === "codexHomePath"
                                             ? { codexHomePath: event.target.value }
                                             : { copilotConfigDir: event.target.value },
                                         )
                                       }
-                                      placeholder={providerSettings.homePlaceholder}
+                                      placeholder={homePlaceholder}
                                       spellCheck={false}
                                     />
-                                    {providerSettings.homeDescription ? (
+                                    {homeDescription ? (
                                       <span className="mt-1 block text-xs text-muted-foreground">
-                                        {providerSettings.homeDescription}
+                                        {homeDescription}
                                       </span>
                                     ) : null}
                                   </label>
@@ -2035,7 +2047,7 @@ function SettingsRouteView() {
 
             <SettingsRow
               title="Custom models"
-              description="Add custom model slugs for Codex, Claude Code, GitHub Copilot, or OpenClaw. The chat picker groups models by provider."
+              description="Add custom model slugs for Codex, Claude Code, Gemini CLI, GitHub Copilot, or OpenClaw. The chat picker groups models by provider."
               resetAction={
                 totalCustomModels > 0 ? (
                   <SettingResetButton
@@ -2045,6 +2057,7 @@ function SettingsRouteView() {
                         customCodexModels: defaults.customCodexModels,
                         customClaudeModels: defaults.customClaudeModels,
                         customCopilotModels: defaults.customCopilotModels,
+                        customGeminiModels: defaults.customGeminiModels,
                         customOpenClawModels: defaults.customOpenClawModels,
                       });
                       setCustomModelErrorByProvider({});
@@ -2159,6 +2172,15 @@ function SettingsRouteView() {
                     ) : null}
                   </div>
                 ) : null}
+              </div>
+            </SettingsRow>
+
+            <SettingsRow
+              title="Codex backends"
+              description="Read-only guidance for the Codex `model_provider` backend catalog detected from your local Codex config."
+            >
+              <div className="mt-4">
+                <CodexBackendSection summary={serverConfigQuery.data?.codexConfig} />
               </div>
             </SettingsRow>
           </SettingsSection>

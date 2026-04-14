@@ -1,6 +1,7 @@
 import { Schema } from "effect";
 import { DeviceId, IsoDateTime, PairingId, TrimmedNonEmptyString } from "./baseSchemas";
 import { BuildMetadata } from "./buildInfo";
+import { ServerCodexConfigSummary } from "./codexConfig";
 import {
   KeybindingCommand,
   KeybindingRule,
@@ -81,6 +82,7 @@ export const ServerConfig = Schema.Struct({
   keybindings: ResolvedKeybindingsConfig,
   issues: ServerConfigIssues,
   providers: ServerProviderStatuses,
+  codexConfig: ServerCodexConfigSummary,
   availableEditors: Schema.Array(EditorId),
   buildInfo: Schema.optional(BuildMetadata),
 });

@@ -7,10 +7,8 @@ import { ChildProcessSpawner } from "effect/unstable/process";
 import {
   checkClaudeProviderStatus,
   checkCodexProviderStatus,
-  hasCustomModelProvider,
   parseAuthStatusFromOutput,
   parseClaudeAuthStatusFromOutput,
-  readCodexConfigModelProvider,
 } from "./ProviderHealth";
 
 // ── Test helpers ────────────────────────────────────────────────────
@@ -237,53 +235,44 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
     );
   });
 
-  // ── Custom model provider: checkCodexProviderStatus integration ───
+  // ── Codex backend auth probing ────────────────────────────────────
 
-  describe("checkCodexProviderStatus with custom model provider", () => {
-    it.effect("skips auth probe and returns ready when a custom model provider is configured", () =>
-      Effect.gen(function* () {
-        yield* withTempCodexHome(
-          [
-            'model_provider = "portkey"',
-            "",
-            "[model_providers.portkey]",
-            'base_url = "https://api.portkey.ai/v1"',
-            'env_key = "PORTKEY_API_KEY"',
-          ].join("\n"),
-        );
-        const status = yield* checkCodexProviderStatus;
-        assert.strictEqual(status.provider, "codex");
-        assert.strictEqual(status.status, "ready");
-        assert.strictEqual(status.available, true);
-        assert.strictEqual(status.authStatus, "unknown");
-        assert.strictEqual(
-          status.message,
-          "Using a custom Codex model provider; OpenAI login check skipped.",
-        );
-      }).pipe(
-        Effect.provide(
-          // The spawner only handles --version; if the test attempts
-          // "login status" the throw proves the auth probe was NOT skipped.
-          mockSpawnerLayer((args) => {
-            const joined = args.join(" ");
-            if (joined === "--version") return { stdout: "codex 1.0.0\n", stderr: "", code: 0 };
-            throw new Error(`Auth probe should have been skipped but got args: ${joined}`);
-          }),
+  describe("checkCodexProviderStatus backend auth probing", () => {
+    const skippedBackends = [
+      { id: "ollama", label: "built-in ollama" },
+      { id: "lmstudio", label: "built-in lmstudio" },
+      { id: "portkey", label: "curated portkey" },
+      { id: "azure", label: "curated azure" },
+    ] as const;
+
+    for (const backend of skippedBackends) {
+      it.effect(`skips the OpenAI login probe for ${backend.label}`, () =>
+        Effect.gen(function* () {
+          yield* withTempCodexHome(`model_provider = "${backend.id}"\n`);
+          const status = yield* checkCodexProviderStatus;
+          assert.strictEqual(status.provider, "codex");
+          assert.strictEqual(status.status, "ready");
+          assert.strictEqual(status.available, true);
+          assert.strictEqual(status.authStatus, "unknown");
+          assert.strictEqual(
+            status.message,
+            `Codex is configured to use backend '${backend.id}'; OpenAI login check skipped.`,
+          );
+        }).pipe(
+          Effect.provide(
+            mockSpawnerLayer((args) => {
+              const joined = args.join(" ");
+              if (joined === "--version") return { stdout: "codex 1.0.0\n", stderr: "", code: 0 };
+              throw new Error(`Auth probe should have been skipped but got args: ${joined}`);
+            }),
+          ),
         ),
-      ),
-    );
+      );
+    }
 
-    it.effect("still reports error when codex CLI is missing even with custom provider", () =>
+    it.effect("still reports error when codex CLI is missing even with a non-OpenAI backend", () =>
       Effect.gen(function* () {
-        yield* withTempCodexHome(
-          [
-            'model_provider = "portkey"',
-            "",
-            "[model_providers.portkey]",
-            'base_url = "https://api.portkey.ai/v1"',
-            'env_key = "PORTKEY_API_KEY"',
-          ].join("\n"),
-        );
+        yield* withTempCodexHome('model_provider = "portkey"\n');
         const status = yield* checkCodexProviderStatus;
         assert.strictEqual(status.status, "error");
         assert.strictEqual(status.available, false);
@@ -341,130 +330,6 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
       assert.strictEqual(parsed.status, "warning");
       assert.strictEqual(parsed.authStatus, "unknown");
     });
-  });
-
-  // ── readCodexConfigModelProvider tests ─────────────────────────────
-
-  describe("readCodexConfigModelProvider", () => {
-    it.effect("returns undefined when config file does not exist", () =>
-      Effect.gen(function* () {
-        yield* withTempCodexHome();
-        assert.strictEqual(yield* readCodexConfigModelProvider, undefined);
-      }),
-    );
-
-    it.effect("returns undefined when config has no model_provider key", () =>
-      Effect.gen(function* () {
-        yield* withTempCodexHome('model = "gpt-5-codex"\n');
-        assert.strictEqual(yield* readCodexConfigModelProvider, undefined);
-      }),
-    );
-
-    it.effect("returns the provider when model_provider is set at top level", () =>
-      Effect.gen(function* () {
-        yield* withTempCodexHome('model = "gpt-5-codex"\nmodel_provider = "portkey"\n');
-        assert.strictEqual(yield* readCodexConfigModelProvider, "portkey");
-      }),
-    );
-
-    it.effect("returns openai when model_provider is openai", () =>
-      Effect.gen(function* () {
-        yield* withTempCodexHome('model_provider = "openai"\n');
-        assert.strictEqual(yield* readCodexConfigModelProvider, "openai");
-      }),
-    );
-
-    it.effect("ignores model_provider inside section headers", () =>
-      Effect.gen(function* () {
-        yield* withTempCodexHome(
-          [
-            'model = "gpt-5-codex"',
-            "",
-            "[model_providers.portkey]",
-            'base_url = "https://api.portkey.ai/v1"',
-            'model_provider = "should-be-ignored"',
-            "",
-          ].join("\n"),
-        );
-        assert.strictEqual(yield* readCodexConfigModelProvider, undefined);
-      }),
-    );
-
-    it.effect("handles comments and whitespace", () =>
-      Effect.gen(function* () {
-        yield* withTempCodexHome(
-          [
-            "# This is a comment",
-            "",
-            '  model_provider = "azure"  ',
-            "",
-            "[profiles.deep-review]",
-            'model = "gpt-5-pro"',
-          ].join("\n"),
-        );
-        assert.strictEqual(yield* readCodexConfigModelProvider, "azure");
-      }),
-    );
-
-    it.effect("handles single-quoted values in TOML", () =>
-      Effect.gen(function* () {
-        yield* withTempCodexHome("model_provider = 'mistral'\n");
-        assert.strictEqual(yield* readCodexConfigModelProvider, "mistral");
-      }),
-    );
-  });
-
-  // ── hasCustomModelProvider tests ───────────────────────────────────
-
-  describe("hasCustomModelProvider", () => {
-    it.effect("returns false when no config file exists", () =>
-      Effect.gen(function* () {
-        yield* withTempCodexHome();
-        assert.strictEqual(yield* hasCustomModelProvider, false);
-      }),
-    );
-
-    it.effect("returns false when model_provider is not set", () =>
-      Effect.gen(function* () {
-        yield* withTempCodexHome('model = "gpt-5-codex"\n');
-        assert.strictEqual(yield* hasCustomModelProvider, false);
-      }),
-    );
-
-    it.effect("returns false when model_provider is openai", () =>
-      Effect.gen(function* () {
-        yield* withTempCodexHome('model_provider = "openai"\n');
-        assert.strictEqual(yield* hasCustomModelProvider, false);
-      }),
-    );
-
-    it.effect("returns true when model_provider is portkey", () =>
-      Effect.gen(function* () {
-        yield* withTempCodexHome('model_provider = "portkey"\n');
-        assert.strictEqual(yield* hasCustomModelProvider, true);
-      }),
-    );
-
-    it.effect("returns true when model_provider is azure", () =>
-      Effect.gen(function* () {
-        yield* withTempCodexHome('model_provider = "azure"\n');
-        assert.strictEqual(yield* hasCustomModelProvider, true);
-      }),
-    );
-
-    it.effect("returns true when model_provider is ollama", () =>
-      Effect.gen(function* () {
-        yield* withTempCodexHome('model_provider = "ollama"\n');
-        assert.strictEqual(yield* hasCustomModelProvider, true);
-      }),
-    );
-
-    it.effect("returns true when model_provider is a custom proxy", () =>
-      Effect.gen(function* () {
-        yield* withTempCodexHome('model_provider = "my-company-proxy"\n');
-        assert.strictEqual(yield* hasCustomModelProvider, true);
-      }),
-    );
   });
 
   // ── checkClaudeProviderStatus tests ──────────────────────────

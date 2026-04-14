@@ -1,10 +1,11 @@
 import { MaximizeIcon } from "lucide-react";
 import { memo, useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 
 import { cn } from "~/lib/utils";
+import { useTheme } from "~/hooks/useTheme";
 import { Sheet, SheetPopup, SheetPanel } from "~/components/ui/sheet";
+import MarkdownHtml from "~/components/MarkdownHtml";
+import { resolveMarkdownPreviewTheme } from "~/lib/markdownHtml";
 
 /**
  * Wraps plain-text or markdown AI summaries with an expand button
@@ -39,6 +40,8 @@ export const ExpandableSummary = memo(function ExpandableSummary({
   children,
 }: ExpandableSummaryProps) {
   const [open, setOpen] = useState(false);
+  const { resolvedTheme } = useTheme();
+  const theme = resolveMarkdownPreviewTheme(resolvedTheme);
 
   // Don't render the expand affordance for very short text
   const isExpandable = text.trim().length > 40;
@@ -77,7 +80,7 @@ export const ExpandableSummary = memo(function ExpandableSummary({
                 ) : null}
 
                 <div className="summary-preview-body text-[15px] leading-relaxed text-foreground/88">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
+                  <MarkdownHtml markdown={text} theme={theme} />
                 </div>
               </article>
             </SheetPanel>

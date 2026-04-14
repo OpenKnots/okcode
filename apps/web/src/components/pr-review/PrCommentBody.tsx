@@ -1,6 +1,23 @@
 import { PrUserHoverCard } from "./PrUserHoverCard";
+import MarkdownHtml from "~/components/MarkdownHtml";
+import { useTheme } from "~/hooks/useTheme";
+import { markdownLooksLikeGitHubMarkdown, resolveMarkdownPreviewTheme } from "~/lib/markdownHtml";
 
 export function PrCommentBody({ body, cwd }: { body: string; cwd: string | null }) {
+  const { resolvedTheme } = useTheme();
+  const theme = resolveMarkdownPreviewTheme(resolvedTheme);
+  const shouldRenderMarkdown = markdownLooksLikeGitHubMarkdown(body);
+
+  if (shouldRenderMarkdown) {
+    return (
+      <MarkdownHtml
+        bodyClassName="markdown-preview-body text-[15px] leading-6 text-foreground/88"
+        markdown={body}
+        theme={theme}
+      />
+    );
+  }
+
   const lines = body.split("\n");
   const lineCounts = new Map<string, number>();
   return (

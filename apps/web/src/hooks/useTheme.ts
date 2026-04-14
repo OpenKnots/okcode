@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { initCustomTheme } from "../lib/customTheme";
-
-type Theme = "light" | "dark" | "system";
-type ColorTheme = "default" | "iridescent-void" | "carbon" | "purple-stuff" | "custom";
-
-type FontFamily = "dm-sans" | "inter" | "plus-jakarta-sans";
+import { DEFAULT_COLOR_THEME } from "./themeConfig";
+export { COLOR_THEMES, DEFAULT_COLOR_THEME, FONT_FAMILIES } from "./themeConfig";
+import type { ColorTheme, FontFamily, Theme } from "./themeConfig";
 
 type ThemeSnapshot = {
   theme: Theme;
@@ -13,25 +11,10 @@ type ThemeSnapshot = {
   fontFamily: FontFamily;
 };
 
-export const COLOR_THEMES: { id: ColorTheme; label: string }[] = [
-  { id: "default", label: "Default" },
-  { id: "iridescent-void", label: "Iridescent Void" },
-  { id: "carbon", label: "Carbon" },
-  { id: "purple-stuff", label: "Deep Purple" },
-  { id: "custom", label: "Custom" },
-];
-
-export const FONT_FAMILIES: { id: FontFamily; label: string }[] = [
-  { id: "inter", label: "Inter" },
-  { id: "dm-sans", label: "DM Sans" },
-  { id: "plus-jakarta-sans", label: "Plus Jakarta Sans" },
-];
-
 const STORAGE_KEY = "okcode:theme";
 const COLOR_THEME_STORAGE_KEY = "okcode:color-theme";
 const FONT_FAMILY_STORAGE_KEY = "okcode:font-family";
 const MEDIA_QUERY = "(prefers-color-scheme: dark)";
-export const DEFAULT_COLOR_THEME: ColorTheme = "carbon";
 
 const SERVER_SNAPSHOT: ThemeSnapshot = {
   theme: "system",
@@ -66,6 +49,7 @@ function getStoredColorTheme(): ColorTheme {
     normalized === "iridescent-void" ||
     normalized === "carbon" ||
     normalized === "purple-stuff" ||
+    normalized === "hot-tamale" ||
     normalized === "custom"
   ) {
     if (normalized !== raw) {

@@ -81,7 +81,7 @@ function getStoredColorTheme(): ColorTheme {
     normalized === "hot-tamale" ||
     normalized === "custom"
   ) {
-    if (normalized !== raw && raw != null) {
+    if (normalized !== raw && raw !== null) {
       safeLocalStorageSet(COLOR_THEME_STORAGE_KEY, normalized);
     }
 

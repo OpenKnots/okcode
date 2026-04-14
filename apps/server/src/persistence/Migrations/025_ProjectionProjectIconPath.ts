@@ -7,5 +7,5 @@ export default Effect.gen(function* () {
   yield* sql`
     ALTER TABLE projection_projects
     ADD COLUMN icon_path TEXT
-  `;
+  `.pipe(Effect.catch(() => Effect.void));
 });

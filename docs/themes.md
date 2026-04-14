@@ -97,16 +97,16 @@ The goal is to avoid generic editor skins and instead build themes that feel lik
 
 ---
 
-### 9. Purple Stuff
+### 9. Deep Purple
 
-**Vibe:** plush, nocturnal, grape-soda futuristic
-**Palette:** powdered lilac, black plum, electric violet, cool periwinkle, mint
+**Vibe:** minimal, cool, elegant
+**Palette:** deep violet, cool blue-gray, soft plum, crisp white, midnight black
 
-- Light mode stays soft and airy without drifting into candy pink
-- Dark mode goes all the way to black with vivid violet focus accents
-- Primary surfaces feel syrupy purple instead of rosy or baby-blue
-- Sidebars and panels read cleaner and more premium with frosted lilac neutrals
-- Playful, but less twee and more intentional than the old Cotton Candy direction
+- Light mode stays bright, restrained, and editorial
+- Dark mode leans into near-black surfaces with vivid violet accents
+- Primary surfaces feel sharp instead of sugary
+- Sidebars and panels stay crisp with low-noise contrast
+- Better fit for a premium dashboard without losing personality
 
 ---
 
@@ -153,7 +153,7 @@ If narrowing to a stronger first shortlist, these feel the most distinctive:
 ### Playful / expressive
 
 - Candy Reactor
-- Purple Stuff
+- Deep Purple
 - Velvet Casino
 
 ### Atmospheric / weird

@@ -9,6 +9,7 @@ Use this directory for versioned release notes and asset manifests only:
 
 | Version              | Summary                                                                                                   | Assets                        |
 | -------------------- | --------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| [0.23.2](v0.23.2.md) | Desktop migration hardening and model-selection backfill patch release | [manifest](v0.23.2/assets.md) |
 | [0.23.1](v0.23.1.md) | Desktop and iOS release-readiness update with Codex/Copilot                                               | [manifest](v0.23.1/assets.md) |
 | [0.23.0](v0.23.0.md) | Copilot support, provider/auth hardening, richer settings controls, and release-stability cleanup         | [manifest](v0.23.0/assets.md) |
 | [0.22.1](v0.22.1.md) | Sidebar density controls, notification diagnostics, decision workspace groundwork, and OpenClaw hardening | [manifest](v0.22.1/assets.md) |

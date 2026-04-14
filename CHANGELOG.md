@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [0.23.2] - 2026-04-13
+
+See [docs/releases/v0.23.2.md](docs/releases/v0.23.2.md) for full notes and [docs/releases/v0.23.2/assets.md](docs/releases/v0.23.2/assets.md) for release asset inventory.
+
+### Fixed
+
+- Harden okcode release migrations.
 
 ## [0.23.1] - 2026-04-13
 
@@ -757,3 +764,4 @@ First public version tag. See [docs/releases/v0.0.1.md](docs/releases/v0.0.1.md)
 [0.22.1]: https://github.com/OpenKnots/okcode/releases/tag/v0.22.1
 [0.23.0]: https://github.com/OpenKnots/okcode/releases/tag/v0.23.0
 [0.23.1]: https://github.com/OpenKnots/okcode/releases/tag/v0.23.1
+[0.23.2]: https://github.com/OpenKnots/okcode/releases/tag/v0.23.2

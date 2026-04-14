@@ -59,6 +59,7 @@ import {
 } from "react";
 import { CloneRepositoryDialog } from "~/components/CloneRepositoryDialog";
 import { EditableThreadTitle } from "~/components/EditableThreadTitle";
+import { ProjectIconEditorDialog } from "~/components/ProjectIconEditorDialog";
 import { ProjectIcon } from "~/components/ProjectIcon";
 import { useClientMode } from "~/hooks/useClientMode";
 import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
@@ -67,6 +68,8 @@ import { useProjectTitleEditor } from "~/hooks/useProjectTitleEditor";
 import { useTheme } from "~/hooks/useTheme";
 import { useThreadTitleEditor } from "~/hooks/useThreadTitleEditor";
 import { resolveImportedProjectScripts } from "~/lib/projectImport";
+import { normalizeProjectIconPath } from "~/lib/projectIcons";
+import { updateProjectIconOverride } from "~/lib/projectMeta";
 import { getProjectColor } from "~/projectColors";
 import { useRightPanelStore } from "~/rightPanelStore";
 import {
@@ -586,6 +589,10 @@ export default function Sidebar() {
   const [addProjectError, setAddProjectError] = useState<string | null>(null);
   const [manualProjectPathEntry, setManualProjectPathEntry] = useState(false);
   const [cloneDialogOpen, setCloneDialogOpen] = useState(false);
+  const [projectIconDialogOpen, setProjectIconDialogOpen] = useState(false);
+  const [projectIconDialogProjectId, setProjectIconDialogProjectId] = useState<ProjectId | null>(
+    null,
+  );
   const addProjectInputRef = useRef<HTMLInputElement | null>(null);
   const [expandedThreadListsByProject, setExpandedThreadListsByProject] = useState<
     ReadonlySet<ProjectId>
@@ -634,6 +641,9 @@ export default function Sidebar() {
     () => new Map(projects.map((project) => [project.id, project] as const)),
     [projects],
   );
+  const projectIconDialogProject = projectIconDialogProjectId
+    ? (projectById.get(projectIconDialogProjectId) ?? null)
+    : null;
   const projectCwdById = useMemo(
     () => new Map(projects.map((project) => [project.id, project.cwd] as const)),
     [projects],
@@ -708,6 +718,18 @@ export default function Sidebar() {
     lastAutoExpandedThreadIdRef.current = routeThreadId;
     setProjectExpanded(activeProjectId, true);
   }, [activeProjectId, routeThreadId, setProjectExpanded]);
+
+  useEffect(() => {
+    if (!projectIconDialogProjectId) {
+      return;
+    }
+    if (projectById.has(projectIconDialogProjectId)) {
+      return;
+    }
+    setProjectIconDialogOpen(false);
+    setProjectIconDialogProjectId(null);
+  }, [projectById, projectIconDialogProjectId]);
+
   const threadGitTargets = useMemo(
     () =>
       sidebarThreads.map((thread) => ({
@@ -1241,11 +1263,20 @@ export default function Sidebar() {
       if (!api) return;
       const clicked = await api.contextMenu.show(
         [
+          { id: "edit-icon", label: "Change project icon" },
           { id: "rename", label: "Rename project" },
           { id: "delete", label: "Remove project", destructive: true },
         ],
         position,
       );
+
+      if (clicked === "edit-icon") {
+        if (projectById.has(projectId)) {
+          setProjectIconDialogProjectId(projectId);
+          setProjectIconDialogOpen(true);
+        }
+        return;
+      }
 
       if (clicked === "rename") {
         const project = projectById.get(projectId);
@@ -1315,6 +1346,8 @@ export default function Sidebar() {
       deleteThread,
       getDraftThreadByProjectId,
       projectById,
+      setProjectIconDialogOpen,
+      setProjectIconDialogProjectId,
       sortedThreadsByProjectId,
       startProjectEditing,
     ],
@@ -1886,10 +1919,37 @@ export default function Sidebar() {
     });
   }, []);
 
+  const saveProjectIconOverrideFromDialog = useCallback(
+    async (iconPath: string | null) => {
+      if (!projectIconDialogProject) {
+        return;
+      }
+      const api = readNativeApi();
+      if (!api) {
+        return;
+      }
+
+      const currentIconPath = normalizeProjectIconPath(projectIconDialogProject.iconPath);
+      const nextIconPath = normalizeProjectIconPath(iconPath);
+      if (currentIconPath === nextIconPath) {
+        return;
+      }
+
+      await updateProjectIconOverride(api, projectIconDialogProject.id, nextIconPath);
+    },
+    [projectIconDialogProject],
+  );
+
   const wordmark = <SidebarTrigger className="shrink-0 md:hidden" />;
 
   return (
     <>
+      <ProjectIconEditorDialog
+        project={projectIconDialogProject}
+        open={projectIconDialogOpen}
+        onOpenChange={setProjectIconDialogOpen}
+        onSave={saveProjectIconOverrideFromDialog}
+      />
       {isElectron ? (
         <>
           <SidebarHeader className="drag-region h-[42px] flex-row items-center gap-2 px-4 py-0 pl-[90px]">

@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
+import { PROJECT_ICON_FALLBACK_CANDIDATES } from "@okcode/shared/projectIcons";
 
 const FAVICON_MIME_TYPES: Record<string, string> = {
   ".png": "image/png",
@@ -10,30 +11,6 @@ const FAVICON_MIME_TYPES: Record<string, string> = {
 };
 
 const FALLBACK_FAVICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#6b728080" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-fallback="project-favicon"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2Z"/></svg>`;
-
-// Well-known favicon paths checked in order.
-const FAVICON_CANDIDATES = [
-  "favicon.svg",
-  "favicon.ico",
-  "favicon.png",
-  "public/favicon.svg",
-  "public/favicon.ico",
-  "public/favicon.png",
-  "app/favicon.ico",
-  "app/favicon.png",
-  "app/icon.svg",
-  "app/icon.png",
-  "app/icon.ico",
-  "src/favicon.ico",
-  "src/favicon.svg",
-  "src/app/favicon.ico",
-  "src/app/icon.svg",
-  "src/app/icon.png",
-  "assets/icon.svg",
-  "assets/icon.png",
-  "assets/logo.svg",
-  "assets/logo.png",
-];
 
 // Files that may contain a <link rel="icon"> or icon metadata declaration.
 const ICON_SOURCE_FILES = [
@@ -173,11 +150,11 @@ export function tryHandleProjectFaviconRequest(url: URL, res: http.ServerRespons
   };
 
   const tryCandidates = (index: number): void => {
-    if (index >= FAVICON_CANDIDATES.length) {
+    if (index >= PROJECT_ICON_FALLBACK_CANDIDATES.length) {
       trySourceFiles(0);
       return;
     }
-    const candidate = path.join(projectCwd, FAVICON_CANDIDATES[index]!);
+    const candidate = path.join(projectCwd, PROJECT_ICON_FALLBACK_CANDIDATES[index]!);
     if (!isPathWithinProject(projectCwd, candidate)) {
       tryCandidates(index + 1);
       return;

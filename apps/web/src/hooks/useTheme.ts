@@ -15,6 +15,7 @@ const STORAGE_KEY = "okcode:theme";
 const COLOR_THEME_STORAGE_KEY = "okcode:color-theme";
 const FONT_FAMILY_STORAGE_KEY = "okcode:font-family";
 const MEDIA_QUERY = "(prefers-color-scheme: dark)";
+const canUseDOM = typeof window !== "undefined" && typeof document !== "undefined";
 
 const SERVER_SNAPSHOT: ThemeSnapshot = {
   theme: "system",
@@ -30,18 +31,46 @@ function emitChange() {
   for (const listener of listeners) listener();
 }
 
+function safeLocalStorageGet(key: string): string | null {
+  if (!canUseDOM) {
+    return null;
+  }
+
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeLocalStorageSet(key: string, value: string) {
+  if (!canUseDOM) {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Ignore storage failures and keep the in-memory theme usable.
+  }
+}
+
 function getSystemDark(): boolean {
+  if (!canUseDOM) {
+    return false;
+  }
+
   return window.matchMedia(MEDIA_QUERY).matches;
 }
 
 function getStored(): Theme {
-  const raw = localStorage.getItem(STORAGE_KEY);
+  const raw = safeLocalStorageGet(STORAGE_KEY);
   if (raw === "light" || raw === "dark" || raw === "system") return raw;
   return "system";
 }
 
 function getStoredColorTheme(): ColorTheme {
-  const raw = localStorage.getItem(COLOR_THEME_STORAGE_KEY);
+  const raw = safeLocalStorageGet(COLOR_THEME_STORAGE_KEY);
   const normalized = raw === "cotton-candy" ? "purple-stuff" : raw;
 
   if (
@@ -52,8 +81,8 @@ function getStoredColorTheme(): ColorTheme {
     normalized === "hot-tamale" ||
     normalized === "custom"
   ) {
-    if (normalized !== raw) {
-      localStorage.setItem(COLOR_THEME_STORAGE_KEY, normalized);
+    if (normalized !== raw && raw !== null) {
+      safeLocalStorageSet(COLOR_THEME_STORAGE_KEY, normalized);
     }
 
     return normalized;
@@ -62,7 +91,7 @@ function getStoredColorTheme(): ColorTheme {
 }
 
 function getStoredFontFamily(): FontFamily {
-  const raw = localStorage.getItem(FONT_FAMILY_STORAGE_KEY);
+  const raw = safeLocalStorageGet(FONT_FAMILY_STORAGE_KEY);
   if (raw === "dm-sans" || raw === "inter" || raw === "plus-jakarta-sans") {
     return raw;
   }
@@ -167,12 +196,18 @@ function syncDesktopTheme(theme: Theme) {
 }
 
 // Initialize custom theme + overrides on module load
-initCustomTheme();
+if (canUseDOM) {
+  initCustomTheme();
 
-// Apply immediately on module load to prevent flash
-applyTheme(getStored());
+  // Apply immediately on module load to prevent flash
+  applyTheme(getStored());
+}
 
 function getSnapshot(): ThemeSnapshot {
+  if (!canUseDOM) {
+    return SERVER_SNAPSHOT;
+  }
+
   const theme = getStored();
   const systemDark = theme === "system" ? getSystemDark() : false;
   const colorTheme = getStoredColorTheme();
@@ -197,6 +232,10 @@ function getServerSnapshot(): ThemeSnapshot {
 }
 
 function subscribe(listener: () => void): () => void {
+  if (!canUseDOM) {
+    return () => {};
+  }
+
   listeners.push(listener);
 
   // Listen for system preference changes
@@ -237,19 +276,19 @@ export function useTheme() {
     theme === "system" ? (snapshot.systemDark ? "dark" : "light") : theme;
 
   const setTheme = useCallback((next: Theme) => {
-    localStorage.setItem(STORAGE_KEY, next);
+    safeLocalStorageSet(STORAGE_KEY, next);
     applyTheme(next, true);
     emitChange();
   }, []);
 
   const setColorTheme = useCallback((next: ColorTheme) => {
-    localStorage.setItem(COLOR_THEME_STORAGE_KEY, next);
+    safeLocalStorageSet(COLOR_THEME_STORAGE_KEY, next);
     applyTheme(getStored(), true);
     emitChange();
   }, []);
 
   const setFontFamily = useCallback((next: FontFamily) => {
-    localStorage.setItem(FONT_FAMILY_STORAGE_KEY, next);
+    safeLocalStorageSet(FONT_FAMILY_STORAGE_KEY, next);
     applyFont(next);
     emitChange();
   }, []);

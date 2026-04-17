@@ -8,6 +8,7 @@ import {
   stripInlineTerminalContextPlaceholders,
   type TerminalContextDraft,
 } from "../lib/terminalContext";
+export { readFileAsDataUrl } from "~/lib/fileData";
 import { type PromptEnhancementId } from "../promptEnhancement";
 export { buildLocalDraftThread } from "../draftThreads";
 
@@ -68,23 +69,6 @@ export interface PullRequestDialogState {
 export interface IssueDialogState {
   initialReference: string | null;
   key: number;
-}
-
-export function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.addEventListener("load", () => {
-      if (typeof reader.result === "string") {
-        resolve(reader.result);
-        return;
-      }
-      reject(new Error("Could not read image data."));
-    });
-    reader.addEventListener("error", () => {
-      reject(reader.error ?? new Error("Failed to read image."));
-    });
-    reader.readAsDataURL(file);
-  });
 }
 
 export function buildTemporaryWorktreeBranchName(): string {

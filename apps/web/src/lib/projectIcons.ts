@@ -8,8 +8,12 @@ export function resolveProjectIconUrl(input: {
   cwd: string;
   iconPath?: string | null | undefined;
 }): string {
-  const searchParams = new URLSearchParams({ cwd: input.cwd });
   const iconPath = input.iconPath?.trim();
+  if (iconPath?.startsWith("data:")) {
+    return iconPath;
+  }
+
+  const searchParams = new URLSearchParams({ cwd: input.cwd });
   if (iconPath) {
     searchParams.set("icon", iconPath);
   }

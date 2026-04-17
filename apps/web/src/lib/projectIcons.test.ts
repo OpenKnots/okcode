@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import type { NativeApi } from "@okcode/contracts";
 
-import { normalizeProjectIconPath, resolveSuggestedProjectIconPath } from "./projectIcons";
+import {
+  normalizeProjectIconPath,
+  resolveProjectIconUrl,
+  resolveSuggestedProjectIconPath,
+} from "./projectIcons";
 
 describe("project icon helpers", () => {
   it("normalizes icon paths by trimming and treating blanks as null", () => {
@@ -11,6 +15,17 @@ describe("project icon helpers", () => {
     );
     expect(normalizeProjectIconPath("   ")).toBeNull();
     expect(normalizeProjectIconPath(null)).toBeNull();
+  });
+
+  it("returns data URLs directly so attached image previews can render", () => {
+    const dataUrl = "data:image/png;base64,AAAA";
+
+    expect(
+      resolveProjectIconUrl({
+        cwd: "/repo",
+        iconPath: dataUrl,
+      }),
+    ).toBe(dataUrl);
   });
 
   it("prefers the first well-known fallback candidate that exists in the workspace", async () => {

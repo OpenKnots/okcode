@@ -335,7 +335,7 @@ function AuthenticationStatusCard({
         <div className="rounded-lg border border-border/60 bg-card/60 px-3 py-2">
           <div className="font-medium text-foreground">Authenticate</div>
           <code className="mt-1 block break-all text-[11px]">
-            {guide.authCmd ?? "Use gateway password"}
+            {guide.authCmd ?? "Use gateway shared secret/token"}
           </code>
         </div>
         <div className="rounded-lg border border-border/60 bg-card/60 px-3 py-2">
@@ -1565,7 +1565,9 @@ function SettingsRouteView() {
                   </span>
                 </label>
                 <label htmlFor="openclaw-password" className="block">
-                  <span className="block text-xs font-medium text-foreground">Password</span>
+                  <span className="block text-xs font-medium text-foreground">
+                    Shared Secret / Token
+                  </span>
                   <Input
                     id="openclaw-password"
                     className="mt-1"

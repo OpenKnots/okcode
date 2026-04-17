@@ -5,7 +5,6 @@ import {
   ChevronDownIcon,
   Loader2Icon,
   PlusIcon,
-  RefreshCwIcon,
   SkipForwardIcon,
   XCircleIcon,
   XIcon,
@@ -39,6 +38,7 @@ import { Button } from "../components/ui/button";
 import { Collapsible, CollapsibleContent } from "../components/ui/collapsible";
 import { EnvironmentVariablesEditor } from "../components/EnvironmentVariablesEditor";
 import { HotkeysSettingsSection } from "../components/settings/HotkeysSettingsSection";
+import { ProviderStatusRefreshButton } from "../components/settings/ProviderStatusRefreshButton";
 import { SettingsShell, type SettingsSectionId } from "../components/settings/SettingsShell";
 import { useSettingsRouteContext } from "../components/settings/SettingsRouteContext";
 import {
@@ -471,6 +471,7 @@ function SettingsRouteView() {
   const keybindingsConfigPath = serverConfigQuery.data?.keybindingsConfigPath ?? null;
   const availableEditors = serverConfigQuery.data?.availableEditors;
   const providerStatuses = serverConfigQuery.data?.providers ?? [];
+  const isRefreshingProviderStatuses = serverConfigQuery.isFetching;
   const selectableProviders = getSelectableThreadProviders({
     statuses: providerStatuses,
     openclawGatewayUrl: settings.openclawGatewayUrl,
@@ -1330,10 +1331,10 @@ function SettingsRouteView() {
             title="Authentication"
             description="Only providers that are ready and authenticated enough to run will appear in the new-thread provider picker. Existing threads remain pinned to their current provider."
             actions={
-              <Button size="sm" variant="outline" onClick={() => void refreshProviderStatuses()}>
-                <RefreshCwIcon className="size-3.5" />
-                Refresh status
-              </Button>
+              <ProviderStatusRefreshButton
+                refreshing={isRefreshingProviderStatuses}
+                onRefresh={() => void refreshProviderStatuses()}
+              />
             }
           >
             <SettingsRow

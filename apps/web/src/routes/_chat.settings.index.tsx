@@ -64,6 +64,7 @@ import {
   projectEnvironmentVariablesQueryOptions,
 } from "../lib/environmentVariablesReactQuery";
 import { normalizeProjectIconPath } from "../lib/projectIcons";
+import { useProjectIconFilePicker } from "../hooks/useProjectIconFilePicker";
 import { updateProjectIconOverride } from "../lib/projectMeta";
 import {
   getSelectableThreadProviders,
@@ -444,6 +445,11 @@ function SettingsRouteView() {
   const activeProjectId = selectedProjectId ?? projects[0]?.id ?? null;
   const selectedProject = projects.find((project) => project.id === activeProjectId) ?? null;
   const [projectIconDraft, setProjectIconDraft] = useState("");
+  const { fileInputRef, openFilePicker, handleFileChange } = useProjectIconFilePicker({
+    onFileSelected: (dataUrl) => {
+      setProjectIconDraft(dataUrl);
+    },
+  });
   const selectedProjectEnvironmentVariablesQuery = useQuery(
     projectEnvironmentVariablesQueryOptions(activeProjectId),
   );
@@ -1863,6 +1869,23 @@ function SettingsRouteView() {
                     aria-label="Project icon path"
                     disabled={!selectedProject}
                   />
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(event) => {
+                      void handleFileChange(event);
+                    }}
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={!selectedProject}
+                    onClick={openFilePicker}
+                  >
+                    Choose image
+                  </Button>
                   <Button
                     size="sm"
                     variant="outline"

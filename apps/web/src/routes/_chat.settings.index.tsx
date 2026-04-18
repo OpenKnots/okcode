@@ -867,34 +867,6 @@ function SettingsRouteView() {
             />
 
             <SettingsRow
-              title="Stitch border"
-              description="Show the decorative stitch border around the viewport."
-              resetAction={
-                settings.showStitchBorder !== defaults.showStitchBorder ? (
-                  <SettingResetButton
-                    label="stitch border"
-                    onClick={() =>
-                      updateSettings({
-                        showStitchBorder: defaults.showStitchBorder,
-                      })
-                    }
-                  />
-                ) : null
-              }
-              control={
-                <Switch
-                  checked={settings.showStitchBorder}
-                  onCheckedChange={(checked) =>
-                    updateSettings({
-                      showStitchBorder: Boolean(checked),
-                    })
-                  }
-                  aria-label="Show stitch border"
-                />
-              }
-            />
-
-            <SettingsRow
               title="Assistant output"
               description="Show token-by-token output while a response is in progress."
               resetAction={

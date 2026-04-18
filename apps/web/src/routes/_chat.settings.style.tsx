@@ -352,34 +352,6 @@ function SettingsStyleRouteView() {
               />
             }
           />
-
-          <SettingsRow
-            title="Stitch border"
-            description="Show the decorative stitch border around the viewport."
-            resetAction={
-              settings.showStitchBorder !== defaults.showStitchBorder ? (
-                <SettingResetButton
-                  label="stitch border"
-                  onClick={() =>
-                    updateSettings({
-                      showStitchBorder: defaults.showStitchBorder,
-                    })
-                  }
-                />
-              ) : null
-            }
-            control={
-              <Switch
-                checked={settings.showStitchBorder}
-                onCheckedChange={(checked) =>
-                  updateSettings({
-                    showStitchBorder: Boolean(checked),
-                  })
-                }
-                aria-label="Show stitch border"
-              />
-            }
-          />
         </SettingsSection>
 
         <SettingsSection

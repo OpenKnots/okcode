@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
-import { createWsNativeApi, getTransportMetrics, onTransportStateChange } from "../wsNativeApi";
+import {
+  createWsNativeApi,
+  getTransportMetrics,
+  getTransportStateSnapshot,
+  onTransportStateChange,
+} from "../wsNativeApi";
 import type { ConnectionMetrics, TransportState } from "../wsTransport";
 
 export interface ConnectionHealth {
@@ -24,6 +29,11 @@ const DEFAULT_METRICS: ConnectionMetrics = {
   uptimeMs: 0,
 };
 
+function subscribe(callback: () => void): () => void {
+  createWsNativeApi();
+  return onTransportStateChange(() => callback());
+}
+
 /**
  * Returns a reactive snapshot of the WebSocket connection health.
  * The transport state updates synchronously; metrics are polled at
@@ -31,18 +41,8 @@ const DEFAULT_METRICS: ConnectionMetrics = {
  */
 export function useConnectionHealth(): ConnectionHealth {
   const state = useSyncExternalStore(
-    (callback) => {
-      createWsNativeApi();
-      return onTransportStateChange(() => callback());
-    },
-    () => {
-      let current: TransportState = "connecting";
-      const unsub = onTransportStateChange((next) => {
-        current = next;
-      });
-      unsub();
-      return current;
-    },
+    subscribe,
+    getTransportStateSnapshot,
     () => "connecting" as TransportState,
   );
 

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-04-18
+
+See [docs/releases/v0.25.0.md](docs/releases/v0.25.0.md) for full notes and [docs/releases/v0.25.0/assets.md](docs/releases/v0.25.0/assets.md) for release asset inventory.
+
+### Added
+
+- Add project icon file picker.
+
+### Changed
+
+- Clarify OpenClaw gateway auth terminology.
+- Extract provider status refresh button.
+- Allow unsigned Windows artifacts when signing is unavailable.
+
 ## [0.24.0] - 2026-04-14
 
 See [docs/releases/v0.24.0.md](docs/releases/v0.24.0.md) for full notes and [docs/releases/v0.24.0/assets.md](docs/releases/v0.24.0/assets.md) for release asset inventory.
@@ -797,3 +811,4 @@ First public version tag. See [docs/releases/v0.0.1.md](docs/releases/v0.0.1.md)
 [0.23.2]: https://github.com/OpenKnots/okcode/releases/tag/v0.23.2
 [0.23.3]: https://github.com/OpenKnots/okcode/releases/tag/v0.23.3
 [0.24.0]: https://github.com/OpenKnots/okcode/releases/tag/v0.24.0
+[0.25.0]: https://github.com/OpenKnots/okcode/releases/tag/v0.25.0

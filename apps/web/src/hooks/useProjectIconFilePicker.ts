@@ -2,9 +2,12 @@ import { useCallback, useRef, type ChangeEvent } from "react";
 
 import { readFileAsDataUrl } from "~/lib/fileData";
 
-export function useProjectIconFilePicker(options: { onFileSelected: (dataUrl: string) => void }) {
+export function useProjectIconFilePicker(options: {
+  onFileSelected: (dataUrl: string) => void;
+  onError?: (error: unknown) => void;
+}) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { onFileSelected } = options;
+  const { onFileSelected, onError } = options;
 
   const openFilePicker = useCallback(() => {
     fileInputRef.current?.click();
@@ -22,10 +25,10 @@ export function useProjectIconFilePicker(options: { onFileSelected: (dataUrl: st
         const dataUrl = await readFileAsDataUrl(file);
         onFileSelected(dataUrl);
       } catch (error) {
-        console.error("Failed to read project icon image:", error);
+        onError?.(error);
       }
     },
-    [onFileSelected],
+    [onFileSelected, onError],
   );
 
   return {

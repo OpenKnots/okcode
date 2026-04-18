@@ -146,6 +146,12 @@ export function findLatestRevertableUserMessageId(
   return null;
 }
 
+/**
+ * Extension point for injecting hidden provider-level input alongside user
+ * messages.  Currently returns `undefined` — no hidden guidance is added.
+ * The function signature is kept so the call sites and tests stay wired up;
+ * future prompt-enhancement features will implement the body.
+ */
 export function buildHiddenProviderInput(options: {
   prompt: string;
   terminalContexts: ReadonlyArray<TerminalContextDraft>;

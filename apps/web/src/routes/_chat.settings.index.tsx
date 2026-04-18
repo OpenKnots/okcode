@@ -2142,6 +2142,7 @@ export const Route = createFileRoute("/_chat/settings/")({
       section === "authentication" ||
       section === "hotkeys" ||
       section === "environment" ||
+      section === "projects" ||
       section === "git" ||
       section === "models" ||
       section === "mobile" ||

@@ -36,12 +36,22 @@ See [docs/releases/v0.25.0.md](docs/releases/v0.25.0.md) for full notes and [doc
 ### Added
 
 - Add project icon file picker.
+- Add file-content search to workspace results.
+- Add hot tamale theme fonts and tokens.
+- Add Claude Opus 4.7 model support.
 
 ### Changed
 
 - Clarify OpenClaw gateway auth terminology.
 - Extract provider status refresh button.
 - Allow unsigned Windows artifacts when signing is unavailable.
+- Dock terminal below the right panel on desktop.
+- Remove stitch border setting from settings UI.
+
+### Fixed
+
+- Fix transport state snapshots in React hooks.
+- Fix settings deep-link for projects section.
 
 ## [0.24.0] - 2026-04-14
 

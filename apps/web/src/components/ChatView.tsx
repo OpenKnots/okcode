@@ -39,6 +39,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDebouncedValue } from "@tanstack/react-pacer";
 import { useNavigate } from "@tanstack/react-router";
@@ -236,6 +237,7 @@ import { hasCustomThreadTitle, normalizeThreadTitle } from "~/threadTitle";
 import { resolveLiveModelSelection } from "~/modelSelection";
 import { getProviderModelOptionsByProvider } from "~/providerModels";
 import { enhancePrompt, type PromptEnhancementId } from "../promptEnhancement";
+import { resolveTerminalDockPlacement } from "~/desktopShellLayout";
 
 function preloadThreadTerminalDrawer() {
   return import("./ThreadTerminalDrawer");
@@ -398,6 +400,8 @@ function normalizeVisibleInteractionMode(
 interface ChatViewProps {
   threadId: ThreadId;
   onMinimize?: (() => void) | undefined;
+  rightPanelOpen: boolean;
+  rightPanelTerminalDock: HTMLDivElement | null;
 }
 
 interface RunProjectScriptOptions {
@@ -408,7 +412,12 @@ interface RunProjectScriptOptions {
   rememberAsLastInvoked?: boolean;
 }
 
-export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
+export default function ChatView({
+  threadId,
+  onMinimize,
+  rightPanelOpen,
+  rightPanelTerminalDock,
+}: ChatViewProps) {
   const clientMode = useClientMode();
   const transportState = useTransportState();
   const threads = useStore((store) => store.threads);
@@ -4842,6 +4851,45 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
     return <ChatHomeEmptyState />;
   }
 
+  const terminalDockPlacement = resolveTerminalDockPlacement({
+    clientMode,
+    rightPanelOpen,
+    hasRightPanelTerminalDock: rightPanelTerminalDock !== null,
+  });
+  const terminalDrawer =
+    activeProject && shouldMountTerminalDrawer ? (
+      <div style={{ display: terminalState.terminalOpen ? undefined : "none" }}>
+        <Suspense
+          fallback={<TerminalDrawerLoadingFallback height={terminalState.terminalHeight} />}
+        >
+          <ThreadTerminalDrawer
+            key={activeThread.id}
+            threadId={activeThread.id}
+            cwd={gitCwd ?? activeProject.cwd}
+            runtimeEnv={threadTerminalRuntimeEnv}
+            height={terminalState.terminalHeight}
+            terminalIds={terminalState.terminalIds}
+            activeTerminalId={terminalState.activeTerminalId}
+            terminalGroups={terminalState.terminalGroups}
+            activeTerminalGroupId={terminalState.activeTerminalGroupId}
+            focusRequestId={terminalFocusRequestId}
+            onSplitTerminal={splitTerminal}
+            onNewTerminal={createNewTerminal}
+            splitShortcutLabel={splitTerminalShortcutLabel ?? undefined}
+            newShortcutLabel={newTerminalShortcutLabel ?? undefined}
+            closeShortcutLabel={closeTerminalShortcutLabel ?? undefined}
+            onActiveTerminalChange={activateTerminal}
+            onCloseTerminal={closeTerminal}
+            onCollapseTerminal={toggleTerminalVisibility}
+            onHeightChange={setTerminalHeight}
+            onAddTerminalContext={addTerminalContextToDraft}
+            onSendTerminalContext={sendSelectedTerminalContext}
+            onPreviewUrl={onPreviewUrl}
+          />
+        </Suspense>
+      </div>
+    ) : null;
+
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden bg-background">
       {/* Top bar */}
@@ -5873,38 +5921,9 @@ export default function ChatView({ threadId, onMinimize }: ChatViewProps) {
       {/* Terminal drawer – once mounted, stay mounted to avoid the
           unmount/remount flicker when toggling visibility or switching threads.
           We hide it with display:none when collapsed so the DOM is retained. */}
-      {activeProject && shouldMountTerminalDrawer ? (
-        <div style={{ display: terminalState.terminalOpen ? undefined : "none" }}>
-          <Suspense
-            fallback={<TerminalDrawerLoadingFallback height={terminalState.terminalHeight} />}
-          >
-            <ThreadTerminalDrawer
-              key={activeThread.id}
-              threadId={activeThread.id}
-              cwd={gitCwd ?? activeProject.cwd}
-              runtimeEnv={threadTerminalRuntimeEnv}
-              height={terminalState.terminalHeight}
-              terminalIds={terminalState.terminalIds}
-              activeTerminalId={terminalState.activeTerminalId}
-              terminalGroups={terminalState.terminalGroups}
-              activeTerminalGroupId={terminalState.activeTerminalGroupId}
-              focusRequestId={terminalFocusRequestId}
-              onSplitTerminal={splitTerminal}
-              onNewTerminal={createNewTerminal}
-              splitShortcutLabel={splitTerminalShortcutLabel ?? undefined}
-              newShortcutLabel={newTerminalShortcutLabel ?? undefined}
-              closeShortcutLabel={closeTerminalShortcutLabel ?? undefined}
-              onActiveTerminalChange={activateTerminal}
-              onCloseTerminal={closeTerminal}
-              onCollapseTerminal={toggleTerminalVisibility}
-              onHeightChange={setTerminalHeight}
-              onAddTerminalContext={addTerminalContextToDraft}
-              onSendTerminalContext={sendSelectedTerminalContext}
-              onPreviewUrl={onPreviewUrl}
-            />
-          </Suspense>
-        </div>
-      ) : null}
+      {terminalDockPlacement === "right-panel" && rightPanelTerminalDock && terminalDrawer
+        ? createPortal(terminalDrawer, rightPanelTerminalDock)
+        : terminalDrawer}
 
       <Dialog
         open={pendingProjectScriptRun !== null}

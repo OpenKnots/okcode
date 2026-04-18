@@ -17,6 +17,12 @@ const WORKSPACE_CACHE_MAX_KEYS = 4;
 const WORKSPACE_INDEX_MAX_ENTRIES = 25_000;
 const WORKSPACE_SCAN_READDIR_CONCURRENCY = 32;
 const GIT_CHECK_IGNORE_MAX_STDIN_BYTES = 256 * 1024;
+const CONTENT_SEARCH_MIN_QUERY_LENGTH = 2;
+const CONTENT_SEARCH_MAX_RESULTS = 100;
+const CONTENT_SEARCH_TIMEOUT_MS = 10_000;
+const CONTENT_SEARCH_MAX_LINE_LENGTH = 200;
+const CONTENT_MATCH_BASE_SCORE = 800;
+const CONTENT_MATCH_BONUS = 50;
 const IGNORED_DIRECTORY_NAMES = new Set([
   ".git",
   ".convex",
@@ -46,6 +52,13 @@ interface SearchableWorkspaceEntry extends ProjectEntry {
 interface RankedWorkspaceEntry {
   entry: SearchableWorkspaceEntry;
   score: number;
+  contentMatch?: string;
+}
+
+interface ContentSearchMatch {
+  path: string;
+  lineNumber: number;
+  lineContent: string;
 }
 
 interface QueryTokenMatch {
@@ -1025,10 +1038,99 @@ export async function listWorkspaceDirectory(
   };
 }
 
+async function searchFileContents(
+  cwd: string,
+  query: string,
+  maxResults: number,
+): Promise<ContentSearchMatch[]> {
+  if (query.length < CONTENT_SEARCH_MIN_QUERY_LENGTH) {
+    return [];
+  }
+
+  const isGit = await isInsideGitWorkTree(cwd);
+
+  let result;
+  if (isGit) {
+    result = await runProcess(
+      "git",
+      ["grep", "-n", "-i", "-I", "-F", "--max-count=1", "--", query],
+      {
+        cwd,
+        allowNonZeroExit: true,
+        timeoutMs: CONTENT_SEARCH_TIMEOUT_MS,
+        maxBufferBytes: 4 * 1024 * 1024,
+        outputMode: "truncate",
+      },
+    ).catch(() => null);
+  } else {
+    const excludeDirArgs = [...IGNORED_DIRECTORY_NAMES].flatMap((dir) => ["--exclude-dir", dir]);
+    result = await runProcess(
+      "grep",
+      ["-r", "-n", "-i", "-I", "-F", "--max-count=1", ...excludeDirArgs, "--", query, "."],
+      {
+        cwd,
+        allowNonZeroExit: true,
+        timeoutMs: CONTENT_SEARCH_TIMEOUT_MS,
+        maxBufferBytes: 4 * 1024 * 1024,
+        outputMode: "truncate",
+      },
+    ).catch(() => null);
+  }
+
+  if (!result || (result.code !== 0 && result.code !== 1)) {
+    return [];
+  }
+
+  const matches: ContentSearchMatch[] = [];
+  const lines = result.stdout.split("\n");
+
+  for (const line of lines) {
+    if (!line) continue;
+
+    // Output format: file:lineNumber:matchedLine
+    const firstColon = line.indexOf(":");
+    if (firstColon === -1) continue;
+    const secondColon = line.indexOf(":", firstColon + 1);
+    if (secondColon === -1) continue;
+
+    let filePath = line.slice(0, firstColon);
+    const lineNumber = parseInt(line.slice(firstColon + 1, secondColon), 10);
+    let lineContent = line.slice(secondColon + 1).trim();
+
+    // For grep fallback, strip leading ./
+    if (!isGit && filePath.startsWith("./")) {
+      filePath = filePath.slice(2);
+    }
+
+    if (!filePath || isNaN(lineNumber) || isPathInIgnoredDirectory(filePath)) {
+      continue;
+    }
+
+    if (lineContent.length > CONTENT_SEARCH_MAX_LINE_LENGTH) {
+      lineContent = `${lineContent.slice(0, CONTENT_SEARCH_MAX_LINE_LENGTH)}…`;
+    }
+
+    matches.push({ path: filePath, lineNumber, lineContent });
+
+    if (matches.length >= maxResults) break;
+  }
+
+  return matches;
+}
+
 export async function searchWorkspaceEntries(
   input: ProjectSearchEntriesInput,
 ): Promise<ProjectSearchEntriesResult> {
-  const index = await getWorkspaceIndex(input.cwd);
+  const normalizedQuery = normalizeQuery(input.query);
+
+  // Run workspace index build and file-content search in parallel.
+  const [index, contentMatches] = await Promise.all([
+    getWorkspaceIndex(input.cwd),
+    normalizedQuery.length >= CONTENT_SEARCH_MIN_QUERY_LENGTH
+      ? searchFileContents(input.cwd, normalizedQuery, CONTENT_SEARCH_MAX_RESULTS)
+      : Promise.resolve([] as ContentSearchMatch[]),
+  ]);
+
   const queryTokens = splitQueryTokens(input.query);
   const includeExpression = compileWorkspaceGlobExpression(input.includePattern);
   const excludeExpression = compileWorkspaceGlobExpression(input.excludePattern);
@@ -1036,22 +1138,78 @@ export async function searchWorkspaceEntries(
   const rankedEntries: RankedWorkspaceEntry[] = [];
   let matchedEntryCount = 0;
 
+  // Build a lookup of the first content match per file path.
+  const contentMatchByPath = new Map<string, string>();
+  for (const match of contentMatches) {
+    if (!contentMatchByPath.has(match.path)) {
+      contentMatchByPath.set(match.path, `${match.lineNumber}: ${match.lineContent}`);
+    }
+  }
+
+  // Score entries from the workspace index (filename + path matching).
   for (const entry of index.entries) {
+    // Always consume the content-match entry so it is not duplicated later.
+    const contentMatch = contentMatchByPath.get(entry.path);
+    contentMatchByPath.delete(entry.path);
+
     if (!shouldIncludeSearchableEntry(entry, includeExpression, excludeExpression)) {
       continue;
     }
 
-    const score = scoreEntry(entry, queryTokens);
-    if (score === null) {
+    const nameScore = scoreEntry(entry, queryTokens);
+    if (nameScore === null && !contentMatch) {
+      continue;
+    }
+
+    let finalScore: number;
+    if (nameScore !== null && contentMatch) {
+      // Both name and content matched – boost slightly.
+      finalScore = nameScore + CONTENT_MATCH_BONUS;
+    } else if (nameScore !== null) {
+      finalScore = nameScore;
+    } else {
+      // Content-only match.
+      finalScore = CONTENT_MATCH_BASE_SCORE;
+    }
+
+    matchedEntryCount += 1;
+    const ranked: RankedWorkspaceEntry = { entry, score: finalScore };
+    if (contentMatch !== undefined) {
+      ranked.contentMatch = contentMatch;
+    }
+    insertRankedEntry(rankedEntries, ranked, limit);
+  }
+
+  // Add any remaining content matches for files not present in the workspace index.
+  for (const [filePath, contentMatch] of contentMatchByPath) {
+    const entry = toSearchableWorkspaceEntry({
+      path: filePath,
+      kind: "file",
+      parentPath: parentPathOf(filePath),
+    });
+
+    if (!shouldIncludeSearchableEntry(entry, includeExpression, excludeExpression)) {
       continue;
     }
 
     matchedEntryCount += 1;
-    insertRankedEntry(rankedEntries, { entry, score }, limit);
+    insertRankedEntry(
+      rankedEntries,
+      { entry, score: CONTENT_MATCH_BASE_SCORE, contentMatch },
+      limit,
+    );
   }
 
   return {
-    entries: rankedEntries.map((candidate) => candidate.entry),
+    entries: rankedEntries.map((candidate) => {
+      if (candidate.contentMatch) {
+        const entry = Object.assign({}, candidate.entry, {
+          contentMatch: candidate.contentMatch,
+        });
+        return entry;
+      }
+      return candidate.entry;
+    }),
     truncated: index.truncated || matchedEntryCount > limit,
   };
 }

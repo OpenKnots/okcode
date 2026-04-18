@@ -255,9 +255,9 @@ export const WorkspaceFileTree = memo(function WorkspaceFileTree(props: {
             size="sm"
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Search files"
+            placeholder="Search files & contents"
             spellCheck={false}
-            aria-label="Search files"
+            aria-label="Search files and contents"
           />
           <InputGroupAddon align="inline-end">
             <button
@@ -505,6 +505,11 @@ const WorkspaceSearchResultRow = memo(function WorkspaceSearchResultRow(props: {
         <span className="block truncate text-[10px] text-muted-foreground/55">
           {parentPath ?? "."}
         </span>
+        {props.entry.contentMatch && (
+          <span className="block truncate font-mono text-[10px] text-muted-foreground/50 italic">
+            {props.entry.contentMatch}
+          </span>
+        )}
       </span>
     </button>
   );

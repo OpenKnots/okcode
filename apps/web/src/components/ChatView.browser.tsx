@@ -942,6 +942,40 @@ describe("ChatView timeline estimator parity (full app)", () => {
     document.body.innerHTML = "";
   });
 
+  it("mounts the regular chat surface without a transport render loop", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const mounted = await mountChatView({
+      viewport: DEFAULT_VIEWPORT,
+      snapshot: createSnapshotForTargetUser({
+        targetMessageId: "msg-user-transport-mount" as MessageId,
+        targetText: "transport mount",
+      }),
+    });
+
+    try {
+      await vi.waitFor(() => {
+        expect(
+          wsRequests.some((request) => request._tag === ORCHESTRATION_WS_METHODS.getSnapshot),
+        ).toBe(true);
+      });
+
+      await expect.element(page.getByTestId("new-thread-button")).toBeInTheDocument();
+      expect(
+        consoleErrorSpy.mock.calls.some((call) =>
+          call.some(
+            (value) =>
+              typeof value === "string" &&
+              (value.includes("Too many re-renders") ||
+                value.includes("Minified React error #301")),
+          ),
+        ),
+      ).toBe(false);
+    } finally {
+      consoleErrorSpy.mockRestore();
+      await mounted.cleanup();
+    }
+  });
+
   it.each(TEXT_VIEWPORT_MATRIX)(
     "keeps long user message estimate close at the $name viewport",
     async (viewport) => {

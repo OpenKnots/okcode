@@ -4,17 +4,22 @@ import { act, create, type ReactTestRenderer } from "react-test-renderer";
 import type { ConnectionMetrics, TransportState } from "../wsTransport";
 import { type ConnectionHealth, useConnectionHealth } from "./useConnectionHealth";
 
-const { createWsNativeApiMock, getTransportMetricsMock, onTransportStateChangeMock } = vi.hoisted(
-  () => ({
-    createWsNativeApiMock: vi.fn(),
-    getTransportMetricsMock: vi.fn(),
-    onTransportStateChangeMock: vi.fn(),
-  }),
-);
+const {
+  createWsNativeApiMock,
+  getTransportMetricsMock,
+  getTransportStateSnapshotMock,
+  onTransportStateChangeMock,
+} = vi.hoisted(() => ({
+  createWsNativeApiMock: vi.fn(),
+  getTransportMetricsMock: vi.fn(),
+  getTransportStateSnapshotMock: vi.fn(),
+  onTransportStateChangeMock: vi.fn(),
+}));
 
 vi.mock("../wsNativeApi", () => ({
   createWsNativeApi: createWsNativeApiMock,
   getTransportMetrics: getTransportMetricsMock,
+  getTransportStateSnapshot: getTransportStateSnapshotMock,
   onTransportStateChange: onTransportStateChangeMock,
 }));
 
@@ -88,6 +93,7 @@ beforeEach(() => {
 
   createWsNativeApiMock.mockReset();
   getTransportMetricsMock.mockReset().mockImplementation(() => currentMetrics);
+  getTransportStateSnapshotMock.mockReset().mockImplementation(() => currentState);
   onTransportStateChangeMock.mockReset().mockImplementation((listener) => {
     transportStateListeners.add(listener);
     listener(currentState);
@@ -120,6 +126,8 @@ describe("useConnectionHealth", () => {
     await mountHook();
 
     expect(createWsNativeApiMock.mock.calls.length).toBeGreaterThanOrEqual(1);
+    expect(getTransportStateSnapshotMock.mock.calls.length).toBeGreaterThan(0);
+    expect(onTransportStateChangeMock).toHaveBeenCalledTimes(1);
     expect(latestHealth).toEqual({
       state: "connecting",
       isConnected: false,

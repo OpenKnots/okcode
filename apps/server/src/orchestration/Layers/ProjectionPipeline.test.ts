@@ -1927,6 +1927,125 @@ it.effect("restores pending turn-start metadata across projection pipeline resta
   ),
 );
 
+it.effect("clears pending turn-start rows when provider turn start fails", () =>
+  Effect.gen(function* () {
+    const eventStore = yield* OrchestrationEventStore;
+    const projectionPipeline = yield* OrchestrationProjectionPipeline;
+    const sql = yield* SqlClient.SqlClient;
+
+    const threadId = ThreadId.makeUnsafe("thread-start-failure");
+    const messageId = MessageId.makeUnsafe("message-start-failure");
+    const now = "2026-02-26T15:00:00.000Z";
+
+    const appendAndProject = (event: Parameters<typeof eventStore.append>[0]) =>
+      eventStore
+        .append(event)
+        .pipe(Effect.flatMap((savedEvent) => projectionPipeline.projectEvent(savedEvent)));
+
+    yield* appendAndProject({
+      type: "project.created",
+      eventId: EventId.makeUnsafe("evt-start-failure-project"),
+      aggregateKind: "project",
+      aggregateId: ProjectId.makeUnsafe("project-start-failure"),
+      occurredAt: now,
+      commandId: CommandId.makeUnsafe("cmd-start-failure-project"),
+      causationEventId: null,
+      correlationId: CorrelationId.makeUnsafe("cmd-start-failure-project"),
+      metadata: {},
+      payload: {
+        projectId: ProjectId.makeUnsafe("project-start-failure"),
+        title: "Project Start Failure",
+        workspaceRoot: "/tmp/project-start-failure",
+        defaultModel: null,
+        scripts: [],
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+
+    yield* appendAndProject({
+      type: "thread.created",
+      eventId: EventId.makeUnsafe("evt-start-failure-thread"),
+      aggregateKind: "thread",
+      aggregateId: threadId,
+      occurredAt: now,
+      commandId: CommandId.makeUnsafe("cmd-start-failure-thread"),
+      causationEventId: null,
+      correlationId: CorrelationId.makeUnsafe("cmd-start-failure-thread"),
+      metadata: {},
+      payload: {
+        threadId,
+        projectId: ProjectId.makeUnsafe("project-start-failure"),
+        title: "Thread Start Failure",
+        model: "gpt-5-codex",
+        runtimeMode: "full-access",
+        branch: null,
+        worktreePath: null,
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+
+    yield* appendAndProject({
+      type: "thread.turn-start-requested",
+      eventId: EventId.makeUnsafe("evt-start-failure-requested"),
+      aggregateKind: "thread",
+      aggregateId: threadId,
+      occurredAt: now,
+      commandId: CommandId.makeUnsafe("cmd-start-failure-requested"),
+      causationEventId: null,
+      correlationId: CorrelationId.makeUnsafe("cmd-start-failure-requested"),
+      metadata: {},
+      payload: {
+        threadId,
+        messageId,
+        runtimeMode: "full-access",
+        createdAt: now,
+      },
+    });
+
+    yield* appendAndProject({
+      type: "thread.activity-appended",
+      eventId: EventId.makeUnsafe("evt-start-failure-activity"),
+      aggregateKind: "thread",
+      aggregateId: threadId,
+      occurredAt: now,
+      commandId: CommandId.makeUnsafe("cmd-start-failure-activity"),
+      causationEventId: null,
+      correlationId: CorrelationId.makeUnsafe("cmd-start-failure-activity"),
+      metadata: {},
+      payload: {
+        threadId,
+        activity: {
+          id: EventId.makeUnsafe("activity-start-failure"),
+          tone: "error",
+          kind: "provider.turn.start.failed",
+          summary: "Provider turn start failed",
+          payload: {
+            detail: "Timed out waiting for thread/start.",
+          },
+          turnId: null,
+          createdAt: now,
+        },
+      },
+    });
+
+    const pendingRows = yield* sql<{ readonly threadId: string }>`
+      SELECT thread_id AS "threadId"
+      FROM projection_turns
+      WHERE thread_id = ${threadId}
+        AND turn_id IS NULL
+        AND state = 'pending'
+    `;
+
+    assert.deepEqual(pendingRows, []);
+  }).pipe(
+    Effect.provide(
+      makeProjectionPipelinePrefixedTestLayer("t3-projection-pipeline-start-failure-"),
+    ),
+  ),
+);
+
 const engineLayer = it.layer(
   OrchestrationEngineLive.pipe(
     Layer.provide(OrchestrationProjectionPipelineLive),

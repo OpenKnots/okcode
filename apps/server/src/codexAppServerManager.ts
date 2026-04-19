@@ -129,6 +129,12 @@ export interface CodexAppServerSendTurnInput {
   readonly interactionMode?: ProviderInteractionMode;
 }
 
+export interface CodexAppServerSteerTurnInput {
+  readonly threadId: ThreadId;
+  readonly input: string;
+  readonly attachments?: ReadonlyArray<{ type: "image"; url: string }>;
+}
+
 export interface CodexAppServerStartSessionInput {
   readonly threadId: ThreadId;
   readonly provider?: "codex";
@@ -170,6 +176,7 @@ const RECOVERABLE_THREAD_RESUME_ERROR_SNIPPETS = [
   "no such thread",
   "unknown thread",
   "does not exist",
+  "timed out waiting for thread/resume",
 ];
 const CODEX_DEFAULT_MODEL = "gpt-5.3-codex";
 const CODEX_SPARK_MODEL = "gpt-5.3-codex-spark";
@@ -394,9 +401,9 @@ export function resolveCodexModelForAccount(
 }
 
 /**
- * On Windows with `shell: true`, `child.kill()` only terminates the `cmd.exe`
- * wrapper, leaving the actual command running. Use `taskkill /T` to kill the
- * entire process tree instead.
+ * Codex can spawn nested helper processes. On Unix we run each session in its
+ * own process group so teardown can kill the entire subtree instead of leaking
+ * orphaned `@github/copilot` workers after restarts and timeouts.
  */
 function killChildTree(child: ChildProcessWithoutNullStreams): void {
   if (process.platform === "win32" && child.pid !== undefined) {
@@ -407,7 +414,15 @@ function killChildTree(child: ChildProcessWithoutNullStreams): void {
       // fallback to direct kill
     }
   }
-  child.kill();
+  if (child.pid !== undefined) {
+    try {
+      process.kill(-child.pid, "SIGKILL");
+      return;
+    } catch {
+      // fallback to direct kill
+    }
+  }
+  child.kill("SIGKILL");
 }
 
 export function normalizeCodexModelSlug(
@@ -599,6 +614,7 @@ export class CodexAppServerManager extends EventEmitter<CodexAppServerManagerEve
         cwd: resolvedCwd,
         env: sessionEnv,
         stdio: ["pipe", "pipe", "pipe"],
+        detached: process.platform !== "win32",
         shell: process.platform === "win32",
       });
       const output = readline.createInterface({ input: child.stdout });
@@ -896,6 +912,37 @@ export class CodexAppServerManager extends EventEmitter<CodexAppServerManagerEve
     await this.sendRequest(context, "turn/interrupt", {
       threadId: providerThreadId,
       turnId: effectiveTurnId,
+    });
+  }
+
+  async steerTurn(input: CodexAppServerSteerTurnInput): Promise<void> {
+    const context = this.requireSession(input.threadId);
+    const providerThreadId = readResumeThreadId({
+      threadId: context.session.threadId,
+      runtimeMode: context.session.runtimeMode,
+      resumeCursor: context.session.resumeCursor,
+    });
+    const activeTurnId = context.session.activeTurnId;
+    if (!providerThreadId || !activeTurnId) {
+      throw new Error("Cannot steer without an active provider turn.");
+    }
+
+    const steerInput: Array<{ type: "text"; text: string } | { type: "image"; url: string }> = [];
+    for (const attachment of input.attachments ?? []) {
+      steerInput.push({
+        type: "image",
+        url: attachment.url,
+      });
+    }
+    steerInput.push({
+      type: "text",
+      text: input.input,
+    });
+
+    await this.sendRequest(context, "turn/steer", {
+      threadId: providerThreadId,
+      expectedTurnId: activeTurnId,
+      input: steerInput,
     });
   }
 

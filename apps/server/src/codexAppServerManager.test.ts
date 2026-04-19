@@ -256,6 +256,12 @@ describe("isRecoverableThreadResumeError", () => {
       ),
     ).toBe(false);
   });
+
+  it("treats thread-resume timeouts as recoverable", () => {
+    expect(isRecoverableThreadResumeError(new Error("Timed out waiting for thread/resume."))).toBe(
+      true,
+    );
+  });
 });
 
 describe("readCodexAccountSnapshot", () => {

@@ -4,6 +4,7 @@
 
 - All of `bun fmt`, `bun lint`, and `bun typecheck` must pass before considering tasks completed.
 - NEVER run `bun test`. Always use `bun run test` (runs Vitest).
+- For any change that must be visible on the served app endpoint, rebuild and restart the served app before considering the task complete. A browser hard refresh is not sufficient for the Tailscale-served production bundle.
 
 ## Project Snapshot
 

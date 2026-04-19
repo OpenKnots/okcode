@@ -61,6 +61,7 @@ import { CloneRepositoryDialog } from "~/components/CloneRepositoryDialog";
 import { EditableThreadTitle } from "~/components/EditableThreadTitle";
 import { ProjectIconEditorDialog } from "~/components/ProjectIconEditorDialog";
 import { ProjectIcon } from "~/components/ProjectIcon";
+import { RemoteFolderPickerDialog } from "~/components/RemoteFolderPickerDialog";
 import { useClientMode } from "~/hooks/useClientMode";
 import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
 import { useCurrentWorktreeCleanupCandidates } from "~/hooks/useCurrentWorktreeCleanupCandidates";
@@ -83,6 +84,10 @@ import { isElectron } from "../env";
 import { useHandleNewThread } from "../hooks/useHandleNewThread";
 import { shortcutLabelForCommand } from "../keybindings";
 import { gitRemoveWorktreeMutationOptions, gitStatusQueryOptions } from "../lib/gitReactQuery";
+import {
+  deriveRemoteFolderBrowserRoot,
+  isProbablyLocalWebSession,
+} from "../lib/remoteFolderPicker";
 import { serverConfigQueryOptions, serverUpdateQueryOptions } from "../lib/serverReactQuery";
 import { cn, isLinuxPlatform, isMacPlatform, newCommandId, newProjectId } from "../lib/utils";
 import { readNativeApi } from "../nativeApi";
@@ -574,10 +579,8 @@ export default function Sidebar() {
     strict: false,
     select: (params) => (params.threadId ? ThreadId.makeUnsafe(params.threadId) : null),
   });
-  const { data: keybindings = EMPTY_KEYBINDINGS } = useQuery({
-    ...serverConfigQueryOptions(),
-    select: (config) => config.keybindings,
-  });
+  const serverConfigQuery = useQuery(serverConfigQueryOptions());
+  const keybindings = serverConfigQuery.data?.keybindings ?? EMPTY_KEYBINDINGS;
   const { hasCandidates: hasWorktreeCleanupCandidates } = useCurrentWorktreeCleanupCandidates();
   const queryClient = useQueryClient();
   const removeWorktreeMutation = useMutation(gitRemoveWorktreeMutationOptions({ queryClient }));
@@ -588,6 +591,7 @@ export default function Sidebar() {
   const [isAddingProject, setIsAddingProject] = useState(false);
   const [addProjectError, setAddProjectError] = useState<string | null>(null);
   const [manualProjectPathEntry, setManualProjectPathEntry] = useState(false);
+  const [remoteFolderPickerOpen, setRemoteFolderPickerOpen] = useState(false);
   const [cloneDialogOpen, setCloneDialogOpen] = useState(false);
   const [projectIconDialogOpen, setProjectIconDialogOpen] = useState(false);
   const [projectIconDialogProjectId, setProjectIconDialogProjectId] = useState<ProjectId | null>(
@@ -615,6 +619,14 @@ export default function Sidebar() {
   const isLinuxDesktop = isElectron && isLinuxPlatform(navigator.platform);
   const shouldBrowseForProjectImmediately = isElectron && !isLinuxDesktop;
   const shouldShowProjectPathEntry = addingProject && !shouldBrowseForProjectImmediately;
+  const shouldUseWebFolderBrowser = !isElectron && !isProbablyLocalWebSession();
+  const canUseRemoteFolderBrowser =
+    shouldUseWebFolderBrowser && Boolean(serverConfigQuery.data?.cwd);
+  const remoteFolderBrowserRoot = useMemo(
+    () =>
+      serverConfigQuery.data?.cwd ? deriveRemoteFolderBrowserRoot(serverConfigQuery.data.cwd) : "",
+    [serverConfigQuery.data?.cwd],
+  );
   const {
     editingThreadId,
     draftTitle: editingThreadTitle,
@@ -887,6 +899,18 @@ export default function Sidebar() {
   const handlePickFolder = async () => {
     const api = readNativeApi();
     if (!api || isPickingFolder) return;
+    if (shouldUseWebFolderBrowser) {
+      if (!canUseRemoteFolderBrowser) {
+        toastManager.add({
+          type: "error",
+          title: "Folder browser is still loading",
+          description: "Wait a moment for the server path to load, then try again.",
+        });
+        return;
+      }
+      setRemoteFolderPickerOpen(true);
+      return;
+    }
     setIsPickingFolder(true);
     let pickedPath: string | null = null;
     try {
@@ -2164,7 +2188,12 @@ export default function Sidebar() {
                       aria-label="Open workspace"
                       className="inline-flex size-5 cursor-pointer items-center justify-center rounded-md text-muted-foreground/60 transition-colors hover:bg-accent hover:text-foreground"
                       onClick={() => {
-                        useRightPanelStore.getState().open("workspace");
+                        const panelState = useRightPanelStore.getState();
+                        if (panelState.isOpen && panelState.activeTab === "workspace") {
+                          panelState.close();
+                          return;
+                        }
+                        panelState.open("workspace");
                       }}
                     />
                   }
@@ -2217,7 +2246,11 @@ export default function Sidebar() {
                 disabled={isPickingFolder || isAddingProject}
               >
                 <FolderIcon className="size-3.5" />
-                {isPickingFolder ? "Picking folder..." : "Browse for folder"}
+                {isPickingFolder
+                  ? "Picking folder..."
+                  : shouldUseWebFolderBrowser
+                    ? "Browse server folders"
+                    : "Browse on this Mac"}
               </button>
               <button
                 type="button"
@@ -2456,6 +2489,19 @@ export default function Sidebar() {
           </TooltipPopup>
         </Tooltip>
       </SidebarFooter>
+
+      <RemoteFolderPickerDialog
+        open={remoteFolderPickerOpen}
+        onOpenChange={setRemoteFolderPickerOpen}
+        rootPath={remoteFolderBrowserRoot}
+        initialPath={newCwd || undefined}
+        title="Browse server folders"
+        description="Pick a folder on the machine running OK Code. This works from remote web sessions such as Tailscale."
+        onPick={(path) => {
+          setNewCwd(path);
+          void addProjectFromPath(path);
+        }}
+      />
 
       <CloneRepositoryDialog
         open={cloneDialogOpen}

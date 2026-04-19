@@ -47,6 +47,7 @@ export const ProjectListDirectoryInput = Schema.Struct({
   directoryPath: Schema.optional(
     TrimmedNonEmptyString.check(Schema.isMaxLength(PROJECT_DIRECTORY_PATH_MAX_LENGTH)),
   ),
+  shallow: Schema.optional(Schema.Boolean),
 });
 export type ProjectListDirectoryInput = typeof ProjectListDirectoryInput.Type;
 

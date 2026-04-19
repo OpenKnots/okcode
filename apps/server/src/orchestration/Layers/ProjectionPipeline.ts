@@ -768,6 +768,11 @@ const makeOrchestrationProjectionPipeline = Effect.gen(function* () {
               : {}),
             createdAt: event.payload.activity.createdAt,
           });
+          if (event.payload.activity.kind === "provider.turn.start.failed") {
+            yield* projectionTurnRepository.deletePendingTurnStartByThreadId({
+              threadId: event.payload.threadId,
+            });
+          }
           return;
 
         case "thread.reverted": {

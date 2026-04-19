@@ -107,11 +107,15 @@ export function projectReadFileQueryOptions(input: {
 export function projectListDirectoryQueryOptions(input: {
   cwd: string | null;
   directoryPath?: string;
+  shallow?: boolean;
   enabled?: boolean;
   staleTime?: number;
 }) {
   return queryOptions({
-    queryKey: projectQueryKeys.listDirectory(input.cwd, input.directoryPath ?? null),
+    queryKey: [
+      ...projectQueryKeys.listDirectory(input.cwd, input.directoryPath ?? null),
+      input.shallow ?? false,
+    ] as const,
     queryFn: async () => {
       const api = ensureNativeApi();
       if (!input.cwd) {
@@ -120,6 +124,7 @@ export function projectListDirectoryQueryOptions(input: {
       return api.projects.listDirectory({
         cwd: input.cwd,
         ...(input.directoryPath ? { directoryPath: input.directoryPath } : {}),
+        ...(input.shallow ? { shallow: true } : {}),
       });
     },
     enabled: (input.enabled ?? true) && input.cwd !== null,

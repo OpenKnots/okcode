@@ -139,9 +139,18 @@ Before tagging:
    - `docs/releases/vX.Y.Z/rollout-checklist.md` (version-specific rollout playbook)
    - `docs/releases/vX.Y.Z/soak-test-plan.md` (version-specific soak test cases)
 3. Run `bun run release:validate <version>` and fix any failures.
-4. Confirm Apple signing/notarization secrets.
+4. Confirm Apple signing/notarization and iOS distribution secrets:
+   - `APPLE_API_KEY`
+   - `APPLE_API_KEY_ID`
+   - `APPLE_API_ISSUER`
+   - `APPLE_TEAM_ID`
+   - `IOS_PROVISIONING_PROFILE`
+   - `IOS_PROVISIONING_PROFILE_NAME`
 5. Confirm Windows signing secrets.
-6. Confirm `NODE_AUTH_TOKEN`, `RELEASE_APP_ID`, and `RELEASE_APP_PRIVATE_KEY`.
+6. Confirm publish and finalize secrets:
+   - `NODE_AUTH_TOKEN`
+   - `RELEASE_APP_ID`
+   - `RELEASE_APP_PRIVATE_KEY`
 
 ## RC soak rules
 

@@ -1,4 +1,3 @@
-import { parsePatchFiles } from "@pierre/diffs";
 import { FileDiff, type FileDiffMetadata, Virtualizer } from "@pierre/diffs/react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -18,7 +17,8 @@ import { useTheme } from "../hooks/useTheme";
 import { useTurnDiffSummaries } from "../hooks/useTurnDiffSummaries";
 import { buildAcceptedDiffFileKey, filterAcceptedDiffFiles } from "../lib/diffPanelAcceptance";
 import { checkpointDiffQueryOptions } from "../lib/providerReactQuery";
-import { buildPatchCacheKey, resolveDiffThemeName } from "../lib/diffRendering";
+import { resolveDiffThemeName } from "../lib/diffRendering";
+import { parseRenderablePatch } from "../lib/renderablePatch";
 import { cn } from "../lib/utils";
 import { useStore } from "../store";
 import { DiffPanelLoadingState, DiffPanelShell, type DiffPanelMode } from "./DiffPanelShell";
@@ -94,42 +94,6 @@ const DIFF_PANEL_UNSAFE_CSS = `
   text-decoration-color: currentColor;
 }
 `;
-
-type RenderablePatch =
-  | { kind: "files"; files: FileDiffMetadata[] }
-  | { kind: "raw"; text: string; reason: string };
-
-function getRenderablePatch(
-  patch: string | undefined,
-  cacheScope = "diff-panel",
-): RenderablePatch | null {
-  if (!patch) return null;
-  const normalizedPatch = patch.trim();
-  if (normalizedPatch.length === 0) return null;
-
-  try {
-    const parsedPatches = parsePatchFiles(
-      normalizedPatch,
-      buildPatchCacheKey(normalizedPatch, cacheScope),
-    );
-    const files = parsedPatches.flatMap((parsedPatch) => parsedPatch.files);
-    if (files.length > 0) {
-      return { kind: "files", files };
-    }
-
-    return {
-      kind: "raw",
-      text: normalizedPatch,
-      reason: "Unsupported diff format. Showing raw patch.",
-    };
-  } catch {
-    return {
-      kind: "raw",
-      text: normalizedPatch,
-      reason: "Failed to parse patch. Showing raw patch.",
-    };
-  }
-}
 
 type FileDiffCategory = "all" | "added" | "modified" | "deleted" | "renamed";
 
@@ -256,7 +220,7 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
         ? "Failed to load checkpoint diff."
         : null;
   const renderablePatch = useMemo(
-    () => getRenderablePatch(selectedPatch, `diff-panel:${resolvedTheme}`),
+    () => parseRenderablePatch(selectedPatch, `diff-panel:${resolvedTheme}`),
     [resolvedTheme, selectedPatch],
   );
   const renderableFiles = useMemo(() => {

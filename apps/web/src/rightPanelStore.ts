@@ -7,7 +7,7 @@ interface RightPanelState {
   activeTab: RightPanelTab;
   open: (tab?: RightPanelTab) => void;
   close: () => void;
-  setActiveTab: (tab: RightPanelTab) => void;
+  setActiveTab: (tab: RightPanelTab, open?: boolean) => void;
 }
 
 const STORAGE_KEY = "okcode:right-panel-tab:v1";
@@ -62,8 +62,8 @@ export const useRightPanelStore = create<RightPanelState>((set) => ({
 
   close: () => set({ isOpen: false }),
 
-  setActiveTab: (tab) => {
+  setActiveTab: (tab, open = true) => {
     persistTab(tab);
-    set({ activeTab: tab, isOpen: true });
+    set((state) => ({ activeTab: tab, isOpen: open ? true : state.isOpen }));
   },
 }));

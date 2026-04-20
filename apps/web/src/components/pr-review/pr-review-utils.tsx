@@ -17,6 +17,9 @@ import {
 } from "~/lib/renderablePatch";
 import { ensureNativeApi } from "~/nativeApi";
 import { inferLanguageIdForPath } from "~/vscode-icons";
+import { normalizeLanguageIdForHighlighting } from "~/lib/languageIds";
+
+export { parseRenderablePatch, resolveFileDiffPath, summarizeFileDiffStats };
 
 export { parseRenderablePatch, resolveFileDiffPath, summarizeFileDiffStats };
 
@@ -151,11 +154,11 @@ export function buildFileDiffRenderKey(fileDiff: FileDiffMetadata): string {
 
 export function resolveFileDiffLanguage(fileDiff: FileDiffMetadata): SupportedLanguages | null {
   if (fileDiff.lang != null) {
-    return fileDiff.lang;
+    return normalizeLanguageIdForHighlighting(fileDiff.lang) as SupportedLanguages;
   }
   const path = resolveFileDiffPath(fileDiff);
   const languageId = inferLanguageIdForPath(path);
-  return languageId ? (languageId as SupportedLanguages) : null;
+  return languageId ? (normalizeLanguageIdForHighlighting(languageId) as SupportedLanguages) : null;
 }
 
 export function withInferredFileDiffLanguage(fileDiff: FileDiffMetadata): FileDiffMetadata {

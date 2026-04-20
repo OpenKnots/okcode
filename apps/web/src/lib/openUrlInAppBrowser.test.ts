@@ -29,7 +29,7 @@ describe("openUrlInAppBrowser", () => {
     });
 
     expect(result).toBe("preview");
-    expect(setPreviewOpen).toHaveBeenCalledWith(projectId("project-1"), true);
+    expect(setPreviewOpen).toHaveBeenCalledWith(threadId("thread-1"), true);
     expect(createTab).toHaveBeenCalledWith({
       url: "https://tweakcn.com",
       threadId: threadId("thread-1"),

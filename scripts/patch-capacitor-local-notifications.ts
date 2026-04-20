@@ -11,25 +11,75 @@ const HANDLER_FILE = resolve(
   "node_modules/@capacitor/local-notifications/ios/Sources/LocalNotificationsPlugin/LocalNotificationsHandler.swift",
 );
 
-const REPLACEMENTS: ReadonlyArray<[RegExp, string]> = [
+const REPLACEMENTS: ReadonlyArray<[string, string]> = [
   [
-    /guard let notifications = call\.getArray\("notifications", JSObject\.self\) else \{/g,
-    'guard let notifications = call.getArray("notifications", []).compactMap({ $0 as? JSObject }) else {',
+    [
+      '        guard let notifications = call.getArray("notifications")?.compactMap({ $0 as? JSObject }) else {\n',
+      '            call.reject("Must provide notifications array as notifications option")\n',
+      "            return\n",
+      "        }\n",
+    ].join(""),
+    [
+      '        guard call.getValue("notifications") != nil else {\n',
+      '            call.error("Must provide notifications array as notifications option")\n',
+      "            return\n",
+      "        }\n",
+      '        let notifications = call.getArray("notifications", []).compactMap({ $0 as? JSObject })\n',
+    ].join(""),
   ],
   [
-    /guard let notifications = call\.getArray\("notifications", JSObject\.self\), notifications\.count > 0 else \{/g,
-    'guard let notifications = call.getArray("notifications", []).compactMap({ $0 as? JSObject }), notifications.count > 0 else {',
+    [
+      '        guard let notifications = call.getArray("notifications")?.compactMap({ $0 as? JSObject }), notifications.count > 0 else {\n',
+      '            call.reject("Must supply notifications to cancel")\n',
+      "            return\n",
+      "        }\n",
+    ].join(""),
+    [
+      '        guard call.getValue("notifications") != nil else {\n',
+      '            call.error("Must supply notifications to cancel")\n',
+      "            return\n",
+      "        }\n",
+      '        let notifications = call.getArray("notifications", []).compactMap({ $0 as? JSObject })\n',
+      "        guard notifications.count > 0 else {\n",
+      '            call.error("Must supply notifications to cancel")\n',
+      "            return\n",
+      "        }\n",
+    ].join(""),
   ],
   [
-    /guard let types = call\.getArray\("types", JSObject\.self\) else \{/g,
-    'guard let types = call.getArray("types", []).compactMap({ $0 as? JSObject }) else {',
+    [
+      '        guard let notifications = call.getArray("notifications")?.compactMap({ $0 as? JSObject }), notifications.count > 0 else {\n',
+      '            call.reject("Must supply notifications to remove")\n',
+      "            return\n",
+      "        }\n",
+    ].join(""),
+    [
+      '        guard call.getValue("notifications") != nil else {\n',
+      '            call.error("Must supply notifications to remove")\n',
+      "            return\n",
+      "        }\n",
+      '        let notifications = call.getArray("notifications", []).compactMap({ $0 as? JSObject })\n',
+      "        guard notifications.count > 0 else {\n",
+      '            call.error("Must supply notifications to remove")\n',
+      "            return\n",
+      "        }\n",
+    ].join(""),
   ],
   [
-    /call\.reject\(/g,
-    'call.error(',
+    [
+      '        guard let types = call.getArray("types")?.compactMap({ $0 as? JSObject }) else {\n',
+      "            return\n",
+      "        }\n",
+    ].join(""),
+    [
+      '        guard call.getValue("types") != nil else {\n',
+      "            return\n",
+      "        }\n",
+      '        let types = call.getArray("types", []).compactMap({ $0 as? JSObject })\n',
+    ].join(""),
   ],
   [
-    /return bridge\?\.localURL\(fromWebURL: webURL\)/g,
+    "return bridge?.localURL(fromWebURL: webURL)",
     [
       "        switch webURL.scheme {",
       '        case "res":',

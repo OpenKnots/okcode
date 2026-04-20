@@ -606,6 +606,7 @@ export default function ChatView({
     LastInvokedScriptByProjectSchema,
   );
   const messagesScrollRef = useRef<HTMLDivElement>(null);
+  const messagesBottomRef = useRef<HTMLDivElement>(null);
   const [messagesScrollElement, setMessagesScrollElement] = useState<HTMLDivElement | null>(null);
   const shouldAutoScrollRef = useRef(true);
   const lastKnownScrollTopRef = useRef(0);
@@ -2318,9 +2319,13 @@ export default function ChatView({
   const messageCount = timelineMessages.length;
   const scrollMessagesToBottom = useCallback((behavior: ScrollBehavior = "auto") => {
     const scrollContainer = messagesScrollRef.current;
-    if (!scrollContainer) return;
-    scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior });
-    lastKnownScrollTopRef.current = scrollContainer.scrollTop;
+    const bottomAnchor = messagesBottomRef.current;
+    if (!scrollContainer && !bottomAnchor) return;
+    bottomAnchor?.scrollIntoView({ block: "end", behavior });
+    scrollContainer?.scrollTo({ top: scrollContainer.scrollHeight, behavior });
+    if (scrollContainer) {
+      lastKnownScrollTopRef.current = scrollContainer.scrollTop;
+    }
     shouldAutoScrollRef.current = true;
   }, []);
   const cancelPendingStickToBottom = useCallback(() => {
@@ -5095,6 +5100,7 @@ export default function ChatView({
                   onOpenSettings={() => void navigate({ to: "/settings" })}
                   onOpenTurnDiff={handleOpenTurnDiff}
                 />
+                <div ref={messagesBottomRef} aria-hidden="true" className="h-px w-full" />
               </div>
 
               {/* scroll to bottom pill — shown when user has scrolled away from the bottom */}

@@ -10,7 +10,7 @@ export interface OpenUrlInAppBrowserInput {
   threadId: ThreadId | null;
   nativeApi?: NativeApi | undefined;
   previewBridge?: DesktopBridge["preview"] | null | undefined;
-  setPreviewOpen?: ((projectId: ProjectId, open: boolean) => void) | undefined;
+  setPreviewOpen?: ((threadId: ThreadId, open: boolean) => void) | undefined;
   popOut?: boolean | undefined;
 }
 
@@ -18,10 +18,10 @@ export async function openUrlInAppBrowser(
   input: OpenUrlInAppBrowserInput,
 ): Promise<"preview" | "popout" | "external"> {
   const previewBridge = input.previewBridge ?? readDesktopPreviewBridge();
-  const setPreviewOpen = input.setPreviewOpen ?? usePreviewStateStore.getState().setProjectOpen;
+  const setPreviewOpen = input.setPreviewOpen ?? usePreviewStateStore.getState().setThreadOpen;
 
   if (previewBridge !== null && input.projectId !== null && input.threadId !== null) {
-    setPreviewOpen(input.projectId, true);
+    setPreviewOpen(input.threadId, true);
     await previewBridge.createTab({ url: input.url, threadId: input.threadId });
     if (input.popOut) {
       await previewBridge.popOut();

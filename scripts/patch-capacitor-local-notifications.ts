@@ -14,15 +14,19 @@ const HANDLER_FILE = resolve(
 const REPLACEMENTS: ReadonlyArray<[RegExp, string]> = [
   [
     /guard let notifications = call\.getArray\("notifications", JSObject\.self\) else \{/g,
-    'guard let notifications = call.getArray("notifications")?.compactMap({ $0 as? JSObject }) else {',
+    'guard let notifications = call.getArray("notifications", []).compactMap({ $0 as? JSObject }) else {',
   ],
   [
     /guard let notifications = call\.getArray\("notifications", JSObject\.self\), notifications\.count > 0 else \{/g,
-    'guard let notifications = call.getArray("notifications")?.compactMap({ $0 as? JSObject }), notifications.count > 0 else {',
+    'guard let notifications = call.getArray("notifications", []).compactMap({ $0 as? JSObject }), notifications.count > 0 else {',
   ],
   [
     /guard let types = call\.getArray\("types", JSObject\.self\) else \{/g,
-    'guard let types = call.getArray("types")?.compactMap({ $0 as? JSObject }) else {',
+    'guard let types = call.getArray("types", []).compactMap({ $0 as? JSObject }) else {',
+  ],
+  [
+    /call\.reject\(/g,
+    'call.error(',
   ],
   [
     /return bridge\?\.localURL\(fromWebURL: webURL\)/g,

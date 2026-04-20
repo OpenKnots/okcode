@@ -30,6 +30,6 @@ describe("withInferredFileDiffLanguage", () => {
       isPartial: true,
     } as never;
 
-    expect(withInferredFileDiffLanguage(fileDiff).lang).toBe("typescriptreact");
+    expect(withInferredFileDiffLanguage(fileDiff).lang).toBe("tsx");
   });
 });

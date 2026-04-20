@@ -434,10 +434,10 @@ export default function ChatView({
   const navigate = useNavigate();
   const activeProjectId = threads.find((t) => t.id === threadId)?.projectId ?? null;
   const previewOpen = usePreviewStateStore((state) =>
-    activeProjectId ? (state.openByProjectId[activeProjectId] ?? false) : false,
+    activeThreadId ? (state.openByThreadId[activeThreadId] ?? false) : false,
   );
-  const togglePreviewOpen = usePreviewStateStore((state) => state.toggleProjectOpen);
-  const setPreviewOpen = usePreviewStateStore((state) => state.setProjectOpen);
+  const togglePreviewOpen = usePreviewStateStore((state) => state.toggleThreadOpen);
+  const setPreviewOpen = usePreviewStateStore((state) => state.setThreadOpen);
   const previewDock = usePreviewStateStore((state) =>
     activeProjectId ? (state.dockByProjectId[activeProjectId] ?? "top") : "top",
   );
@@ -1747,7 +1747,7 @@ export default function ChatView({
   const handlePreviewUrl = useCallback(
     (url: string) => {
       if (!activeProject || !activeThread) return;
-      setPreviewOpen(activeProject.id, true);
+      setPreviewOpen(activeThread.id, true);
       void previewBridgeRef?.createTab({ url });
     },
     [activeProject, activeThread, setPreviewOpen, previewBridgeRef],
@@ -4937,7 +4937,7 @@ export default function ChatView({
           onImportProjectScripts={importProjectScripts}
           onToggleTerminal={toggleTerminalVisibility}
           onPrefetchTerminal={preloadThreadTerminalDrawer}
-          onTogglePreview={() => activeProjectId && togglePreviewOpen(activeProjectId)}
+          onTogglePreview={() => activeThreadId && togglePreviewOpen(activeThreadId)}
           onTogglePreviewLayout={() => activeProjectId && togglePreviewLayout(activeProjectId)}
           onMinimize={onMinimize}
         />
@@ -4980,7 +4980,7 @@ export default function ChatView({
                   key={previewPanelKey ?? undefined}
                   projectId={activeProject!.id}
                   threadId={threadId}
-                  onClose={() => setPreviewOpen(activeProject!.id, false)}
+                  onClose={() => setPreviewOpen(threadId, false)}
                 />
               </div>
               <div
@@ -5003,7 +5003,7 @@ export default function ChatView({
                 key={previewPanelKey ?? undefined}
                 projectId={activeProject!.id}
                 threadId={threadId}
-                onClose={() => setPreviewOpen(activeProject!.id, false)}
+                onClose={() => setPreviewOpen(threadId, false)}
               />
             </div>
           ) : null}
@@ -5884,7 +5884,7 @@ export default function ChatView({
                   key={previewPanelKey ?? undefined}
                   projectId={activeProject!.id}
                   threadId={threadId}
-                  onClose={() => setPreviewOpen(activeProject!.id, false)}
+                  onClose={() => setPreviewOpen(threadId, false)}
                 />
               </div>
             </>

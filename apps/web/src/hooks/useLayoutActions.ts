@@ -137,7 +137,7 @@ export function useLayoutActions(): UseLayoutActionsResult {
       const diffViewerOpen = diffState.isOpen;
       const simulationOpen = useSimulationViewerStore.getState().isOpen;
       const previewState = usePreviewStateStore.getState();
-      const previewOpen = projectId ? (previewState.openByProjectId[projectId] ?? false) : false;
+      const previewOpen = threadId ? (previewState.openByThreadId[threadId] ?? false) : false;
 
       const terminalStoreState = useTerminalStateStore.getState();
       const threadTerminal = threadId
@@ -184,8 +184,8 @@ export function useLayoutActions(): UseLayoutActionsResult {
       if (codeViewerStore.isOpen) codeViewerStore.close();
       if (diffViewerStore.isOpen) diffViewerStore.close();
       if (simulationStore.isOpen) simulationStore.close();
-      if (projectId && previewStore.openByProjectId[projectId]) {
-        previewStore.setProjectOpen(projectId, false);
+      if (threadId && previewStore.openByThreadId[threadId]) {
+        previewStore.setThreadOpen(threadId, false);
       }
 
       // ── 2. Open the target panel ───────────────────────────────
@@ -199,8 +199,8 @@ export function useLayoutActions(): UseLayoutActionsResult {
           }
           break;
         case "preview":
-          if (projectId) {
-            usePreviewStateStore.getState().setProjectOpen(projectId, true);
+          if (threadId) {
+            usePreviewStateStore.getState().setThreadOpen(threadId, true);
           }
           break;
         case "simulation":

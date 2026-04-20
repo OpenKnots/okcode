@@ -367,7 +367,7 @@ export default function GitActionsControl({
   activeProjectId,
 }: GitActionsControlProps) {
   const { settings } = useAppSettings();
-  const setPreviewOpen = usePreviewStateStore((state) => state.setProjectOpen);
+  const setPreviewOpen = usePreviewStateStore((state) => state.setThreadOpen);
   const openFileInViewer = useFileViewNavigation();
   const threadToastData = useMemo(
     () => (activeThreadId ? { threadId: activeThreadId } : undefined),

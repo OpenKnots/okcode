@@ -358,6 +358,9 @@ jobs:
       - name: Build mobile web bundle
         run: bun run --cwd apps/mobile build
 
+      - name: Patch Capacitor local-notifications for Xcode 15
+        run: bun run patch:capacitor-local-notifications
+
       - name: Sync Capacitor iOS
         run: bunx cap sync ios --deployment
         working-directory: apps/mobile

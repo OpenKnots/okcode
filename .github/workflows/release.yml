@@ -349,6 +349,9 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Patch Capacitor local-notifications for Xcode 15
+        run: bun run patch:capacitor-local-notifications
+
       - name: Align package versions to release version
         run: node scripts/update-release-package-versions.ts "$RELEASE_VERSION"
 

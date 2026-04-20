@@ -120,21 +120,6 @@ export function usePrReviewMutations(projectCwd: string) {
     },
   });
 
-  const startAgentReviewMutation = useMutation({
-    mutationFn: async (input: { workflowId?: string }) => {
-      if (!selectedPrNumber) throw new Error("Select a pull request first.");
-      return ensureNativeApi().prReview.startAgentReview({
-        cwd: projectCwd,
-        prNumber: selectedPrNumber,
-        ...(input.workflowId ? { workflowId: input.workflowId } : {}),
-      });
-    },
-    onSuccess: async () => {
-      if (!selectedPrNumber) return;
-      await invalidatePrReviewQueries(queryClient, projectCwd, selectedPrNumber);
-    },
-  });
-
   return {
     addThreadMutation,
     replyToThreadMutation,
@@ -142,6 +127,5 @@ export function usePrReviewMutations(projectCwd: string) {
     runWorkflowStepMutation,
     applyConflictResolutionMutation,
     submitReviewMutation,
-    startAgentReviewMutation,
   } as const;
 }

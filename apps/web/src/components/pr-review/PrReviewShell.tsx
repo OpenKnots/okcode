@@ -63,16 +63,23 @@ export function PrReviewShell({
   // ── Store ─────────────────────────────────────────────────────────
   const store = usePrReviewStore();
   const deferredSearchQuery = useDeferredValue(store.searchQuery);
+  const {
+    resetForNewPr,
+    selectFile,
+    selectPr,
+    selectedFilePath,
+    selectedPrNumber,
+    agentReviewResult,
+    setInspectorCollapsed,
+    setLeftRailCollapsed,
+    setWorkflowId,
+    userExplicitlyOpenedInspector,
+    workflowId,
+  } = store;
 
   // ── Queries & Mutations ───────────────────────────────────────────
-  const {
-    configQuery,
-    dashboardQuery,
-    patchQuery,
-    conflictQuery,
-    pullRequestsQuery,
-    agentReviewQuery,
-  } = usePrReviewQueries(project.cwd);
+  const { configQuery, dashboardQuery, patchQuery, conflictQuery, pullRequestsQuery } =
+    usePrReviewQueries(project.cwd);
 
   const mutations = usePrReviewMutations(project.cwd);
 
@@ -96,15 +103,9 @@ export function PrReviewShell({
     });
   }, [deferredSearchQuery, pullRequestsQuery.data?.pullRequests]);
 
-  const patchFiles = useMemo(
-    () => patchQuery.data?.files ?? [],
-    [patchQuery.data?.files],
-  );
+  const patchFiles = useMemo(() => patchQuery.data?.files ?? [], [patchQuery.data?.files]);
 
-  const filePaths = useMemo(
-    () => patchFiles.map((f) => f.path),
-    [patchFiles],
-  );
+  const filePaths = useMemo(() => patchFiles.map((f) => f.path), [patchFiles]);
 
   const checksSummary = configQuery.data
     ? requiredChecksState(configQuery.data, dashboardQuery.data?.pullRequest.statusChecks ?? [])
@@ -123,11 +124,14 @@ export function PrReviewShell({
       ...(conflictQuery.data?.status === "conflicted" ? ["Merge conflicts must be resolved"] : []),
       ...checksSummary.failing.map((name) => `Failing check: ${name}`),
       ...checksSummary.pending.map((name) => `Pending check: ${name}`),
-      ...blockingWorkflowSteps.map(
-        (step) => `Workflow blocked: ${step.detail ?? step.stepId}`,
-      ),
+      ...blockingWorkflowSteps.map((step) => `Workflow blocked: ${step.detail ?? step.stepId}`),
     ],
-    [conflictQuery.data?.status, checksSummary.failing, checksSummary.pending, blockingWorkflowSteps],
+    [
+      conflictQuery.data?.status,
+      checksSummary.failing,
+      checksSummary.pending,
+      blockingWorkflowSteps,
+    ],
   );
 
   // ── Effects: Auto-select, sync, auto-expand ───────────────────────
@@ -135,62 +139,52 @@ export function PrReviewShell({
   // Auto-expand panels on wide screens
   useEffect(() => {
     if (isWideScreen) {
-      store.setLeftRailCollapsed(false);
-      if (!store.userExplicitlyOpenedInspector) {
-        store.setInspectorCollapsed(false);
+      setLeftRailCollapsed(false);
+      if (!userExplicitlyOpenedInspector) {
+        setInspectorCollapsed(false);
       }
     }
-  }, [isWideScreen]);
+  }, [isWideScreen, setInspectorCollapsed, setLeftRailCollapsed, userExplicitlyOpenedInspector]);
 
   // Auto-select first PR
   useEffect(() => {
     const nextDefault =
-      filteredPullRequests.find((pr) => pr.number === store.selectedPrNumber) ??
+      filteredPullRequests.find((pr) => pr.number === selectedPrNumber) ??
       filteredPullRequests[0] ??
       null;
     if (!nextDefault) {
-      if (store.selectedPrNumber !== null) store.selectPr(null);
+      if (selectedPrNumber !== null) selectPr(null);
       return;
     }
-    if (store.selectedPrNumber !== nextDefault.number) {
-      store.selectPr(nextDefault.number);
+    if (selectedPrNumber !== nextDefault.number) {
+      selectPr(nextDefault.number);
     }
-  }, [filteredPullRequests, store.selectedPrNumber]);
+  }, [filteredPullRequests, selectPr, selectedPrNumber]);
 
   // Reset file/thread when PR changes
   useEffect(() => {
-    store.resetForNewPr();
-  }, [store.selectedPrNumber]);
+    resetForNewPr();
+  }, [resetForNewPr, selectedPrNumber]);
 
   // Auto-select first file
   useEffect(() => {
     const files = patchQuery.data?.files ?? [];
     if (files.length === 0) {
-      store.selectFile(null);
+      selectFile(null);
       return;
     }
-    if (
-      !store.selectedFilePath ||
-      !files.some((file) => file.path === store.selectedFilePath)
-    ) {
-      store.selectFile(files[0]?.path ?? null);
+    if (!selectedFilePath || !files.some((file) => file.path === selectedFilePath)) {
+      selectFile(files[0]?.path ?? null);
     }
-  }, [patchQuery.data?.files, store.selectedFilePath]);
+  }, [patchQuery.data?.files, selectFile, selectedFilePath]);
 
   // Auto-select workflow
   useEffect(() => {
     if (!configQuery.data) return;
-    const current = store.workflowId;
+    const current = workflowId;
     if (current && configQuery.data.workflows.some((w) => w.id === current)) return;
-    store.setWorkflowId(configQuery.data.defaultWorkflowId);
-  }, [configQuery.data]);
-
-  // Sync agent review result into store
-  useEffect(() => {
-    if (agentReviewQuery.data) {
-      store.setAgentReviewResult(agentReviewQuery.data);
-    }
-  }, [agentReviewQuery.data]);
+    setWorkflowId(configQuery.data.defaultWorkflowId);
+  }, [configQuery.data, setWorkflowId, workflowId]);
 
   // Native API event subscriptions
   const handleSyncUpdated = useEffectEvent((payload: { cwd: string; prNumber: number }) => {
@@ -219,11 +213,6 @@ export function PrReviewShell({
     enabled: true,
     filePaths,
     fileCount: patchFiles.length,
-    onStartAgentReview: () => {
-      void mutations.startAgentReviewMutation.mutateAsync({
-        workflowId: store.workflowId ?? undefined,
-      });
-    },
     reviewComposerRef,
   });
 
@@ -232,13 +221,9 @@ export function PrReviewShell({
     config: configQuery.data,
     conflicts: conflictQuery.data,
     dashboard: dashboardQuery.data,
-    agentResult: agentReviewQuery.data,
-    onStartAgentReview: () => {
-      void mutations.startAgentReviewMutation.mutateAsync({
-        workflowId: store.workflowId ?? undefined,
-      });
-    },
-    isStartingAgentReview: mutations.startAgentReviewMutation.isPending,
+    agentResult: agentReviewResult,
+    onStartAgentReview: undefined,
+    isStartingAgentReview: undefined,
     onOpenConflictDrawer: () => store.setConflictDrawerOpen(true),
     onOpenRules: () => {
       if (!configQuery.data) return;
@@ -257,9 +242,7 @@ export function PrReviewShell({
     },
     onRunStep: async (stepId: string, requiresConfirmation: boolean, title: string) => {
       if (requiresConfirmation) {
-        const confirmed = await ensureNativeApi().dialogs.confirm(
-          `Run workflow step "${title}"?`,
-        );
+        const confirmed = await ensureNativeApi().dialogs.confirm(`Run workflow step "${title}"?`);
         if (!confirmed) return;
       }
       await mutations.runWorkflowStepMutation.mutateAsync(stepId);
@@ -306,11 +289,7 @@ export function PrReviewShell({
         <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {isInspectorSheet ? (
             <div className="flex h-10 items-center justify-end border-b border-border/70 px-4">
-              <Button
-                onClick={() => store.setInspectorOpen(true)}
-                size="sm"
-                variant="outline"
-              >
+              <Button onClick={() => store.setInspectorOpen(true)} size="sm" variant="outline">
                 <PanelRightIcon className="size-3.5" />
                 Inspector
               </Button>
@@ -318,13 +297,9 @@ export function PrReviewShell({
           ) : null}
           <PrWorkspace
             dashboard={dashboardQuery.data}
-            agentResult={agentReviewQuery.data}
-            onStartAgentReview={() => {
-              void mutations.startAgentReviewMutation.mutateAsync({
-                workflowId: store.workflowId ?? undefined,
-              });
-            }}
-            isStartingAgentReview={mutations.startAgentReviewMutation.isPending}
+            agentResult={agentReviewResult}
+            onStartAgentReview={undefined}
+            isStartingAgentReview={undefined}
             onCreateThread={async (input) => {
               await mutations.addThreadMutation.mutateAsync(input);
             }}
@@ -352,20 +327,13 @@ export function PrReviewShell({
           <PrInspectorPanel
             collapsed={store.inspectorCollapsed}
             hasBlockedWorkflow={blockingWorkflowSteps.length > 0}
-            hasAgentFindings={
-              (agentReviewQuery.data?.findings?.length ?? 0) > 0
-            }
-            agentReviewRunning={
-              agentReviewQuery.data?.status === "running" ||
-              agentReviewQuery.data?.status === "queued"
-            }
+            hasAgentFindings={(agentReviewResult?.findings?.length ?? 0) > 0}
+            agentReviewRunning={false}
             onExpandToTab={(tab) => {
               store.expandInspectorToTab(tab);
             }}
             onToggleCollapsed={store.toggleInspector}
-            unresolvedThreadCount={
-              dashboardQuery.data?.pullRequest.unresolvedThreadCount ?? 0
-            }
+            unresolvedThreadCount={dashboardQuery.data?.pullRequest.unresolvedThreadCount ?? 0}
           >
             <PrConversationInspector {...inspectorProps} />
           </PrInspectorPanel>
@@ -378,7 +346,7 @@ export function PrReviewShell({
         dashboard={dashboardQuery.data}
         config={configQuery.data}
         conflicts={conflictQuery.data}
-        agentResult={agentReviewQuery.data}
+        agentResult={agentReviewResult}
         reviewBody={store.reviewBody}
         onReviewBodyChange={(value) => {
           store.setReviewBody(value);
@@ -397,16 +365,12 @@ export function PrReviewShell({
 
       {/* Inspector sheet (mobile/tablet) */}
       {isInspectorSheet ? (
-        <Sheet
-          onOpenChange={store.setInspectorOpen}
-          open={store.inspectorOpen}
-        >
+        <Sheet onOpenChange={store.setInspectorOpen} open={store.inspectorOpen}>
           <SheetPopup side="right" variant="inset">
             <SheetHeader>
               <SheetTitle>Inspector</SheetTitle>
               <SheetDescription>
-                Conversations, repo workflow, and participant context for the
-                focused pull request.
+                Conversations, repo workflow, and participant context for the focused pull request.
               </SheetDescription>
             </SheetHeader>
             <SheetPanel className="p-0">
@@ -425,9 +389,7 @@ export function PrReviewShell({
       <PrConflictDrawer
         conflictAnalysis={conflictQuery.data}
         onApplyResolution={(candidateId) =>
-          mutations.applyConflictResolutionMutation
-            .mutateAsync(candidateId)
-            .then(() => undefined)
+          mutations.applyConflictResolutionMutation.mutateAsync(candidateId).then(() => undefined)
         }
         onOpenChange={store.setConflictDrawerOpen}
         open={store.conflictDrawerOpen}

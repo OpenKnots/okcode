@@ -27,8 +27,8 @@ export function PrAgentFindingsPanel({
   agentResult: PrAgentReviewResult | null | undefined;
   onSelectFile: (path: string) => void;
   onCreateThread: (input: { path: string; line: number; body: string }) => Promise<void>;
-  onStartReview: () => void;
-  isStarting: boolean;
+  onStartReview: (() => void) | undefined;
+  isStarting: boolean | undefined;
 }) {
   const status = agentResult?.status ?? "idle";
 
@@ -42,23 +42,15 @@ export function PrAgentFindingsPanel({
         <div className="space-y-1">
           <p className="text-sm font-medium text-foreground">No AI review yet</p>
           <p className="max-w-[260px] text-xs leading-relaxed text-muted-foreground">
-            Run an AI review to get automated findings, risk assessment, and focus
-            suggestions.
+            AI review is unavailable in this release.
           </p>
         </div>
-        <Button
-          disabled={isStarting}
-          onClick={onStartReview}
-          size="sm"
-          variant="outline"
-        >
-          {isStarting ? (
-            <Spinner className="size-3.5" />
-          ) : (
-            <SparklesIcon className="size-3.5" />
-          )}
-          Start AI Review
-        </Button>
+        {onStartReview ? (
+          <Button disabled={isStarting} onClick={onStartReview} size="sm" variant="outline">
+            {isStarting ? <Spinner className="size-3.5" /> : <SparklesIcon className="size-3.5" />}
+            Start AI Review
+          </Button>
+        ) : null}
       </div>
     );
   }
@@ -83,30 +75,22 @@ export function PrAgentFindingsPanel({
         <div className="space-y-1">
           <p className="text-sm font-medium text-foreground">Review failed</p>
           <p className="max-w-[260px] text-xs leading-relaxed text-muted-foreground">
-            The AI review could not be completed. You can retry to start a fresh
-            analysis.
+            AI review is unavailable in this release.
           </p>
         </div>
-        <Button
-          disabled={isStarting}
-          onClick={onStartReview}
-          size="sm"
-          variant="outline"
-        >
-          {isStarting ? (
-            <Spinner className="size-3.5" />
-          ) : (
-            <SparklesIcon className="size-3.5" />
-          )}
-          Retry Review
-        </Button>
+        {onStartReview ? (
+          <Button disabled={isStarting} onClick={onStartReview} size="sm" variant="outline">
+            {isStarting ? <Spinner className="size-3.5" /> : <SparklesIcon className="size-3.5" />}
+            Retry Review
+          </Button>
+        ) : null}
       </div>
     );
   }
 
   // ── Complete ─────────────────────────────────────────────────────
   const risk = agentResult.riskAssessment;
-  const findings = [...agentResult.findings].sort(
+  const findings = [...agentResult.findings].toSorted(
     (a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity],
   );
 
@@ -121,12 +105,8 @@ export function PrAgentFindingsPanel({
           <div className="mt-3 flex items-start gap-3">
             <RiskTierBadge tier={risk.tier} />
             <div className="min-w-0 flex-1 space-y-1">
-              <p className="text-sm font-medium capitalize text-foreground">
-                {risk.tier} risk
-              </p>
-              <p className="text-xs leading-relaxed text-muted-foreground">
-                {risk.rationale}
-              </p>
+              <p className="text-sm font-medium capitalize text-foreground">{risk.tier} risk</p>
+              <p className="text-xs leading-relaxed text-muted-foreground">{risk.rationale}</p>
             </div>
           </div>
         ) : null}

@@ -40,10 +40,7 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
   },
   {
     title: "Review Actions",
-    shortcuts: [
-      { key: "r", label: "Focus review editor" },
-      { key: "Shift+A", label: "Start AI review" },
-    ],
+    shortcuts: [{ key: "r", label: "Focus review editor" }],
   },
 ];
 

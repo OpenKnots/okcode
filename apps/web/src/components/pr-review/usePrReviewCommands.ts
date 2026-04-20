@@ -17,11 +17,9 @@ export interface PrReviewCommand {
 
 export function usePrReviewCommands({
   enabled,
-  onStartAgentReview,
   onOpenOnGitHub,
 }: {
   enabled: boolean;
-  onStartAgentReview: () => void;
   onOpenOnGitHub: () => void;
 }): PrReviewCommand[] {
   const toggleLeftRail = usePrReviewStore((s) => s.toggleLeftRail);
@@ -36,15 +34,6 @@ export function usePrReviewCommands({
     const GROUP = "PR Review";
 
     return [
-      {
-        id: "pr-review:start-ai-review",
-        label: "Start AI Review",
-        keywords: ["agent", "ai", "review", "analyze"],
-        shortcut: "\u21e7A",
-        group: GROUP,
-        onSelect: onStartAgentReview,
-        hidden: !enabled,
-      },
       {
         id: "pr-review:next-file",
         label: "Next file",
@@ -165,7 +154,6 @@ export function usePrReviewCommands({
     ];
   }, [
     enabled,
-    onStartAgentReview,
     onOpenOnGitHub,
     toggleLeftRail,
     toggleInspector,

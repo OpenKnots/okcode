@@ -111,9 +111,7 @@ export function PrActionRail({
       ...(conflicts?.status === "conflicted" ? ["Merge conflicts must be resolved"] : []),
       ...checksSummary.failing.map((name) => `Failing check: ${name}`),
       ...checksSummary.pending.map((name) => `Pending check: ${name}`),
-      ...blockingWorkflowSteps.map(
-        (step) => `Workflow blocked: ${step.detail ?? step.stepId}`,
-      ),
+      ...blockingWorkflowSteps.map((step) => `Workflow blocked: ${step.detail ?? step.stepId}`),
     ],
     [conflicts?.status, checksSummary.failing, checksSummary.pending, blockingWorkflowSteps],
   );
@@ -162,14 +160,10 @@ export function PrActionRail({
             <span
               className={cn(
                 "flex items-center gap-1",
-                agentIsRunning
-                  ? "text-amber-600 dark:text-amber-400"
-                  : "text-muted-foreground",
+                agentIsRunning ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground",
               )}
             >
-              <SparklesIcon
-                className={cn("size-3", agentIsRunning && "animate-pulse")}
-              />
+              <SparklesIcon className={cn("size-3", agentIsRunning && "animate-pulse")} />
               AI
             </span>
           ) : null}
@@ -229,9 +223,8 @@ export function PrActionRail({
                   File impact
                 </div>
                 <div className="mt-1 font-medium text-foreground">
-                  {fileStats.changedFileCount}{" "}
-                  {fileStats.changedFileCount === 1 ? "file" : "files"}, +{fileStats.additions} /
-                  -{fileStats.deletions}
+                  {fileStats.changedFileCount} {fileStats.changedFileCount === 1 ? "file" : "files"}
+                  , +{fileStats.additions} / -{fileStats.deletions}
                 </div>
               </div>
 
@@ -272,9 +265,7 @@ export function PrActionRail({
                     >
                       <div className="flex items-center justify-between gap-2">
                         <div className="min-w-0">
-                          <span className="font-medium text-foreground">
-                            {review.authorLogin}
-                          </span>
+                          <span className="font-medium text-foreground">{review.authorLogin}</span>
                           <span className="ml-2 capitalize text-muted-foreground">
                             {review.state.toLowerCase().replaceAll("_", " ")}
                           </span>

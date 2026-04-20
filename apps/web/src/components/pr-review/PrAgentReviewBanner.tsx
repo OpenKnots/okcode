@@ -14,10 +14,10 @@ export function PrAgentReviewBanner({
   fileCount,
 }: {
   agentStatus: PrAgentReviewResult | null | undefined;
-  onStartReview: () => void;
+  onStartReview: (() => void) | undefined;
   onSelectFile: (path: string) => void;
   onOpenFindings: () => void;
-  isStarting: boolean;
+  isStarting: boolean | undefined;
   fileCount: number;
 }) {
   const [dismissed, setDismissed] = useState(false);
@@ -27,21 +27,14 @@ export function PrAgentReviewBanner({
   if (status === "idle") {
     return (
       <div className="flex items-center gap-3 border-b border-border/70 bg-muted/18 px-4 py-2">
-        <Button
-          disabled={isStarting}
-          onClick={onStartReview}
-          size="xs"
-          variant="outline"
-        >
-          {isStarting ? (
-            <Spinner className="size-3.5" />
-          ) : (
-            <SparklesIcon className="size-3.5" />
-          )}
-          Start AI Review
-        </Button>
+        {onStartReview ? (
+          <Button disabled={isStarting} onClick={onStartReview} size="xs" variant="outline">
+            {isStarting ? <Spinner className="size-3.5" /> : <SparklesIcon className="size-3.5" />}
+            Start AI Review
+          </Button>
+        ) : null}
         <span className="text-xs text-muted-foreground">
-          Get automated findings, risk assessment, and focus suggestions
+          AI review is unavailable in this release.
         </span>
       </div>
     );
@@ -65,21 +58,14 @@ export function PrAgentReviewBanner({
       <div className="flex items-center gap-3 border-b border-border/70 bg-rose-500/8 px-4 py-2">
         <AlertTriangleIcon className="size-4 shrink-0 text-rose-500" />
         <span className="text-xs text-rose-700 dark:text-rose-300">
-          AI review failed.
+          AI review is unavailable in this release.
         </span>
-        <Button
-          disabled={isStarting}
-          onClick={onStartReview}
-          size="xs"
-          variant="outline"
-        >
-          {isStarting ? (
-            <Spinner className="size-3.5" />
-          ) : (
-            <SparklesIcon className="size-3.5" />
-          )}
-          Retry
-        </Button>
+        {onStartReview ? (
+          <Button disabled={isStarting} onClick={onStartReview} size="xs" variant="outline">
+            {isStarting ? <Spinner className="size-3.5" /> : <SparklesIcon className="size-3.5" />}
+            Retry
+          </Button>
+        ) : null}
       </div>
     );
   }

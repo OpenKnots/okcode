@@ -1,4 +1,9 @@
-import type { NativeApi, PrAgentReviewResult, PrConflictAnalysis, PrReviewConfig } from "@okcode/contracts";
+import type {
+  NativeApi,
+  PrAgentReviewResult,
+  PrConflictAnalysis,
+  PrReviewConfig,
+} from "@okcode/contracts";
 import { useState } from "react";
 import {
   BookOpenCheckIcon,
@@ -49,8 +54,8 @@ export function PrConversationInspector({
   config: PrReviewConfig | undefined;
   conflicts: PrConflictAnalysis | undefined;
   agentResult: PrAgentReviewResult | null | undefined;
-  onStartAgentReview: () => void;
-  isStartingAgentReview: boolean;
+  onStartAgentReview: (() => void) | undefined;
+  isStartingAgentReview: boolean | undefined;
   workflowId: string | null;
   onWorkflowIdChange: (workflowId: string) => void;
   selectedFilePath: string | null;
@@ -80,7 +85,9 @@ export function PrConversationInspector({
     : dashboard.threads;
 
   // Resolve workflow for progress bar
-  const activeWorkflow = config?.workflows.find((w) => w.id === (workflowId ?? config.defaultWorkflowId));
+  const activeWorkflow = config?.workflows.find(
+    (w) => w.id === (workflowId ?? config.defaultWorkflowId),
+  );
 
   // Rule status computation
   const checksState = config
@@ -215,11 +222,11 @@ export function PrConversationInspector({
                       No review threads yet
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground/80">
-                      Start a conversation by clicking any line in the diff, or
-                      let the AI review surface discussion points.
+                      Start a conversation by clicking any line in the diff, or let the AI review
+                      surface discussion points.
                     </p>
                   </div>
-                  {!agentResult || agentResult.status === "idle" ? (
+                  {onStartAgentReview && (!agentResult || agentResult.status === "idle") ? (
                     <Button
                       onClick={onStartAgentReview}
                       disabled={isStartingAgentReview}
@@ -279,7 +286,12 @@ export function PrConversationInspector({
                 <div className="mt-4 space-y-3">
                   {config?.rules.blockingRules && config.rules.blockingRules.length > 0 ? (
                     config.rules.blockingRules.map((rule) => (
-                      <RuleStatusRow key={rule.id} title={rule.title} description={rule.description} passed={true} />
+                      <RuleStatusRow
+                        key={rule.id}
+                        title={rule.title}
+                        description={rule.description}
+                        passed={true}
+                      />
                     ))
                   ) : (
                     <p className="text-xs text-muted-foreground">No blocking rules configured.</p>
@@ -352,8 +364,7 @@ export function PrConversationInspector({
                   : config?.source === "localProfile"
                     ? "Local profile"
                     : "Default"}{" "}
-                &middot;{" "}
-                <span className="font-medium">Merge policy:</span>{" "}
+                &middot; <span className="font-medium">Merge policy:</span>{" "}
                 {config?.rules.mergePolicy ?? "N/A"}
               </div>
             </div>
@@ -381,9 +392,7 @@ export function PrConversationInspector({
                         <PrUserHoverCard cwd={project.cwd} login={participant.user.login}>
                           @{participant.user.login}
                         </PrUserHoverCard>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {participant.role}
-                        </p>
+                        <p className="truncate text-xs text-muted-foreground">{participant.role}</p>
                       </div>
                     </div>
                   ))}
@@ -422,9 +431,7 @@ function RuleStatusRow({
       </div>
       <div className="min-w-0">
         <p className="text-sm font-medium text-foreground">{title}</p>
-        {description ? (
-          <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
-        ) : null}
+        {description ? <p className="mt-0.5 text-xs text-muted-foreground">{description}</p> : null}
       </div>
     </div>
   );

@@ -434,7 +434,7 @@ export default function ChatView({
   const navigate = useNavigate();
   const activeProjectId = threads.find((t) => t.id === threadId)?.projectId ?? null;
   const previewOpen = usePreviewStateStore((state) =>
-    activeThreadId ? (state.openByThreadId[activeThreadId] ?? false) : false,
+    threadId ? (state.openByThreadId[threadId] ?? false) : false,
   );
   const togglePreviewOpen = usePreviewStateStore((state) => state.toggleThreadOpen);
   const setPreviewOpen = usePreviewStateStore((state) => state.setThreadOpen);

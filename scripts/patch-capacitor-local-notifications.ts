@@ -21,23 +21,47 @@ const SWIFT_REPLACEMENTS: ReadonlyArray<[string, string]> = [
     'call.getArray("notifications")?.compactMap({ $0 as? JSObject })',
     'call.getArray("notifications", []).compactMap({ $0 as? JSObject })',
   ],
-  ['call.getArray("types", JSObject.self)', 'call.getArray("types", []).compactMap({ $0 as? JSObject })'],
-  ['call.getArray("types")?.compactMap({ $0 as? JSObject })', 'call.getArray("types", []).compactMap({ $0 as? JSObject })'],
-  ["call.reject(\"Must provide notifications array as notifications option\")", "call.unimplemented(\"Must provide notifications array as notifications option\")"],
-  ["call.reject(\"Notification missing identifier\")", "call.unimplemented(\"Notification missing identifier\")"],
-  ["call.reject(\"Unable to make notification\", nil, error)", "call.unimplemented(\"Unable to make notification\")"],
   [
-    "call.reject(\"Unable to create notification, trigger failed\", nil, error)",
-    "call.unimplemented(\"Unable to create notification, trigger failed\")",
+    'call.getArray("types", JSObject.self)',
+    'call.getArray("types", []).compactMap({ $0 as? JSObject })',
   ],
-  ["call.reject(theError.localizedDescription)", "call.unimplemented(theError.localizedDescription)"],
+  [
+    'call.getArray("types")?.compactMap({ $0 as? JSObject })',
+    'call.getArray("types", []).compactMap({ $0 as? JSObject })',
+  ],
+  [
+    'call.reject("Must provide notifications array as notifications option")',
+    'call.unimplemented("Must provide notifications array as notifications option")',
+  ],
+  [
+    'call.reject("Notification missing identifier")',
+    'call.unimplemented("Notification missing identifier")',
+  ],
+  [
+    'call.reject("Unable to make notification", nil, error)',
+    'call.unimplemented("Unable to make notification")',
+  ],
+  [
+    'call.reject("Unable to create notification, trigger failed", nil, error)',
+    'call.unimplemented("Unable to create notification, trigger failed")',
+  ],
+  [
+    "call.reject(theError.localizedDescription)",
+    "call.unimplemented(theError.localizedDescription)",
+  ],
   ["call.reject(error!.localizedDescription)", "call.unimplemented(error!.localizedDescription)"],
-  ["call.reject(\"Must supply notifications to cancel\")", "call.unimplemented(\"Must supply notifications to cancel\")"],
   [
-    "call.reject(\"Scheduled time must be *after* current time\")",
-    "call.unimplemented(\"Scheduled time must be *after* current time\")",
+    'call.reject("Must supply notifications to cancel")',
+    'call.unimplemented("Must supply notifications to cancel")',
   ],
-  ["call.reject(\"Must supply notifications to remove\")", "call.unimplemented(\"Must supply notifications to remove\")"],
+  [
+    'call.reject("Scheduled time must be *after* current time")',
+    'call.unimplemented("Scheduled time must be *after* current time")',
+  ],
+  [
+    'call.reject("Must supply notifications to remove")',
+    'call.unimplemented("Must supply notifications to remove")',
+  ],
   [
     "return bridge?.localURL(fromWebURL: webURL)",
     [
@@ -199,7 +223,11 @@ const HANDLER_PATCH = {
     `    }\n`,
 };
 
-function replaceAll(source: string, search: string, replacement: string): { updated: string; count: number } {
+function replaceAll(
+  source: string,
+  search: string,
+  replacement: string,
+): { updated: string; count: number } {
   const sourceParts = source.split(search);
   const count = sourceParts.length - 1;
   if (count <= 0) {
@@ -230,8 +258,14 @@ const pluginPackage = JSON.parse(readFileSync(PACKAGE_FILE, "utf8")) as { versio
 const pluginVersion = pluginPackage.version ?? "unknown";
 const pluginMajor = Number.parseInt(pluginVersion.split(".")[0] ?? "", 10);
 
-assert(Number.isFinite(pluginMajor), `Unable to parse @capacitor/local-notifications version: ${pluginVersion}`);
-assert(pluginMajor === 8, `Unsupported @capacitor/local-notifications major version ${pluginMajor}; expected 8.x`);
+assert(
+  Number.isFinite(pluginMajor),
+  `Unable to parse @capacitor/local-notifications version: ${pluginVersion}`,
+);
+assert(
+  pluginMajor === 8,
+  `Unsupported @capacitor/local-notifications major version ${pluginMajor}; expected 8.x`,
+);
 
 let pluginOriginal = readFileSync(TARGET_FILE, "utf8");
 let pluginUpdated = pluginOriginal;
@@ -254,9 +288,13 @@ assert(
 
 if (pluginUpdated !== pluginOriginal) {
   writeFileSync(TARGET_FILE, pluginUpdated);
-  console.log(`Patched ${TARGET_FILE} (${pluginChanges} replacements, @capacitor/local-notifications ${pluginVersion})`);
+  console.log(
+    `Patched ${TARGET_FILE} (${pluginChanges} replacements, @capacitor/local-notifications ${pluginVersion})`,
+  );
 } else {
-  console.log(`No LocalNotificationsPlugin.swift changes needed (@capacitor/local-notifications ${pluginVersion})`);
+  console.log(
+    `No LocalNotificationsPlugin.swift changes needed (@capacitor/local-notifications ${pluginVersion})`,
+  );
 }
 
 assert(pluginLooksPatched, "LocalNotificationsPlugin.swift patch verification failed.");

@@ -71,7 +71,10 @@ export function PrWorkflowProgressBar({
         return (
           <Tooltip key={definition.id}>
             <TooltipTrigger
-              className={cn("h-1.5 flex-1 cursor-pointer rounded-full transition-colors", segmentColor(status))}
+              className={cn(
+                "h-1.5 flex-1 cursor-pointer rounded-full transition-colors",
+                segmentColor(status),
+              )}
               onClick={() => onStepClick(definition.id)}
               render={<button type="button" aria-label={label} />}
             />

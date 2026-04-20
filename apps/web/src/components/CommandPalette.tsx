@@ -23,8 +23,6 @@ import { cn } from "~/lib/utils";
 import { useStore } from "~/store";
 import { useCommandPaletteStore } from "~/commandPaletteStore";
 import { usePrReviewCommands } from "~/components/pr-review/usePrReviewCommands";
-import { usePrReviewStore } from "~/prReviewStore";
-import { ensureNativeApi } from "~/nativeApi";
 import { useHandleNewThread } from "~/hooks/useHandleNewThread";
 import { useCurrentWorktreeCleanupCandidates } from "~/hooks/useCurrentWorktreeCleanupCandidates";
 import { useTheme } from "~/hooks/useTheme";
@@ -154,15 +152,8 @@ function CommandsView() {
   // PR Review commands integration
   const currentPath = useRouterState({ select: (s) => s.location.pathname });
   const isPrReviewRoute = currentPath.includes("/pr-review");
-  const prReviewDashboard = usePrReviewStore((s) => s.selectedPrNumber);
   const prReviewCommands = usePrReviewCommands({
     enabled: isPrReviewRoute,
-    onStartAgentReview: () => {
-      closePalette();
-      const store = usePrReviewStore.getState();
-      // Trigger is handled by the caller
-      document.dispatchEvent(new CustomEvent("command-palette:start-agent-review"));
-    },
     onOpenOnGitHub: () => {
       closePalette();
       document.dispatchEvent(new CustomEvent("command-palette:open-on-github"));

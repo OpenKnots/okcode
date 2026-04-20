@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import {
-  prReviewAgentStatusQueryOptions,
   prReviewConfigQueryOptions,
   prReviewConflictsQueryOptions,
   prReviewDashboardQueryOptions,
@@ -47,24 +46,11 @@ export function usePrReviewQueries(projectCwd: string | null) {
     }),
   );
 
-  const agentReviewRunning =
-    dashboardQuery.data != null &&
-    selectedPrNumber != null;
-
-  const agentReviewQuery = useQuery(
-    prReviewAgentStatusQueryOptions({
-      cwd: projectCwd,
-      prNumber: selectedPrNumber,
-      isRunning: agentReviewRunning,
-    }),
-  );
-
   return {
     configQuery,
     dashboardQuery,
     patchQuery,
     conflictQuery,
     pullRequestsQuery,
-    agentReviewQuery,
   } as const;
 }

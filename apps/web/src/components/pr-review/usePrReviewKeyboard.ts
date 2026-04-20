@@ -5,7 +5,6 @@ interface UsePrReviewKeyboardOptions {
   enabled: boolean;
   fileCount: number;
   filePaths: string[];
-  onStartAgentReview: () => void;
   reviewComposerRef: React.RefObject<HTMLTextAreaElement | null>;
 }
 
@@ -13,7 +12,6 @@ export function usePrReviewKeyboard({
   enabled,
   fileCount,
   filePaths,
-  onStartAgentReview,
   reviewComposerRef,
 }: UsePrReviewKeyboardOptions): void {
   // Use refs to keep the handler stable while always reading fresh values.
@@ -21,10 +19,9 @@ export function usePrReviewKeyboard({
     enabled,
     fileCount,
     filePaths,
-    onStartAgentReview,
     reviewComposerRef,
   });
-  optionsRef.current = { enabled, fileCount, filePaths, onStartAgentReview, reviewComposerRef };
+  optionsRef.current = { enabled, fileCount, filePaths, reviewComposerRef };
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent): void {
@@ -115,15 +112,6 @@ export function usePrReviewKeyboard({
         case "?": {
           event.preventDefault();
           setShortcutOverlayOpen(true);
-          break;
-        }
-
-        // ── Shift combos ─────────────────────────────────────────
-        case "A": {
-          if (event.shiftKey) {
-            event.preventDefault();
-            opts.onStartAgentReview();
-          }
           break;
         }
 

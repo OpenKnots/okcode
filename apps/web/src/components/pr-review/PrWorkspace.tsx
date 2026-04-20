@@ -1,5 +1,10 @@
 import { FileDiff, Virtualizer } from "@pierre/diffs/react";
-import type { NativeApi, PrAgentReviewResult, PrReviewThread } from "@okcode/contracts";
+import type {
+  NativeApi,
+  PrAgentFinding,
+  PrAgentReviewResult,
+  PrReviewThread,
+} from "@okcode/contracts";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Schema } from "effect";
@@ -62,8 +67,8 @@ export function PrWorkspace({
   patch: string | null;
   dashboard: Awaited<ReturnType<NativeApi["prReview"]["getDashboard"]>> | null | undefined;
   agentResult: PrAgentReviewResult | null | undefined;
-  onStartAgentReview: () => void;
-  isStartingAgentReview: boolean;
+  onStartAgentReview: (() => void) | undefined;
+  isStartingAgentReview: boolean | undefined;
   selectedFilePath: string | null;
   selectedThreadId: string | null;
   reviewedFiles: readonly string[];
@@ -104,9 +109,9 @@ export function PrWorkspace({
   }, [dashboard]);
 
   // Agent findings grouped by file path
-  const agentFindingsByPath = useMemo<Record<string, typeof agentResult extends { findings: infer F } ? F : never>>(() => {
+  const agentFindingsByPath = useMemo<Record<string, PrAgentFinding[]>>(() => {
     if (!agentResult?.findings) return {};
-    return agentResult.findings.reduce<Record<string, typeof agentResult.findings>>((acc, finding) => {
+    return agentResult.findings.reduce<Record<string, PrAgentFinding[]>>((acc, finding) => {
       if (!finding.path) return acc;
       if (!acc[finding.path]) acc[finding.path] = [];
       acc[finding.path]!.push(finding);
@@ -357,10 +362,7 @@ export function PrWorkspace({
                 {fileFindings.length > 0 ? (
                   <div className="border-b border-indigo-500/15 bg-indigo-500/5 px-4 py-2 space-y-1.5">
                     {fileFindings.map((finding) => (
-                      <div
-                        className="flex items-start gap-2 text-xs"
-                        key={finding.id}
-                      >
+                      <div className="flex items-start gap-2 text-xs" key={finding.id}>
                         <span
                           className={cn(
                             "mt-0.5 shrink-0 size-3.5 rounded-full flex items-center justify-center text-[8px] font-bold",
@@ -371,7 +373,11 @@ export function PrWorkspace({
                                 : "bg-sky-500/20 text-sky-400",
                           )}
                         >
-                          {finding.severity === "critical" ? "!" : finding.severity === "warning" ? "!" : "i"}
+                          {finding.severity === "critical"
+                            ? "!"
+                            : finding.severity === "warning"
+                              ? "!"
+                              : "i"}
                         </span>
                         <div className="min-w-0 flex-1">
                           <span className="font-medium text-foreground">{finding.title}</span>

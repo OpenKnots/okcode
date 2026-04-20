@@ -75,6 +75,7 @@ import {
   ProjectDeleteEntryInput,
   ProjectListDirectoryInput,
   ProjectReadFileInput,
+  ProjectPathExistsInput,
   ProjectSearchEntriesInput,
   ProjectWriteFileInput,
 } from "./project";
@@ -133,6 +134,7 @@ export const WS_METHODS = {
   projectsWriteFile: "projects.writeFile",
   projectsReadFile: "projects.readFile",
   projectsDeleteEntry: "projects.deleteEntry",
+  projectsPathExists: "projects.pathExists",
 
   // Shell methods
   shellOpenInEditor: "shell.openInEditor",
@@ -293,6 +295,7 @@ const WebSocketRequestBody = Schema.Union([
   tagRequestBody(WS_METHODS.projectsWriteFile, ProjectWriteFileInput),
   tagRequestBody(WS_METHODS.projectsReadFile, ProjectReadFileInput),
   tagRequestBody(WS_METHODS.projectsDeleteEntry, ProjectDeleteEntryInput),
+  tagRequestBody(WS_METHODS.projectsPathExists, ProjectPathExistsInput),
 
   // Shell methods
   tagRequestBody(WS_METHODS.shellOpenInEditor, OpenInEditorInput),

@@ -8,6 +8,7 @@ import { ensureNativeApi } from "~/nativeApi";
 
 export const projectQueryKeys = {
   all: ["projects"] as const,
+  pathExists: (path: string | null) => ["projects", "path-exists", path] as const,
   searchEntries: (
     cwd: string | null,
     query: string,
@@ -23,6 +24,7 @@ export const projectQueryKeys = {
 
 const DEFAULT_SEARCH_ENTRIES_LIMIT = 80;
 const DEFAULT_PROJECT_STALE_TIME = 15_000;
+const DEFAULT_PATH_EXISTS_STALE_TIME = 30_000;
 const EMPTY_SEARCH_ENTRIES_RESULT: ProjectSearchEntriesResult = {
   entries: [],
   truncated: false,
@@ -101,6 +103,25 @@ export function projectReadFileQueryOptions(input: {
     enabled: (input.enabled ?? true) && input.cwd !== null && input.relativePath !== null,
     staleTime: 5_000,
     placeholderData: (previous) => previous ?? EMPTY_READ_FILE_RESULT,
+  });
+}
+
+export function projectPathExistsQueryOptions(input: {
+  path: string | null;
+  enabled?: boolean;
+  staleTime?: number;
+}) {
+  return queryOptions({
+    queryKey: projectQueryKeys.pathExists(input.path),
+    queryFn: async () => {
+      const api = ensureNativeApi();
+      if (!input.path) {
+        throw new Error("Path existence is unavailable.");
+      }
+      return api.projects.pathExists({ path: input.path });
+    },
+    enabled: (input.enabled ?? true) && input.path !== null,
+    staleTime: input.staleTime ?? DEFAULT_PATH_EXISTS_STALE_TIME,
   });
 }
 

@@ -10,6 +10,7 @@ import {
   gitStatusQueryOptions,
   invalidateGitQueries,
 } from "../lib/gitReactQuery";
+import { projectPathExistsQueryOptions } from "../lib/projectReactQuery";
 import { newCommandId } from "../lib/utils";
 import { readNativeApi } from "../nativeApi";
 import { useComposerDraftStore } from "../composerDraftStore";
@@ -26,6 +27,7 @@ import { Button } from "./ui/button";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "./ui/select";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
 import { toastManager } from "./ui/toast";
+import { MissingOnDiskBadge } from "./MissingOnDiskBadge";
 
 const envModeItems = [
   { value: "local", label: "Local" },
@@ -62,6 +64,11 @@ export default function BranchToolbar({
   const activeWorktreeBaseBranch =
     serverThread?.worktreeBaseBranch ?? draftThread?.worktreeBaseBranch ?? null;
   const branchCwd = activeWorktreePath ?? activeProject?.cwd ?? null;
+  const pathExistsQuery = useQuery({
+    ...projectPathExistsQueryOptions({ path: branchCwd }),
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
   const hasServerThread = serverThread !== undefined;
   const effectiveEnvMode = resolveEffectiveEnvMode({
     activeWorktreePath,
@@ -130,6 +137,7 @@ export default function BranchToolbar({
   const needsSync = behindCount > 0 && !hasServerThread;
   const pullMutation = useMutation(gitPullMutationOptions({ cwd: gitCwd, queryClient }));
   const stopPullMutation = useMutation(gitStopActionMutationOptions({ cwd: gitCwd, queryClient }));
+  const isMissingOnDisk = branchCwd !== null && pathExistsQuery.data?.exists === false;
 
   // Force a fresh git-status fetch when a draft thread mounts so we catch
   // upstream changes immediately instead of waiting for the next poll cycle.
@@ -196,7 +204,7 @@ export default function BranchToolbar({
   return (
     <div className="mx-auto flex w-full max-w-7xl items-end justify-between px-5 pb-3 pt-1">
       {envLocked || activeWorktreePath ? (
-        <span className="inline-flex items-center gap-1 border border-transparent px-[calc(--spacing(3)-1px)] text-sm font-medium text-muted-foreground/70 sm:text-xs">
+        <span className="inline-flex items-center gap-1.5 border border-transparent px-[calc(--spacing(3)-1px)] text-sm font-medium text-muted-foreground/70 sm:text-xs">
           {activeWorktreePath ? (
             <>
               <GitForkIcon className="size-3" />
@@ -208,6 +216,7 @@ export default function BranchToolbar({
               Local
             </>
           )}
+          {isMissingOnDisk ? <MissingOnDiskBadge path={branchCwd} /> : null}
         </span>
       ) : (
         <Select

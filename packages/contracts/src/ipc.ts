@@ -34,6 +34,8 @@ import type {
   ProjectListDirectoryResult,
   ProjectReadFileInput,
   ProjectReadFileResult,
+  ProjectPathExistsInput,
+  ProjectPathExistsResult,
   ProjectSearchEntriesInput,
   ProjectSearchEntriesResult,
   ProjectWriteFileInput,
@@ -380,6 +382,7 @@ export interface NativeApi {
     writeFile: (input: ProjectWriteFileInput) => Promise<ProjectWriteFileResult>;
     readFile: (input: ProjectReadFileInput) => Promise<ProjectReadFileResult>;
     deleteEntry: (input: ProjectDeleteEntryInput) => Promise<void>;
+    pathExists: (input: ProjectPathExistsInput) => Promise<ProjectPathExistsResult>;
     onFileTreeChanged: (callback: (payload: ProjectFileTreeChangedPayload) => void) => () => void;
   };
   shell: {

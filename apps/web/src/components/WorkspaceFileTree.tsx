@@ -14,12 +14,14 @@ import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
 import { useFileViewNavigation } from "~/hooks/useFileViewNavigation";
 import {
   projectListDirectoryQueryOptions,
+  projectPathExistsQueryOptions,
   projectQueryKeys,
   projectSearchEntriesQueryOptions,
 } from "~/lib/projectReactQuery";
 import { cn, isMacPlatform } from "~/lib/utils";
 import { readNativeApi } from "~/nativeApi";
 import { resolvePathLinkTarget } from "~/terminal-links";
+import { MissingOnDiskBadge } from "./MissingOnDiskBadge";
 import { VscodeEntryIcon } from "./chat/VscodeEntryIcon";
 import { Collapsible, CollapsibleContent } from "./ui/collapsible";
 import { Input } from "./ui/input";
@@ -419,6 +421,13 @@ const WorkspaceSearchResultRow = memo(function WorkspaceSearchResultRow(props: {
 }) {
   const parentPath = parentPathOf(props.entry.path);
   const isDirectory = props.entry.kind === "directory";
+  const absolutePath = resolvePathLinkTarget(props.entry.path, props.cwd);
+  const pathExistsQuery = useQuery(
+    projectPathExistsQueryOptions({
+      path: absolutePath,
+    }),
+  );
+  const isMissingOnDisk = pathExistsQuery.data?.exists === false;
   const handleContextMenu = useCallback(
     async (event: MouseEvent<HTMLButtonElement>) => {
       event.preventDefault();
@@ -499,8 +508,11 @@ const WorkspaceSearchResultRow = memo(function WorkspaceSearchResultRow(props: {
         )}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate font-mono text-[11px] text-muted-foreground/85 group-hover:text-foreground/90">
-          {basenameOfPath(props.entry.path)}
+        <span className="flex items-center gap-1">
+          <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground/85 group-hover:text-foreground/90">
+            {basenameOfPath(props.entry.path)}
+          </span>
+          {isMissingOnDisk ? <MissingOnDiskBadge path={absolutePath} compact /> : null}
         </span>
         <span className="block truncate text-[10px] text-muted-foreground/55">
           {parentPath ?? "."}
@@ -572,6 +584,7 @@ const WorkspaceFileTreeDirectory = memo(function WorkspaceFileTreeDirectory(prop
           return (
             <div key={`dir:${entry.path}`}>
               <WorkspaceDirectoryRow
+                cwd={props.cwd}
                 depth={props.depth}
                 entry={entry}
                 fileManagerName={props.fileManagerName}
@@ -604,6 +617,7 @@ const WorkspaceFileTreeDirectory = memo(function WorkspaceFileTreeDirectory(prop
 
         return (
           <WorkspaceFileRow
+            cwd={props.cwd}
             key={`file:${entry.path}`}
             depth={props.depth}
             entry={entry}
@@ -627,6 +641,7 @@ const WorkspaceFileTreeDirectory = memo(function WorkspaceFileTreeDirectory(prop
 });
 
 const WorkspaceDirectoryRow = memo(function WorkspaceDirectoryRow(props: {
+  cwd: string;
   depth: number;
   entry: ProjectDirectoryEntry;
   fileManagerName: string;
@@ -637,6 +652,13 @@ const WorkspaceDirectoryRow = memo(function WorkspaceDirectoryRow(props: {
   onToggleDirectory: (pathValue: string) => void;
 }) {
   const leftPadding = TREE_ROW_LEFT_PADDING + props.depth * TREE_ROW_DEPTH_OFFSET;
+  const absolutePath = resolvePathLinkTarget(props.entry.path, props.cwd);
+  const pathExistsQuery = useQuery(
+    projectPathExistsQueryOptions({
+      path: absolutePath,
+    }),
+  );
+  const isMissingOnDisk = pathExistsQuery.data?.exists === false;
   const handleContextMenu = useCallback(
     async (event: MouseEvent<HTMLButtonElement>) => {
       event.preventDefault();
@@ -699,14 +721,16 @@ const WorkspaceDirectoryRow = memo(function WorkspaceDirectoryRow(props: {
       ) : (
         <FolderClosedIcon className="size-3.5 shrink-0 text-muted-foreground/75" />
       )}
-      <span className="truncate font-mono text-[11px] text-muted-foreground/85 group-hover:text-foreground/90">
+      <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-muted-foreground/85 group-hover:text-foreground/90">
         {basenameOfPath(props.entry.path)}
       </span>
+      {isMissingOnDisk ? <MissingOnDiskBadge path={absolutePath} className="shrink-0" /> : null}
     </button>
   );
 });
 
 const WorkspaceFileRow = memo(function WorkspaceFileRow(props: {
+  cwd: string;
   depth: number;
   entry: ProjectDirectoryEntry;
   fileManagerName: string;
@@ -718,6 +742,13 @@ const WorkspaceFileRow = memo(function WorkspaceFileRow(props: {
   onRevealFileInFileManager: (pathValue: string) => void;
 }) {
   const leftPadding = TREE_ROW_LEFT_PADDING + props.depth * TREE_ROW_DEPTH_OFFSET;
+  const absolutePath = resolvePathLinkTarget(props.entry.path, props.cwd);
+  const pathExistsQuery = useQuery(
+    projectPathExistsQueryOptions({
+      path: absolutePath,
+    }),
+  );
+  const isMissingOnDisk = pathExistsQuery.data?.exists === false;
   const handleContextMenu = useCallback(
     async (event: MouseEvent<HTMLButtonElement>) => {
       event.preventDefault();
@@ -770,9 +801,10 @@ const WorkspaceFileRow = memo(function WorkspaceFileRow(props: {
         theme={props.resolvedTheme}
         className="size-3.5 text-muted-foreground/70"
       />
-      <span className="truncate font-mono text-[11px] text-muted-foreground/80 group-hover:text-foreground/90">
+      <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-muted-foreground/80 group-hover:text-foreground/90">
         {basenameOfPath(props.entry.path)}
       </span>
+      {isMissingOnDisk ? <MissingOnDiskBadge path={absolutePath} className="shrink-0" /> : null}
     </button>
   );
 });

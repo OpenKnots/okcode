@@ -1,6 +1,7 @@
 import { FileDiff, Virtualizer } from "@pierre/diffs/react";
 import type { NativeApi, PrReviewThread } from "@okcode/contracts";
 import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Schema } from "effect";
 import {
   CheckCircle2Icon,
@@ -14,10 +15,13 @@ import {
 import { useTheme } from "~/hooks/useTheme";
 import { useLocalStorage } from "~/hooks/useLocalStorage";
 import { resolveDiffThemeName } from "~/lib/diffRendering";
+import { MissingOnDiskBadge } from "~/components/MissingOnDiskBadge";
 import { cn } from "~/lib/utils";
 import { ensureNativeApi } from "~/nativeApi";
 import { Button } from "~/components/ui/button";
 import { useFileViewNavigation } from "~/hooks/useFileViewNavigation";
+import { joinPath } from "~/components/review/reviewUtils";
+import { projectPathExistsQueryOptions } from "~/lib/projectReactQuery";
 import type { Project } from "~/types";
 import { PrFileCommentComposer } from "./PrFileCommentComposer";
 import { PrFileTabStrip } from "./PrFileTabStrip";
@@ -187,6 +191,7 @@ export function PrWorkspace({
           threads={dashboard.threads}
           selectedFilePath={selectedFilePath}
           reviewedFiles={reviewedFilesSet}
+          cwd={project.cwd}
           onSelectFilePath={(path) => {
             onSelectFilePath(path);
             // In all-files mode, scroll to the file
@@ -237,6 +242,7 @@ export function PrWorkspace({
                     <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                       <FileCode2Icon className="size-3.5 text-muted-foreground" />
                       <span className="truncate">{filePath}</span>
+                      <PrDiffFileHeaderBadge cwd={project.cwd} path={filePath} />
                       <span className="text-xs text-muted-foreground">
                         +{stats.additions} -{stats.deletions}
                       </span>
@@ -365,4 +371,17 @@ export function PrWorkspace({
       )}
     </div>
   );
+}
+
+function PrDiffFileHeaderBadge({ cwd, path }: { cwd: string; path: string }) {
+  const absolutePath = joinPath(cwd, path);
+  const pathExistsQuery = useQuery(
+    projectPathExistsQueryOptions({
+      path: absolutePath,
+    }),
+  );
+  if (pathExistsQuery.data?.exists !== false) {
+    return null;
+  }
+  return <MissingOnDiskBadge path={absolutePath} compact />;
 }

@@ -14,68 +14,70 @@ const HANDLER_FILE = resolve(
 const REPLACEMENTS: ReadonlyArray<[string, string]> = [
   [
     [
+      '        guard let notifications = call.getArray("notifications", JSObject.self) else {\n',
+      '            call.reject("Must provide notifications array as notifications option")\n',
+      "            return\n",
+      "        }\n",
+    ].join(""),
+    [
       '        guard let notifications = call.getArray("notifications")?.compactMap({ $0 as? JSObject }) else {\n',
       '            call.reject("Must provide notifications array as notifications option")\n',
       "            return\n",
       "        }\n",
     ].join(""),
-    [
-      '        guard call.getValue("notifications") != nil else {\n',
-      '            call.reject("Must provide notifications array as notifications option")\n',
-      "            return\n",
-      "        }\n",
-      '        let notifications = call.getArray("notifications", JSObject.self) ?? []\n',
-    ].join(""),
   ],
   [
+    [
+      '        guard let notifications = call.getArray("notifications", JSObject.self), notifications.count > 0 else {\n',
+      '            call.reject("Must supply notifications to cancel")\n',
+      "            return\n",
+      "        }\n",
+    ].join(""),
     [
       '        guard let notifications = call.getArray("notifications")?.compactMap({ $0 as? JSObject }), notifications.count > 0 else {\n',
       '            call.reject("Must supply notifications to cancel")\n',
       "            return\n",
       "        }\n",
     ].join(""),
-    [
-      '        guard call.getValue("notifications") != nil else {\n',
-      '            call.reject("Must supply notifications to cancel")\n',
-      "            return\n",
-      "        }\n",
-      '        let notifications = call.getArray("notifications", JSObject.self) ?? []\n',
-      "        guard notifications.count > 0 else {\n",
-      '            call.reject("Must supply notifications to cancel")\n',
-      "            return\n",
-      "        }\n",
-    ].join(""),
   ],
   [
     [
-      '        guard let notifications = call.getArray("notifications")?.compactMap({ $0 as? JSObject }), notifications.count > 0 else {\n',
-      '            call.reject("Must supply notifications to remove")\n',
+      '        guard let types = call.getArray("types", JSObject.self) else {\n',
       "            return\n",
       "        }\n",
     ].join(""),
-    [
-      '        guard call.getValue("notifications") != nil else {\n',
-      '            call.reject("Must supply notifications to remove")\n',
-      "            return\n",
-      "        }\n",
-      '        let notifications = call.getArray("notifications", JSObject.self) ?? []\n',
-      "        guard notifications.count > 0 else {\n",
-      '            call.reject("Must supply notifications to remove")\n',
-      "            return\n",
-      "        }\n",
-    ].join(""),
-  ],
-  [
     [
       '        guard let types = call.getArray("types")?.compactMap({ $0 as? JSObject }) else {\n',
       "            return\n",
       "        }\n",
     ].join(""),
+  ],
+  [
     [
-      '        guard call.getValue("types") != nil else {\n',
+      '        guard let notifications = call.getArray("notifications", JSObject.self) else {\n',
+      '            call.reject("Must supply notifications to remove")\n',
       "            return\n",
       "        }\n",
-      '        let types = call.getArray("types", JSObject.self) ?? []\n',
+    ].join(""),
+    [
+      '        guard let notifications = call.getArray("notifications")?.compactMap({ $0 as? JSObject }) else {\n',
+      '            call.reject("Must supply notifications to remove")\n',
+      "            return\n",
+      "        }\n",
+    ].join(""),
+  ],
+  [
+    [
+      '        guard let notifications = call.getArray("notifications", JSObject.self), notifications.count > 0 else {\n',
+      '            call.reject("Must supply notifications to remove")\n',
+      "            return\n",
+      "        }\n",
+    ].join(""),
+    [
+      '        guard let notifications = call.getArray("notifications")?.compactMap({ $0 as? JSObject }), notifications.count > 0 else {\n',
+      '            call.reject("Must supply notifications to remove")\n',
+      "            return\n",
+      "        }\n",
     ].join(""),
   ],
   [

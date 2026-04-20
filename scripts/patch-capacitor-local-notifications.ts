@@ -2,6 +2,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const ROOT_DIR = resolve(process.cwd());
+const PACKAGE_FILE = resolve(ROOT_DIR, "node_modules/@capacitor/local-notifications/package.json");
 const TARGET_FILE = resolve(
   ROOT_DIR,
   "node_modules/@capacitor/local-notifications/ios/Sources/LocalNotificationsPlugin/LocalNotificationsPlugin.swift",
@@ -11,15 +12,32 @@ const HANDLER_FILE = resolve(
   "node_modules/@capacitor/local-notifications/ios/Sources/LocalNotificationsPlugin/LocalNotificationsHandler.swift",
 );
 
-const REPLACEMENTS: ReadonlyArray<[string, string]> = [
+const SWIFT_REPLACEMENTS: ReadonlyArray<[string, string]> = [
   [
     'call.getArray("notifications", JSObject.self)',
-    'call.getArray("notifications")?.compactMap({ $0 as? JSObject })',
+    'call.getArray("notifications", []).compactMap({ $0 as? JSObject })',
   ],
   [
-    'call.getArray("types", JSObject.self)',
-    'call.getArray("types")?.compactMap({ $0 as? JSObject })',
+    'call.getArray("notifications")?.compactMap({ $0 as? JSObject })',
+    'call.getArray("notifications", []).compactMap({ $0 as? JSObject })',
   ],
+  ['call.getArray("types", JSObject.self)', 'call.getArray("types", []).compactMap({ $0 as? JSObject })'],
+  ['call.getArray("types")?.compactMap({ $0 as? JSObject })', 'call.getArray("types", []).compactMap({ $0 as? JSObject })'],
+  ["call.reject(\"Must provide notifications array as notifications option\")", "call.unimplemented(\"Must provide notifications array as notifications option\")"],
+  ["call.reject(\"Notification missing identifier\")", "call.unimplemented(\"Notification missing identifier\")"],
+  ["call.reject(\"Unable to make notification\", nil, error)", "call.unimplemented(\"Unable to make notification\")"],
+  [
+    "call.reject(\"Unable to create notification, trigger failed\", nil, error)",
+    "call.unimplemented(\"Unable to create notification, trigger failed\")",
+  ],
+  ["call.reject(theError.localizedDescription)", "call.unimplemented(theError.localizedDescription)"],
+  ["call.reject(error!.localizedDescription)", "call.unimplemented(error!.localizedDescription)"],
+  ["call.reject(\"Must supply notifications to cancel\")", "call.unimplemented(\"Must supply notifications to cancel\")"],
+  [
+    "call.reject(\"Scheduled time must be *after* current time\")",
+    "call.unimplemented(\"Scheduled time must be *after* current time\")",
+  ],
+  ["call.reject(\"Must supply notifications to remove\")", "call.unimplemented(\"Must supply notifications to remove\")"],
   [
     "return bridge?.localURL(fromWebURL: webURL)",
     [
@@ -34,6 +52,22 @@ const REPLACEMENTS: ReadonlyArray<[string, string]> = [
     ].join("\n"),
   ],
 ];
+const LEGACY_PLUGIN_PATTERNS = [
+  'call.getArray("notifications", JSObject.self)',
+  'call.getArray("notifications")?.compactMap({ $0 as? JSObject })',
+  "call.reject(",
+] as const;
+const REQUIRED_PATCHED_PATTERNS = [
+  'call.getArray("notifications", []).compactMap({ $0 as? JSObject })',
+  'call.getArray("types", []).compactMap({ $0 as? JSObject })',
+] as const;
+const FORBIDDEN_PATCHED_PATTERNS = [
+  "call.reject(",
+  'call.getArray("notifications", JSObject.self)',
+  'call.getArray("notifications")?.compactMap({ $0 as? JSObject })',
+  'call.getArray("types", JSObject.self)',
+  'call.getArray("types")?.compactMap({ $0 as? JSObject })',
+] as const;
 
 const HANDLER_PATCH = {
   search:
@@ -165,32 +199,87 @@ const HANDLER_PATCH = {
     `    }\n`,
 };
 
-if (!existsSync(TARGET_FILE)) {
-  console.log(`Skipping Capacitor local-notifications patch; missing file: ${TARGET_FILE}`);
-  process.exit(0);
+function replaceAll(source: string, search: string, replacement: string): { updated: string; count: number } {
+  const sourceParts = source.split(search);
+  const count = sourceParts.length - 1;
+  if (count <= 0) {
+    return { updated: source, count: 0 };
+  }
+
+  return { updated: sourceParts.join(replacement), count };
 }
 
-for (const targetFile of [TARGET_FILE, HANDLER_FILE]) {
-  if (!existsSync(targetFile)) {
-    console.log(`Skipping Capacitor local-notifications patch; missing file: ${targetFile}`);
-    continue;
-  }
-
-  const original = readFileSync(targetFile, "utf8");
-  let updated = original;
-
-  if (targetFile === TARGET_FILE) {
-    for (const [pattern, replacement] of REPLACEMENTS) {
-      updated = updated.replace(pattern, replacement);
-    }
-  } else if (!updated.includes("private func makeJSObject(from")) {
-    updated = updated.replace(HANDLER_PATCH.search, HANDLER_PATCH.replace);
-  }
-
-  if (updated !== original) {
-    writeFileSync(targetFile, updated);
-    console.log(`Patched ${targetFile}`);
-  } else {
-    console.log(`No patch needed for ${targetFile}`);
+function assert(condition: unknown, message: string): asserts condition {
+  if (!condition) {
+    throw new Error(message);
   }
 }
+
+function isPluginSwiftPatched(source: string): boolean {
+  return (
+    REQUIRED_PATCHED_PATTERNS.every((pattern) => source.includes(pattern)) &&
+    FORBIDDEN_PATCHED_PATTERNS.every((pattern) => !source.includes(pattern))
+  );
+}
+
+assert(existsSync(PACKAGE_FILE), `Missing local-notifications package: ${PACKAGE_FILE}`);
+assert(existsSync(TARGET_FILE), `Missing local-notifications Swift source: ${TARGET_FILE}`);
+assert(existsSync(HANDLER_FILE), `Missing local-notifications Swift source: ${HANDLER_FILE}`);
+
+const pluginPackage = JSON.parse(readFileSync(PACKAGE_FILE, "utf8")) as { version?: string };
+const pluginVersion = pluginPackage.version ?? "unknown";
+const pluginMajor = Number.parseInt(pluginVersion.split(".")[0] ?? "", 10);
+
+assert(Number.isFinite(pluginMajor), `Unable to parse @capacitor/local-notifications version: ${pluginVersion}`);
+assert(pluginMajor === 8, `Unsupported @capacitor/local-notifications major version ${pluginMajor}; expected 8.x`);
+
+let pluginOriginal = readFileSync(TARGET_FILE, "utf8");
+let pluginUpdated = pluginOriginal;
+let pluginChanges = 0;
+for (const [search, replacement] of SWIFT_REPLACEMENTS) {
+  const result = replaceAll(pluginUpdated, search, replacement);
+  pluginUpdated = result.updated;
+  pluginChanges += result.count;
+}
+
+const pluginHadKnownLegacyPattern = LEGACY_PLUGIN_PATTERNS.some((pattern) =>
+  pluginOriginal.includes(pattern),
+);
+const pluginLooksPatched = isPluginSwiftPatched(pluginUpdated);
+
+assert(
+  pluginHadKnownLegacyPattern || pluginLooksPatched,
+  "Unsupported LocalNotificationsPlugin.swift layout; patch script needs to be updated for the installed plugin version.",
+);
+
+if (pluginUpdated !== pluginOriginal) {
+  writeFileSync(TARGET_FILE, pluginUpdated);
+  console.log(`Patched ${TARGET_FILE} (${pluginChanges} replacements, @capacitor/local-notifications ${pluginVersion})`);
+} else {
+  console.log(`No LocalNotificationsPlugin.swift changes needed (@capacitor/local-notifications ${pluginVersion})`);
+}
+
+assert(pluginLooksPatched, "LocalNotificationsPlugin.swift patch verification failed.");
+
+const handlerOriginal = readFileSync(HANDLER_FILE, "utf8");
+let handlerUpdated = handlerOriginal;
+if (!handlerUpdated.includes("private func makeJSObject(from")) {
+  const result = replaceAll(handlerUpdated, HANDLER_PATCH.search, HANDLER_PATCH.replace);
+  assert(
+    result.count > 0,
+    "Unable to patch LocalNotificationsHandler.swift; expected source pattern was not found.",
+  );
+  handlerUpdated = result.updated;
+}
+
+if (handlerUpdated !== handlerOriginal) {
+  writeFileSync(HANDLER_FILE, handlerUpdated);
+  console.log(`Patched ${HANDLER_FILE}`);
+} else {
+  console.log(`No LocalNotificationsHandler.swift changes needed`);
+}
+
+assert(
+  handlerUpdated.includes("private func makeJSObject(from"),
+  "LocalNotificationsHandler.swift patch verification failed.",
+);

@@ -71,6 +71,10 @@
     "./projectIcons": {
       "types": "./src/projectIcons.ts",
       "import": "./src/projectIcons.ts"
+    },
+    "./generatedTextSanitization": {
+      "types": "./src/generatedTextSanitization.ts",
+      "import": "./src/generatedTextSanitization.ts"
     }
   },
   "scripts": {

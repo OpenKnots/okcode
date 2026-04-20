@@ -203,51 +203,53 @@ export default function BranchToolbar({
 
   return (
     <div className="mx-auto flex w-full max-w-7xl items-end justify-between px-5 pb-3 pt-1">
-      {envLocked || activeWorktreePath ? (
-        <span className="inline-flex items-center gap-1.5 border border-transparent px-[calc(--spacing(3)-1px)] text-sm font-medium text-muted-foreground/70 sm:text-xs">
-          {activeWorktreePath ? (
-            <>
-              <GitForkIcon className="size-3" />
-              Worktree
-            </>
-          ) : (
-            <>
-              <FolderIcon className="size-3" />
-              Local
-            </>
-          )}
-          {isMissingOnDisk ? <MissingOnDiskBadge path={branchCwd} /> : null}
-        </span>
-      ) : (
-        <Select
-          value={effectiveEnvMode}
-          onValueChange={(value) => onEnvModeChange(value as EnvMode)}
-          items={envModeItems}
-        >
-          <SelectTrigger variant="ghost" size="xs" className="font-medium">
-            {effectiveEnvMode === "worktree" ? (
-              <GitForkIcon className="size-3" />
+      <div className="flex items-center gap-1.5">
+        {envLocked || activeWorktreePath ? (
+          <span className="inline-flex items-center gap-1.5 border border-transparent px-[calc(--spacing(3)-1px)] text-sm font-medium text-muted-foreground/70 sm:text-xs">
+            {activeWorktreePath ? (
+              <>
+                <GitForkIcon className="size-3" />
+                Worktree
+              </>
             ) : (
-              <FolderIcon className="size-3" />
-            )}
-            <SelectValue />
-          </SelectTrigger>
-          <SelectPopup>
-            <SelectItem value="local">
-              <span className="inline-flex items-center gap-1.5">
+              <>
                 <FolderIcon className="size-3" />
                 Local
-              </span>
-            </SelectItem>
-            <SelectItem value="worktree">
-              <span className="inline-flex items-center gap-1.5">
+              </>
+            )}
+          </span>
+        ) : (
+          <Select
+            value={effectiveEnvMode}
+            onValueChange={(value) => onEnvModeChange(value as EnvMode)}
+            items={envModeItems}
+          >
+            <SelectTrigger variant="ghost" size="xs" className="font-medium">
+              {effectiveEnvMode === "worktree" ? (
                 <GitForkIcon className="size-3" />
-                New worktree
-              </span>
-            </SelectItem>
-          </SelectPopup>
-        </Select>
-      )}
+              ) : (
+                <FolderIcon className="size-3" />
+              )}
+              <SelectValue />
+            </SelectTrigger>
+            <SelectPopup>
+              <SelectItem value="local">
+                <span className="inline-flex items-center gap-1.5">
+                  <FolderIcon className="size-3" />
+                  Local
+                </span>
+              </SelectItem>
+              <SelectItem value="worktree">
+                <span className="inline-flex items-center gap-1.5">
+                  <GitForkIcon className="size-3" />
+                  New worktree
+                </span>
+              </SelectItem>
+            </SelectPopup>
+          </Select>
+        )}
+        {isMissingOnDisk ? <MissingOnDiskBadge path={branchCwd} /> : null}
+      </div>
 
       <div className="flex flex-col items-end gap-1">
         <div className="flex items-center gap-1.5">

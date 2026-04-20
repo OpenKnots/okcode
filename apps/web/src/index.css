@@ -391,6 +391,112 @@ label:has(> select#reasoning-effort) select {
   margin: 0.65rem 0;
 }
 
+.chat-markdown .chat-code-preview {
+  margin: 0.75rem 0;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--border) 92%, transparent);
+  border-radius: 0.95rem;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--card) 88%, transparent),
+    color-mix(in srgb, var(--muted) 42%, var(--card))
+  );
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--background) 90%, transparent);
+}
+
+.chat-markdown .chat-code-preview-header,
+.chat-markdown .chat-code-preview-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0.75rem;
+}
+
+.chat-markdown .chat-code-preview-header {
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  background: color-mix(in srgb, var(--background) 65%, transparent);
+}
+
+.chat-markdown .chat-code-preview-title-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.chat-markdown .chat-code-preview-title {
+  min-width: 0;
+  font-size: 0.73rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--foreground) 82%, var(--muted-foreground));
+}
+
+.chat-markdown .chat-code-preview-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  border-radius: 999px;
+  padding: 0.18rem 0.45rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: color-mix(in srgb, var(--foreground) 70%, var(--primary));
+  background: color-mix(in srgb, var(--background) 72%, transparent);
+}
+
+.chat-markdown .chat-code-preview-live-dot {
+  color: var(--primary);
+  animation: chat-code-preview-pulse 1.4s ease-in-out infinite;
+}
+
+.chat-markdown .chat-code-preview-copy-button {
+  position: static;
+  flex: none;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.chat-markdown .chat-code-preview-body {
+  overflow-x: auto;
+  background: color-mix(in srgb, var(--muted) 68%, var(--background));
+}
+
+.chat-markdown .chat-code-preview-body pre {
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}
+
+.chat-markdown .chat-code-preview-footer {
+  flex-wrap: wrap;
+  border-top: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  background: color-mix(in srgb, var(--background) 56%, transparent);
+  font-size: 0.68rem;
+  line-height: 1.4;
+}
+
+.chat-markdown .chat-code-preview-status {
+  color: color-mix(in srgb, var(--foreground) 80%, var(--muted-foreground));
+}
+
+.chat-markdown .chat-code-preview-meta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  color: color-mix(in srgb, var(--foreground) 60%, var(--muted-foreground));
+}
+
+.chat-markdown .chat-code-preview-fallback .chat-code-preview-status {
+  color: color-mix(in srgb, var(--warning-foreground) 80%, var(--foreground));
+}
+
 .chat-markdown .chat-markdown-codeblock pre {
   margin: 0;
 }
@@ -430,6 +536,16 @@ label:has(> select#reasoning-effort) select {
 
 .chat-markdown .chat-markdown-shiki .shiki {
   background: color-mix(in srgb, var(--muted) 78%, var(--background)) !important;
+}
+
+@keyframes chat-code-preview-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
 .chat-markdown table {

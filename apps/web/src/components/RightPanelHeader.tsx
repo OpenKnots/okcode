@@ -14,10 +14,11 @@ const TABS: readonly {
   { id: "diffs", label: "Diffs", icon: GitCompareIcon },
 ];
 
-export const RightPanelHeader = memo(function RightPanelHeader() {
+export const RightPanelHeader = memo(function RightPanelHeader(props: { hasDiffs: boolean }) {
   const activeTab = useRightPanelStore((s) => s.activeTab);
   const setActiveTab = useRightPanelStore((s) => s.setActiveTab);
   const close = useRightPanelStore((s) => s.close);
+  const visibleTabs = props.hasDiffs ? TABS : TABS.filter((tab) => tab.id !== "diffs");
 
   return (
     <div
@@ -27,7 +28,7 @@ export const RightPanelHeader = memo(function RightPanelHeader() {
       )}
     >
       <div className="flex items-center gap-0.5 [-webkit-app-region:no-drag]">
-        {TABS.map((tab) => {
+        {visibleTabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           return (

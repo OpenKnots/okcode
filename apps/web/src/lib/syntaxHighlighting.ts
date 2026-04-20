@@ -2,22 +2,9 @@ import { DiffsHighlighter, getSharedHighlighter, SupportedLanguages } from "@pie
 
 import { LRUCache } from "./lruCache";
 import { fnv1a32, resolveDiffThemeName, type DiffThemeName } from "./diffRendering";
+import { normalizeLanguageIdForHighlighting } from "./languageIds";
 
 const CODE_FENCE_LANGUAGE_REGEX = /(?:^|\s)language-([^\s]+)/;
-
-/**
- * Map VSCode language identifiers that don't match Shiki's bundled language names.
- * VSCode uses e.g. "typescriptreact" / "javascriptreact" while Shiki expects "tsx" / "jsx".
- */
-const VSCODE_TO_SHIKI_LANG: Record<string, string> = {
-  typescriptreact: "tsx",
-  javascriptreact: "jsx",
-};
-
-/** Normalise a language identifier so Shiki can resolve it. */
-function normalizeLanguage(language: string): string {
-  return VSCODE_TO_SHIKI_LANG[language] ?? language;
-}
 
 const MAX_HIGHLIGHT_CACHE_ENTRIES = 500;
 const MAX_HIGHLIGHT_CACHE_MEMORY_BYTES = 50 * 1024 * 1024;
@@ -76,7 +63,7 @@ export function setCachedHighlightedHtml(
 }
 
 export function getHighlighterPromise(language: string): Promise<DiffsHighlighter> {
-  const normalized = normalizeLanguage(language);
+  const normalized = normalizeLanguageIdForHighlighting(language);
   const cached = highlighterPromiseCache.get(normalized);
   if (cached) return cached;
 
@@ -104,7 +91,7 @@ export function renderHighlightedCodeHtml(
   language: string,
   themeName: DiffThemeName,
 ): string {
-  const normalized = normalizeLanguage(language);
+  const normalized = normalizeLanguageIdForHighlighting(language);
   try {
     return highlighter.codeToHtml(code, { lang: normalized, theme: themeName });
   } catch (error) {

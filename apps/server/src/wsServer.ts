@@ -142,6 +142,26 @@ function isNewerSemver(a: string, b: string): boolean {
   return false;
 }
 
+function inferAttachmentContentType(filePath: string): string {
+  const mimeType = Mime.getType(filePath);
+  if (mimeType) {
+    return mimeType;
+  }
+
+  const normalizedPath = filePath.toLowerCase();
+  if (normalizedPath.endsWith(".patch") || normalizedPath.endsWith(".diff")) {
+    return "text/x-diff; charset=utf-8";
+  }
+  if (normalizedPath.endsWith(".md")) {
+    return "text/markdown; charset=utf-8";
+  }
+  if (normalizedPath.endsWith(".txt")) {
+    return "text/plain; charset=utf-8";
+  }
+
+  return "application/octet-stream";
+}
+
 /**
  * Remote address from the HTTP upgrade (`request.socket`). The `ws` library often does not
  * expose a reliable `socket.remoteAddress` when handling messages, so we capture it here.
@@ -722,7 +742,7 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
             return;
           }
 
-          const contentType = Mime.getType(filePath) ?? "application/octet-stream";
+          const contentType = inferAttachmentContentType(filePath);
           res.writeHead(200, {
             "Content-Type": contentType,
             "Cache-Control": "public, max-age=31536000, immutable",

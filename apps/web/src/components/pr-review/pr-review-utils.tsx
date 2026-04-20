@@ -1,4 +1,4 @@
-import { parsePatchFiles, setLanguageOverride, type SupportedLanguages } from "@pierre/diffs";
+import { setLanguageOverride, type SupportedLanguages } from "@pierre/diffs";
 import type { FileDiffMetadata } from "@pierre/diffs/react";
 import type {
   GitHubUserPreview,
@@ -10,17 +10,19 @@ import type {
 import { Schema } from "effect";
 import { CircleDotIcon, GitMergeIcon, GitPullRequestIcon, XCircleIcon } from "lucide-react";
 import { openInPreferredEditor } from "~/editorPreferences";
-import { buildPatchCacheKey } from "~/lib/diffRendering";
+import {
+  parseRenderablePatch,
+  resolveFileDiffPath,
+  summarizeFileDiffStats,
+} from "~/lib/renderablePatch";
 import { ensureNativeApi } from "~/nativeApi";
 import { inferLanguageIdForPath } from "~/vscode-icons";
+
+export { parseRenderablePatch, resolveFileDiffPath, summarizeFileDiffStats };
 
 export type PullRequestState = "open" | "closed" | "merged";
 export type InspectorTab = "threads" | "workflow" | "people";
 export type RequestChangesButtonVariant = "default" | "destructive-outline" | "outline";
-
-export type RenderablePatch =
-  | { kind: "files"; files: FileDiffMetadata[] }
-  | { kind: "raw"; text: string; reason: string };
 
 export const TEXT_DRAFT_SCHEMA = Schema.String;
 export const REVIEWED_FILES_SCHEMA = Schema.Array(Schema.String);
@@ -143,27 +145,6 @@ export function labelStyle(hex: string) {
   return { backgroundColor: `#${hex}` };
 }
 
-export function summarizeFileDiffStats(fileDiff: FileDiffMetadata): {
-  additions: number;
-  deletions: number;
-} {
-  return fileDiff.hunks.reduce(
-    (summary, hunk) => ({
-      additions: summary.additions + hunk.additionLines,
-      deletions: summary.deletions + hunk.deletionLines,
-    }),
-    { additions: 0, deletions: 0 },
-  );
-}
-
-export function resolveFileDiffPath(fileDiff: FileDiffMetadata): string {
-  const raw = fileDiff.name ?? fileDiff.prevName ?? "";
-  if (raw.startsWith("a/") || raw.startsWith("b/")) {
-    return raw.slice(2);
-  }
-  return raw;
-}
-
 export function buildFileDiffRenderKey(fileDiff: FileDiffMetadata): string {
   return fileDiff.cacheKey ?? `${fileDiff.prevName ?? "none"}:${fileDiff.name}`;
 }
@@ -183,32 +164,6 @@ export function withInferredFileDiffLanguage(fileDiff: FileDiffMetadata): FileDi
     return fileDiff;
   }
   return setLanguageOverride(fileDiff, lang);
-}
-
-export function parseRenderablePatch(
-  patch: string | undefined,
-  scope = "pr-review",
-): RenderablePatch | null {
-  if (!patch || patch.trim().length === 0) return null;
-  const normalizedPatch = patch.trim();
-  try {
-    const parsed = parsePatchFiles(normalizedPatch, buildPatchCacheKey(normalizedPatch, scope));
-    const files = parsed.flatMap((entry) => entry.files);
-    if (files.length === 0) {
-      return {
-        kind: "raw",
-        text: normalizedPatch,
-        reason: "Unsupported diff format. Showing raw patch instead.",
-      };
-    }
-    return { kind: "files", files };
-  } catch {
-    return {
-      kind: "raw",
-      text: normalizedPatch,
-      reason: "Failed to parse patch. Showing raw patch instead.",
-    };
-  }
 }
 
 export function extractMentionQuery(

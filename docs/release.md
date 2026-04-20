@@ -2,11 +2,11 @@
 
 Canonical release process documentation for OK Code.
 
-**Last updated:** 2026-04-05
+**Last updated:** 2026-04-20
 
 ## Overview
 
-The next stable train ships one semver across all blocking surfaces:
+The next stable train ships one semver across desktop, CLI, and iOS surfaces:
 
 - macOS arm64 desktop DMG plus updater metadata
 - Windows x64 signed NSIS installer
@@ -30,20 +30,28 @@ The next stable train ships one semver across all blocking surfaces:
 - Publish prereleases to npm with the `next` dist-tag.
 - Publish stable releases to npm with the `latest` dist-tag.
 
-## Coordinated release workflow
+## Release workflows
 
-Official releases are cut through [`release.yml`](../.github/workflows/release.yml).
+Official release tags now fan out into two workflows:
 
-Job order:
+- [`release.yml`](../.github/workflows/release.yml) for desktop artifacts, npm publish, GitHub Release publication, and finalize.
+- [`release-ios.yml`](../.github/workflows/release-ios.yml) for the matching TestFlight upload from the same tag.
+
+`release.yml` job order:
 
 1. `preflight`
 2. `desktop_build`
-3. `ios_testflight`
-4. `publish_cli`
-5. `release`
-6. `finalize`
+3. `publish_cli`
+4. `release`
+5. `finalize`
 
-The GitHub release must not publish until every blocking surface succeeds.
+`release-ios.yml` job order:
+
+1. `preflight`
+2. `ios_signing_preflight`
+3. `ios_testflight`
+
+Desktop/CLI publishing must not be blocked by iOS signing availability or TestFlight upload retries.
 
 ## Required checks
 
@@ -80,7 +88,7 @@ Blocking stable matrix:
 | macOS arm64 | `macos-14`     | signed/notarized DMG + updater metadata | yes      |
 | Windows x64 | `windows-2022` | signed NSIS installer                   | yes      |
 | Linux x64   | `ubuntu-24.04` | AppImage                                | yes      |
-| iOS         | `macos-14`     | TestFlight upload                       | yes      |
+| iOS         | `macos-14`     | TestFlight upload                       | separate |
 | CLI         | `ubuntu-24.04` | npm publish                             | yes      |
 
 Non-blocking compatibility lane:
@@ -105,7 +113,7 @@ Non-blocking compatibility lane:
 - Reuse the same release version as desktop and CLI.
 - Build the mobile web bundle and sync Capacitor before archiving.
 - Run a simulator build in CI before archive/upload.
-- Upload the archive to TestFlight from the coordinated release workflow.
+- Upload the archive to TestFlight from the dedicated `release-ios.yml` workflow.
 - During RC soak, manually verify on:
   - one current supported iPhone/iOS
   - one older supported iPhone/iOS
@@ -124,7 +132,7 @@ Manual RC device checks:
 - Build the CLI package from `apps/server`.
 - Verify `npm pack`.
 - Verify local `okcode --version`, `okcode --help`, and `okcode doctor --help`.
-- Publish only after desktop and iOS blockers pass.
+- Publish after desktop artifacts pass; do not wait on the separate iOS workflow.
 - Verify the published package with `npx okcodes@<version> --version`.
 
 ## Release preparation
@@ -167,12 +175,12 @@ If any blocker fails, cut a new RC and repeat the soak.
 ## Post-release expectations
 
 - The GitHub release includes desktop artifacts plus release notes and asset manifest.
-- iOS is distributed through TestFlight, not attached to the GitHub release.
+- iOS is distributed through TestFlight by `release-ios.yml`, not attached to the GitHub release.
 - `finalize` updates version strings and pushes the post-release bump to `main`.
 
 ## Troubleshooting
 
 - If `preflight` fails, reproduce locally with the exact failing command before retriggering the workflow.
 - If `desktop_build` fails, inspect the target-specific signing secrets first.
-- If `ios_testflight` fails, re-check provisioning, App Store Connect API key setup, and archive export logs.
+- If `ios_testflight` fails, re-check provisioning, App Store Connect API key setup, and archive/export logs in `release-ios.yml`.
 - If `publish_cli` fails, do not continue the train. Fix the publish issue so the app and CLI do not drift.

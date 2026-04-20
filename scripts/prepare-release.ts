@@ -263,7 +263,7 @@ ${highlights || "- See changelog for detailed changes."}
 
 ## Upgrade and install
 
-- **CLI:** \`npm install -g okcodes@${version}\` once the coordinated release workflow finishes.
+- **CLI:** \`npm install -g okcodes@${version}\` once the desktop/CLI release workflow finishes.
 - **Desktop:** Download from [GitHub Releases](${REPO_URL}/releases/tag/v${version}). Filenames are listed in [assets.md](v${version}/assets.md).
 - **iOS:** Available via TestFlight (uploaded automatically by the Release iOS workflow).
 
@@ -274,7 +274,7 @@ OK Code remains early work in progress. Expect rough edges around session recove
 ## Release operations
 
 - Review the [asset manifest](v${version}/assets.md) to confirm every expected GitHub Release attachment is present.
-- Use the [rollout checklist](v${version}/rollout-checklist.md) to walk the coordinated release from preflight through post-release verification.
+- Use the [rollout checklist](v${version}/rollout-checklist.md) to walk the desktop/CLI release plus the matching iOS TestFlight workflow through post-release verification.
 - Use the [soak test plan](v${version}/soak-test-plan.md) to validate the highest-risk surfaces after the tag is live.
 `;
 }
@@ -378,7 +378,9 @@ Step-by-step playbook for the v${version} release. Each phase must complete befo
 - [ ] Push the release-prep commit to \`main\`.
 - [ ] Create and push tag \`v${version}\`.
 - [ ] Verify the coordinated \`release.yml\` workflow starts.
-- [ ] Monitor the pipeline through Preflight, Desktop builds, iOS signing preflight, iOS TestFlight, Publish CLI, Publish GitHub Release, and Finalize release.
+- [ ] Verify the separate \`release-ios.yml\` workflow starts for the same tag or trigger it manually with the same version if needed.
+- [ ] Monitor \`release.yml\` through Preflight, Desktop builds, Publish CLI, Publish GitHub Release, and Finalize release.
+- [ ] Monitor \`release-ios.yml\` through Preflight, iOS signing preflight, and iOS TestFlight.
 
 ### Asset verification
 

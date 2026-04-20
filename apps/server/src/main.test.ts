@@ -33,67 +33,69 @@ const serverStart = Effect.acquireRelease(
 const findAvailablePort = vi.fn((preferred: number) => Effect.succeed(preferred));
 
 // Shared service layer used by this CLI test suite.
-const testLayer = Layer.mergeAll(
-  Layer.effect(
-    CliConfig,
-    Effect.sync(
-      () =>
-        ({
-          cwd: testWorkspaceRoot,
-          fixPath: Effect.void,
-          resolveStaticDir: Effect.undefined,
-        }) satisfies CliConfigShape,
+const testLayer = Layer.fresh(
+  Layer.mergeAll(
+    Layer.effect(
+      CliConfig,
+      Effect.sync(
+        () =>
+          ({
+            cwd: testWorkspaceRoot,
+            fixPath: Effect.void,
+            resolveStaticDir: Effect.undefined,
+          }) satisfies CliConfigShape,
+      ),
     ),
+    Layer.succeed(NetService, {
+      canListenOnHost: () => Effect.succeed(true),
+      isPortAvailableOnLoopback: () => Effect.succeed(true),
+      reserveLoopbackPort: () => Effect.succeed(0),
+      findAvailablePort,
+    }),
+    Layer.succeed(Server, {
+      start: serverStart,
+      stopSignal: Effect.void,
+    } satisfies ServerShape),
+    Layer.succeed(OpenclawGatewayConfig, {
+      getSummary: () =>
+        Effect.succeed({
+          gatewayUrl: null,
+          hasSharedSecret: false,
+          deviceId: null,
+          devicePublicKey: null,
+          deviceFingerprint: null,
+          hasDeviceToken: false,
+          deviceTokenRole: null,
+          deviceTokenScopes: [],
+          updatedAt: null,
+        }),
+      getStored: () => Effect.succeed(null),
+      save: () => Effect.die("unexpected openclaw save"),
+      resolveForConnect: () => Effect.succeed(null),
+      saveDeviceToken: () => Effect.void,
+      clearDeviceToken: () => Effect.void,
+      resetDeviceState: () =>
+        Effect.succeed({
+          gatewayUrl: null,
+          hasSharedSecret: false,
+          deviceId: null,
+          devicePublicKey: null,
+          deviceFingerprint: null,
+          hasDeviceToken: false,
+          deviceTokenRole: null,
+          deviceTokenScopes: [],
+          updatedAt: null,
+        }),
+    }),
+    Layer.succeed(Open, {
+      openBrowser: (_target: string) => Effect.void,
+      openInEditor: () => Effect.void,
+      openInFileManager: () => Effect.void,
+      revealInFileManager: () => Effect.void,
+    } satisfies OpenShape),
+    FetchHttpClient.layer,
+    NodeServices.layer,
   ),
-  Layer.succeed(NetService, {
-    canListenOnHost: () => Effect.succeed(true),
-    isPortAvailableOnLoopback: () => Effect.succeed(true),
-    reserveLoopbackPort: () => Effect.succeed(0),
-    findAvailablePort,
-  }),
-  Layer.succeed(Server, {
-    start: serverStart,
-    stopSignal: Effect.void,
-  } satisfies ServerShape),
-  Layer.succeed(OpenclawGatewayConfig, {
-    getSummary: () =>
-      Effect.succeed({
-        gatewayUrl: null,
-        hasSharedSecret: false,
-        deviceId: null,
-        devicePublicKey: null,
-        deviceFingerprint: null,
-        hasDeviceToken: false,
-        deviceTokenRole: null,
-        deviceTokenScopes: [],
-        updatedAt: null,
-      }),
-    getStored: () => Effect.succeed(null),
-    save: () => Effect.die("unexpected openclaw save"),
-    resolveForConnect: () => Effect.succeed(null),
-    saveDeviceToken: () => Effect.void,
-    clearDeviceToken: () => Effect.void,
-    resetDeviceState: () =>
-      Effect.succeed({
-        gatewayUrl: null,
-        hasSharedSecret: false,
-        deviceId: null,
-        devicePublicKey: null,
-        deviceFingerprint: null,
-        hasDeviceToken: false,
-        deviceTokenRole: null,
-        deviceTokenScopes: [],
-        updatedAt: null,
-      }),
-  }),
-  Layer.succeed(Open, {
-    openBrowser: (_target: string) => Effect.void,
-    openInEditor: () => Effect.void,
-    openInFileManager: () => Effect.void,
-    revealInFileManager: () => Effect.void,
-  } satisfies OpenShape),
-  FetchHttpClient.layer,
-  NodeServices.layer,
 );
 
 const runCli = (

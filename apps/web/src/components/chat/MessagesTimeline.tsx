@@ -16,7 +16,7 @@ import {
 } from "@tanstack/react-virtual";
 import { deriveTimelineEntries, formatElapsed } from "../../session-logic";
 import { AUTO_SCROLL_BOTTOM_THRESHOLD_PX } from "../../chat-scroll";
-import { type TurnDiffSummary } from "../../types";
+import { type ChatMessage, type TurnDiffSummary } from "../../types";
 import { summarizeTurnDiffStats } from "../../lib/turnDiffTree";
 import ChatMarkdown from "../ChatMarkdown";
 import {
@@ -43,6 +43,7 @@ import { estimateTimelineMessageHeight } from "../timelineHeight";
 import { buildExpandedImagePreview, ExpandedImagePreview } from "./ExpandedImagePreview";
 import { ProposedPlanCard } from "./ProposedPlanCard";
 import { ChangedFilesTree } from "./ChangedFilesTree";
+import { AttachmentPreviewDialog } from "./AttachmentPreviewDialog";
 import { DiffStatLabel, hasNonZeroStat } from "./DiffStatLabel";
 import { InlineDiffBlock } from "./InlineDiffBlock";
 import { MessageCopyButton } from "./MessageCopyButton";
@@ -461,34 +462,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
                   </div>
                 )}
                 {userFiles.length > 0 && (
-                  <div className="mb-2 flex max-w-[420px] flex-wrap gap-2">
-                    {userFiles.map((attachment) => {
-                      const content = (
-                        <>
-                          <PaperclipIcon className="size-3.5 shrink-0 text-muted-foreground" />
-                          <span className="truncate">{attachment.name}</span>
-                        </>
-                      );
-                      return attachment.url ? (
-                        <a
-                          key={attachment.id}
-                          href={attachment.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex max-w-full items-center gap-2 rounded-lg border border-border/80 bg-background/70 px-3 py-2 text-xs transition-colors hover:bg-background"
-                        >
-                          {content}
-                        </a>
-                      ) : (
-                        <div
-                          key={attachment.id}
-                          className="inline-flex max-w-full items-center gap-2 rounded-lg border border-border/80 bg-background/70 px-3 py-2 text-xs"
-                        >
-                          {content}
-                        </div>
-                      );
-                    })}
-                  </div>
+                  <MessageFileAttachments attachments={userFiles} resolvedTheme={resolvedTheme} />
                 )}
                 {(displayedUserMessage.visibleText.trim().length > 0 ||
                   terminalContexts.length > 0) && (
@@ -737,6 +711,85 @@ export const MessagesTimeline = memo(function MessagesTimeline({
     </div>
   );
 });
+
+type TimelineFileAttachment = Extract<
+  NonNullable<ChatMessage["attachments"]>[number],
+  { type: "file" }
+>;
+
+function canPreviewFileAttachment(attachment: TimelineFileAttachment): boolean {
+  return Boolean(attachment.url);
+}
+
+function MessageFileAttachments(props: {
+  attachments: ReadonlyArray<TimelineFileAttachment>;
+  resolvedTheme: "light" | "dark";
+}) {
+  const [previewAttachmentId, setPreviewAttachmentId] = useState<string | null>(null);
+  const previewAttachment =
+    props.attachments.find((attachment) => attachment.id === previewAttachmentId) ?? null;
+
+  return (
+    <>
+      <div className="mb-2 flex max-w-[420px] flex-wrap gap-2">
+        {props.attachments.map((attachment) => {
+          const previewable = canPreviewFileAttachment(attachment) && Boolean(attachment.url);
+          const content = (
+            <>
+              <PaperclipIcon className="size-3.5 shrink-0 text-muted-foreground" />
+              <span className="truncate">{attachment.name}</span>
+              {previewable && <EyeIcon className="size-3.5 shrink-0 text-muted-foreground/80" />}
+            </>
+          );
+
+          if (previewable) {
+            return (
+              <button
+                key={attachment.id}
+                type="button"
+                className="inline-flex max-w-full items-center gap-2 rounded-lg border border-border/80 bg-background/70 px-3 py-2 text-xs transition-colors hover:bg-background"
+                onClick={() => setPreviewAttachmentId(attachment.id)}
+              >
+                {content}
+              </button>
+            );
+          }
+
+          return attachment.url ? (
+            <a
+              key={attachment.id}
+              href={attachment.url}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex max-w-full items-center gap-2 rounded-lg border border-border/80 bg-background/70 px-3 py-2 text-xs transition-colors hover:bg-background"
+            >
+              {content}
+            </a>
+          ) : (
+            <div
+              key={attachment.id}
+              className="inline-flex max-w-full items-center gap-2 rounded-lg border border-border/80 bg-background/70 px-3 py-2 text-xs"
+            >
+              {content}
+            </div>
+          );
+        })}
+      </div>
+      {previewAttachment && (
+        <AttachmentPreviewDialog
+          attachment={previewAttachment}
+          open
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen) {
+              setPreviewAttachmentId(null);
+            }
+          }}
+          resolvedTheme={props.resolvedTheme}
+        />
+      )}
+    </>
+  );
+}
 
 function EmptyTimelineGuidance({
   shortcutGuides,

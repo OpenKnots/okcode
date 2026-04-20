@@ -11,7 +11,7 @@ The next stable train ships one semver across desktop, CLI, and iOS surfaces:
 - macOS arm64 desktop DMG plus updater metadata
 - Windows x64 signed NSIS installer
 - Linux x64 AppImage
-- iOS TestFlight build from the same tag
+- iOS TestFlight build from the same release tag, dispatched separately
 - `okcodes` npm package from the same tag
 
 `docs/release.md` is the source of truth for release policy, release gates, and the platform matrix. Treat `docs/releases/README.md` and README release references as pointers only.
@@ -32,10 +32,10 @@ The next stable train ships one semver across desktop, CLI, and iOS surfaces:
 
 ## Release workflows
 
-Official release tags now fan out into two workflows:
+Official release tags and follow-up mobile promotion now use two workflows:
 
-- [`release.yml`](../.github/workflows/release.yml) for desktop artifacts, npm publish, GitHub Release publication, and finalize.
-- [`release-ios.yml`](../.github/workflows/release-ios.yml) for the matching TestFlight upload from the same tag.
+- [`release.yml`](../.github/workflows/release.yml) runs automatically on release tags for desktop artifacts, npm publish, GitHub Release publication, and finalize.
+- [`release-ios.yml`](../.github/workflows/release-ios.yml) is dispatched manually for the matching version/ref when we want the TestFlight upload.
 
 `release.yml` job order:
 
@@ -114,6 +114,7 @@ Non-blocking compatibility lane:
 - Build the mobile web bundle and sync Capacitor before archiving.
 - Run a simulator build in CI before archive/upload.
 - Upload the archive to TestFlight from the dedicated `release-ios.yml` workflow.
+- Dispatch `release-ios.yml` with the release version and matching tag/ref (defaults to `refs/tags/vX.Y.Z`).
 - During RC soak, manually verify on:
   - one current supported iPhone/iOS
   - one older supported iPhone/iOS
@@ -175,12 +176,12 @@ If any blocker fails, cut a new RC and repeat the soak.
 ## Post-release expectations
 
 - The GitHub release includes desktop artifacts plus release notes and asset manifest.
-- iOS is distributed through TestFlight by `release-ios.yml`, not attached to the GitHub release.
+- iOS is distributed through TestFlight by a separate `release-ios.yml` dispatch against the release tag, not attached to the GitHub release.
 - `finalize` updates version strings and pushes the post-release bump to `main`.
 
 ## Troubleshooting
 
 - If `preflight` fails, reproduce locally with the exact failing command before retriggering the workflow.
 - If `desktop_build` fails, inspect the target-specific signing secrets first.
-- If `ios_testflight` fails, re-check provisioning, App Store Connect API key setup, and archive/export logs in `release-ios.yml`.
+- If `ios_testflight` fails, re-check provisioning, App Store Connect API key setup, the dispatched ref, and archive/export logs in `release-ios.yml`.
 - If `publish_cli` fails, do not continue the train. Fix the publish issue so the app and CLI do not drift.

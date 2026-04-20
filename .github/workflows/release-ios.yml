@@ -1,14 +1,15 @@
 name: Release iOS
 
 on:
-  push:
-    tags:
-      - "v*.*.*"
   workflow_dispatch:
     inputs:
       version:
         description: "Release version (for example 1.2.3 or v1.2.3)"
         required: true
+        type: string
+      ref:
+        description: "Git ref to build (defaults to refs/tags/v<version>; may also be a branch or SHA)"
+        required: false
         type: string
 
 permissions:
@@ -23,7 +24,8 @@ jobs:
       tag: ${{ steps.release_meta.outputs.tag }}
       release_channel: ${{ steps.release_meta.outputs.release_channel }}
       build_timestamp: ${{ steps.release_meta.outputs.build_timestamp }}
-      ref: ${{ github.sha }}
+      ref: ${{ steps.release_meta.outputs.ref }}
+      commit_sha: ${{ steps.resolved_commit.outputs.sha }}
     steps:
       - id: release_meta
         name: Resolve release version
@@ -33,8 +35,10 @@ jobs:
 
           if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
             raw="${{ github.event.inputs.version }}"
+            requested_ref="${{ github.event.inputs.ref }}"
           else
             raw="${GITHUB_REF_NAME}"
+            requested_ref="${GITHUB_REF}"
           fi
 
           version="${raw#v}"
@@ -43,17 +47,40 @@ jobs:
             exit 1
           fi
 
+          tag="v$version"
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            if [[ -n "$requested_ref" ]]; then
+              resolved_ref="$requested_ref"
+            else
+              resolved_ref="refs/tags/$tag"
+            fi
+          else
+            resolved_ref="$requested_ref"
+          fi
+
           build_timestamp="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "build_timestamp=$build_timestamp" >> "$GITHUB_OUTPUT"
+          echo "ref=$resolved_ref" >> "$GITHUB_OUTPUT"
 
           if [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "release_channel=stable" >> "$GITHUB_OUTPUT"
           else
             echo "release_channel=prerelease" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Checkout release ref
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.release_meta.outputs.ref }}
+          fetch-depth: 0
+
+      - id: resolved_commit
+        name: Resolve release commit
+        shell: bash
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
   ios_signing_preflight:
     name: iOS signing preflight
@@ -102,7 +129,7 @@ jobs:
     runs-on: macos-14
     env:
       RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
-      OKCODE_COMMIT_HASH: ${{ github.sha }}
+      OKCODE_COMMIT_HASH: ${{ needs.preflight.outputs.commit_sha }}
       OKCODE_BUILD_TIMESTAMP: ${{ needs.preflight.outputs.build_timestamp }}
       OKCODE_RELEASE_CHANNEL: ${{ needs.preflight.outputs.release_channel }}
     steps:

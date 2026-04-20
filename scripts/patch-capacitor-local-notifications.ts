@@ -52,6 +52,22 @@ const SWIFT_REPLACEMENTS: ReadonlyArray<[string, string]> = [
     ].join("\n"),
   ],
 ];
+const LEGACY_PLUGIN_PATTERNS = [
+  'call.getArray("notifications", JSObject.self)',
+  'call.getArray("notifications")?.compactMap({ $0 as? JSObject })',
+  "call.reject(",
+] as const;
+const REQUIRED_PATCHED_PATTERNS = [
+  'call.getArray("notifications", []).compactMap({ $0 as? JSObject })',
+  'call.getArray("types", []).compactMap({ $0 as? JSObject })',
+] as const;
+const FORBIDDEN_PATCHED_PATTERNS = [
+  "call.reject(",
+  'call.getArray("notifications", JSObject.self)',
+  'call.getArray("notifications")?.compactMap({ $0 as? JSObject })',
+  'call.getArray("types", JSObject.self)',
+  'call.getArray("types")?.compactMap({ $0 as? JSObject })',
+] as const;
 
 const HANDLER_PATCH = {
   search:
@@ -184,18 +200,26 @@ const HANDLER_PATCH = {
 };
 
 function replaceAll(source: string, search: string, replacement: string): { updated: string; count: number } {
-  const count = source.split(search).length - 1;
-  if (count === 0) {
+  const sourceParts = source.split(search);
+  const count = sourceParts.length - 1;
+  if (count <= 0) {
     return { updated: source, count: 0 };
   }
 
-  return { updated: source.split(search).join(replacement), count };
+  return { updated: sourceParts.join(replacement), count };
 }
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) {
     throw new Error(message);
   }
+}
+
+function isPluginSwiftPatched(source: string): boolean {
+  return (
+    REQUIRED_PATCHED_PATTERNS.every((pattern) => source.includes(pattern)) &&
+    FORBIDDEN_PATCHED_PATTERNS.every((pattern) => !source.includes(pattern))
+  );
 }
 
 assert(existsSync(PACKAGE_FILE), `Missing local-notifications package: ${PACKAGE_FILE}`);
@@ -218,18 +242,10 @@ for (const [search, replacement] of SWIFT_REPLACEMENTS) {
   pluginChanges += result.count;
 }
 
-const pluginHadKnownLegacyPattern =
-  pluginOriginal.includes('call.getArray("notifications", JSObject.self)') ||
-  pluginOriginal.includes('call.getArray("notifications")?.compactMap({ $0 as? JSObject })') ||
-  pluginOriginal.includes("call.reject(");
-const pluginLooksPatched =
-  pluginUpdated.includes('call.getArray("notifications", []).compactMap({ $0 as? JSObject })') &&
-  pluginUpdated.includes('call.getArray("types", []).compactMap({ $0 as? JSObject })') &&
-  !pluginUpdated.includes("call.reject(") &&
-  !pluginUpdated.includes('call.getArray("notifications", JSObject.self)') &&
-  !pluginUpdated.includes('call.getArray("notifications")?.compactMap({ $0 as? JSObject })') &&
-  !pluginUpdated.includes('call.getArray("types", JSObject.self)') &&
-  !pluginUpdated.includes('call.getArray("types")?.compactMap({ $0 as? JSObject })');
+const pluginHadKnownLegacyPattern = LEGACY_PLUGIN_PATTERNS.some((pattern) =>
+  pluginOriginal.includes(pattern),
+);
+const pluginLooksPatched = isPluginSwiftPatched(pluginUpdated);
 
 assert(
   pluginHadKnownLegacyPattern || pluginLooksPatched,

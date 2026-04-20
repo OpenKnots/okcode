@@ -10,7 +10,7 @@ export interface OpenGitHubUrlInput {
   threadId: ThreadId | null;
   nativeApi?: NativeApi | undefined;
   previewBridge?: DesktopBridge["preview"] | null | undefined;
-  setPreviewOpen?: ((projectId: ProjectId, open: boolean) => void) | undefined;
+  setPreviewOpen?: ((threadId: ThreadId, open: boolean) => void) | undefined;
 }
 
 function isGitHubHttpUrl(url: string): boolean {

@@ -1,4 +1,4 @@
-import type { ProjectId } from "@okcode/contracts";
+import type { ProjectId, ThreadId } from "@okcode/contracts";
 import { create } from "zustand";
 
 import type { BrowserPresetId } from "./lib/browserPresets";
@@ -13,7 +13,7 @@ export interface CustomViewport {
 }
 
 interface PersistedPreviewUiState {
-  openByProjectId: Record<string, boolean>;
+  openByThreadId: Record<string, boolean>;
   dockByProjectId: Record<string, PreviewDock>;
   sizeByProjectId: Record<string, number>;
   presetByProjectId: Record<string, BrowserPresetId>;
@@ -26,8 +26,8 @@ interface PersistedPreviewUiState {
 }
 
 interface PreviewStateStore extends PersistedPreviewUiState {
-  setProjectOpen: (projectId: ProjectId, open: boolean) => void;
-  toggleProjectOpen: (projectId: ProjectId) => void;
+  setThreadOpen: (threadId: ThreadId, open: boolean) => void;
+  toggleThreadOpen: (threadId: ThreadId) => void;
   setProjectDock: (projectId: ProjectId, dock: PreviewDock) => void;
   toggleProjectLayout: (projectId: ProjectId) => void;
   setProjectSize: (projectId: ProjectId, size: number) => void;
@@ -42,7 +42,8 @@ interface PreviewStateStore extends PersistedPreviewUiState {
   toggleFullscreen: (projectId: ProjectId) => void;
 }
 
-const PREVIEW_STATE_STORAGE_KEY = "okcode:desktop-preview:v5";
+const PREVIEW_STATE_STORAGE_KEY = "okcode:desktop-preview:v6";
+const PREVIEW_STATE_STORAGE_KEY_V5 = "okcode:desktop-preview:v5";
 const PREVIEW_STATE_STORAGE_KEY_V4 = "okcode:desktop-preview:v4";
 
 const VALID_PRESETS = new Set<string>([
@@ -88,7 +89,7 @@ function clampCustomViewport(viewport: CustomViewport): CustomViewport {
 
 function createEmptyPersistedPreviewUiState(): PersistedPreviewUiState {
   return {
-    openByProjectId: {},
+    openByThreadId: {},
     dockByProjectId: {},
     sizeByProjectId: {},
     presetByProjectId: {},
@@ -113,8 +114,11 @@ function readPersistedPreviewUiState(): PersistedPreviewUiState {
   }
 
   try {
-    // Try v5 first, fall back to v4 for migration
+    // Try v6 first, then older keys for migration.
     let raw = window.localStorage.getItem(PREVIEW_STATE_STORAGE_KEY);
+    if (!raw) {
+      raw = window.localStorage.getItem(PREVIEW_STATE_STORAGE_KEY_V5);
+    }
     if (!raw) {
       raw = window.localStorage.getItem(PREVIEW_STATE_STORAGE_KEY_V4);
     }
@@ -124,10 +128,10 @@ function readPersistedPreviewUiState(): PersistedPreviewUiState {
 
     const parsed = JSON.parse(raw) as Partial<PersistedPreviewUiState>;
     return {
-      openByProjectId:
-        parsed.openByProjectId && typeof parsed.openByProjectId === "object"
+      openByThreadId:
+        parsed.openByThreadId && typeof parsed.openByThreadId === "object"
           ? Object.fromEntries(
-              Object.entries(parsed.openByProjectId).filter(
+              Object.entries(parsed.openByThreadId).filter(
                 (entry): entry is [string, boolean] =>
                   typeof entry[0] === "string" && typeof entry[1] === "boolean",
               ),
@@ -224,7 +228,7 @@ function persistPreviewUiState(state: PersistedPreviewUiState): void {
     window.localStorage.setItem(
       PREVIEW_STATE_STORAGE_KEY,
       JSON.stringify({
-        openByProjectId: state.openByProjectId,
+        openByThreadId: state.openByThreadId,
         dockByProjectId: state.dockByProjectId,
         sizeByProjectId: state.sizeByProjectId,
         presetByProjectId: state.presetByProjectId,
@@ -242,7 +246,7 @@ function persistPreviewUiState(state: PersistedPreviewUiState): void {
 
 function snapshotState(state: PreviewStateStore): PersistedPreviewUiState {
   return {
-    openByProjectId: state.openByProjectId,
+    openByThreadId: state.openByThreadId,
     dockByProjectId: state.dockByProjectId,
     sizeByProjectId: state.sizeByProjectId,
     presetByProjectId: state.presetByProjectId,
@@ -259,16 +263,16 @@ const initialState = readPersistedPreviewUiState();
 export const usePreviewStateStore = create<PreviewStateStore>((set, get) => ({
   ...initialState,
 
-  setProjectOpen: (projectId, open) => {
+  setThreadOpen: (threadId, open) => {
     set((state) => {
-      const nextOpenByProjectId = { ...state.openByProjectId, [projectId]: open };
-      persistPreviewUiState({ ...snapshotState(state), openByProjectId: nextOpenByProjectId });
-      return { openByProjectId: nextOpenByProjectId };
+      const nextOpenByThreadId = { ...state.openByThreadId, [threadId]: open };
+      persistPreviewUiState({ ...snapshotState(state), openByThreadId: nextOpenByThreadId });
+      return { openByThreadId: nextOpenByThreadId };
     });
   },
 
-  toggleProjectOpen: (projectId) => {
-    get().setProjectOpen(projectId, !(get().openByProjectId[projectId] ?? false));
+  toggleThreadOpen: (threadId) => {
+    get().setThreadOpen(threadId, !(get().openByThreadId[threadId] ?? false));
   },
 
   setProjectDock: (projectId, _dock) => {

@@ -269,6 +269,7 @@ export function createWsNativeApi(): NativeApi {
       writeFile: (input) => transport.request(WS_METHODS.projectsWriteFile, input),
       readFile: (input) => transport.request(WS_METHODS.projectsReadFile, input),
       deleteEntry: (input) => transport.request(WS_METHODS.projectsDeleteEntry, input),
+      pathExists: (input) => transport.request(WS_METHODS.projectsPathExists, input),
       onFileTreeChanged: (callback) => {
         projectFileTreeChangedListeners.add(callback);
         return () => {

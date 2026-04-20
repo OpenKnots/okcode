@@ -23,6 +23,8 @@ export { parseRenderablePatch, resolveFileDiffPath, summarizeFileDiffStats };
 
 export { parseRenderablePatch, resolveFileDiffPath, summarizeFileDiffStats };
 
+export { parseRenderablePatch, resolveFileDiffPath, summarizeFileDiffStats };
+
 export type PullRequestState = "open" | "closed" | "merged";
 export type InspectorTab = "threads" | "workflow" | "people";
 export type RequestChangesButtonVariant = "default" | "destructive-outline" | "outline";

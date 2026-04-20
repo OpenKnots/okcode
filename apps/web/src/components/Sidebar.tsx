@@ -69,6 +69,7 @@ import { useTheme } from "~/hooks/useTheme";
 import { useThreadTitleEditor } from "~/hooks/useThreadTitleEditor";
 import { resolveImportedProjectScripts } from "~/lib/projectImport";
 import { normalizeProjectIconPath } from "~/lib/projectIcons";
+import { projectPathExistsQueryOptions } from "~/lib/projectReactQuery";
 import { updateProjectIconOverride } from "~/lib/projectMeta";
 import { getProjectColor } from "~/projectColors";
 import { useRightPanelStore } from "~/rightPanelStore";
@@ -137,6 +138,7 @@ import {
 } from "./ui/sidebar";
 import { toastManager } from "./ui/toast";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
+import { MissingOnDiskBadge } from "./MissingOnDiskBadge";
 
 const EMPTY_KEYBINDINGS: ResolvedKeybindingsConfig = [];
 const THREAD_PREVIEW_LIMIT = 10;
@@ -350,6 +352,8 @@ interface MemoizedThreadRowProps {
   isDraft: boolean;
   isActive: boolean;
   isSelected: boolean;
+  isMissingOnDisk: boolean;
+  missingPath: string | null;
   prByThreadId: Map<ThreadIdType, ThreadPr>;
   orderedProjectThreadIds: readonly ThreadIdType[];
   selectedThreadIds: ReadonlySet<ThreadIdType>;
@@ -382,6 +386,8 @@ const MemoizedThreadRow = memo(
     isDraft,
     isActive,
     isSelected,
+    isMissingOnDisk,
+    missingPath,
     prByThreadId,
     orderedProjectThreadIds,
     selectedThreadIds,
@@ -497,6 +503,7 @@ const MemoizedThreadRow = memo(
               onCommit={() => void commitEditing()}
               onCancel={cancelEditing}
             />
+            {isMissingOnDisk && missingPath ? <MissingOnDiskBadge path={missingPath} /> : null}
           </div>
           {isDraft ? (
             <button
@@ -521,6 +528,8 @@ const MemoizedThreadRow = memo(
     if (prev.isDraft !== next.isDraft) return false;
     if (prev.isActive !== next.isActive) return false;
     if (prev.isSelected !== next.isSelected) return false;
+    if (prev.isMissingOnDisk !== next.isMissingOnDisk) return false;
+    if (prev.missingPath !== next.missingPath) return false;
     if (prev.thread.title !== next.thread.title) return false;
     if (prev.thread.updatedAt !== next.thread.updatedAt) return false;
     if (prev.thread.createdAt !== next.thread.createdAt) return false;
@@ -641,6 +650,10 @@ export default function Sidebar() {
     () => new Map(projects.map((project) => [project.id, project] as const)),
     [projects],
   );
+  const projectCwds = useMemo(
+    () => [...new Set(projects.map((project) => project.cwd))],
+    [projects],
+  );
   const projectIconDialogProject = projectIconDialogProjectId
     ? (projectById.get(projectIconDialogProjectId) ?? null)
     : null;
@@ -648,6 +661,25 @@ export default function Sidebar() {
     () => new Map(projects.map((project) => [project.id, project.cwd] as const)),
     [projects],
   );
+  const projectPathExistenceQueries = useQueries({
+    queries: projectCwds.map((cwd) => ({
+      ...projectPathExistsQueryOptions({ path: cwd }),
+      staleTime: 30_000,
+      refetchInterval: 60_000,
+    })),
+  });
+  const projectPathExistsByCwd = useMemo(() => {
+    const map = new Map<string, boolean>();
+    for (let index = 0; index < projectCwds.length; index += 1) {
+      const cwd = projectCwds[index];
+      if (!cwd) continue;
+      const exists = projectPathExistenceQueries[index]?.data?.exists ?? null;
+      if (exists !== null) {
+        map.set(cwd, exists);
+      }
+    }
+    return map;
+  }, [projectCwds, projectPathExistenceQueries]);
   const projectModelById = useMemo(
     () => new Map(projects.map((project) => [project.id, project.model] as const)),
     [projects],
@@ -757,6 +789,35 @@ export default function Sidebar() {
       refetchInterval: 60_000,
     })),
   });
+  const threadWorktreePaths = useMemo(
+    () => [
+      ...new Set(
+        sidebarThreads
+          .map((thread) => thread.worktreePath)
+          .filter((path): path is string => path !== null),
+      ),
+    ],
+    [sidebarThreads],
+  );
+  const threadWorktreePathExistenceQueries = useQueries({
+    queries: threadWorktreePaths.map((pathValue) => ({
+      ...projectPathExistsQueryOptions({ path: pathValue }),
+      staleTime: 30_000,
+      refetchInterval: 60_000,
+    })),
+  });
+  const threadWorktreePathExistsByPath = useMemo(() => {
+    const map = new Map<string, boolean>();
+    for (let index = 0; index < threadWorktreePaths.length; index += 1) {
+      const pathValue = threadWorktreePaths[index];
+      if (!pathValue) continue;
+      const exists = threadWorktreePathExistenceQueries[index]?.data?.exists ?? null;
+      if (exists !== null) {
+        map.set(pathValue, exists);
+      }
+    }
+    return map;
+  }, [threadWorktreePathExistenceQueries, threadWorktreePaths]);
   const prByThreadId = useMemo(() => {
     const statusByCwd = new Map<string, GitStatusResult>();
     for (let index = 0; index < threadGitStatusCwds.length; index += 1) {
@@ -1471,6 +1532,7 @@ export default function Sidebar() {
     const renderedThreads = pinnedCollapsedThread ? [pinnedCollapsedThread] : visibleThreads;
     const pColor = getProjectColor(project.id);
     const isDark = resolvedTheme === "dark";
+    const isMissingOnDisk = projectPathExistsByCwd.get(project.cwd) === false;
     const projectNameTone = resolveProjectNameTone({
       isSelectedProject: activeProjectId === project.id,
       accentProjectNames: appSettings.sidebarAccentProjectNames,
@@ -1529,7 +1591,7 @@ export default function Sidebar() {
                 onClick={(e) => e.stopPropagation()}
               />
             ) : (
-              <span className="min-w-0 flex-1">
+              <span className="flex min-w-0 flex-1 items-center gap-1.5">
                 <span
                   className={cn(
                     "block truncate font-semibold leading-tight",
@@ -1545,6 +1607,7 @@ export default function Sidebar() {
                 >
                   {project.name}
                 </span>
+                {isMissingOnDisk ? <MissingOnDiskBadge path={project.cwd} /> : null}
               </span>
             )}
           </SidebarMenuButton>
@@ -1584,6 +1647,11 @@ export default function Sidebar() {
                 isDraft={!serverThreadIds.has(thread.id)}
                 isActive={routeThreadId === thread.id}
                 isSelected={selectedThreadIds.has(thread.id)}
+                isMissingOnDisk={
+                  thread.worktreePath !== null &&
+                  threadWorktreePathExistsByPath.get(thread.worktreePath) === false
+                }
+                missingPath={thread.worktreePath}
                 prByThreadId={prByThreadId}
                 orderedProjectThreadIds={orderedProjectThreadIds}
                 selectedThreadIds={selectedThreadIds}

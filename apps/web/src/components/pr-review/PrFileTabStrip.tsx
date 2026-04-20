@@ -1,7 +1,11 @@
 import type { FileDiffMetadata } from "@pierre/diffs/react";
 import type { PrReviewThread } from "@okcode/contracts";
+import { useQuery } from "@tanstack/react-query";
 import { useMemo, useRef, useEffect } from "react";
 import { CheckCircle2Icon, ListIcon, FileIcon } from "lucide-react";
+import { MissingOnDiskBadge } from "~/components/MissingOnDiskBadge";
+import { joinPath } from "~/components/review/reviewUtils";
+import { projectPathExistsQueryOptions } from "~/lib/projectReactQuery";
 import { cn } from "~/lib/utils";
 import { Button } from "~/components/ui/button";
 import { resolveFileDiffPath, summarizeFileDiffStats } from "./pr-review-utils";
@@ -18,6 +22,7 @@ export function PrFileTabStrip({
   threads,
   selectedFilePath,
   reviewedFiles,
+  cwd,
   onSelectFilePath,
   fileViewMode,
   onFileViewModeChange,
@@ -26,6 +31,7 @@ export function PrFileTabStrip({
   threads: readonly PrReviewThread[];
   selectedFilePath: string | null;
   reviewedFiles: ReadonlySet<string>;
+  cwd: string;
   onSelectFilePath: (path: string) => void;
   fileViewMode: FileViewMode;
   onFileViewModeChange: (mode: FileViewMode) => void;
@@ -97,6 +103,7 @@ export function PrFileTabStrip({
               )}
               type="button"
             >
+              <PrFileTabStripEntryBadge cwd={cwd} path={entry.path} />
               {entry.reviewed ? (
                 <CheckCircle2Icon className="size-3 shrink-0 text-emerald-500" />
               ) : (
@@ -137,4 +144,17 @@ export function PrFileTabStrip({
       </div>
     </div>
   );
+}
+
+function PrFileTabStripEntryBadge({ cwd, path }: { cwd: string; path: string }) {
+  const absolutePath = joinPath(cwd, path);
+  const pathExistsQuery = useQuery(
+    projectPathExistsQueryOptions({
+      path: absolutePath,
+    }),
+  );
+  if (pathExistsQuery.data?.exists !== false) {
+    return null;
+  }
+  return <MissingOnDiskBadge path={absolutePath} compact />;
 }

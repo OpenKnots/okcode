@@ -2055,6 +2055,31 @@ describe("WebSocket Server", () => {
     });
   });
 
+  it("reports whether a workspace path exists on disk", async () => {
+    const workspace = makeTempDir("okcode-ws-path-exists-");
+    const missingPath = path.join(workspace, "missing-worktree");
+
+    const { cwd } = makeWorkspaceFixture("test");
+    server = await createTestServer({ cwd });
+    const addr = server.address();
+    const port = typeof addr === "object" && addr !== null ? addr.port : 0;
+
+    const [ws] = await connectAndAwaitWelcome(port);
+    connections.push(ws);
+
+    const existingResponse = await sendRequest(ws, WS_METHODS.projectsPathExists, {
+      path: workspace,
+    });
+    expect(existingResponse.error).toBeUndefined();
+    expect(existingResponse.result).toEqual({ exists: true });
+
+    const missingResponse = await sendRequest(ws, WS_METHODS.projectsPathExists, {
+      path: missingPath,
+    });
+    expect(missingResponse.error).toBeUndefined();
+    expect(missingResponse.result).toEqual({ exists: false });
+  });
+
   it("supports projects.writeFile within the workspace root", async () => {
     const workspace = makeTempDir("okcode-ws-write-file-");
 

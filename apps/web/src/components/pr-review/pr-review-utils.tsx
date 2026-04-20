@@ -22,7 +22,7 @@ import { normalizeLanguageIdForHighlighting } from "~/lib/languageIds";
 export { parseRenderablePatch, resolveFileDiffPath, summarizeFileDiffStats };
 
 export type PullRequestState = "open" | "closed" | "merged";
-export type InspectorTab = "threads" | "workflow" | "people";
+export type InspectorTab = "ai" | "threads" | "workflow" | "rules" | "people";
 export type RequestChangesButtonVariant = "default" | "destructive-outline" | "outline";
 
 export const TEXT_DRAFT_SCHEMA = Schema.String;

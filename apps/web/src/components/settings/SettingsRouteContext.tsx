@@ -130,21 +130,8 @@ export function SettingsRouteContextProvider({ children }: { children: ReactNode
         ...(settings.codeViewerAutosave !== defaults.codeViewerAutosave
           ? ["Code preview autosave"]
           : []),
-        ...(settings.defaultThreadEnvMode !== defaults.defaultThreadEnvMode
-          ? ["New thread mode"]
-          : []),
         ...(settings.autoUpdateWorktreeBaseBranch !== defaults.autoUpdateWorktreeBaseBranch
           ? ["Worktree base refresh"]
-          : []),
-        ...(settings.confirmThreadDelete !== defaults.confirmThreadDelete
-          ? ["Delete confirmation"]
-          : []),
-        ...(settings.autoDeleteMergedThreads !== defaults.autoDeleteMergedThreads
-          ? ["Auto-delete merged threads"]
-          : []),
-        ...(settings.autoDeleteMergedThreadsDelayMinutes !==
-        defaults.autoDeleteMergedThreadsDelayMinutes
-          ? ["Auto-delete delay"]
           : []),
         ...(settings.rebaseBeforeCommit !== defaults.rebaseBeforeCommit
           ? ["Rebase before commit"]

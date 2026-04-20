@@ -1598,6 +1598,42 @@ describe("ChatView timeline estimator parity (full app)", () => {
     }
   });
 
+  it("includes the active turn id when stopping a running turn", async () => {
+    wsRequests.length = 0;
+
+    const mounted = await mountChatView({
+      viewport: DEFAULT_VIEWPORT,
+      snapshot: createSnapshotForTargetUser({
+        targetMessageId: "msg-user-stop-button-turn-id" as MessageId,
+        targetText: "stop button turn id target",
+        sessionStatus: "running",
+        activeTurnId: "turn-stop-button-turn-id" as TurnId,
+      }),
+    });
+
+    try {
+      const stopButton = await waitForElement(
+        () => document.querySelector<HTMLButtonElement>('button[aria-label="Stop generation"]'),
+        "Unable to find stop generation button.",
+      );
+
+      stopButton.click();
+
+      await vi.waitFor(
+        () =>
+          wsRequests.some(
+            (request) =>
+              request._tag === ORCHESTRATION_WS_METHODS.dispatchCommand &&
+              request.type === "thread.turn.interrupt" &&
+              request.turnId === "turn-stop-button-turn-id",
+          ),
+        { timeout: 8_000, interval: 16 },
+      );
+    } finally {
+      await mounted.cleanup();
+    }
+  });
+
   it("keeps the new thread selected after clicking the new-thread button", async () => {
     const mounted = await mountChatView({
       viewport: DEFAULT_VIEWPORT,

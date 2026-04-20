@@ -3867,6 +3867,10 @@ export default function ChatView({
       type: "thread.turn.interrupt",
       commandId: newCommandId(),
       threadId: activeThread.id,
+      ...(activeThread.session?.activeTurnId !== undefined &&
+      activeThread.session?.activeTurnId !== null
+        ? { turnId: activeThread.session.activeTurnId }
+        : {}),
       createdAt: new Date().toISOString(),
     });
   };

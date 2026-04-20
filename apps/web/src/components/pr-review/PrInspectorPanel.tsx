@@ -1,5 +1,6 @@
 import { useId, type ReactNode } from "react";
 import {
+  BookOpenCheckIcon,
   ChevronsLeftIcon,
   ChevronsRightIcon,
   MessageSquareIcon,
@@ -17,6 +18,8 @@ export function PrInspectorPanel({
   onExpandToTab,
   unresolvedThreadCount,
   hasBlockedWorkflow,
+  hasAgentFindings = false,
+  agentReviewRunning = false,
   children,
 }: {
   collapsed: boolean;
@@ -24,6 +27,8 @@ export function PrInspectorPanel({
   onExpandToTab?: (tab: InspectorTab) => void;
   unresolvedThreadCount: number;
   hasBlockedWorkflow: boolean;
+  hasAgentFindings?: boolean;
+  agentReviewRunning?: boolean;
   children: ReactNode;
 }) {
   const panelId = useId();
@@ -52,6 +57,41 @@ export function PrInspectorPanel({
           >
             <ChevronsLeftIcon className="size-4" />
           </Button>
+
+          {/* AI */}
+          <Tooltip>
+            <TooltipTrigger
+              onClick={() => onExpandToTab?.("ai")}
+              render={
+                <button
+                  type="button"
+                  aria-label={`AI findings${hasAgentFindings ? ", findings available" : ""}`}
+                  className={cn(
+                    "relative flex size-8 items-center justify-center rounded-lg transition-colors hover:bg-muted/50",
+                    agentReviewRunning
+                      ? "text-indigo-500 animate-pulse"
+                      : hasAgentFindings
+                        ? "text-indigo-500"
+                        : "text-muted-foreground",
+                  )}
+                />
+              }
+            >
+              <SparklesIcon className="size-4" />
+              {hasAgentFindings ? (
+                <span
+                  className="absolute right-1 top-1 size-1.5 rounded-full bg-indigo-500"
+                  aria-hidden="true"
+                />
+              ) : null}
+            </TooltipTrigger>
+            <TooltipPopup side="left" sideOffset={8}>
+              AI Findings
+              {agentReviewRunning ? " (running)" : hasAgentFindings ? " (available)" : ""}
+            </TooltipPopup>
+          </Tooltip>
+
+          {/* Threads */}
           <Tooltip>
             <TooltipTrigger
               onClick={() => onExpandToTab?.("threads")}
@@ -77,6 +117,8 @@ export function PrInspectorPanel({
               Threads ({unresolvedThreadCount} open)
             </TooltipPopup>
           </Tooltip>
+
+          {/* Workflow */}
           <Tooltip>
             <TooltipTrigger
               onClick={() => onExpandToTab?.("workflow")}
@@ -105,6 +147,27 @@ export function PrInspectorPanel({
               Workflow {hasBlockedWorkflow ? "(blocked)" : ""}
             </TooltipPopup>
           </Tooltip>
+
+          {/* Rules */}
+          <Tooltip>
+            <TooltipTrigger
+              onClick={() => onExpandToTab?.("rules")}
+              render={
+                <button
+                  type="button"
+                  aria-label="Rules"
+                  className="flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted/50"
+                />
+              }
+            >
+              <BookOpenCheckIcon className="size-4" />
+            </TooltipTrigger>
+            <TooltipPopup side="left" sideOffset={8}>
+              Rules
+            </TooltipPopup>
+          </Tooltip>
+
+          {/* People */}
           <Tooltip>
             <TooltipTrigger
               onClick={() => onExpandToTab?.("people")}

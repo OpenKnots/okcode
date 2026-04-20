@@ -409,3 +409,75 @@ export const PrReviewRepoConfigUpdatedPayload = Schema.Struct({
   relativePaths: Schema.Array(TrimmedNonEmptyString),
 });
 export type PrReviewRepoConfigUpdatedPayload = typeof PrReviewRepoConfigUpdatedPayload.Type;
+
+// ── Agent Review ────────────────────────────────────────────────────
+
+export const PrAgentReviewStatus = Schema.Literals([
+  "idle",
+  "queued",
+  "running",
+  "complete",
+  "failed",
+]);
+export type PrAgentReviewStatus = typeof PrAgentReviewStatus.Type;
+
+export const PrAgentFindingSeverity = Schema.Literals(["info", "warning", "critical"]);
+export type PrAgentFindingSeverity = typeof PrAgentFindingSeverity.Type;
+
+export const PrAgentFindingCategory = Schema.Literals([
+  "security",
+  "correctness",
+  "style",
+  "test-coverage",
+  "performance",
+]);
+export type PrAgentFindingCategory = typeof PrAgentFindingCategory.Type;
+
+export const PrAgentFinding = Schema.Struct({
+  id: TrimmedNonEmptyString,
+  severity: PrAgentFindingSeverity,
+  category: PrAgentFindingCategory,
+  path: Schema.NullOr(TrimmedNonEmptyString),
+  line: Schema.NullOr(PositiveInt),
+  title: TrimmedNonEmptyString,
+  detail: Schema.String,
+});
+export type PrAgentFinding = typeof PrAgentFinding.Type;
+
+export const PrAgentRiskTier = Schema.Literals(["low", "medium", "high"]);
+export type PrAgentRiskTier = typeof PrAgentRiskTier.Type;
+
+export const PrAgentRiskAssessment = Schema.Struct({
+  tier: PrAgentRiskTier,
+  rationale: Schema.String,
+});
+export type PrAgentRiskAssessment = typeof PrAgentRiskAssessment.Type;
+
+export const PrAgentReviewResult = Schema.Struct({
+  status: PrAgentReviewStatus,
+  summary: Schema.NullOr(Schema.String),
+  riskAssessment: Schema.NullOr(PrAgentRiskAssessment),
+  suggestedFocus: Schema.Array(Schema.String),
+  findings: Schema.Array(PrAgentFinding),
+  startedAt: Schema.NullOr(Schema.String),
+  completedAt: Schema.NullOr(Schema.String),
+});
+export type PrAgentReviewResult = typeof PrAgentReviewResult.Type;
+
+export const PrAgentReviewStartInput = Schema.Struct({
+  cwd: TrimmedNonEmptyString,
+  prNumber: PositiveInt,
+  workflowId: Schema.optional(TrimmedNonEmptyString),
+});
+export type PrAgentReviewStartInput = typeof PrAgentReviewStartInput.Type;
+
+export const PrAgentReviewStatusInput = Schema.Struct({
+  cwd: TrimmedNonEmptyString,
+  prNumber: PositiveInt,
+});
+export type PrAgentReviewStatusInput = typeof PrAgentReviewStatusInput.Type;
+
+export const PrAgentReviewStartResult = Schema.Struct({
+  reviewId: TrimmedNonEmptyString,
+});
+export type PrAgentReviewStartResult = typeof PrAgentReviewStartResult.Type;

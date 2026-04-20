@@ -10,6 +10,8 @@ export const prReviewQueryKeys = {
     ["prReview", "patch", cwd, prNumber] as const,
   conflicts: (cwd: string | null, prNumber: number | null) =>
     ["prReview", "conflicts", cwd, prNumber] as const,
+  agentReview: (cwd: string | null, prNumber: number | null) =>
+    ["prReview", "agentReview", cwd, prNumber] as const,
   userSearch: (cwd: string | null, query: string) => ["prReview", "users", cwd, query] as const,
   userPreview: (cwd: string | null, login: string | null) =>
     ["prReview", "user", cwd, login] as const,
@@ -21,6 +23,7 @@ export function invalidatePrReviewQueries(queryClient: QueryClient, cwd: string,
     queryClient.invalidateQueries({ queryKey: prReviewQueryKeys.dashboard(cwd, prNumber) }),
     queryClient.invalidateQueries({ queryKey: prReviewQueryKeys.patch(cwd, prNumber) }),
     queryClient.invalidateQueries({ queryKey: prReviewQueryKeys.conflicts(cwd, prNumber) }),
+    queryClient.invalidateQueries({ queryKey: prReviewQueryKeys.agentReview(cwd, prNumber) }),
   ]);
 }
 
@@ -192,5 +195,49 @@ export function prReviewSubmitReviewMutationOptions(input: {
       args: Parameters<ReturnType<typeof ensureNativeApi>["prReview"]["submitReview"]>[0],
     ) => ensureNativeApi().prReview.submitReview(args),
     onSuccess: async () => invalidatePrReviewQueries(input.queryClient, input.cwd, input.prNumber),
+  });
+}
+
+// ── Agent Review ────────────────────────────────────────────────────
+
+export function prReviewAgentStatusQueryOptions(input: {
+  cwd: string | null;
+  prNumber: number | null;
+  isRunning?: boolean;
+}) {
+  return queryOptions({
+    queryKey: prReviewQueryKeys.agentReview(input.cwd, input.prNumber),
+    queryFn: async () => {
+      const api = ensureNativeApi();
+      if (!input.cwd || !input.prNumber)
+        throw new Error("Agent review status is unavailable.");
+      return api.prReview.getAgentReviewStatus({
+        cwd: input.cwd,
+        prNumber: input.prNumber,
+      });
+    },
+    enabled: input.cwd !== null && input.prNumber !== null,
+    staleTime: input.isRunning ? 3_000 : 30_000,
+    refetchInterval: input.isRunning ? 3_000 : false,
+  });
+}
+
+export function prReviewStartAgentReviewMutationOptions(input: {
+  cwd: string;
+  prNumber: number;
+  queryClient: QueryClient;
+}) {
+  return mutationOptions({
+    mutationFn: async (args: { workflowId?: string }) =>
+      ensureNativeApi().prReview.startAgentReview({
+        cwd: input.cwd,
+        prNumber: input.prNumber,
+        ...(args.workflowId ? { workflowId: args.workflowId } : {}),
+      }),
+    onSuccess: async () => {
+      await input.queryClient.invalidateQueries({
+        queryKey: prReviewQueryKeys.agentReview(input.cwd, input.prNumber),
+      });
+    },
   });
 }

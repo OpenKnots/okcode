@@ -1,5 +1,5 @@
 import { ThreadId } from "@okcode/contracts";
-import { useNavigate, useParams } from "@tanstack/react-router";
+import { useNavigate, useParams, useRouterState } from "@tanstack/react-router";
 import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ArrowLeftIcon,
@@ -22,6 +22,9 @@ import type { LucideIcon } from "lucide-react";
 import { cn } from "~/lib/utils";
 import { useStore } from "~/store";
 import { useCommandPaletteStore } from "~/commandPaletteStore";
+import { usePrReviewCommands } from "~/components/pr-review/usePrReviewCommands";
+import { usePrReviewStore } from "~/prReviewStore";
+import { ensureNativeApi } from "~/nativeApi";
 import { useHandleNewThread } from "~/hooks/useHandleNewThread";
 import { useCurrentWorktreeCleanupCandidates } from "~/hooks/useCurrentWorktreeCleanupCandidates";
 import { useTheme } from "~/hooks/useTheme";
@@ -147,6 +150,25 @@ function CommandsView() {
   const mruThreadIds = useCommandPaletteStore((s) => s.mruThreadIds);
   const openWorktreeCleanupDialog = useWorktreeCleanupStore((s) => s.openDialog);
   const { hasCandidates: hasWorktreeCleanupCandidates } = useCurrentWorktreeCleanupCandidates();
+
+  // PR Review commands integration
+  const currentPath = useRouterState({ select: (s) => s.location.pathname });
+  const isPrReviewRoute = currentPath.includes("/pr-review");
+  const prReviewDashboard = usePrReviewStore((s) => s.selectedPrNumber);
+  const prReviewCommands = usePrReviewCommands({
+    enabled: isPrReviewRoute,
+    onStartAgentReview: () => {
+      closePalette();
+      const store = usePrReviewStore.getState();
+      // Trigger is handled by the caller
+      document.dispatchEvent(new CustomEvent("command-palette:start-agent-review"));
+    },
+    onOpenOnGitHub: () => {
+      closePalette();
+      document.dispatchEvent(new CustomEvent("command-palette:open-on-github"));
+    },
+  });
+
   const routeThreadId = useParams({
     strict: false,
     select: (params) => (params.threadId ? ThreadId.makeUnsafe(params.threadId) : null),
@@ -371,6 +393,11 @@ function CommandsView() {
       },
     });
 
+    // ── PR Review (conditionally visible) ──
+    for (const prCmd of prReviewCommands) {
+      cmds.push(prCmd);
+    }
+
     return cmds.filter((cmd) => !cmd.hidden);
   }, [
     projects,
@@ -389,6 +416,7 @@ function CommandsView() {
     pushMruThread,
     openWorktreeCleanupDialog,
     hasWorktreeCleanupCandidates,
+    prReviewCommands,
   ]);
 
   // Filter commands by query

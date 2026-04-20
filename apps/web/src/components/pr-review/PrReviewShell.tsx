@@ -6,7 +6,6 @@ import { PanelRightIcon } from "lucide-react";
 import { useAppSettings } from "~/appSettings";
 import { useMediaQuery } from "~/hooks/useMediaQuery";
 import { invalidatePrReviewQueries } from "~/lib/prReviewReactQuery";
-import { cn } from "~/lib/utils";
 import { ensureNativeApi } from "~/nativeApi";
 import { joinPath } from "~/components/review/reviewUtils";
 import { Button } from "~/components/ui/button";
@@ -394,7 +393,6 @@ export function PrReviewShell({
         requestChangesVariant={resolveRequestChangesButtonVariant(
           settings.prReviewRequestChangesTone,
         )}
-        reviewComposerRef={reviewComposerRef}
       />
 
       {/* Inspector sheet (mobile/tablet) */}

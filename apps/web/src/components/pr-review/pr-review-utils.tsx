@@ -13,6 +13,7 @@ import { openInPreferredEditor } from "~/editorPreferences";
 import { buildPatchCacheKey } from "~/lib/diffRendering";
 import { ensureNativeApi } from "~/nativeApi";
 import { inferLanguageIdForPath } from "~/vscode-icons";
+import { normalizeLanguageIdForHighlighting } from "~/lib/languageIds";
 
 export type PullRequestState = "open" | "closed" | "merged";
 export type InspectorTab = "threads" | "workflow" | "people";
@@ -170,11 +171,11 @@ export function buildFileDiffRenderKey(fileDiff: FileDiffMetadata): string {
 
 export function resolveFileDiffLanguage(fileDiff: FileDiffMetadata): SupportedLanguages | null {
   if (fileDiff.lang != null) {
-    return fileDiff.lang;
+    return normalizeLanguageIdForHighlighting(fileDiff.lang) as SupportedLanguages;
   }
   const path = resolveFileDiffPath(fileDiff);
   const languageId = inferLanguageIdForPath(path);
-  return languageId ? (languageId as SupportedLanguages) : null;
+  return languageId ? (normalizeLanguageIdForHighlighting(languageId) as SupportedLanguages) : null;
 }
 
 export function withInferredFileDiffLanguage(fileDiff: FileDiffMetadata): FileDiffMetadata {

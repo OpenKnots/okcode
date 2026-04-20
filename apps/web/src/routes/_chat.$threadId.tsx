@@ -200,6 +200,7 @@ function ChatThreadRouteView() {
   const rightPanelTab = useRightPanelStore((s) => s.activeTab);
   const openRightPanel = useRightPanelStore((s) => s.open);
   const closeRightPanel = useRightPanelStore((s) => s.close);
+  const setRightPanelTab = useRightPanelStore((s) => s.setActiveTab);
 
   // ── Code viewer state ─────────────────────────────────────────────
   const codeViewerOpen = useCodeViewerStore((state) => state.isOpen);
@@ -223,6 +224,12 @@ function ChatThreadRouteView() {
     if (!project) return null;
     return thread?.worktreePath ?? draftThread?.worktreePath ?? project.cwd;
   });
+  const hasThreadDiffs = useStore(
+    (store) =>
+      store.threads
+        .find((t) => t.id === threadId)
+        ?.turnDiffSummaries.some((summary) => summary.files.length > 0) ?? false,
+  );
 
   // ── Keep-alive flags so lazy content doesn't unmount on tab switch ─
   const [hasOpenedSimulation, setHasOpenedSimulation] = useState(simulationOpen);
@@ -295,6 +302,12 @@ function ChatThreadRouteView() {
     }
   }, [diffViewerOpen, openRightPanel]);
 
+  useEffect(() => {
+    if (!hasThreadDiffs && rightPanelTab === "diffs") {
+      setRightPanelTab("workspace", false);
+    }
+  }, [hasThreadDiffs, rightPanelTab, setRightPanelTab]);
+
   // ── Sync right panel close → close sub-panels ─────────────────────
   const prevRightPanelOpenRef = useRef(rightPanelOpen);
   useEffect(() => {
@@ -335,7 +348,7 @@ function ChatThreadRouteView() {
   // ── Right panel content (shared between desktop sidebar & mobile sheet) ──
   const rightPanelContent = (
     <div className="flex min-h-0 flex-1 flex-col bg-background">
-      <RightPanelHeader />
+      <RightPanelHeader hasDiffs={hasThreadDiffs} />
       <div className="relative flex-1 overflow-hidden">
         {rightPanelTab === "workspace" ? (
           <WorkspacePanel

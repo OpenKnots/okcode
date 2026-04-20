@@ -5,6 +5,7 @@ import {
   sanitizeGeneratedCommitSubject,
   sanitizeGeneratedPrBody,
   sanitizeGeneratedPrTitle,
+  stripProviderAttribution,
 } from "./generatedTextSanitization.ts";
 
 describe("generatedTextSanitization", () => {
@@ -70,6 +71,28 @@ describe("generatedTextSanitization", () => {
         "",
         "## Testing",
         "- Not run",
+      ].join("\n"),
+    );
+  });
+
+  it("removes equivalent agent attribution variants and preserves human trailers", () => {
+    expect(
+      stripProviderAttribution(
+        [
+          "Refine provider session recovery",
+          "",
+          "Authored by Codex",
+          "Written with ChatGPT",
+          "Signed-off-by: Claude Opus 4.6 <noreply@anthropic.com>",
+          "Co-Authored-By: GPT-5 Codex <noreply@openai.com>",
+          "Co-authored-by: Val Alexander <bunsthedev@gmail.com>",
+        ].join("\n"),
+      ),
+    ).toBe(
+      [
+        "Refine provider session recovery",
+        "",
+        "Co-authored-by: Val Alexander <bunsthedev@gmail.com>",
       ].join("\n"),
     );
   });

@@ -1,32 +1,28 @@
-import { CheckIcon, CopyIcon } from "lucide-react";
-import React, {
+import {
   Children,
-  Suspense,
+  useDeferredValue,
   isValidElement,
-  use,
-  useCallback,
   memo,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from "react";
 import type { Components } from "react-markdown";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { CodeHighlightErrorBoundary } from "./CodeHighlightErrorBoundary";
+import { ChatCodePreviewCard } from "./ChatCodePreviewCard";
 import { useAppSettings } from "../appSettings";
 import { openFileReference } from "../fileOpen";
 import { useFileViewNavigation } from "~/hooks/useFileViewNavigation";
 import { resolveDiffThemeName, type DiffThemeName } from "../lib/diffRendering";
 import {
-  extractFenceLanguage,
   getCachedHighlightedHtml,
   getHighlighterPromise,
   renderHighlightedCodeHtml,
   setCachedHighlightedHtml,
 } from "../lib/syntaxHighlighting";
+import { buildStreamingCodePreviewMeta } from "../lib/chatCodePreview";
 import { useTheme } from "../hooks/useTheme";
 import { resolveMarkdownFileLinkTarget } from "../markdown-links";
 import { readNativeApi } from "../nativeApi";
@@ -73,94 +69,90 @@ function extractCodeBlock(
   };
 }
 
-function MarkdownCodeBlock({ code, children }: { code: string; children: ReactNode }) {
-  const [copied, setCopied] = useState(false);
-  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const handleCopy = useCallback(() => {
-    if (typeof navigator === "undefined" || navigator.clipboard == null) {
-      return;
-    }
-    void navigator.clipboard
-      .writeText(code)
-      .then(() => {
-        if (copiedTimerRef.current != null) {
-          clearTimeout(copiedTimerRef.current);
-        }
-        setCopied(true);
-        copiedTimerRef.current = setTimeout(() => {
-          setCopied(false);
-          copiedTimerRef.current = null;
-        }, 1200);
-      })
-      .catch(() => undefined);
-  }, [code]);
-
-  useEffect(
-    () => () => {
-      if (copiedTimerRef.current != null) {
-        clearTimeout(copiedTimerRef.current);
-        copiedTimerRef.current = null;
-      }
-    },
-    [],
-  );
-
-  return (
-    <div className="chat-markdown-codeblock">
-      <button
-        type="button"
-        className="chat-markdown-copy-button"
-        onClick={handleCopy}
-        title={copied ? "Copied" : "Copy code"}
-        aria-label={copied ? "Copied" : "Copy code"}
-      >
-        {copied ? <CheckIcon className="size-3" /> : <CopyIcon className="size-3" />}
-      </button>
-      {children}
-    </div>
-  );
-}
-
-interface SuspenseShikiCodeBlockProps {
+interface HighlightedCodeBlockProps {
   className: string | undefined;
   code: string;
   themeName: DiffThemeName;
   isStreaming: boolean;
+  fallback: ReactNode;
 }
 
-function SuspenseShikiCodeBlock({
+function HighlightedCodeBlock({
   className,
   code,
   themeName,
   isStreaming,
-}: SuspenseShikiCodeBlockProps) {
-  const language = extractFenceLanguage(className);
-  const cachedHighlightedHtml = !isStreaming
-    ? getCachedHighlightedHtml(code, language, themeName, "chat-markdown")
-    : null;
-
-  if (cachedHighlightedHtml != null) {
-    return (
-      <div
-        className="chat-markdown-shiki"
-        dangerouslySetInnerHTML={{ __html: cachedHighlightedHtml }}
-      />
-    );
-  }
-
-  const highlighter = use(getHighlighterPromise(language));
-  const highlightedHtml = useMemo(() => {
-    return renderHighlightedCodeHtml(highlighter, code, language, themeName);
-  }, [code, highlighter, language, themeName]);
+  fallback,
+}: HighlightedCodeBlockProps) {
+  const deferredCode = useDeferredValue(code);
+  const [highlightedHtml, setHighlightedHtml] = useState<string | null>(null);
+  const [highlightFailed, setHighlightFailed] = useState(false);
+  const meta = useMemo(
+    () =>
+      buildStreamingCodePreviewMeta({
+        className,
+        code,
+        isStreaming,
+        highlightFailed,
+      }),
+    [className, code, highlightFailed, isStreaming],
+  );
+  const effectiveCode = isStreaming ? deferredCode : code;
 
   useEffect(() => {
-    if (!isStreaming) {
-      setCachedHighlightedHtml(code, language, themeName, "chat-markdown", highlightedHtml);
+    let cancelled = false;
+    const cachedHighlightedHtml = !isStreaming
+      ? getCachedHighlightedHtml(code, meta.language, themeName, "chat-markdown")
+      : null;
+
+    if (cachedHighlightedHtml != null) {
+      setHighlightFailed(false);
+      setHighlightedHtml(cachedHighlightedHtml);
+      return () => {
+        cancelled = true;
+      };
     }
-  }, [code, highlightedHtml, isStreaming, language, themeName]);
+
+    setHighlightedHtml((current) => (isStreaming ? current : null));
+    setHighlightFailed(false);
+
+    void getHighlighterPromise(meta.language)
+      .then((highlighter) => {
+        if (cancelled) return;
+        const nextHtml = renderHighlightedCodeHtml(
+          highlighter,
+          effectiveCode,
+          meta.language,
+          themeName,
+        );
+        if (cancelled) return;
+        setHighlightedHtml(nextHtml);
+        if (!isStreaming) {
+          setCachedHighlightedHtml(code, meta.language, themeName, "chat-markdown", nextHtml);
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setHighlightFailed(true);
+        setHighlightedHtml(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [code, effectiveCode, isStreaming, meta.language, themeName]);
 
   return (
-    <div className="chat-markdown-shiki" dangerouslySetInnerHTML={{ __html: highlightedHtml }} />
+    <ChatCodePreviewCard code={code} meta={meta} isStreaming={isStreaming}>
+      {highlightedHtml ? (
+        <div
+          className="chat-markdown-shiki"
+          dangerouslySetInnerHTML={{ __html: highlightedHtml }}
+        />
+      ) : (
+        fallback
+      )}
+    </ChatCodePreviewCard>
   );
 }
 
@@ -213,19 +205,15 @@ function ChatMarkdown({ text, cwd, isStreaming = false }: ChatMarkdownProps) {
           return <pre {...props}>{children}</pre>;
         }
 
+        const fallback = <pre {...props}>{children}</pre>;
         return (
-          <MarkdownCodeBlock code={codeBlock.code}>
-            <CodeHighlightErrorBoundary fallback={<pre {...props}>{children}</pre>}>
-              <Suspense fallback={<pre {...props}>{children}</pre>}>
-                <SuspenseShikiCodeBlock
-                  className={codeBlock.className}
-                  code={codeBlock.code}
-                  themeName={diffThemeName}
-                  isStreaming={isStreaming}
-                />
-              </Suspense>
-            </CodeHighlightErrorBoundary>
-          </MarkdownCodeBlock>
+          <HighlightedCodeBlock
+            className={codeBlock.className}
+            code={codeBlock.code}
+            themeName={diffThemeName}
+            isStreaming={isStreaming}
+            fallback={fallback}
+          />
         );
       },
     }),

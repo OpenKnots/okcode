@@ -7,12 +7,12 @@ export default Effect.gen(function* () {
   yield* sql`
     ALTER TABLE sme_conversations
     ADD COLUMN provider TEXT NOT NULL DEFAULT 'claudeAgent'
-  `.pipe(Effect.catch(() => Effect.void));
+  `.pipe(Effect.catchCause(() => Effect.void));
 
   yield* sql`
     ALTER TABLE sme_conversations
     ADD COLUMN auth_method TEXT NOT NULL DEFAULT 'auto'
-  `.pipe(Effect.catch(() => Effect.void));
+  `.pipe(Effect.catchCause(() => Effect.void));
 
   yield* sql`
     UPDATE sme_conversations

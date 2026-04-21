@@ -81,12 +81,12 @@ export default Effect.gen(function* () {
   yield* sql`
     ALTER TABLE projection_projects
     ADD COLUMN default_model_selection TEXT
-  `.pipe(Effect.catch(() => Effect.void));
+  `.pipe(Effect.catchCause(() => Effect.void));
 
   yield* sql`
     ALTER TABLE projection_threads
     ADD COLUMN model_selection TEXT
-  `.pipe(Effect.catch(() => Effect.void));
+  `.pipe(Effect.catchCause(() => Effect.void));
 
   const projectRows = yield* sql<ProjectRow>`
     SELECT

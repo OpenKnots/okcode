@@ -275,6 +275,7 @@ export interface PreviewNavigateResult {
 
 export interface DesktopBridge {
   getWsUrl: () => string | null;
+  captureWindow: () => Promise<string | null>;
   pickFolder: () => Promise<string | null>;
   confirm: (message: string) => Promise<boolean>;
   setTheme: (theme: DesktopTheme) => Promise<void>;

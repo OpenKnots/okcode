@@ -32,6 +32,7 @@ import type { ContextMenuItem } from "@okcode/contracts";
 import { NetService } from "@okcode/shared/Net";
 import { RotatingFileSink } from "@okcode/shared/logging";
 import { showDesktopConfirmDialog } from "./confirmDialog";
+import { waitForTcpServer } from "./backendStartup";
 import { createEmptyTabsState } from "./preview";
 import { DesktopPreviewController } from "./previewController";
 import { resolveDesktopRendererUrl } from "./rendererUrl";
@@ -54,6 +55,7 @@ import { isArm64HostRunningIntelBuild, resolveDesktopRuntimeInfo } from "./runti
 syncShellEnvironment();
 
 const PICK_FOLDER_CHANNEL = "desktop:pick-folder";
+const CAPTURE_WINDOW_CHANNEL = "desktop:capture-window";
 const CONFIRM_CHANNEL = "desktop:confirm";
 const SET_THEME_CHANNEL = "desktop:set-theme";
 const SET_SIDEBAR_OPACITY_CHANNEL = "desktop:set-sidebar-opacity";
@@ -1153,6 +1155,19 @@ function registerIpcHandlers(): void {
     return result.filePaths[0] ?? null;
   });
 
+  ipcMain.removeHandler(CAPTURE_WINDOW_CHANNEL);
+  ipcMain.handle(CAPTURE_WINDOW_CHANNEL, async (event) => {
+    try {
+      const image = await event.sender.capturePage();
+      if (image.isEmpty()) {
+        return null;
+      }
+      return image.toDataURL();
+    } catch {
+      return null;
+    }
+  });
+
   ipcMain.removeHandler(CONFIRM_CHANNEL);
   ipcMain.handle(CONFIRM_CHANNEL, async (_event, message: unknown) => {
     if (typeof message !== "string") {
@@ -1660,6 +1675,8 @@ async function bootstrap(): Promise<void> {
   writeDesktopLogHeader("bootstrap ipc handlers registered");
   startBackend();
   writeDesktopLogHeader("bootstrap backend start requested");
+  await waitForTcpServer({ host: "127.0.0.1", port: backendPort });
+  writeDesktopLogHeader(`bootstrap backend ready port=${backendPort}`);
   mainWindow = createWindow();
   writeDesktopLogHeader("bootstrap main window created");
 }

@@ -7,6 +7,8 @@ import { readDesktopPreviewBridge } from "~/desktopPreview";
 import { toastManager } from "~/components/ui/toast";
 import { Button } from "~/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipPopup } from "~/components/ui/tooltip";
+import { readDesktopBridge } from "~/lib/runtimeBridge";
+import { buildDomCaptureOptions, captureBaseScreenshotDataUrl } from "~/lib/screenshotCapture";
 import { cn, isMacPlatform } from "~/lib/utils";
 
 // ── Types ───────────────────────────────────────────────────────────
@@ -60,17 +62,17 @@ async function captureRegion(rect: {
 
   // Capture the full page at device resolution (DOM only — native BrowserView is excluded)
   const rootElement = document.documentElement;
-  const dataUrl = await toPng(rootElement, {
-    width: rootElement.scrollWidth,
-    height: rootElement.scrollHeight,
-    pixelRatio: dpr,
-    // Exclude our own overlay from the capture
-    filter: (node) => {
-      if (node instanceof HTMLElement && node.dataset.screenshotOverlay === "true") {
-        return false;
-      }
-      return true;
-    },
+  const desktopBridge = readDesktopBridge();
+  const dataUrl = await captureBaseScreenshotDataUrl({
+    captureWindow: () => desktopBridge?.captureWindow() ?? Promise.resolve(null),
+    captureDom: () =>
+      toPng(
+        rootElement,
+        buildDomCaptureOptions({
+          rootElement,
+          pixelRatio: dpr,
+        }),
+      ),
   });
 
   // Load into an Image to crop

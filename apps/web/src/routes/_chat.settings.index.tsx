@@ -5,7 +5,6 @@ import {
   ChevronDownIcon,
   Loader2Icon,
   PlusIcon,
-  RefreshCwIcon,
   SkipForwardIcon,
   XCircleIcon,
   XIcon,
@@ -39,6 +38,7 @@ import { Button } from "../components/ui/button";
 import { Collapsible, CollapsibleContent } from "../components/ui/collapsible";
 import { EnvironmentVariablesEditor } from "../components/EnvironmentVariablesEditor";
 import { HotkeysSettingsSection } from "../components/settings/HotkeysSettingsSection";
+import { ProviderStatusRefreshButton } from "../components/settings/ProviderStatusRefreshButton";
 import { SettingsShell, type SettingsSectionId } from "../components/settings/SettingsShell";
 import { useSettingsRouteContext } from "../components/settings/SettingsRouteContext";
 import {
@@ -64,6 +64,7 @@ import {
   projectEnvironmentVariablesQueryOptions,
 } from "../lib/environmentVariablesReactQuery";
 import { normalizeProjectIconPath } from "../lib/projectIcons";
+import { useProjectIconFilePicker } from "../hooks/useProjectIconFilePicker";
 import { updateProjectIconOverride } from "../lib/projectMeta";
 import {
   getSelectableThreadProviders,
@@ -335,7 +336,7 @@ function AuthenticationStatusCard({
         <div className="rounded-lg border border-border/60 bg-card/60 px-3 py-2">
           <div className="font-medium text-foreground">Authenticate</div>
           <code className="mt-1 block break-all text-[11px]">
-            {guide.authCmd ?? "Use gateway password"}
+            {guide.authCmd ?? "Use gateway shared secret/token"}
           </code>
         </div>
         <div className="rounded-lg border border-border/60 bg-card/60 px-3 py-2">
@@ -444,6 +445,11 @@ function SettingsRouteView() {
   const activeProjectId = selectedProjectId ?? projects[0]?.id ?? null;
   const selectedProject = projects.find((project) => project.id === activeProjectId) ?? null;
   const [projectIconDraft, setProjectIconDraft] = useState("");
+  const { fileInputRef, openFilePicker, handleFileChange } = useProjectIconFilePicker({
+    onFileSelected: (dataUrl) => {
+      setProjectIconDraft(dataUrl);
+    },
+  });
   const selectedProjectEnvironmentVariablesQuery = useQuery(
     projectEnvironmentVariablesQueryOptions(activeProjectId),
   );
@@ -471,6 +477,7 @@ function SettingsRouteView() {
   const keybindingsConfigPath = serverConfigQuery.data?.keybindingsConfigPath ?? null;
   const availableEditors = serverConfigQuery.data?.availableEditors;
   const providerStatuses = serverConfigQuery.data?.providers ?? [];
+  const isRefreshingProviderStatuses = serverConfigQuery.isFetching;
   const selectableProviders = getSelectableThreadProviders({
     statuses: providerStatuses,
     openclawGatewayUrl: settings.openclawGatewayUrl,
@@ -856,34 +863,6 @@ function SettingsRouteView() {
                     ))}
                   </SelectPopup>
                 </Select>
-              }
-            />
-
-            <SettingsRow
-              title="Stitch border"
-              description="Show the decorative stitch border around the viewport."
-              resetAction={
-                settings.showStitchBorder !== defaults.showStitchBorder ? (
-                  <SettingResetButton
-                    label="stitch border"
-                    onClick={() =>
-                      updateSettings({
-                        showStitchBorder: defaults.showStitchBorder,
-                      })
-                    }
-                  />
-                ) : null
-              }
-              control={
-                <Switch
-                  checked={settings.showStitchBorder}
-                  onCheckedChange={(checked) =>
-                    updateSettings({
-                      showStitchBorder: Boolean(checked),
-                    })
-                  }
-                  aria-label="Show stitch border"
-                />
               }
             />
 
@@ -1330,10 +1309,10 @@ function SettingsRouteView() {
             title="Authentication"
             description="Only providers that are ready and authenticated enough to run will appear in the new-thread provider picker. Existing threads remain pinned to their current provider."
             actions={
-              <Button size="sm" variant="outline" onClick={() => void refreshProviderStatuses()}>
-                <RefreshCwIcon className="size-3.5" />
-                Refresh status
-              </Button>
+              <ProviderStatusRefreshButton
+                refreshing={isRefreshingProviderStatuses}
+                onRefresh={() => void refreshProviderStatuses()}
+              />
             }
           >
             <SettingsRow
@@ -1564,7 +1543,9 @@ function SettingsRouteView() {
                   </span>
                 </label>
                 <label htmlFor="openclaw-password" className="block">
-                  <span className="block text-xs font-medium text-foreground">Password</span>
+                  <span className="block text-xs font-medium text-foreground">
+                    Shared Secret / Token
+                  </span>
                   <Input
                     id="openclaw-password"
                     className="mt-1"
@@ -1860,6 +1841,23 @@ function SettingsRouteView() {
                     aria-label="Project icon path"
                     disabled={!selectedProject}
                   />
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(event) => {
+                      void handleFileChange(event);
+                    }}
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={!selectedProject}
+                    onClick={openFilePicker}
+                  >
+                    Choose image
+                  </Button>
                   <Button
                     size="sm"
                     variant="outline"
@@ -2144,6 +2142,7 @@ export const Route = createFileRoute("/_chat/settings/")({
       section === "authentication" ||
       section === "hotkeys" ||
       section === "environment" ||
+      section === "projects" ||
       section === "git" ||
       section === "models" ||
       section === "mobile" ||

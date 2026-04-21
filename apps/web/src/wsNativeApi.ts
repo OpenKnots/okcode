@@ -106,6 +106,14 @@ export function onTransportStateChange(listener: (state: TransportState) => void
 }
 
 /**
+ * Read-only snapshot of the current transport state.
+ * Returns "connecting" until the transport is initialised.
+ */
+export function getTransportStateSnapshot(): TransportState {
+  return instance?.transport.getState() ?? "connecting";
+}
+
+/**
  * Read-only snapshot of transport connection metrics.
  * Returns null if the transport is not initialised yet.
  */

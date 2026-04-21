@@ -10,9 +10,10 @@ export function ProjectIcon({
   iconPath?: string | null | undefined;
   className?: string;
 }) {
+  const resolvedIconPath = iconPath?.trim();
   return (
     <img
-      src={resolveProjectIconUrl({ cwd, iconPath })}
+      src={resolveProjectIconUrl({ cwd, iconPath: resolvedIconPath })}
       alt=""
       aria-hidden="true"
       loading="lazy"

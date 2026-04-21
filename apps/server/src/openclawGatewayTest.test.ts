@@ -140,8 +140,8 @@ describe("runOpenclawGatewayTest", () => {
     expect(connectParams?.client?.mode).toBe("backend");
     expect(connectParams?.client?.displayName).toBe("OK Code gateway test");
     expect(connectParams?.client?.deviceFamily).toBe("server");
-    expect(connectParams?.auth?.password).toBe("topsecret");
-    expect(connectParams?.auth?.token).toBeUndefined();
+    expect(connectParams?.auth?.token).toBe("topsecret");
+    expect(connectParams?.auth?.password).toBeUndefined();
     expect(connectParams?.auth?.deviceToken).toBeUndefined();
     expect(connectParams?.device?.id).toMatch(/^[a-f0-9]{64}$/);
     expect(connectParams?.device?.id).not.toMatch(/^device_/);

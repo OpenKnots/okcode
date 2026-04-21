@@ -8,6 +8,7 @@ import {
   stripInlineTerminalContextPlaceholders,
   type TerminalContextDraft,
 } from "../lib/terminalContext";
+export { readFileAsDataUrl } from "~/lib/fileData";
 import { type PromptEnhancementId } from "../promptEnhancement";
 export { buildLocalDraftThread } from "../draftThreads";
 
@@ -68,23 +69,6 @@ export interface PullRequestDialogState {
 export interface IssueDialogState {
   initialReference: string | null;
   key: number;
-}
-
-export function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.addEventListener("load", () => {
-      if (typeof reader.result === "string") {
-        resolve(reader.result);
-        return;
-      }
-      reject(new Error("Could not read image data."));
-    });
-    reader.addEventListener("error", () => {
-      reject(reader.error ?? new Error("Failed to read image."));
-    });
-    reader.readAsDataURL(file);
-  });
 }
 
 export function buildTemporaryWorktreeBranchName(): string {
@@ -162,6 +146,12 @@ export function findLatestRevertableUserMessageId(
   return null;
 }
 
+/**
+ * Extension point for injecting hidden provider-level input alongside user
+ * messages.  Currently returns `undefined` — no hidden guidance is added.
+ * The function signature is kept so the call sites and tests stay wired up;
+ * future prompt-enhancement features will implement the body.
+ */
 export function buildHiddenProviderInput(options: {
   prompt: string;
   terminalContexts: ReadonlyArray<TerminalContextDraft>;

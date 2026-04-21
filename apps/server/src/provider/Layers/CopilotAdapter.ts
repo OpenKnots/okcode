@@ -1031,15 +1031,6 @@ const makeCopilotAdapter = (options?: CopilotAdapterLiveOptions) =>
         });
       });
 
-    const steerTurn: CopilotAdapterShape["steerTurn"] = () =>
-      Effect.fail(
-        new ProviderAdapterRequestError({
-          provider: PROVIDER,
-          method: "turn/steer",
-          detail: "Turn steering is not supported by GitHub Copilot.",
-        }),
-      );
-
     const respondToRequest: CopilotAdapterShape["respondToRequest"] = (
       threadId,
       requestId,
@@ -1161,7 +1152,6 @@ const makeCopilotAdapter = (options?: CopilotAdapterLiveOptions) =>
       },
       startSession,
       sendTurn,
-      steerTurn,
       interruptTurn,
       respondToRequest,
       respondToUserInput,

@@ -56,6 +56,8 @@ describe("normalizeModelSlug", () => {
 
   it("uses provider-specific aliases", () => {
     expect(normalizeModelSlug("sonnet", "claudeAgent")).toBe("claude-sonnet-4-6");
+    expect(normalizeModelSlug("opus", "claudeAgent")).toBe("claude-opus-4-7");
+    expect(normalizeModelSlug("opus-4.7", "claudeAgent")).toBe("claude-opus-4-7");
     expect(normalizeModelSlug("opus-4.6", "claudeAgent")).toBe("claude-opus-4-6");
     expect(normalizeModelSlug("claude-haiku-4-5-20251001", "claudeAgent")).toBe("claude-haiku-4-5");
   });
@@ -171,6 +173,16 @@ describe("getReasoningEffortOptions", () => {
     expect(getReasoningEffortOptions("codex")).toEqual(REASONING_EFFORT_OPTIONS_BY_PROVIDER.codex);
   });
 
+  it("returns claude effort options for Opus 4.7", () => {
+    expect(getReasoningEffortOptions("claudeAgent", "claude-opus-4-7")).toEqual([
+      "low",
+      "medium",
+      "high",
+      "max",
+      "ultrathink",
+    ]);
+  });
+
   it("returns claude effort options for Opus 4.6", () => {
     expect(getReasoningEffortOptions("claudeAgent", "claude-opus-4-6")).toEqual([
       "low",
@@ -198,6 +210,7 @@ describe("getReasoningEffortOptions", () => {
 describe("inferProviderForModel", () => {
   it("detects known provider model slugs", () => {
     expect(inferProviderForModel("gpt-5.3-codex")).toBe("codex");
+    expect(inferProviderForModel("claude-opus-4-7")).toBe("claudeAgent");
     expect(inferProviderForModel("claude-sonnet-4-6")).toBe("claudeAgent");
     expect(inferProviderForModel("anthropic/claude-sonnet-4-6")).toBe("claudeAgent");
     expect(inferProviderForModel("sonnet")).toBe("claudeAgent");
@@ -299,7 +312,8 @@ describe("normalizeClaudeModelOptions", () => {
 });
 
 describe("supportsClaudeAdaptiveReasoning", () => {
-  it("only enables adaptive reasoning for Opus 4.6 and Sonnet 4.6", () => {
+  it("only enables adaptive reasoning for Opus 4.7, Opus 4.6, and Sonnet 4.6", () => {
+    expect(supportsClaudeAdaptiveReasoning("claude-opus-4-7")).toBe(true);
     expect(supportsClaudeAdaptiveReasoning("claude-opus-4-6")).toBe(true);
     expect(supportsClaudeAdaptiveReasoning("claude-sonnet-4-6")).toBe(true);
     expect(supportsClaudeAdaptiveReasoning("claude-haiku-4-5")).toBe(false);
@@ -308,7 +322,8 @@ describe("supportsClaudeAdaptiveReasoning", () => {
 });
 
 describe("supportsClaudeMaxEffort", () => {
-  it("only enables max effort for Opus 4.6", () => {
+  it("only enables max effort for Opus 4.7 and Opus 4.6", () => {
+    expect(supportsClaudeMaxEffort("claude-opus-4-7")).toBe(true);
     expect(supportsClaudeMaxEffort("claude-opus-4-6")).toBe(true);
     expect(supportsClaudeMaxEffort("claude-sonnet-4-6")).toBe(false);
     expect(supportsClaudeMaxEffort("claude-haiku-4-5")).toBe(false);
@@ -317,9 +332,11 @@ describe("supportsClaudeMaxEffort", () => {
 });
 
 describe("supportsClaudeFastMode", () => {
-  it("only enables Claude fast mode for Opus 4.6", () => {
-    expect(supportsClaudeFastMode("claude-opus-4-6")).toBe(true);
+  it("only enables Claude fast mode for Opus 4.7 and Opus 4.6", () => {
+    expect(supportsClaudeFastMode("claude-opus-4-7")).toBe(true);
     expect(supportsClaudeFastMode("opus")).toBe(true);
+    expect(supportsClaudeFastMode("claude-opus-4-6")).toBe(true);
+    expect(supportsClaudeFastMode("opus-4.6")).toBe(true);
     expect(supportsClaudeFastMode("claude-sonnet-4-6")).toBe(false);
     expect(supportsClaudeFastMode("claude-haiku-4-5")).toBe(false);
     expect(supportsClaudeFastMode(undefined)).toBe(false);
@@ -327,7 +344,8 @@ describe("supportsClaudeFastMode", () => {
 });
 
 describe("supportsClaudeUltrathinkKeyword", () => {
-  it("only enables ultrathink keyword handling for Opus 4.6 and Sonnet 4.6", () => {
+  it("only enables ultrathink keyword handling for Opus 4.7, Opus 4.6, and Sonnet 4.6", () => {
+    expect(supportsClaudeUltrathinkKeyword("claude-opus-4-7")).toBe(true);
     expect(supportsClaudeUltrathinkKeyword("claude-opus-4-6")).toBe(true);
     expect(supportsClaudeUltrathinkKeyword("claude-sonnet-4-6")).toBe(true);
     expect(supportsClaudeUltrathinkKeyword("claude-haiku-4-5")).toBe(false);
@@ -336,6 +354,7 @@ describe("supportsClaudeUltrathinkKeyword", () => {
 
 describe("supportsClaudeThinkingToggle", () => {
   it("only enables the Claude thinking toggle for Haiku 4.5", () => {
+    expect(supportsClaudeThinkingToggle("claude-opus-4-7")).toBe(false);
     expect(supportsClaudeThinkingToggle("claude-opus-4-6")).toBe(false);
     expect(supportsClaudeThinkingToggle("claude-sonnet-4-6")).toBe(false);
     expect(supportsClaudeThinkingToggle("claude-haiku-4-5")).toBe(true);

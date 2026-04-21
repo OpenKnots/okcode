@@ -1,26 +1,21 @@
 import { useSyncExternalStore } from "react";
 
-import { createWsNativeApi, onTransportStateChange } from "../wsNativeApi";
+import {
+  createWsNativeApi,
+  getTransportStateSnapshot,
+  onTransportStateChange,
+} from "../wsNativeApi";
 import type { TransportState } from "../wsTransport";
+
+function subscribe(callback: () => void): () => void {
+  createWsNativeApi();
+  return onTransportStateChange(() => callback());
+}
 
 function getServerSnapshot(): TransportState {
   return "connecting";
 }
 
 export function useTransportState(): TransportState {
-  return useSyncExternalStore(
-    (callback) => {
-      createWsNativeApi();
-      return onTransportStateChange(() => callback());
-    },
-    () => {
-      let state: TransportState = "connecting";
-      const unsubscribe = onTransportStateChange((nextState) => {
-        state = nextState;
-      });
-      unsubscribe();
-      return state;
-    },
-    getServerSnapshot,
-  );
+  return useSyncExternalStore(subscribe, getTransportStateSnapshot, getServerSnapshot);
 }

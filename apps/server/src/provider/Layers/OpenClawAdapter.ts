@@ -1014,15 +1014,6 @@ function makeOpenClawAdapter(options?: OpenClawAdapterLiveOptions) {
         });
       });
 
-    const steerTurn: OpenClawAdapterShape["steerTurn"] = () =>
-      Effect.fail(
-        new ProviderAdapterRequestError({
-          provider: PROVIDER,
-          method: "turn/steer",
-          detail: "Turn steering is not supported by OpenClaw sessions.",
-        }),
-      );
-
     // ── Adapter interface: respondToRequest ──────────────────────
 
     const respondToRequest: OpenClawAdapterShape["respondToRequest"] = (
@@ -1154,7 +1145,6 @@ function makeOpenClawAdapter(options?: OpenClawAdapterLiveOptions) {
       capabilities: { sessionModelSwitch: "restart-session" },
       startSession,
       sendTurn,
-      steerTurn,
       interruptTurn,
       respondToRequest,
       respondToUserInput,

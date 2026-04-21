@@ -9,6 +9,8 @@ Use this directory for versioned release notes and asset manifests only:
 
 | Version              | Summary                                                                                                   | Assets                        |
 | -------------------- | --------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| [0.26.0](v0.26.0.md) | File-content search, desktop terminal docking, transport sna                                              | [manifest](v0.26.0/assets.md) |
+| [0.25.0](v0.25.0.md) | Project icon file picker, gateway auth terminology cleanup,                                               | [manifest](v0.25.0/assets.md) |
 | [0.24.0](v0.24.0.md) | Theme presets, markdown rendering unification, project icon                                               | [manifest](v0.24.0/assets.md) |
 | [0.23.3](v0.23.3.md) | Patch release to harden desktop migrations and normalize leg                                              | [manifest](v0.23.3/assets.md) |
 | [0.23.2](v0.23.2.md) | Desktop migration hardening and model-selection backfill patch release                                    | [manifest](v0.23.2/assets.md) |

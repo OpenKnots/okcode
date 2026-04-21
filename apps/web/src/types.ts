@@ -59,8 +59,6 @@ export interface ChatMessage {
   streaming: boolean;
   /** When true, this message is queued locally and has not yet been dispatched to the server. */
   queued?: boolean | undefined;
-  /** When true, this user message was injected into an already-running turn via steer. */
-  steered?: boolean | undefined;
 }
 
 export interface ProposedPlan {

@@ -17,7 +17,6 @@ import {
   ProviderRespondToUserInputInput,
   ProviderSendTurnInput,
   ProviderSessionStartInput,
-  ProviderSteerTurnInput,
   ProviderStopSessionInput,
   type ProviderRuntimeEvent,
   type ProviderSession,
@@ -365,26 +364,6 @@ const makeProviderService = (options?: ProviderServiceLiveOptions) =>
         return turn;
       });
 
-    const steerTurn: ProviderServiceShape["steerTurn"] = (rawInput) =>
-      Effect.gen(function* () {
-        const parsed = yield* decodeInputOrValidationError({
-          operation: "ProviderService.steerTurn",
-          schema: ProviderSteerTurnInput,
-          payload: rawInput,
-        });
-
-        const input = {
-          ...parsed,
-          attachments: parsed.attachments ?? [],
-        };
-        const routed = yield* resolveRoutableSession({
-          threadId: input.threadId,
-          operation: "ProviderService.steerTurn",
-          allowRecovery: true,
-        });
-        yield* routed.adapter.steerTurn(input);
-      });
-
     const interruptTurn: ProviderServiceShape["interruptTurn"] = (rawInput) =>
       Effect.gen(function* () {
         const input = yield* decodeInputOrValidationError({
@@ -558,7 +537,6 @@ const makeProviderService = (options?: ProviderServiceLiveOptions) =>
     return {
       startSession,
       sendTurn,
-      steerTurn,
       interruptTurn,
       respondToRequest,
       respondToUserInput,

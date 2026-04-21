@@ -54,6 +54,23 @@ export const BUILT_IN_PROVIDER_MODELS: Record<ProviderKind, ReadonlyArray<Provid
   ],
   claudeAgent: [
     {
+      slug: "claude-opus-4-7",
+      name: "Claude Opus 4.7",
+      capabilities: {
+        reasoningEffortLevels: [
+          { value: "low", label: "Low" },
+          { value: "medium", label: "Medium" },
+          { value: "high", label: "High", isDefault: true },
+          { value: "max", label: "Max" },
+          { value: "ultrathink", label: "Ultrathink" },
+        ],
+        supportsFastMode: true,
+        supportsThinkingToggle: false,
+        contextWindowOptions: [],
+        promptInjectedEffortLevels: ["ultrathink"],
+      },
+    },
+    {
       slug: "claude-opus-4-6",
       name: "Claude Opus 4.6",
       capabilities: {
@@ -110,6 +127,7 @@ export const BUILT_IN_PROVIDER_MODELS: Record<ProviderKind, ReadonlyArray<Provid
     { slug: "claude-sonnet-4-6", name: "Claude Sonnet 4.6", capabilities: noCapabilities },
     { slug: "claude-sonnet-4-5", name: "Claude Sonnet 4.5", capabilities: noCapabilities },
     { slug: "claude-haiku-4-5", name: "Claude Haiku 4.5", capabilities: noCapabilities },
+    { slug: "claude-opus-4-7", name: "Claude Opus 4.7", capabilities: noCapabilities },
     { slug: "claude-opus-4-6", name: "Claude Opus 4.6", capabilities: noCapabilities },
     { slug: "claude-opus-4-5", name: "Claude Opus 4.5", capabilities: noCapabilities },
     { slug: "gemini-3.1-pro", name: "Gemini 3.1 Pro", capabilities: noCapabilities },

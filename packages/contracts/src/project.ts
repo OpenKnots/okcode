@@ -25,6 +25,8 @@ export const ProjectEntry = Schema.Struct({
   path: TrimmedNonEmptyString,
   kind: ProjectEntryKind,
   parentPath: Schema.optional(TrimmedNonEmptyString),
+  /** When set, the entry matched via file-content search. Shows the matching line. */
+  contentMatch: Schema.optional(Schema.String),
 });
 export type ProjectEntry = typeof ProjectEntry.Type;
 

@@ -415,7 +415,6 @@ export const MessagesTimeline = memo(function MessagesTimeline({
           const terminalContexts = displayedUserMessage.contexts;
           const canRevertAgentWork = revertTurnCountByUserMessageId.has(row.message.id);
           const isQueued = row.message.queued === true;
-          const isSteered = row.message.steered === true;
           return (
             <div className="flex justify-end">
               <div
@@ -517,14 +516,6 @@ export const MessagesTimeline = memo(function MessagesTimeline({
                     )}
                   </div>
                   <div className="flex items-center gap-1.5">
-                    {isSteered && (
-                      <Badge
-                        variant="secondary"
-                        className="h-auto rounded-full bg-sky-500/10 px-1.5 py-0.5 text-[9px] font-medium text-sky-700 dark:text-sky-300"
-                      >
-                        Steer
-                      </Badge>
-                    )}
                     {isQueued && (
                       <button
                         type="button"

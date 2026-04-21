@@ -549,13 +549,13 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
       } satisfies OrchestrationCommand;
     }
 
-    if (input.command.type !== "thread.turn.start" && input.command.type !== "thread.turn.steer") {
+    if (input.command.type !== "thread.turn.start") {
       return input.command as OrchestrationCommand;
     }
-    const turnCommand = input.command;
+    const turnStartCommand = input.command;
 
     const normalizedAttachments = yield* Effect.forEach(
-      turnCommand.message.attachments,
+      turnStartCommand.message.attachments,
       (attachment) =>
         Effect.gen(function* () {
           const parsed = parseBase64DataUrl(attachment.dataUrl);
@@ -598,7 +598,7 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
             }
           }
 
-          const attachmentId = createAttachmentId(turnCommand.threadId);
+          const attachmentId = createAttachmentId(turnStartCommand.threadId);
           if (!attachmentId) {
             return yield* new RouteRequestError({
               message: "Failed to create a safe attachment id.",
@@ -655,9 +655,9 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
     );
 
     return {
-      ...turnCommand,
+      ...turnStartCommand,
       message: {
-        ...turnCommand.message,
+        ...turnStartCommand.message,
         attachments: normalizedAttachments,
       },
     } satisfies OrchestrationCommand;

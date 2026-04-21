@@ -226,6 +226,7 @@ function ChatThreadRouteView() {
 
   // ── Keep-alive flags so lazy content doesn't unmount on tab switch ─
   const [hasOpenedSimulation, setHasOpenedSimulation] = useState(simulationOpen);
+  const [rightPanelTerminalDock, setRightPanelTerminalDock] = useState<HTMLDivElement | null>(null);
 
   const closeCodeViewer = useCallback(() => {
     closeCodeViewerStore();
@@ -236,6 +237,9 @@ function ChatThreadRouteView() {
   const closeSimulation = useCallback(() => {
     closeSimulationStore();
   }, [closeSimulationStore]);
+  const setRightPanelTerminalDockRef = useCallback((node: HTMLDivElement | null) => {
+    setRightPanelTerminalDock(node);
+  }, []);
 
   useEffect(() => {
     const onWindowKeyDown = (event: KeyboardEvent) => {
@@ -330,7 +334,7 @@ function ChatThreadRouteView() {
 
   // ── Right panel content (shared between desktop sidebar & mobile sheet) ──
   const rightPanelContent = (
-    <div className="flex h-full flex-col bg-background">
+    <div className="flex min-h-0 flex-1 flex-col bg-background">
       <RightPanelHeader />
       <div className="relative flex-1 overflow-hidden">
         {rightPanelTab === "workspace" ? (
@@ -404,7 +408,13 @@ function ChatThreadRouteView() {
     return (
       <>
         <SidebarInset className="relative h-dvh min-h-0 overflow-hidden overscroll-y-none bg-background text-foreground">
-          <ChatView key={threadId} threadId={threadId} onMinimize={onMinimize} />
+          <ChatView
+            key={threadId}
+            threadId={threadId}
+            onMinimize={onMinimize}
+            rightPanelOpen={rightPanelOpen}
+            rightPanelTerminalDock={null}
+          />
         </SidebarInset>
         <RightPanelSheet open={rightPanelOpen} onClose={closeRightPanel}>
           {rightPanelContent}
@@ -417,7 +427,13 @@ function ChatThreadRouteView() {
   return (
     <>
       <SidebarInset className="relative h-dvh min-h-0 overflow-hidden overscroll-y-none bg-background text-foreground">
-        <ChatView key={threadId} threadId={threadId} onMinimize={onMinimize} />
+        <ChatView
+          key={threadId}
+          threadId={threadId}
+          onMinimize={onMinimize}
+          rightPanelOpen={rightPanelOpen}
+          rightPanelTerminalDock={rightPanelTerminalDock}
+        />
       </SidebarInset>
       <SidebarProvider
         defaultOpen={false}
@@ -438,7 +454,10 @@ function ChatThreadRouteView() {
             storageKey: RIGHT_PANEL_SIDEBAR_WIDTH_STORAGE_KEY,
           }}
         >
-          {rightPanelContent}
+          <div className="flex min-h-0 flex-1 flex-col">
+            {rightPanelContent}
+            <div ref={setRightPanelTerminalDockRef} data-right-panel-terminal-dock="" />
+          </div>
           <SidebarRail />
         </Sidebar>
       </SidebarProvider>

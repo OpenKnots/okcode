@@ -436,7 +436,7 @@ function buildConnectParams(input: {
   const auth =
     input.auth.kind === "password"
       ? {
-          password: input.auth.value,
+          token: input.auth.value,
         }
       : input.auth.kind === "deviceToken"
         ? {

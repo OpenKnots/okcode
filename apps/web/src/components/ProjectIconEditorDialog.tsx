@@ -3,6 +3,7 @@ import type { Project } from "~/types";
 import { readNativeApi } from "~/nativeApi";
 
 import { normalizeProjectIconPath, resolveSuggestedProjectIconPath } from "~/lib/projectIcons";
+import { useProjectIconFilePicker } from "~/hooks/useProjectIconFilePicker";
 import { Button } from "./ui/button";
 import {
   Dialog,
@@ -33,6 +34,12 @@ export function ProjectIconEditorDialog({
   const [suggestedIconPath, setSuggestedIconPath] = useState<string | null>(null);
   const [isLoadingSuggestion, setIsLoadingSuggestion] = useState(false);
   const draftWasTouchedRef = useRef(false);
+  const { fileInputRef, openFilePicker, handleFileChange } = useProjectIconFilePicker({
+    onFileSelected: (dataUrl) => {
+      draftWasTouchedRef.current = true;
+      setDraft(dataUrl);
+    },
+  });
 
   useEffect(() => {
     if (!open || !projectId || !projectCwd) {
@@ -104,8 +111,8 @@ export function ProjectIconEditorDialog({
         <DialogHeader>
           <DialogTitle>Project icon</DialogTitle>
           <DialogDescription>
-            Set a path relative to the project root or an absolute image URL. Leave it blank to fall
-            back to the detected favicon or icon file.
+            Set a path relative to the project root, an absolute image URL, or choose an image file
+            from your computer. Leave it blank to fall back to the detected favicon or icon file.
           </DialogDescription>
         </DialogHeader>
 
@@ -135,19 +142,34 @@ export function ProjectIconEditorDialog({
             >
               Icon path
             </label>
-            <Input
-              id="project-icon-path"
-              value={draft}
-              onChange={(event) => {
-                draftWasTouchedRef.current = true;
-                setDraft(event.target.value);
-              }}
-              placeholder={
-                suggestedIconPath ?? "public/favicon.svg or https://example.com/icon.png"
-              }
-              autoComplete="off"
-              spellCheck={false}
-            />
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <Input
+                id="project-icon-path"
+                value={draft}
+                onChange={(event) => {
+                  draftWasTouchedRef.current = true;
+                  setDraft(event.target.value);
+                }}
+                placeholder={
+                  suggestedIconPath ??
+                  "public/favicon.svg, https://example.com/icon.png, or choose an image"
+                }
+                autoComplete="off"
+                spellCheck={false}
+              />
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(event) => {
+                  void handleFileChange(event);
+                }}
+              />
+              <Button type="button" variant="outline" onClick={openFilePicker}>
+                Choose image
+              </Button>
+            </div>
           </div>
         </div>
 

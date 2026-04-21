@@ -1640,7 +1640,7 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
       case WS_METHODS.serverGetConfig:
         const keybindingsConfig = yield* keybindingsManager.loadConfigState;
         const providers = yield* getProviderStatuses();
-        const codexConfig = yield* readCodexConfigSummary();
+        const codexConfig = yield* readCodexConfigSummary({ probeLocalBackends: true });
         return {
           cwd,
           keybindingsConfigPath,

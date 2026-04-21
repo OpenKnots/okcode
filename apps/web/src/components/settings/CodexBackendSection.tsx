@@ -26,7 +26,7 @@ function CodexBackendGroup({
             className="grid gap-3 border-t border-border/60 px-4 py-3 first:border-t-0 sm:grid-cols-[minmax(0,1fr)_minmax(10rem,12rem)_auto] sm:items-center"
           >
             <div className="min-w-0">
-              <div className="flex min-w-0 items-center gap-2">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <span className="truncate text-sm font-medium text-foreground">{row.title}</span>
                 {row.statusBadge ? (
                   <span
@@ -40,6 +40,24 @@ function CodexBackendGroup({
                     )}
                   >
                     {row.statusBadge}
+                  </span>
+                ) : null}
+                {row.detectionBadge ? (
+                  <span
+                    className={cn(
+                      "shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em]",
+                      row.detectionBadge.reachable
+                        ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                        : "border-slate-500/25 bg-slate-500/10 text-slate-700 dark:text-slate-300",
+                    )}
+                  >
+                    {row.detectionBadge.reachable
+                      ? typeof row.detectionBadge.modelCount === "number"
+                        ? `Detected · ${row.detectionBadge.modelCount} model${
+                            row.detectionBadge.modelCount === 1 ? "" : "s"
+                          }`
+                        : "Detected"
+                      : "Not running"}
                   </span>
                 ) : null}
               </div>

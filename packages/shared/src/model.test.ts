@@ -10,6 +10,7 @@ import {
 
 import {
   applyClaudePromptEffortPrefix,
+  CLAUDE_ULTRATHINK_THINKING_TOKENS,
   getEffectiveClaudeCodeEffort,
   getDefaultModel,
   getDefaultReasoningEffort,
@@ -20,6 +21,7 @@ import {
   normalizeClaudeModelOptions,
   normalizeCodexModelOptions,
   normalizeModelSlug,
+  resolveClaudeUltrathinkSdkConfig,
   resolveReasoningEffortForProvider,
   resolveSelectableModel,
   resolveModelSlug,
@@ -271,6 +273,61 @@ describe("getEffectiveClaudeCodeEffort", () => {
   it("returns null when no claude effort is selected", () => {
     expect(getEffectiveClaudeCodeEffort(null)).toBeNull();
     expect(getEffectiveClaudeCodeEffort(undefined)).toBeNull();
+  });
+});
+
+describe("resolveClaudeUltrathinkSdkConfig", () => {
+  it("passes non-ultrathink efforts through without a thinking budget bump", () => {
+    expect(resolveClaudeUltrathinkSdkConfig("claude-opus-4-7", "high", null)).toEqual({
+      effort: "high",
+      maxThinkingTokens: undefined,
+    });
+    expect(resolveClaudeUltrathinkSdkConfig("claude-sonnet-4-6", null, null)).toEqual({
+      effort: null,
+      maxThinkingTokens: undefined,
+    });
+  });
+
+  it("preserves user-configured maxThinkingTokens outside ultrathink", () => {
+    expect(resolveClaudeUltrathinkSdkConfig("claude-opus-4-7", "medium", 4096)).toEqual({
+      effort: "medium",
+      maxThinkingTokens: 4096,
+    });
+  });
+
+  it("maps ultrathink on Opus 4.7 to effort=max with the ultrathink thinking budget", () => {
+    expect(resolveClaudeUltrathinkSdkConfig("claude-opus-4-7", "ultrathink", null)).toEqual({
+      effort: "max",
+      maxThinkingTokens: CLAUDE_ULTRATHINK_THINKING_TOKENS,
+    });
+  });
+
+  it("maps ultrathink on Sonnet 4.6 to effort=high (no max available) with the bumped budget", () => {
+    expect(resolveClaudeUltrathinkSdkConfig("claude-sonnet-4-6", "ultrathink", null)).toEqual({
+      effort: "high",
+      maxThinkingTokens: CLAUDE_ULTRATHINK_THINKING_TOKENS,
+    });
+  });
+
+  it("maps ultrathink on models without adaptive reasoning (Haiku) to effort=null but still bumps the budget", () => {
+    expect(resolveClaudeUltrathinkSdkConfig("claude-haiku-4-5", "ultrathink", null)).toEqual({
+      effort: null,
+      maxThinkingTokens: CLAUDE_ULTRATHINK_THINKING_TOKENS,
+    });
+  });
+
+  it("preserves a user-provided thinking budget higher than the ultrathink default", () => {
+    expect(resolveClaudeUltrathinkSdkConfig("claude-opus-4-7", "ultrathink", 90000)).toEqual({
+      effort: "max",
+      maxThinkingTokens: 90000,
+    });
+  });
+
+  it("does not downgrade the thinking budget when the user configured a lower number under ultrathink", () => {
+    expect(resolveClaudeUltrathinkSdkConfig("claude-opus-4-7", "ultrathink", 10)).toEqual({
+      effort: "max",
+      maxThinkingTokens: CLAUDE_ULTRATHINK_THINKING_TOKENS,
+    });
   });
 });
 

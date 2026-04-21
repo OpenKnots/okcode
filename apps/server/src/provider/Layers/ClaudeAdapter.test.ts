@@ -548,7 +548,7 @@ describe("ClaudeAdapterLive", () => {
     );
   });
 
-  it.effect("treats ultrathink as a prompt keyword instead of a session effort", () => {
+  it.effect("maps ultrathink on Sonnet 4.6 to effort=high with max thinking budget", () => {
     const harness = makeHarness();
     return Effect.gen(function* () {
       const adapter = yield* ClaudeAdapter;
@@ -577,9 +577,70 @@ describe("ClaudeAdapterLive", () => {
       });
 
       const createInput = harness.getLastCreateQueryInput();
-      assert.equal(createInput?.options.effort, undefined);
+      // Sonnet 4.6 has no "max" effort, so ultrathink collapses to "high".
+      assert.equal(createInput?.options.effort, "high");
+      // Thinking budget is bumped to the ultrathink default.
+      assert.equal(createInput?.options.maxThinkingTokens, 63999);
+      // Prompt prefix is still applied on top of the SDK boost.
       const promptText = yield* Effect.promise(() => readFirstPromptText(createInput));
       assert.equal(promptText, "Ultrathink:\nInvestigate the edge cases");
+    }).pipe(
+      Effect.provideService(Random.Random, makeDeterministicRandomService()),
+      Effect.provide(harness.layer),
+    );
+  });
+
+  it.effect("maps ultrathink on Opus 4.7 to effort=max with max thinking budget", () => {
+    const harness = makeHarness();
+    return Effect.gen(function* () {
+      const adapter = yield* ClaudeAdapter;
+      yield* adapter.startSession({
+        threadId: THREAD_ID,
+        provider: "claudeAgent",
+        model: "claude-opus-4-7",
+        runtimeMode: "full-access",
+        modelOptions: {
+          claudeAgent: {
+            effort: "ultrathink",
+          },
+        },
+      });
+
+      const createInput = harness.getLastCreateQueryInput();
+      // Opus 4.7 supports "max", so ultrathink gets the top effort level.
+      assert.equal(createInput?.options.effort, "max");
+      assert.equal(createInput?.options.maxThinkingTokens, 63999);
+    }).pipe(
+      Effect.provideService(Random.Random, makeDeterministicRandomService()),
+      Effect.provide(harness.layer),
+    );
+  });
+
+  it.effect("preserves user-provided maxThinkingTokens when higher than ultrathink default", () => {
+    const harness = makeHarness();
+    return Effect.gen(function* () {
+      const adapter = yield* ClaudeAdapter;
+      yield* adapter.startSession({
+        threadId: THREAD_ID,
+        provider: "claudeAgent",
+        model: "claude-opus-4-7",
+        runtimeMode: "full-access",
+        providerOptions: {
+          claudeAgent: {
+            maxThinkingTokens: 90000,
+          },
+        },
+        modelOptions: {
+          claudeAgent: {
+            effort: "ultrathink",
+          },
+        },
+      });
+
+      const createInput = harness.getLastCreateQueryInput();
+      assert.equal(createInput?.options.effort, "max");
+      // User override is higher than the ultrathink default, so it passes through.
+      assert.equal(createInput?.options.maxThinkingTokens, 90000);
     }).pipe(
       Effect.provideService(Random.Random, makeDeterministicRandomService()),
       Effect.provide(harness.layer),

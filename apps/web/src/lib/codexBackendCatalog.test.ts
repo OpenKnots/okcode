@@ -38,11 +38,49 @@ describe("buildCodexBackendCatalog", () => {
         group: "custom",
         authNote: "Provider-specific credentials",
         statusBadge: "Configured",
+        detectionBadge: null,
         selected: true,
         definedInConfig: true,
         isKnownPreset: false,
       },
     ]);
+  });
+
+  it("surfaces reachable local-backend detection badges for ollama and lmstudio", () => {
+    const catalog = buildCodexBackendCatalog({
+      selectedModelProviderId: "ollama",
+      entries: [
+        {
+          id: "ollama",
+          selected: true,
+          definedInConfig: true,
+          isBuiltIn: false,
+          isKnownPreset: true,
+          requiresOpenAiLogin: false,
+        },
+      ],
+      parseError: null,
+      detectedLocalBackends: {
+        ollama: { reachable: true, modelCount: 3 },
+        lmstudio: { reachable: false },
+      },
+    });
+
+    const ollamaRow = catalog.builtIn.find((row) => row.id === "ollama");
+    const lmstudioRow = catalog.builtIn.find((row) => row.id === "lmstudio");
+    expect(ollamaRow?.detectionBadge).toEqual({ reachable: true, modelCount: 3 });
+    expect(lmstudioRow?.detectionBadge).toEqual({ reachable: false, modelCount: undefined });
+  });
+
+  it("leaves detection badges null when the probe result is absent", () => {
+    const catalog = buildCodexBackendCatalog({
+      selectedModelProviderId: null,
+      entries: [],
+      parseError: null,
+    });
+
+    const ollamaRow = catalog.builtIn.find((row) => row.id === "ollama");
+    expect(ollamaRow?.detectionBadge).toBeNull();
   });
 
   it("renders openai as the implicit default when no model_provider is configured", () => {

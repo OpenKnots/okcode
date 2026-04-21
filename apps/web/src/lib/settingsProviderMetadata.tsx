@@ -80,7 +80,7 @@ export const PROVIDER_AUTH_GUIDES: Record<ProviderKind, ProviderAuthGuide> = {
     installCmd: "npm install -g @openai/codex",
     authCmd: "codex login",
     verifyCmd: "codex login status",
-    note: "Codex appears in the thread picker when the CLI is reachable and the selected backend is either OpenAI-authenticated or a configured non-OpenAI backend.",
+    note: "Codex appears in the thread picker when the CLI is reachable and the selected backend is either OpenAI-authenticated or a configured non-OpenAI backend. For local models, see the Ollama and LM Studio sections below.",
   },
   claudeAgent: {
     installCmd: "npm install -g @anthropic-ai/claude-code",
@@ -103,6 +103,28 @@ export const PROVIDER_AUTH_GUIDES: Record<ProviderKind, ProviderAuthGuide> = {
   openclaw: {
     authCmd: "Use gateway shared secret/token",
     verifyCmd: "Test Connection",
-    note: "OpenClaw uses the gateway URL and shared secret/token below rather than a local CLI login. Shared-secret auth usually works without device pairing and is the recommended default for Tailscale and remote gateways.",
+    note: "OpenClaw uses the gateway URL and shared secret/token below rather than a local CLI login. Shared-secret auth usually works without device pairing and is the recommended default for Tailscale and remote gateways. Connection is verified by a WebSocket handshake plus /health probe and a connect handshake; click Test Connection again if the gateway restarts or your network changes.",
+  },
+};
+
+export type LocalBackendKey = "ollama" | "lmstudio";
+
+export const LOCAL_BACKEND_LABELS: Record<LocalBackendKey, string> = {
+  ollama: "Ollama",
+  lmstudio: "LM Studio",
+};
+
+export const LOCAL_BACKEND_AUTH_GUIDES: Record<LocalBackendKey, ProviderAuthGuide> = {
+  ollama: {
+    installCmd: "brew install ollama  # or https://ollama.com/download",
+    authCmd: "ollama serve  # then: ollama pull llama3.1",
+    verifyCmd: "curl http://localhost:11434/api/tags",
+    note: 'Ollama is exposed to Codex by setting model_provider = "ollama" in ~/.codex/config.toml. Keep `ollama serve` running (launchd on macOS) so the daemon stays reachable on localhost:11434.',
+  },
+  lmstudio: {
+    installCmd: "Install LM Studio from https://lmstudio.ai",
+    authCmd: "Load a model and start the Local Server from the Developer tab",
+    verifyCmd: "curl http://localhost:1234/v1/models",
+    note: 'LM Studio is exposed to Codex by setting model_provider = "lmstudio" in ~/.codex/config.toml. The OpenAI-compatible server must be running on localhost:1234 for Codex to pick it up.',
   },
 };

@@ -20,7 +20,6 @@ import {
   CodexAppServerManager,
   type CodexAppServerStartSessionInput,
   type CodexAppServerSendTurnInput,
-  type CodexAppServerSteerTurnInput,
 } from "../../codexAppServerManager.ts";
 import { ServerConfig } from "../../config.ts";
 import { ProviderAdapterValidationError } from "../Errors.ts";
@@ -58,10 +57,6 @@ class FakeCodexManager extends CodexAppServerManager {
 
   public interruptTurnImpl = vi.fn(
     async (_threadId: ThreadId, _turnId?: TurnId): Promise<void> => undefined,
-  );
-
-  public steerTurnImpl = vi.fn(
-    async (_input: CodexAppServerSteerTurnInput): Promise<void> => undefined,
   );
 
   public readThreadImpl = vi.fn(async (_threadId: ThreadId) => ({
@@ -102,10 +97,6 @@ class FakeCodexManager extends CodexAppServerManager {
 
   override interruptTurn(threadId: ThreadId, turnId?: TurnId): Promise<void> {
     return this.interruptTurnImpl(threadId, turnId);
-  }
-
-  override steerTurn(input: CodexAppServerSteerTurnInput): Promise<void> {
-    return this.steerTurnImpl(input);
   }
 
   override readThread(threadId: ThreadId) {

@@ -550,7 +550,6 @@ export default function ChatView({
   const [optimisticUserMessages, setOptimisticUserMessages] = useState<ChatMessage[]>([]);
   const optimisticUserMessagesRef = useRef(optimisticUserMessages);
   optimisticUserMessagesRef.current = optimisticUserMessages;
-  const [steeredMessageIds, setSteeredMessageIds] = useState<Record<MessageId, true>>({});
   const [queuedMessages, setQueuedMessages] = useState<QueuedMessage[]>([]);
   const queuedMessagesRef = useRef(queuedMessages);
   queuedMessagesRef.current = queuedMessages;
@@ -1254,34 +1253,16 @@ export default function ChatView({
             return changed ? { ...message, attachments } : message;
           });
 
-    const serverMessagesWithLocalMarkers =
-      Object.keys(steeredMessageIds).length === 0
-        ? serverMessagesWithPreviewHandoff
-        : // Spread only applies to the few messages with a local steer marker.
-          // We keep copy-on-write semantics here to avoid mutating server state.
-          // oxlint-disable-next-line no-map-spread
-          serverMessagesWithPreviewHandoff.map((message) => {
-            if (message.role !== "user" || !steeredMessageIds[message.id]) {
-              return message;
-            }
-            return message.steered ? message : { ...message, steered: true };
-          });
-
     if (optimisticUserMessages.length === 0) {
-      return serverMessagesWithLocalMarkers;
+      return serverMessagesWithPreviewHandoff;
     }
-    const serverIds = new Set(serverMessagesWithLocalMarkers.map((message) => message.id));
+    const serverIds = new Set(serverMessagesWithPreviewHandoff.map((message) => message.id));
     const pendingMessages = optimisticUserMessages.filter((message) => !serverIds.has(message.id));
     if (pendingMessages.length === 0) {
-      return serverMessagesWithLocalMarkers;
+      return serverMessagesWithPreviewHandoff;
     }
-    return [...serverMessagesWithLocalMarkers, ...pendingMessages];
-  }, [
-    serverMessages,
-    attachmentPreviewHandoffByMessageId,
-    optimisticUserMessages,
-    steeredMessageIds,
-  ]);
+    return [...serverMessagesWithPreviewHandoff, ...pendingMessages];
+  }, [serverMessages, attachmentPreviewHandoffByMessageId, optimisticUserMessages]);
   const timelineEntries = useMemo(
     () =>
       deriveTimelineEntries(timelineMessages, activeThread?.proposedPlans ?? [], workLogEntries),
@@ -3520,79 +3501,6 @@ export default function ChatView({
             },
       );
       const queuedId = newMessageId();
-      const canSteerActiveTurn = activeThread.session?.provider === "codex";
-
-      if (canSteerActiveTurn) {
-        setOptimisticUserMessages((existing) => [
-          ...existing,
-          {
-            id: queuedId,
-            role: "user",
-            text: outgoingMessageText,
-            ...(optimisticAttachments.length > 0 ? { attachments: optimisticAttachments } : {}),
-            createdAt: messageCreatedAt,
-            streaming: false,
-            steered: true,
-          },
-        ]);
-        setSteeredMessageIds((existing) => ({ ...existing, [queuedId]: true }));
-        shouldAutoScrollRef.current = true;
-        forceStickToBottom();
-        promptRef.current = "";
-        clearComposerDraftContent(activeThread.id);
-        setComposerHighlightedItemId(null);
-        setComposerCursor(0);
-        setComposerTrigger(null);
-        void (async () => {
-          const steerAttachments = await Promise.all(
-            composerAttachmentsSnapshot.map(async (attachment) => ({
-              type: attachment.type,
-              name: attachment.name,
-              mimeType: attachment.mimeType,
-              sizeBytes: attachment.sizeBytes,
-              dataUrl: await readFileAsDataUrl(attachment.file),
-            })),
-          );
-          await api.orchestration.dispatchCommand({
-            type: "thread.turn.steer",
-            commandId: newCommandId(),
-            threadId: activeThread.id,
-            message: {
-              messageId: queuedId,
-              role: "user",
-              text: outgoingMessageText,
-              attachments: steerAttachments,
-            },
-            ...(hiddenProviderInput ? { providerInput: hiddenProviderInput } : {}),
-            createdAt: messageCreatedAt,
-          });
-        })().catch((err: unknown) => {
-          setOptimisticUserMessages((existing) => existing.filter((msg) => msg.id !== queuedId));
-          setSteeredMessageIds((existing) => {
-            if (!existing[queuedId]) return existing;
-            const next = { ...existing };
-            delete next[queuedId];
-            return next;
-          });
-          setThreadError(
-            activeThread.id,
-            err instanceof Error ? err.message : "Failed to steer active turn.",
-          );
-        });
-        if (expiredTerminalContextCount > 0) {
-          const toastCopy = buildExpiredTerminalContextToastCopy(
-            expiredTerminalContextCount,
-            "omitted",
-          );
-          toastManager.add({
-            type: "warning",
-            title: toastCopy.title,
-            description: toastCopy.description,
-          });
-        }
-        return;
-      }
-
       setQueuedMessages((existing) => [
         ...existing,
         {

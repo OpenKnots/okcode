@@ -36,7 +36,6 @@ import { CodexAdapter, type CodexAdapterShape } from "../Services/CodexAdapter.t
 import {
   CodexAppServerManager,
   type CodexAppServerStartSessionInput,
-  type CodexAppServerSteerTurnInput,
 } from "../../codexAppServerManager.ts";
 import { resolveAttachmentPath } from "../../attachmentStore.ts";
 import {
@@ -1514,110 +1513,6 @@ const makeCodexAdapter = (options?: CodexAdapterLiveOptions) =>
         catch: (cause) => toRequestError(threadId, "turn/interrupt", cause),
       });
 
-    const steerTurn: CodexAdapterShape["steerTurn"] = (input) =>
-      Effect.gen(function* () {
-        const textFileAttachments: Array<{
-          readonly attachment: Extract<
-            NonNullable<NonNullable<typeof input.attachments>[number]>,
-            { type: "file" }
-          >;
-          readonly text: string;
-        }> = [];
-        const codexAttachments = yield* Effect.forEach(
-          input.attachments ?? [],
-          (attachment) =>
-            Effect.gen(function* () {
-              if (attachment.type === "file") {
-                const attachmentPath = resolveAttachmentPath({
-                  attachmentsDir: serverConfig.attachmentsDir,
-                  attachment,
-                });
-                if (!attachmentPath) {
-                  return yield* toRequestError(
-                    input.threadId,
-                    "turn/steer",
-                    new Error(`Invalid attachment id '${attachment.id}'.`),
-                  );
-                }
-                const bytes = yield* fileSystem.readFile(attachmentPath).pipe(
-                  Effect.mapError(
-                    (cause) =>
-                      new ProviderAdapterRequestError({
-                        provider: PROVIDER,
-                        method: "turn/steer",
-                        detail: toMessage(cause, "Failed to read attachment file."),
-                        cause,
-                      }),
-                  ),
-                );
-                const text = extractTextAttachmentContents({
-                  mimeType: attachment.mimeType,
-                  fileName: attachment.name,
-                  bytes,
-                });
-                if (text === null) {
-                  return yield* toRequestError(
-                    input.threadId,
-                    "turn/steer",
-                    new Error(
-                      `Unsupported file attachment '${attachment.name}'. Attach UTF-8 text files or images.`,
-                    ),
-                  );
-                }
-                textFileAttachments.push({ attachment, text });
-                return null;
-              }
-
-              const attachmentPath = resolveAttachmentPath({
-                attachmentsDir: serverConfig.attachmentsDir,
-                attachment,
-              });
-              if (!attachmentPath) {
-                return yield* toRequestError(
-                  input.threadId,
-                  "turn/steer",
-                  new Error(`Invalid attachment id '${attachment.id}'.`),
-                );
-              }
-              const bytes = yield* fileSystem.readFile(attachmentPath).pipe(
-                Effect.mapError(
-                  (cause) =>
-                    new ProviderAdapterRequestError({
-                      provider: PROVIDER,
-                      method: "turn/steer",
-                      detail: toMessage(cause, "Failed to read attachment file."),
-                      cause,
-                    }),
-                ),
-              );
-              return {
-                type: "image" as const,
-                url: `data:${attachment.mimeType};base64,${Buffer.from(bytes).toString("base64")}`,
-              };
-            }),
-          { concurrency: 1 },
-        ).pipe(
-          Effect.map((attachments) => attachments.filter((attachment) => attachment !== null)),
-        );
-
-        const steerInputText = buildFileAttachmentContextText({
-          baseText: input.input,
-          attachments: textFileAttachments,
-        });
-
-        return yield* Effect.tryPromise({
-          try: () => {
-            const managerInput: CodexAppServerSteerTurnInput = {
-              threadId: input.threadId,
-              input: steerInputText,
-              ...(codexAttachments.length > 0 ? { attachments: codexAttachments } : {}),
-            };
-            return manager.steerTurn(managerInput);
-          },
-          catch: (cause) => toRequestError(input.threadId, "turn/steer", cause),
-        });
-      });
-
     const readThread: CodexAdapterShape["readThread"] = (threadId) =>
       Effect.tryPromise({
         try: () => manager.readThread(threadId),
@@ -1734,7 +1629,6 @@ const makeCodexAdapter = (options?: CodexAdapterLiveOptions) =>
       },
       startSession,
       sendTurn,
-      steerTurn,
       interruptTurn,
       readThread,
       rollbackThread,

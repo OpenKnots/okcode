@@ -3064,15 +3064,6 @@ function makeClaudeAdapter(options?: ClaudeAdapterLiveOptions) {
         });
       });
 
-    const steerTurn: ClaudeAdapterShape["steerTurn"] = () =>
-      Effect.fail(
-        new ProviderAdapterRequestError({
-          provider: PROVIDER,
-          method: "turn/steer",
-          detail: "Turn steering is not supported by Claude Agent.",
-        }),
-      );
-
     const readThread: ClaudeAdapterShape["readThread"] = (threadId) =>
       Effect.gen(function* () {
         const context = yield* requireSession(threadId);
@@ -3173,7 +3164,6 @@ function makeClaudeAdapter(options?: ClaudeAdapterLiveOptions) {
       },
       startSession,
       sendTurn,
-      steerTurn,
       interruptTurn,
       readThread,
       rollbackThread,

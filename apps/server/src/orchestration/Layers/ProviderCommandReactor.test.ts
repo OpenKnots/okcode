@@ -169,7 +169,6 @@ describe("ProviderCommandReactor", () => {
         turnId: asTurnId("turn-1"),
       }),
     );
-    const steerTurn = vi.fn((_: unknown) => Effect.void);
     const interruptTurn = vi.fn((_: unknown) => Effect.void);
     const respondToRequest = vi.fn<ProviderServiceShape["respondToRequest"]>(() => Effect.void);
     const respondToUserInput = vi.fn<ProviderServiceShape["respondToUserInput"]>(() => Effect.void);
@@ -212,7 +211,6 @@ describe("ProviderCommandReactor", () => {
     const service: ProviderServiceShape = {
       startSession: startSession as ProviderServiceShape["startSession"],
       sendTurn: sendTurn as ProviderServiceShape["sendTurn"],
-      steerTurn: steerTurn as ProviderServiceShape["steerTurn"],
       interruptTurn: interruptTurn as ProviderServiceShape["interruptTurn"],
       respondToRequest: respondToRequest as ProviderServiceShape["respondToRequest"],
       respondToUserInput: respondToUserInput as ProviderServiceShape["respondToUserInput"],
@@ -283,7 +281,6 @@ describe("ProviderCommandReactor", () => {
       engine,
       startSession,
       sendTurn,
-      steerTurn,
       interruptTurn,
       respondToRequest,
       respondToUserInput,
@@ -1268,57 +1265,6 @@ describe("ProviderCommandReactor", () => {
     });
 
     expect(harness.interruptTurn.mock.calls.length).toBe(0);
-    const readModel = await Effect.runPromise(harness.engine.getReadModel());
-    const thread = readModel.threads.find((entry) => entry.id === ThreadId.makeUnsafe("thread-1"));
-    expect(thread?.session?.status).toBe("ready");
-    expect(thread?.session?.activeTurnId).toBeNull();
-  });
-
-  it("falls back to sendTurn when steer is requested without a live provider turn", async () => {
-    const harness = await createHarness();
-    const now = new Date().toISOString();
-
-    await Effect.runPromise(
-      harness.engine.dispatch({
-        type: "thread.session.set",
-        commandId: CommandId.makeUnsafe("cmd-session-set-stale-steer"),
-        threadId: ThreadId.makeUnsafe("thread-1"),
-        session: {
-          threadId: ThreadId.makeUnsafe("thread-1"),
-          status: "running",
-          providerName: "codex",
-          runtimeMode: "approval-required",
-          activeTurnId: asTurnId("turn-stale"),
-          lastError: null,
-          updatedAt: now,
-        },
-        createdAt: now,
-      }),
-    );
-
-    await Effect.runPromise(
-      harness.engine.dispatch({
-        type: "thread.turn.steer",
-        commandId: CommandId.makeUnsafe("cmd-turn-steer-stale"),
-        threadId: ThreadId.makeUnsafe("thread-1"),
-        message: {
-          messageId: asMessageId("msg-steer-stale"),
-          role: "user",
-          text: "resume with fresh turn",
-          attachments: [],
-        },
-        createdAt: now,
-      }),
-    );
-
-    await waitFor(() => harness.sendTurn.mock.calls.length === 1);
-
-    expect(harness.steerTurn.mock.calls.length).toBe(0);
-    expect(harness.sendTurn.mock.calls[0]?.[0]).toMatchObject({
-      threadId: "thread-1",
-      input: "resume with fresh turn",
-    });
-
     const readModel = await Effect.runPromise(harness.engine.getReadModel());
     const thread = readModel.threads.find((entry) => entry.id === ThreadId.makeUnsafe("thread-1"));
     expect(thread?.session?.status).toBe("ready");

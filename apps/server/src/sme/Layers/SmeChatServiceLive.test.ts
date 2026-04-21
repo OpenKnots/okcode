@@ -94,7 +94,6 @@ function makeProviderServiceLayer() {
   const providerService: ProviderServiceShape = {
     startSession: () => Effect.die("not used in this test"),
     sendTurn: () => Effect.die("not used in this test"),
-    steerTurn: () => Effect.die("not used in this test"),
     interruptTurn: () => Effect.void,
     respondToRequest: () => Effect.void,
     respondToUserInput: () => Effect.void,

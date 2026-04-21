@@ -46,7 +46,6 @@ type ProviderIntentEvent = Extract<
       | "thread.runtime-mode-set"
       | "thread.turn-start-requested"
       | "thread.turn-interrupt-requested"
-      | "thread.turn-steer-requested"
       | "thread.approval-response-requested"
       | "thread.user-input-response-requested"
       | "thread.session-stop-requested";
@@ -806,81 +805,6 @@ const make = Effect.gen(function* () {
     yield* providerService.interruptTurn({ threadId: event.payload.threadId });
   });
 
-  const processTurnSteerRequested = Effect.fnUntraced(function* (
-    event: Extract<ProviderIntentEvent, { type: "thread.turn-steer-requested" }>,
-  ) {
-    const thread = yield* resolveThread(event.payload.threadId);
-    if (!thread) {
-      return;
-    }
-    const hasSession = thread.session && thread.session.status !== "stopped";
-    if (!hasSession || thread.session?.providerName !== "codex") {
-      return yield* appendProviderFailureActivity({
-        threadId: event.payload.threadId,
-        kind: "provider.turn.start.failed",
-        summary: "Provider turn steer failed",
-        detail: !hasSession
-          ? "No active provider session is bound to this thread."
-          : "Turn steering is currently only supported for Codex sessions.",
-        turnId: null,
-        createdAt: event.payload.createdAt,
-      });
-    }
-
-    const message = thread.messages.find((entry) => entry.id === event.payload.messageId);
-    if (!message || message.role !== "user") {
-      return yield* appendProviderFailureActivity({
-        threadId: event.payload.threadId,
-        kind: "provider.turn.start.failed",
-        summary: "Provider turn steer failed",
-        detail: `User message '${event.payload.messageId}' was not found for turn steer request.`,
-        turnId: null,
-        createdAt: event.payload.createdAt,
-      });
-    }
-
-    const liveSession = yield* resolveLiveSession(event.payload.threadId);
-    if (!liveSession || liveSession.activeTurnId === undefined) {
-      yield* clearThreadActiveTurn({
-        threadId: event.payload.threadId,
-        createdAt: event.payload.createdAt,
-        providerName: liveSession?.provider ?? thread.session?.providerName ?? null,
-        runtimeMode: thread.session?.runtimeMode ?? DEFAULT_RUNTIME_MODE,
-        status: mapProviderSessionStatusToOrchestrationStatus(liveSession?.status ?? "ready"),
-        lastError: liveSession?.lastError ?? null,
-      });
-      yield* sendTurnForThread({
-        threadId: event.payload.threadId,
-        messageText: message.text,
-        ...(event.payload.providerInput !== undefined
-          ? { providerInput: event.payload.providerInput }
-          : {}),
-        ...(message.attachments !== undefined ? { attachments: message.attachments } : {}),
-        createdAt: event.payload.createdAt,
-      });
-      return;
-    }
-
-    yield* providerService
-      .steerTurn({
-        threadId: event.payload.threadId,
-        input: toNonEmptyProviderInput(event.payload.providerInput ?? message.text) ?? message.text,
-        ...(message.attachments !== undefined ? { attachments: message.attachments } : {}),
-      })
-      .pipe(
-        Effect.catchCause((cause) =>
-          appendProviderFailureActivity({
-            threadId: event.payload.threadId,
-            kind: "provider.turn.start.failed",
-            summary: "Provider turn steer failed",
-            detail: Cause.pretty(cause),
-            turnId: null,
-            createdAt: event.payload.createdAt,
-          }),
-        ),
-      );
-  });
-
   const processApprovalResponseRequested = Effect.fnUntraced(function* (
     event: Extract<ProviderIntentEvent, { type: "thread.approval-response-requested" }>,
   ) {
@@ -1023,9 +947,6 @@ const make = Effect.gen(function* () {
         case "thread.turn-interrupt-requested":
           yield* processTurnInterruptRequested(event);
           return;
-        case "thread.turn-steer-requested":
-          yield* processTurnSteerRequested(event);
-          return;
         case "thread.approval-response-requested":
           yield* processApprovalResponseRequested(event);
           return;
@@ -1059,7 +980,6 @@ const make = Effect.gen(function* () {
         event.type !== "thread.runtime-mode-set" &&
         event.type !== "thread.turn-start-requested" &&
         event.type !== "thread.turn-interrupt-requested" &&
-        event.type !== "thread.turn-steer-requested" &&
         event.type !== "thread.approval-response-requested" &&
         event.type !== "thread.user-input-response-requested" &&
         event.type !== "thread.session-stop-requested"

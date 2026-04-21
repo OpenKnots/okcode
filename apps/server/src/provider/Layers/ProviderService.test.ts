@@ -24,7 +24,6 @@ import { Effect, Fiber, Layer, Option, PubSub, Ref, Stream } from "effect";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 
 import {
-  ProviderAdapterRequestError,
   ProviderAdapterSessionNotFoundError,
   ProviderUnsupportedError,
   ProviderValidationError,
@@ -110,17 +109,6 @@ function makeFakeCodexAdapter(provider: ProviderKind = "codex") {
       Effect.void,
   );
 
-  const steerTurn = vi.fn(
-    (): Effect.Effect<void, ProviderAdapterError> =>
-      Effect.fail(
-        new ProviderAdapterRequestError({
-          provider,
-          method: "turn/steer",
-          detail: "Turn steering is not supported in this test adapter.",
-        }),
-      ),
-  );
-
   const respondToRequest = vi.fn(
     (
       _threadId: ThreadId,
@@ -191,7 +179,6 @@ function makeFakeCodexAdapter(provider: ProviderKind = "codex") {
     },
     startSession,
     sendTurn,
-    steerTurn,
     interruptTurn,
     respondToRequest,
     respondToUserInput,

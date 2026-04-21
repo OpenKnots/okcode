@@ -365,14 +365,6 @@ const makeGeminiAdapter = Effect.gen(function* () {
     });
 
   const interruptTurn: GeminiAdapterShape["interruptTurn"] = () => Effect.void;
-  const steerTurn: GeminiAdapterShape["steerTurn"] = () =>
-    Effect.fail(
-      new ProviderAdapterRequestError({
-        provider: "gemini",
-        method: "turn/steer",
-        detail: "Turn steering is not supported by Gemini.",
-      }),
-    );
   const respondToRequest: GeminiAdapterShape["respondToRequest"] = (
     _threadId,
     _requestId,
@@ -432,7 +424,6 @@ const makeGeminiAdapter = Effect.gen(function* () {
     },
     startSession,
     sendTurn,
-    steerTurn,
     interruptTurn,
     respondToRequest,
     respondToUserInput,

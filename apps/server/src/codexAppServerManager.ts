@@ -129,12 +129,6 @@ export interface CodexAppServerSendTurnInput {
   readonly interactionMode?: ProviderInteractionMode;
 }
 
-export interface CodexAppServerSteerTurnInput {
-  readonly threadId: ThreadId;
-  readonly input: string;
-  readonly attachments?: ReadonlyArray<{ type: "image"; url: string }>;
-}
-
 export interface CodexAppServerStartSessionInput {
   readonly threadId: ThreadId;
   readonly provider?: "codex";
@@ -912,37 +906,6 @@ export class CodexAppServerManager extends EventEmitter<CodexAppServerManagerEve
     await this.sendRequest(context, "turn/interrupt", {
       threadId: providerThreadId,
       turnId: effectiveTurnId,
-    });
-  }
-
-  async steerTurn(input: CodexAppServerSteerTurnInput): Promise<void> {
-    const context = this.requireSession(input.threadId);
-    const providerThreadId = readResumeThreadId({
-      threadId: context.session.threadId,
-      runtimeMode: context.session.runtimeMode,
-      resumeCursor: context.session.resumeCursor,
-    });
-    const activeTurnId = context.session.activeTurnId;
-    if (!providerThreadId || !activeTurnId) {
-      throw new Error("Cannot steer without an active provider turn.");
-    }
-
-    const steerInput: Array<{ type: "text"; text: string } | { type: "image"; url: string }> = [];
-    for (const attachment of input.attachments ?? []) {
-      steerInput.push({
-        type: "image",
-        url: attachment.url,
-      });
-    }
-    steerInput.push({
-      type: "text",
-      text: input.input,
-    });
-
-    await this.sendRequest(context, "turn/steer", {
-      threadId: providerThreadId,
-      expectedTurnId: activeTurnId,
-      input: steerInput,
     });
   }
 

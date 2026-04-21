@@ -89,6 +89,54 @@ describe("providerAvailability", () => {
     ).toBe(true);
   });
 
+  it("shows openclaw as selectable when gateway URL is set but not yet probed", () => {
+    expect(
+      isProviderReadyForThreadSelection({
+        provider: "openclaw",
+        statuses: [
+          makeStatus("openclaw", {
+            status: "warning",
+            available: false,
+            authStatus: "unknown",
+          }),
+        ],
+        openclawGatewayUrl: "ws://gateway.example/local",
+      }),
+    ).toBe(true);
+  });
+
+  it("shows openclaw as selectable when status is ready && available", () => {
+    expect(
+      isProviderReadyForThreadSelection({
+        provider: "openclaw",
+        statuses: [
+          makeStatus("openclaw", {
+            status: "ready",
+            available: true,
+            authStatus: "authenticated",
+          }),
+        ],
+        openclawGatewayUrl: "",
+      }),
+    ).toBe(true);
+  });
+
+  it("excludes openclaw when gateway URL is blank and status is not ready", () => {
+    expect(
+      isProviderReadyForThreadSelection({
+        provider: "openclaw",
+        statuses: [
+          makeStatus("openclaw", {
+            status: "error",
+            available: false,
+            authStatus: "unauthenticated",
+          }),
+        ],
+        openclawGatewayUrl: "",
+      }),
+    ).toBe(false);
+  });
+
   it("returns selectable providers in stable picker order", () => {
     expect(
       getSelectableThreadProviders({

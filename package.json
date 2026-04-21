@@ -56,6 +56,7 @@
     "release:smoke": "node scripts/release-smoke.ts",
     "dist:mobile:build": "bun run --cwd apps/mobile build",
     "dist:mobile:sync:ios": "cd apps/mobile && bunx cap sync ios --deployment",
+    "patch:capacitor-local-notifications": "node scripts/patch-capacitor-local-notifications.ts",
     "dist:mobile:update-ios-version": "node scripts/update-ios-version.ts",
     "review": "bash scripts/pr-review-workspace.sh",
     "review:dump": "bash scripts/pr-review-dump.sh",

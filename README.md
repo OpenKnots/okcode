@@ -188,7 +188,7 @@ Notes:
 Release is driven by `.github/workflows/release.yml` and the canonical runbook in
 [`docs/release.md`](/Users/buns/.okcode/worktrees/okcode/okcode-1c7a5554/docs/release.md).
 
-- The stable train now coordinates desktop, iOS TestFlight, and `okcodes` CLI on one version.
+- Release tags publish desktop artifacts and `okcodes` from `release.yml`, while `release-ios.yml` is dispatched separately for the matching iOS TestFlight build.
 - Preflight runs format, lint, typecheck, tests, browser tests, desktop smoke, and release smoke.
 - The separate Intel mac workflow is compatibility-only and non-blocking.
 - Publishing still requires release notes and an asset manifest for the tagged version.
@@ -236,7 +236,7 @@ Release is driven by `.github/workflows/release.yml` and the canonical runbook i
 2. Confirm macOS, Windows, Linux, iOS TestFlight, and CLI release inputs are ready.
 3. Confirm signing secrets availability for macOS/Windows targets.
 4. Confirm `docs/releases/v<version>.md` and `docs/releases/v<version>/assets.md` exist.
-5. Trigger release and monitor all jobs.
+5. Trigger the desktop/CLI release, then dispatch and monitor the separate iOS workflow for the same version when needed.
 
 ## 12) Contributing expectations
 

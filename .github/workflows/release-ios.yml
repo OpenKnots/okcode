@@ -1,4 +1,4 @@
-name: iOS Release Dry Run
+name: Release iOS
 
 on:
   workflow_dispatch:
@@ -7,16 +7,308 @@ on:
         description: "Release version (for example 1.2.3 or v1.2.3)"
         required: true
         type: string
+      ref:
+        description: "Git ref to build (defaults to refs/tags/v<version>; may also be a branch or SHA)"
+        required: false
+        type: string
 
 permissions:
   contents: read
 
 jobs:
-  guidance:
-    name: Coordinated train guidance
+  preflight:
+    name: Resolve iOS release metadata
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.release_meta.outputs.version }}
+      tag: ${{ steps.release_meta.outputs.tag }}
+      release_channel: ${{ steps.release_meta.outputs.release_channel }}
+      build_timestamp: ${{ steps.release_meta.outputs.build_timestamp }}
+      ref: ${{ steps.release_meta.outputs.ref }}
+      commit_sha: ${{ steps.resolved_commit.outputs.sha }}
+    steps:
+      - id: release_meta
+        name: Resolve release version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            raw="${{ github.event.inputs.version }}"
+            requested_ref="${{ github.event.inputs.ref }}"
+          else
+            raw="${GITHUB_REF_NAME}"
+            requested_ref="${GITHUB_REF}"
+          fi
+
+          version="${raw#v}"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid release version: $raw" >&2
+            exit 1
+          fi
+
+          tag="v$version"
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            if [[ -n "$requested_ref" ]]; then
+              resolved_ref="$requested_ref"
+            else
+              resolved_ref="refs/tags/$tag"
+            fi
+          else
+            resolved_ref="$requested_ref"
+          fi
+
+          build_timestamp="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "build_timestamp=$build_timestamp" >> "$GITHUB_OUTPUT"
+          echo "ref=$resolved_ref" >> "$GITHUB_OUTPUT"
+
+          if [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "release_channel=stable" >> "$GITHUB_OUTPUT"
+          else
+            echo "release_channel=prerelease" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout release ref
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.release_meta.outputs.ref }}
+          fetch-depth: 0
+
+      - id: resolved_commit
+        name: Resolve release commit
+        shell: bash
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  ios_signing_preflight:
+    name: iOS signing preflight
+    needs: [preflight]
     runs-on: ubuntu-24.04
     steps:
-      - name: Explain release entrypoint
+      - name: Check iOS signing secrets
+        shell: bash
+        env:
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          IOS_PROVISIONING_PROFILE: ${{ secrets.IOS_PROVISIONING_PROFILE }}
+          IOS_PROVISIONING_PROFILE_NAME: ${{ secrets.IOS_PROVISIONING_PROFILE_NAME }}
         run: |
-          echo "Use .github/workflows/release.yml for official tags and coordinated RC/stable releases."
-          echo "This workflow is reserved for manual iOS dry runs while stabilizing the TestFlight lane."
+          set -euo pipefail
+
+          required_secrets=(
+            APPLE_API_KEY
+            APPLE_API_KEY_ID
+            APPLE_API_ISSUER
+            APPLE_TEAM_ID
+            IOS_PROVISIONING_PROFILE
+            IOS_PROVISIONING_PROFILE_NAME
+          )
+
+          missing=()
+          for secret_name in "${required_secrets[@]}"; do
+            if [[ -z "${!secret_name}" ]]; then
+              missing+=("$secret_name")
+            fi
+          done
+
+          if (( ${#missing[@]} > 0 )); then
+            missing_csv="$(IFS=,; echo "${missing[*]}")"
+            echo "Missing required iOS signing secrets: $missing_csv" >&2
+            exit 1
+          fi
+
+          echo "All required iOS signing secrets are configured."
+
+  ios_testflight:
+    name: iOS TestFlight
+    needs: [preflight, ios_signing_preflight]
+    runs-on: macos-14
+    env:
+      RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
+      OKCODE_COMMIT_HASH: ${{ needs.preflight.outputs.commit_sha }}
+      OKCODE_BUILD_TIMESTAMP: ${{ needs.preflight.outputs.build_timestamp }}
+      OKCODE_RELEASE_CHANNEL: ${{ needs.preflight.outputs.release_channel }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.preflight.outputs.ref }}
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: package.json
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Align package versions to release version
+        run: node scripts/update-release-package-versions.ts "$RELEASE_VERSION"
+
+      - name: Update iOS version in Xcode project
+        run: node scripts/update-ios-version.ts "$RELEASE_VERSION" --build-number "$GITHUB_RUN_NUMBER"
+
+      - name: Build mobile web bundle
+        run: bun run --cwd apps/mobile build
+
+      - name: Sync Capacitor iOS
+        run: bunx cap sync ios --deployment
+        working-directory: apps/mobile
+
+      - name: Patch Capacitor local-notifications for Xcode 15
+        run: bun run patch:capacitor-local-notifications
+
+      - name: Log iOS build metadata
+        run: |
+          echo "version=$RELEASE_VERSION"
+          echo "tag=${{ needs.preflight.outputs.tag }}"
+          echo "commit=$OKCODE_COMMIT_HASH"
+          echo "build_timestamp=$OKCODE_BUILD_TIMESTAMP"
+          echo "channel=$OKCODE_RELEASE_CHANNEL"
+
+      - name: Install App Store Connect API key and provisioning profile
+        env:
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          IOS_PROVISIONING_PROFILE: ${{ secrets.IOS_PROVISIONING_PROFILE }}
+          IOS_PROVISIONING_PROFILE_NAME: ${{ secrets.IOS_PROVISIONING_PROFILE_NAME }}
+        run: |
+          set -euo pipefail
+          for secret_name in APPLE_API_KEY APPLE_API_KEY_ID APPLE_API_ISSUER IOS_PROVISIONING_PROFILE IOS_PROVISIONING_PROFILE_NAME; do
+            if [[ -z "${!secret_name}" ]]; then
+              echo "Missing required secret: $secret_name" >&2
+              exit 1
+            fi
+          done
+
+          KEY_PATH="$RUNNER_TEMP/AuthKey_${APPLE_API_KEY_ID}.p8"
+          printf '%s' "$APPLE_API_KEY" > "$KEY_PATH"
+          echo "APPLE_API_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
+
+          PROFILE_PATH="$RUNNER_TEMP/profile.mobileprovision"
+          echo "$IOS_PROVISIONING_PROFILE" | base64 --decode > "$PROFILE_PATH"
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp "$PROFILE_PATH" ~/Library/MobileDevice/Provisioning\ Profiles/
+          echo "Installed provisioning profile: $IOS_PROVISIONING_PROFILE_NAME"
+
+      - name: Simulator smoke build
+        run: |
+          set -euo pipefail
+          xcodebuild build \
+            -project apps/mobile/ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Debug \
+            -destination 'platform=iOS Simulator,name=iPhone 15' \
+            COMPILER_INDEX_STORE_ENABLE=NO
+
+      - name: Build iOS archive
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          set -euo pipefail
+
+          xcodebuild archive \
+            -project apps/mobile/ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$APPLE_API_KEY_PATH" \
+            -authenticationKeyID "$APPLE_API_KEY_ID" \
+            -authenticationKeyIssuerID "$APPLE_API_ISSUER" \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER="${{ secrets.IOS_PROVISIONING_PROFILE_NAME }}" \
+            COMPILER_INDEX_STORE_ENABLE=NO
+
+      - name: Generate ExportOptions.plist
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key>
+              <string>app-store-connect</string>
+              <key>destination</key>
+              <string>upload</string>
+              <key>teamID</key>
+              <string>${APPLE_TEAM_ID}</string>
+              <key>uploadSymbols</key>
+              <true/>
+              <key>signingStyle</key>
+              <string>manual</string>
+              <key>provisioningProfiles</key>
+              <dict>
+                  <key>com.openknots.okcode.mobile</key>
+                  <string>${{ secrets.IOS_PROVISIONING_PROFILE_NAME }}</string>
+              </dict>
+          </dict>
+          </plist>
+          PLIST
+
+      - name: Export IPA
+        env:
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          set -euo pipefail
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$APPLE_API_KEY_PATH" \
+            -authenticationKeyID "$APPLE_API_KEY_ID" \
+            -authenticationKeyIssuerID "$APPLE_API_ISSUER"
+
+      - name: Stage App Store Connect API key for upload
+        env:
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+        run: |
+          set -euo pipefail
+          KEY_DIR="$HOME/private_keys"
+          mkdir -p "$KEY_DIR"
+          cp "$APPLE_API_KEY_PATH" "$KEY_DIR/AuthKey_${APPLE_API_KEY_ID}.p8"
+
+      - name: Upload to TestFlight
+        env:
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          set -euo pipefail
+
+          IPA_FILE=$(find "$RUNNER_TEMP/export" -name "*.ipa" -print -quit)
+          if [[ -z "$IPA_FILE" ]]; then
+            echo "No IPA file found in export directory" >&2
+            exit 1
+          fi
+
+          xcrun altool --upload-app \
+            -f "$IPA_FILE" \
+            -t ios \
+            --apiKey "$APPLE_API_KEY_ID" \
+            --apiIssuer "$APPLE_API_ISSUER"
+
+      - name: Cleanup signing assets
+        if: always()
+        run: |
+          rm -f "$APPLE_API_KEY_PATH" || true
+          rm -f "$HOME/private_keys/AuthKey_${{ secrets.APPLE_API_KEY_ID }}.p8" || true

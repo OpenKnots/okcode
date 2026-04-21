@@ -11,9 +11,12 @@ import {
 import { Effect, FileSystem, Result } from "effect";
 import { parse as parseToml } from "toml";
 
+import { probeCodexLocalBackends } from "./codexLocalBackendProbe.ts";
+
 export interface CodexConfigReadOptions {
   readonly homePath?: string | null | undefined;
   readonly env?: NodeJS.ProcessEnv | undefined;
+  readonly probeLocalBackends?: boolean | undefined;
 }
 
 function emptyCodexConfigSummary(): ServerCodexConfigSummary {
@@ -182,19 +185,42 @@ export const readCodexConfigSummary = (options: CodexConfigReadOptions = {}) =>
     const fileSystem = yield* FileSystem.FileSystem;
     const configPath = resolveCodexConfigPath(options);
     const exists = yield* fileSystem.exists(configPath).pipe(Effect.orElseSucceed(() => false));
-    if (!exists) {
-      return emptyCodexConfigSummary();
+
+    const baseSummary: ServerCodexConfigSummary = yield* Effect.gen(function* () {
+      if (!exists) {
+        return emptyCodexConfigSummary();
+      }
+
+      const content = yield* fileSystem.readFileString(configPath).pipe(Effect.result);
+      if (Result.isFailure(content)) {
+        return {
+          ...emptyCodexConfigSummary(),
+          parseError: getParseErrorMessage(content.failure),
+        } satisfies ServerCodexConfigSummary;
+      }
+
+      return summarizeCodexConfigToml(content.success);
+    });
+
+    if (options.probeLocalBackends !== true) {
+      return baseSummary;
     }
 
-    const content = yield* fileSystem.readFileString(configPath).pipe(Effect.result);
-    if (Result.isFailure(content)) {
-      return {
-        ...emptyCodexConfigSummary(),
-        parseError: getParseErrorMessage(content.failure),
-      };
-    }
+    const probes = yield* probeCodexLocalBackends();
 
-    return summarizeCodexConfigToml(content.success);
+    return {
+      ...baseSummary,
+      detectedLocalBackends: {
+        ollama:
+          probes.ollama.modelCount !== undefined
+            ? { reachable: probes.ollama.reachable, modelCount: probes.ollama.modelCount }
+            : { reachable: probes.ollama.reachable },
+        lmstudio:
+          probes.lmstudio.modelCount !== undefined
+            ? { reachable: probes.lmstudio.reachable, modelCount: probes.lmstudio.modelCount }
+            : { reachable: probes.lmstudio.reachable },
+      },
+    } satisfies ServerCodexConfigSummary;
   });
 
 export function usesOpenAiLoginForSelectedCodexBackend(summary: ServerCodexConfigSummary): boolean {

@@ -434,10 +434,10 @@ export default function ChatView({
   const navigate = useNavigate();
   const activeProjectId = threads.find((t) => t.id === threadId)?.projectId ?? null;
   const previewOpen = usePreviewStateStore((state) =>
-    activeProjectId ? (state.openByProjectId[activeProjectId] ?? false) : false,
+    threadId ? (state.openByThreadId[threadId] ?? false) : false,
   );
-  const togglePreviewOpen = usePreviewStateStore((state) => state.toggleProjectOpen);
-  const setPreviewOpen = usePreviewStateStore((state) => state.setProjectOpen);
+  const togglePreviewOpen = usePreviewStateStore((state) => state.toggleThreadOpen);
+  const setPreviewOpen = usePreviewStateStore((state) => state.setThreadOpen);
   const previewDock = usePreviewStateStore((state) =>
     activeProjectId ? (state.dockByProjectId[activeProjectId] ?? "top") : "top",
   );
@@ -606,6 +606,7 @@ export default function ChatView({
     LastInvokedScriptByProjectSchema,
   );
   const messagesScrollRef = useRef<HTMLDivElement>(null);
+  const messagesBottomRef = useRef<HTMLDivElement>(null);
   const [messagesScrollElement, setMessagesScrollElement] = useState<HTMLDivElement | null>(null);
   const shouldAutoScrollRef = useRef(true);
   const lastKnownScrollTopRef = useRef(0);
@@ -1748,7 +1749,7 @@ export default function ChatView({
   const handlePreviewUrl = useCallback(
     (url: string) => {
       if (!activeProject || !activeThread) return;
-      setPreviewOpen(activeProject.id, true);
+      setPreviewOpen(activeThread.id, true);
       void previewBridgeRef?.createTab({ url });
     },
     [activeProject, activeThread, setPreviewOpen, previewBridgeRef],
@@ -2319,9 +2320,13 @@ export default function ChatView({
   const messageCount = timelineMessages.length;
   const scrollMessagesToBottom = useCallback((behavior: ScrollBehavior = "auto") => {
     const scrollContainer = messagesScrollRef.current;
-    if (!scrollContainer) return;
-    scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior });
-    lastKnownScrollTopRef.current = scrollContainer.scrollTop;
+    const bottomAnchor = messagesBottomRef.current;
+    if (!scrollContainer && !bottomAnchor) return;
+    bottomAnchor?.scrollIntoView({ block: "end", behavior });
+    scrollContainer?.scrollTo({ top: scrollContainer.scrollHeight, behavior });
+    if (scrollContainer) {
+      lastKnownScrollTopRef.current = scrollContainer.scrollTop;
+    }
     shouldAutoScrollRef.current = true;
   }, []);
   const cancelPendingStickToBottom = useCallback(() => {
@@ -4940,7 +4945,7 @@ export default function ChatView({
           onImportProjectScripts={importProjectScripts}
           onToggleTerminal={toggleTerminalVisibility}
           onPrefetchTerminal={preloadThreadTerminalDrawer}
-          onTogglePreview={() => activeProjectId && togglePreviewOpen(activeProjectId)}
+          onTogglePreview={() => activeThreadId && togglePreviewOpen(activeThreadId)}
           onTogglePreviewLayout={() => activeProjectId && togglePreviewLayout(activeProjectId)}
           onMinimize={onMinimize}
         />
@@ -4983,7 +4988,7 @@ export default function ChatView({
                   key={previewPanelKey ?? undefined}
                   projectId={activeProject!.id}
                   threadId={threadId}
-                  onClose={() => setPreviewOpen(activeProject!.id, false)}
+                  onClose={() => setPreviewOpen(threadId, false)}
                 />
               </div>
               <div
@@ -5006,7 +5011,7 @@ export default function ChatView({
                 key={previewPanelKey ?? undefined}
                 projectId={activeProject!.id}
                 threadId={threadId}
-                onClose={() => setPreviewOpen(activeProject!.id, false)}
+                onClose={() => setPreviewOpen(threadId, false)}
               />
             </div>
           ) : null}
@@ -5098,6 +5103,7 @@ export default function ChatView({
                   onOpenSettings={() => void navigate({ to: "/settings" })}
                   onOpenTurnDiff={handleOpenTurnDiff}
                 />
+                <div ref={messagesBottomRef} aria-hidden="true" className="h-px w-full" />
               </div>
 
               {/* scroll to bottom pill — shown when user has scrolled away from the bottom */}
@@ -5412,6 +5418,10 @@ export default function ChatView({
                                 : selectableProviders
                               ).includes(provider.provider),
                             )}
+                            codexSelectedModelProviderId={
+                              serverConfigQuery.data?.codexConfig?.selectedModelProviderId ?? null
+                            }
+                            openclawGatewayUrl={settings.openclawGatewayUrl}
                             {...(composerProviderState.modelPickerIconClassName
                               ? {
                                   activeProviderIconClassName:
@@ -5890,7 +5900,7 @@ export default function ChatView({
                   key={previewPanelKey ?? undefined}
                   projectId={activeProject!.id}
                   threadId={threadId}
-                  onClose={() => setPreviewOpen(activeProject!.id, false)}
+                  onClose={() => setPreviewOpen(threadId, false)}
                 />
               </div>
             </>

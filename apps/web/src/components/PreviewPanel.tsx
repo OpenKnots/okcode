@@ -1,4 +1,4 @@
-import type { PreviewTabsState, PreviewTabState, ProjectId } from "@okcode/contracts";
+import type { PreviewTabsState, PreviewTabState, ProjectId, ThreadId } from "@okcode/contracts";
 import { type FormEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   ChevronLeftIcon,
@@ -111,7 +111,7 @@ function tabDisplayTitle(tab: PreviewTabState): string {
 
 interface PreviewPanelProps {
   projectId: ProjectId;
-  threadId: string;
+  threadId: ThreadId;
   onClose: () => void;
 }
 
@@ -149,7 +149,7 @@ function resolveViewportDimensions(
 export function PreviewPanel({ projectId, threadId, onClose }: PreviewPanelProps) {
   const { settings } = useAppSettings();
   const previewBridge = readDesktopPreviewBridge();
-  const setProjectOpen = usePreviewStateStore((state) => state.setProjectOpen);
+  const setThreadOpen = usePreviewStateStore((state) => state.setThreadOpen);
   const favoriteUrls = usePreviewStateStore((state) => state.favoriteUrls);
   const toggleFavoriteUrl = usePreviewStateStore((state) => state.toggleFavoriteUrl);
   const presetId = usePreviewStateStore((state) => state.presetByProjectId[projectId] ?? null);
@@ -422,7 +422,7 @@ export function PreviewPanel({ projectId, threadId, onClose }: PreviewPanelProps
   };
 
   const onClosePreview = () => {
-    setProjectOpen(projectId, false);
+    setThreadOpen(threadId, false);
     void previewBridge?.closeAll();
     onClose();
   };

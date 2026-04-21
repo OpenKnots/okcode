@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { type ThreadId } from "@okcode/contracts";
 import { Terminal, type ITheme } from "@xterm/xterm";
+import { useQuery } from "@tanstack/react-query";
 import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
@@ -20,8 +21,10 @@ import {
   useState,
 } from "react";
 import { Popover, PopoverPopup, PopoverTrigger } from "~/components/ui/popover";
+import { MissingOnDiskBadge } from "~/components/MissingOnDiskBadge";
+import { projectPathExistsQueryOptions } from "~/lib/projectReactQuery";
 import { type TerminalContextSelection } from "~/lib/terminalContext";
-import { openFileReference } from "../fileOpen";
+import { openFileReference, splitFileTargetPosition } from "../fileOpen";
 import { useCodeViewerStore } from "../codeViewerStore";
 import {
   extractTerminalLinks,
@@ -294,6 +297,12 @@ function TerminalViewport({
     top: number;
     cellHeight: number;
   } | null>(null);
+  const [hoveredTerminalLink, setHoveredTerminalLink] = useState<{
+    text: string;
+    targetPath: string;
+    left: number;
+    top: number;
+  } | null>(null);
   const hoverBufferLineRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -522,6 +531,22 @@ function TerminalViewport({
                 );
               });
             },
+            hover: (event: MouseEvent) => {
+              if (match.kind !== "path") return;
+              const mount = containerRef.current;
+              if (!mount) return;
+              const bounds = mount.getBoundingClientRect();
+              const targetPath = resolvePathLinkTarget(match.text, cwd);
+              setHoveredTerminalLink({
+                text: match.text,
+                targetPath,
+                left: event.clientX - bounds.left,
+                top: event.clientY - bounds.top,
+              });
+            },
+            leave: () => {
+              setHoveredTerminalLink((current) => (current?.text === match.text ? null : current));
+            },
           })),
         );
       },
@@ -569,6 +594,7 @@ function TerminalViewport({
       if (event.button === 0) {
         hoverBufferLineRef.current = null;
         setHoverLine(null);
+        setHoveredTerminalLink(null);
       }
     };
     window.addEventListener("mouseup", handleMouseUp);
@@ -813,7 +839,18 @@ function TerminalViewport({
   const handleTerminalMouseLeave = useCallback(() => {
     hoverBufferLineRef.current = null;
     setHoverLine(null);
+    setHoveredTerminalLink(null);
   }, []);
+  const hoveredTerminalLinkPath =
+    hoveredTerminalLink !== null
+      ? splitFileTargetPosition(hoveredTerminalLink.targetPath).path
+      : null;
+  const hoveredTerminalLinkExistsQuery = useQuery(
+    projectPathExistsQueryOptions({
+      path: hoveredTerminalLinkPath,
+    }),
+  );
+  const hoveredTerminalLinkIsMissing = hoveredTerminalLinkExistsQuery.data?.exists === false;
   const launchOverlay = resolveTerminalLaunchOverlay(launchState);
   const retryTerminalOpen = useCallback(() => {
     const terminal = terminalRef.current;
@@ -877,6 +914,31 @@ function TerminalViewport({
           <Plus className="size-3" />
         </button>
       )}
+      {hoveredTerminalLink ? (
+        <div
+          className="pointer-events-none absolute z-20 max-w-[min(28rem,calc(100%-1rem))] rounded-md border border-border/70 bg-background/95 px-3 py-2 shadow-lg backdrop-blur"
+          style={{
+            left: `${Math.min(Math.max(8, hoveredTerminalLink.left + 14), 520)}px`,
+            top: `${Math.max(8, hoveredTerminalLink.top + 18)}px`,
+          }}
+        >
+          <div className="flex items-start gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-mono text-[11px] text-foreground">
+                {hoveredTerminalLink.targetPath}
+              </p>
+              <p className="mt-0.5 text-[10px] text-muted-foreground">Terminal path link</p>
+            </div>
+            {hoveredTerminalLinkIsMissing ? (
+              <MissingOnDiskBadge
+                path={hoveredTerminalLinkPath ?? hoveredTerminalLink.targetPath}
+                compact
+                className="shrink-0"
+              />
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

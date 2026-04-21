@@ -37,7 +37,7 @@ All macOS DMG and ZIP payloads are **code-signed** with an Apple Developer ID ce
 
 ## iOS (TestFlight)
 
-The iOS build is uploaded directly to App Store Connect / TestFlight by the [Release iOS workflow](../../.github/workflows/release-ios.yml). No IPA artifact is attached to the GitHub Release.
+The iOS build is uploaded directly to App Store Connect / TestFlight by the separately dispatched [Release iOS workflow](../../.github/workflows/release-ios.yml). No IPA artifact is attached to the GitHub Release.
 
 | Detail            | Value                                      |
 | ----------------- | ------------------------------------------ |

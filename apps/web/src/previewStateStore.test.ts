@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const STORAGE_KEY = "okcode:desktop-preview:v5";
+const STORAGE_KEY = "okcode:desktop-preview:v6";
 
 let usePreviewStateStore: typeof import("./previewStateStore").usePreviewStateStore;
 let storage: Map<string, string>;
@@ -26,7 +26,7 @@ describe("previewStateStore", () => {
 
     ({ usePreviewStateStore } = await import("./previewStateStore"));
     usePreviewStateStore.setState({
-      openByProjectId: {},
+      openByThreadId: {},
       dockByProjectId: {},
       sizeByProjectId: {},
       presetByProjectId: {},
@@ -50,29 +50,47 @@ describe("previewStateStore", () => {
     expect(usePreviewStateStore.getState().favoriteUrls).not.toContain("http://localhost:3000/");
   });
 
-  it("toggles project open state", () => {
+  it("toggles thread open state", () => {
     const store = usePreviewStateStore.getState();
-    const projectId = "test-project-id" as any;
+    const threadId = "test-thread-id" as any;
 
-    store.setProjectOpen(projectId, true);
-    expect(usePreviewStateStore.getState().openByProjectId[projectId]).toBe(true);
-    expect(storage.get(STORAGE_KEY)).toContain('"openByProjectId"');
+    store.setThreadOpen(threadId, true);
+    expect(usePreviewStateStore.getState().openByThreadId[threadId]).toBe(true);
+    expect(storage.get(STORAGE_KEY)).toContain('"openByThreadId"');
 
-    store.toggleProjectOpen(projectId);
-    expect(usePreviewStateStore.getState().openByProjectId[projectId]).toBe(false);
+    store.toggleThreadOpen(threadId);
+    expect(usePreviewStateStore.getState().openByThreadId[threadId]).toBe(false);
   });
 
-  it("scopes open state per project", () => {
+  it("scopes open state per thread", () => {
     const store = usePreviewStateStore.getState();
-    const projectA = "project-a" as any;
-    const projectB = "project-b" as any;
+    const threadA = "thread-a" as any;
+    const threadB = "thread-b" as any;
 
-    store.setProjectOpen(projectA, true);
-    expect(usePreviewStateStore.getState().openByProjectId[projectA]).toBe(true);
-    expect(usePreviewStateStore.getState().openByProjectId[projectB]).toBeUndefined();
+    store.setThreadOpen(threadA, true);
+    expect(usePreviewStateStore.getState().openByThreadId[threadA]).toBe(true);
+    expect(usePreviewStateStore.getState().openByThreadId[threadB]).toBeUndefined();
 
-    store.setProjectOpen(projectB, false);
-    expect(usePreviewStateStore.getState().openByProjectId[projectA]).toBe(true);
-    expect(usePreviewStateStore.getState().openByProjectId[projectB]).toBe(false);
+    store.setThreadOpen(threadB, false);
+    expect(usePreviewStateStore.getState().openByThreadId[threadA]).toBe(true);
+    expect(usePreviewStateStore.getState().openByThreadId[threadB]).toBe(false);
+  });
+
+  it("does not migrate old project-scoped open state into the new thread-scoped field", async () => {
+    storage.set(
+      "okcode:desktop-preview:v5",
+      JSON.stringify({
+        openByProjectId: { "project-a": true },
+        dockByProjectId: { "project-a": "top" },
+        sizeByProjectId: { "project-a": 420 },
+      }),
+    );
+
+    vi.resetModules();
+    ({ usePreviewStateStore } = await import("./previewStateStore"));
+
+    expect(usePreviewStateStore.getState().openByThreadId).toEqual({});
+    expect(usePreviewStateStore.getState().dockByProjectId["project-a"]).toBe("top");
+    expect(usePreviewStateStore.getState().sizeByProjectId["project-a"]).toBe(420);
   });
 });

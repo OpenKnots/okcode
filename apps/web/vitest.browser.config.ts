@@ -25,6 +25,7 @@ export default mergeConfig(
         instances: [{ browser: "chromium" }],
         headless: true,
       },
+      teardownTimeout: 30_000,
       testTimeout: 30_000,
       hookTimeout: 30_000,
     },

@@ -1,29 +1,11 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Schema } from "effect";
+import { useQueryClient } from "@tanstack/react-query";
 import { useDeferredValue } from "react";
-import { startTransition, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
-import {
-  AlertTriangleIcon,
-  CheckCircle2Icon,
-  ChevronUpIcon,
-  MessageSquareIcon,
-  PanelRightIcon,
-  ShieldCheckIcon,
-  SparklesIcon,
-} from "lucide-react";
+import { startTransition, useEffect, useEffectEvent, useMemo, useRef } from "react";
+import { PanelRightIcon } from "lucide-react";
 
 import { useAppSettings } from "~/appSettings";
-import { useLocalStorage } from "~/hooks/useLocalStorage";
 import { useMediaQuery } from "~/hooks/useMediaQuery";
-import { gitListPullRequestsQueryOptions } from "~/lib/gitReactQuery";
-import {
-  invalidatePrReviewQueries,
-  prReviewConfigQueryOptions,
-  prReviewConflictsQueryOptions,
-  prReviewDashboardQueryOptions,
-  prReviewPatchQueryOptions,
-} from "~/lib/prReviewReactQuery";
-import { cn } from "~/lib/utils";
+import { invalidatePrReviewQueries } from "~/lib/prReviewReactQuery";
 import { ensureNativeApi } from "~/nativeApi";
 import { joinPath } from "~/components/review/reviewUtils";
 import { Button } from "~/components/ui/button";
@@ -36,64 +18,29 @@ import {
   SheetTitle,
 } from "~/components/ui/sheet";
 import type { Project } from "~/types";
+import { usePrReviewStore } from "~/prReviewStore";
 
 import { PrListRail } from "./PrListRail";
 import { PrWorkspace } from "./PrWorkspace";
 import { PrConversationInspector } from "./PrConversationInspector";
 import { PrConflictDrawer } from "./PrConflictDrawer";
 import { PrInspectorPanel } from "./PrInspectorPanel";
-import { PrMentionComposer } from "./PrMentionComposer";
+import { PrActionRail } from "./PrActionRail";
+import { PrKeyboardShortcutOverlay } from "./PrKeyboardShortcutOverlay";
+import { usePrReviewQueries } from "./usePrReviewQueries";
+import { usePrReviewMutations } from "./usePrReviewMutations";
+import { usePrReviewKeyboard } from "./usePrReviewKeyboard";
 import {
-  type PullRequestState,
-  REVIEWED_FILES_SCHEMA,
-  TEXT_DRAFT_SCHEMA,
   openPathInEditor,
   requiredChecksState,
   resolveRequestChangesButtonVariant,
 } from "./pr-review-utils";
-
-const BOOL_SCHEMA = Schema.Boolean;
-
-function formatReviewDecision(decision: string | null | undefined): string {
-  if (!decision) return "No decision yet";
-  return decision.toLowerCase().replaceAll("_", " ");
-}
-
-function reviewDecisionTone(decision: string | null | undefined): string {
-  switch (decision) {
-    case "APPROVED":
-      return "text-emerald-600 dark:text-emerald-400";
-    case "CHANGES_REQUESTED":
-    case "REVIEW_REQUIRED":
-      return "text-amber-600 dark:text-amber-400";
-    default:
-      return "text-muted-foreground";
-  }
-}
-
-function formatConflictStatus(status: string | null | undefined): string {
-  if (!status) return "Conflict status unknown";
-  if (status === "clean") return "No merge conflicts";
-  if (status === "conflicted") return "Merge conflicts";
-  return status.replaceAll("_", " ");
-}
 
 function resolvePrReviewConfigPath(projectCwd: string, configPath: string): string {
   if (/^(?:[A-Za-z]:[\\/]|\/)/.test(configPath)) {
     return configPath;
   }
   return joinPath(projectCwd, configPath);
-}
-
-function formatReviewTimestamp(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(date);
 }
 
 export function PrReviewShell({
@@ -111,74 +58,32 @@ export function PrReviewShell({
   const { settings } = useAppSettings();
   const isInspectorSheet = useMediaQuery("max-xl");
   const isWideScreen = useMediaQuery("min-2xl");
-  const [pullRequestState, setPullRequestState] = useState<PullRequestState>("open");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedPrNumber, setSelectedPrNumber] = useState<number | null>(null);
-  const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
-  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
-  const [workflowId, setWorkflowId] = useState<string | null>(null);
-  const [conflictDrawerOpen, setConflictDrawerOpen] = useState(false);
-  const [inspectorOpen, setInspectorOpen] = useState(false);
-  const deferredSearchQuery = useDeferredValue(searchQuery);
-  const reviewDraftKey = `okcode:pr-review:review-draft:${project.id}:${selectedPrNumber ?? "none"}`;
-  const [reviewBody, setReviewBody] = useLocalStorage(reviewDraftKey, "", TEXT_DRAFT_SCHEMA);
-  const reviewedFilesKey = `okcode:pr-review:reviewed-files:${project.id}:${selectedPrNumber ?? "none"}`;
-  const [reviewedFiles, setReviewedFiles] = useLocalStorage<readonly string[], unknown>(
-    reviewedFilesKey,
-    [],
-    REVIEWED_FILES_SCHEMA,
-  );
+  const reviewComposerRef = useRef<HTMLTextAreaElement | null>(null);
 
-  // --- Collapsible panel state ---
-  const [leftRailCollapsed, setLeftRailCollapsed] = useLocalStorage(
-    "okcode:pr-review:left-rail-collapsed",
-    false,
-    BOOL_SCHEMA,
-  );
-  const [inspectorCollapsed, setInspectorCollapsed] = useLocalStorage(
-    "okcode:pr-review:inspector-collapsed",
-    true,
-    BOOL_SCHEMA,
-  );
-  const [actionRailExpanded, setActionRailExpanded] = useState(false);
-  const userExplicitlyOpenedInspector = useRef(false);
+  // ── Store ─────────────────────────────────────────────────────────
+  const store = usePrReviewStore();
+  const deferredSearchQuery = useDeferredValue(store.searchQuery);
+  const {
+    resetForNewPr,
+    selectFile,
+    selectPr,
+    selectedFilePath,
+    selectedPrNumber,
+    agentReviewResult,
+    setInspectorCollapsed,
+    setLeftRailCollapsed,
+    setWorkflowId,
+    userExplicitlyOpenedInspector,
+    workflowId,
+  } = store;
 
-  // Auto-expand panels on wide screens
-  useEffect(() => {
-    if (isWideScreen) {
-      setLeftRailCollapsed(false);
-      if (!userExplicitlyOpenedInspector.current) {
-        setInspectorCollapsed(false);
-      }
-    }
-  }, [isWideScreen, setLeftRailCollapsed, setInspectorCollapsed]);
+  // ── Queries & Mutations ───────────────────────────────────────────
+  const { configQuery, dashboardQuery, patchQuery, conflictQuery, pullRequestsQuery } =
+    usePrReviewQueries(project.cwd);
 
-  const pullRequestsQuery = useQuery(
-    gitListPullRequestsQueryOptions({
-      cwd: project.cwd,
-      state: pullRequestState,
-    }),
-  );
-  const configQuery = useQuery(prReviewConfigQueryOptions(project.cwd));
-  const dashboardQuery = useQuery(
-    prReviewDashboardQueryOptions({
-      cwd: project.cwd,
-      prNumber: selectedPrNumber,
-    }),
-  );
-  const patchQuery = useQuery(
-    prReviewPatchQueryOptions({
-      cwd: project.cwd,
-      prNumber: selectedPrNumber,
-    }),
-  );
-  const conflictQuery = useQuery(
-    prReviewConflictsQueryOptions({
-      cwd: project.cwd,
-      prNumber: selectedPrNumber,
-    }),
-  );
+  const mutations = usePrReviewMutations(project.cwd);
 
+  // ── Derived data ──────────────────────────────────────────────────
   const filteredPullRequests = useMemo(() => {
     const query = deferredSearchQuery.trim().toLowerCase();
     if (query.length === 0) {
@@ -198,46 +103,90 @@ export function PrReviewShell({
     });
   }, [deferredSearchQuery, pullRequestsQuery.data?.pullRequests]);
 
+  const patchFiles = useMemo(() => patchQuery.data?.files ?? [], [patchQuery.data?.files]);
+
+  const filePaths = useMemo(() => patchFiles.map((f) => f.path), [patchFiles]);
+
+  const checksSummary = configQuery.data
+    ? requiredChecksState(configQuery.data, dashboardQuery.data?.pullRequest.statusChecks ?? [])
+    : { failing: [] as string[], pending: [] as string[] };
+
+  const blockingWorkflowSteps = useMemo(
+    () =>
+      (dashboardQuery.data?.workflowSteps ?? []).filter(
+        (step) => step.status === "blocked" || step.status === "failed",
+      ),
+    [dashboardQuery.data?.workflowSteps],
+  );
+
+  const approvalBlockers = useMemo(
+    () => [
+      ...(conflictQuery.data?.status === "conflicted" ? ["Merge conflicts must be resolved"] : []),
+      ...checksSummary.failing.map((name) => `Failing check: ${name}`),
+      ...checksSummary.pending.map((name) => `Pending check: ${name}`),
+      ...blockingWorkflowSteps.map((step) => `Workflow blocked: ${step.detail ?? step.stepId}`),
+    ],
+    [
+      conflictQuery.data?.status,
+      checksSummary.failing,
+      checksSummary.pending,
+      blockingWorkflowSteps,
+    ],
+  );
+
+  // ── Effects: Auto-select, sync, auto-expand ───────────────────────
+
+  // Auto-expand panels on wide screens
+  useEffect(() => {
+    if (isWideScreen) {
+      setLeftRailCollapsed(false);
+      if (!userExplicitlyOpenedInspector) {
+        setInspectorCollapsed(false);
+      }
+    }
+  }, [isWideScreen, setInspectorCollapsed, setLeftRailCollapsed, userExplicitlyOpenedInspector]);
+
+  // Auto-select first PR
   useEffect(() => {
     const nextDefault =
-      filteredPullRequests.find((pullRequest) => pullRequest.number === selectedPrNumber) ??
+      filteredPullRequests.find((pr) => pr.number === selectedPrNumber) ??
       filteredPullRequests[0] ??
       null;
     if (!nextDefault) {
-      if (selectedPrNumber !== null) setSelectedPrNumber(null);
+      if (selectedPrNumber !== null) selectPr(null);
       return;
     }
     if (selectedPrNumber !== nextDefault.number) {
-      setSelectedPrNumber(nextDefault.number);
+      selectPr(nextDefault.number);
     }
-  }, [filteredPullRequests, selectedPrNumber]);
+  }, [filteredPullRequests, selectPr, selectedPrNumber]);
 
+  // Reset file/thread when PR changes
   useEffect(() => {
-    setSelectedFilePath(null);
-    setSelectedThreadId(null);
-  }, [selectedPrNumber]);
+    resetForNewPr();
+  }, [resetForNewPr, selectedPrNumber]);
 
+  // Auto-select first file
   useEffect(() => {
     const files = patchQuery.data?.files ?? [];
     if (files.length === 0) {
-      setSelectedFilePath(null);
+      selectFile(null);
       return;
     }
     if (!selectedFilePath || !files.some((file) => file.path === selectedFilePath)) {
-      setSelectedFilePath(files[0]?.path ?? null);
+      selectFile(files[0]?.path ?? null);
     }
-  }, [patchQuery.data?.files, selectedFilePath]);
+  }, [patchQuery.data?.files, selectFile, selectedFilePath]);
 
+  // Auto-select workflow
   useEffect(() => {
     if (!configQuery.data) return;
-    setWorkflowId((current) => {
-      if (current && configQuery.data.workflows.some((workflow) => workflow.id === current)) {
-        return current;
-      }
-      return configQuery.data.defaultWorkflowId;
-    });
-  }, [configQuery.data]);
+    const current = workflowId;
+    if (current && configQuery.data.workflows.some((w) => w.id === current)) return;
+    setWorkflowId(configQuery.data.defaultWorkflowId);
+  }, [configQuery.data, setWorkflowId, workflowId]);
 
+  // Native API event subscriptions
   const handleSyncUpdated = useEffectEvent((payload: { cwd: string; prNumber: number }) => {
     if (payload.cwd !== project.cwd) return;
     void queryClient.invalidateQueries({ queryKey: ["git", "pull-requests", project.cwd] });
@@ -259,175 +208,23 @@ export function PrReviewShell({
     };
   }, []);
 
-  // Keyboard shortcuts: [ toggles left rail, ] toggles right inspector
-  const handlePanelKeyDown = useEffectEvent((event: KeyboardEvent) => {
-    const target = event.target as HTMLElement;
-    if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) {
-      return;
-    }
-    if (event.key === "[" && !event.ctrlKey && !event.metaKey) {
-      event.preventDefault();
-      setLeftRailCollapsed(!leftRailCollapsed);
-    }
-    if (event.key === "]" && !event.ctrlKey && !event.metaKey) {
-      event.preventDefault();
-      if (isInspectorSheet) return;
-      const next = !inspectorCollapsed;
-      if (!next) userExplicitlyOpenedInspector.current = true;
-      setInspectorCollapsed(next);
-    }
+  // ── Keyboard ──────────────────────────────────────────────────────
+  usePrReviewKeyboard({
+    enabled: true,
+    filePaths,
+    fileCount: patchFiles.length,
+    reviewComposerRef,
   });
 
-  useEffect(() => {
-    document.addEventListener("keydown", handlePanelKeyDown);
-    return () => document.removeEventListener("keydown", handlePanelKeyDown);
-  }, []);
-
-  const addThreadMutation = useMutation({
-    mutationFn: async (input: { path: string; line: number; body: string }) => {
-      if (!selectedPrNumber) throw new Error("Select a pull request first.");
-      return ensureNativeApi().prReview.addThread({
-        cwd: project.cwd,
-        prNumber: selectedPrNumber,
-        path: input.path,
-        line: input.line,
-        body: input.body,
-      });
-    },
-    onSuccess: async () => {
-      if (!selectedPrNumber) return;
-      await invalidatePrReviewQueries(queryClient, project.cwd, selectedPrNumber);
-    },
-  });
-
-  const replyToThreadMutation = useMutation({
-    mutationFn: async (input: { threadId: string; body: string }) => {
-      if (!selectedPrNumber) throw new Error("Select a pull request first.");
-      return ensureNativeApi().prReview.replyToThread({
-        cwd: project.cwd,
-        prNumber: selectedPrNumber,
-        threadId: input.threadId,
-        body: input.body,
-      });
-    },
-    onSuccess: async () => {
-      if (!selectedPrNumber) return;
-      await invalidatePrReviewQueries(queryClient, project.cwd, selectedPrNumber);
-    },
-  });
-
-  const resolveThreadMutation = useMutation({
-    mutationFn: async (input: { threadId: string; action: "resolve" | "unresolve" }) => {
-      if (!selectedPrNumber) throw new Error("Select a pull request first.");
-      if (input.action === "resolve") {
-        return ensureNativeApi().prReview.resolveThread({
-          cwd: project.cwd,
-          prNumber: selectedPrNumber,
-          threadId: input.threadId,
-        });
-      }
-      return ensureNativeApi().prReview.unresolveThread({
-        cwd: project.cwd,
-        prNumber: selectedPrNumber,
-        threadId: input.threadId,
-      });
-    },
-    onSuccess: async () => {
-      if (!selectedPrNumber) return;
-      await invalidatePrReviewQueries(queryClient, project.cwd, selectedPrNumber);
-    },
-  });
-
-  const runWorkflowStepMutation = useMutation({
-    mutationFn: async (stepId: string) => {
-      if (!selectedPrNumber) throw new Error("Select a pull request first.");
-      return ensureNativeApi().prReview.runWorkflowStep({
-        cwd: project.cwd,
-        prNumber: selectedPrNumber,
-        stepId,
-      });
-    },
-    onSuccess: async () => {
-      if (!selectedPrNumber) return;
-      await invalidatePrReviewQueries(queryClient, project.cwd, selectedPrNumber);
-    },
-  });
-
-  const applyConflictResolutionMutation = useMutation({
-    mutationFn: async (candidateId: string) => {
-      if (!selectedPrNumber) throw new Error("Select a pull request first.");
-      const confirmed = await ensureNativeApi().dialogs.confirm(
-        "Apply this conflict resolution candidate to the repository?",
-      );
-      if (!confirmed) return null;
-      return ensureNativeApi().prReview.applyConflictResolution({
-        cwd: project.cwd,
-        prNumber: selectedPrNumber,
-        candidateId,
-      });
-    },
-    onSuccess: async () => {
-      if (!selectedPrNumber) return;
-      await invalidatePrReviewQueries(queryClient, project.cwd, selectedPrNumber);
-    },
-  });
-
-  const submitReviewMutation = useMutation({
-    mutationFn: async (event: "COMMENT" | "APPROVE" | "REQUEST_CHANGES") => {
-      if (!selectedPrNumber) throw new Error("Select a pull request first.");
-      return ensureNativeApi().prReview.submitReview({
-        cwd: project.cwd,
-        prNumber: selectedPrNumber,
-        event,
-        body: reviewBody.trim(),
-      });
-    },
-    onSuccess: async () => {
-      if (!selectedPrNumber) return;
-      setReviewBody("");
-      await invalidatePrReviewQueries(queryClient, project.cwd, selectedPrNumber);
-    },
-  });
-
-  const checksSummary = configQuery.data
-    ? requiredChecksState(configQuery.data, dashboardQuery.data?.pullRequest.statusChecks ?? [])
-    : { failing: [] as string[], pending: [] as string[] };
-  const blockingWorkflowStepsComputed = (dashboardQuery.data?.workflowSteps ?? []).filter(
-    (step) => step.status === "blocked" || step.status === "failed",
-  );
-  const fileStats = useMemo(() => {
-    const files = dashboardQuery.data?.files ?? [];
-    return files.reduce(
-      (totals, file) => ({
-        changedFileCount: totals.changedFileCount + 1,
-        additions: totals.additions + file.additions,
-        deletions: totals.deletions + file.deletions,
-      }),
-      { changedFileCount: 0, additions: 0, deletions: 0 },
-    );
-  }, [dashboardQuery.data?.files]);
-  const approvalBlockers = [
-    ...(conflictQuery.data?.status === "conflicted" ? ["Merge conflicts must be resolved"] : []),
-    ...checksSummary.failing.map((name) => `Failing check: ${name}`),
-    ...checksSummary.pending.map((name) => `Pending check: ${name}`),
-    ...blockingWorkflowStepsComputed.map(
-      (step) => `Workflow blocked: ${step.detail ?? step.stepId}`,
-    ),
-  ];
-  const approveDisabled =
-    submitReviewMutation.isPending ||
-    conflictQuery.data?.status === "conflicted" ||
-    checksSummary.failing.length > 0 ||
-    checksSummary.pending.length > 0;
-  const recentReviews = dashboardQuery.data?.pullRequest.recentReviews ?? [];
-  const displayedRecentReviews = recentReviews.slice(0, 3);
-
-  // Inspector props helper
+  // ── Inspector props ───────────────────────────────────────────────
   const inspectorProps = {
     config: configQuery.data,
     conflicts: conflictQuery.data,
     dashboard: dashboardQuery.data,
-    onOpenConflictDrawer: () => setConflictDrawerOpen(true),
+    agentResult: agentReviewResult,
+    onStartAgentReview: undefined,
+    isStartingAgentReview: undefined,
+    onOpenConflictDrawer: () => store.setConflictDrawerOpen(true),
     onOpenRules: () => {
       if (!configQuery.data) return;
       void openPathInEditor(
@@ -438,51 +235,53 @@ export function PrReviewShell({
       void openPathInEditor(resolvePrReviewConfigPath(project.cwd, relativePath));
     },
     onReplyToThread: async (threadId: string, body: string) => {
-      await replyToThreadMutation.mutateAsync({ threadId, body });
+      await mutations.replyToThreadMutation.mutateAsync({ threadId, body });
     },
     onResolveThread: async (threadId: string, nextAction: "resolve" | "unresolve") => {
-      await resolveThreadMutation.mutateAsync({ threadId, action: nextAction });
+      await mutations.resolveThreadMutation.mutateAsync({ threadId, action: nextAction });
     },
     onRunStep: async (stepId: string, requiresConfirmation: boolean, title: string) => {
       if (requiresConfirmation) {
         const confirmed = await ensureNativeApi().dialogs.confirm(`Run workflow step "${title}"?`);
         if (!confirmed) return;
       }
-      await runWorkflowStepMutation.mutateAsync(stepId);
+      await mutations.runWorkflowStepMutation.mutateAsync(stepId);
     },
-    onSelectFilePath: setSelectedFilePath,
-    onSelectThreadId: setSelectedThreadId,
-    onWorkflowIdChange: setWorkflowId,
+    onCreateThread: async (input: { path: string; line: number; body: string }) => {
+      await mutations.addThreadMutation.mutateAsync(input);
+    },
+    onSelectFilePath: store.selectFile,
+    onSelectThreadId: store.selectThread,
+    onWorkflowIdChange: store.setWorkflowId,
     project,
-    selectedFilePath,
-    selectedThreadId,
-    workflowId,
+    selectedFilePath: store.selectedFilePath,
+    selectedThreadId: store.selectedThreadId,
+    workflowId: store.workflowId,
   } as const;
 
+  // ── Render ────────────────────────────────────────────────────────
   return (
     <>
       {/* Main content area — flexbox layout with collapsible panels */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {/* Left rail — collapsible */}
         <PrListRail
-          collapsed={leftRailCollapsed}
+          collapsed={store.leftRailCollapsed}
           isLoading={pullRequestsQuery.isLoading || pullRequestsQuery.isFetching}
           onProjectChange={onProjectChange}
-          onPullRequestStateChange={setPullRequestState}
-          onSearchQueryChange={setSearchQuery}
+          onPullRequestStateChange={store.setPullRequestState}
+          onSearchQueryChange={store.setSearchQuery}
           onSelectPr={(pullRequest) => {
             startTransition(() => {
-              setSelectedPrNumber(pullRequest.number);
-              setSelectedThreadId(null);
-              setInspectorOpen(true);
+              store.selectPr(pullRequest.number);
             });
           }}
-          onToggleCollapsed={() => setLeftRailCollapsed(!leftRailCollapsed)}
+          onToggleCollapsed={store.toggleLeftRail}
           projects={projects}
-          pullRequestState={pullRequestState}
+          pullRequestState={store.pullRequestState}
           pullRequests={filteredPullRequests}
-          searchQuery={searchQuery}
-          selectedPrNumber={selectedPrNumber}
+          searchQuery={store.searchQuery}
+          selectedPrNumber={store.selectedPrNumber}
           selectedProjectId={selectedProjectId}
         />
 
@@ -490,7 +289,7 @@ export function PrReviewShell({
         <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {isInspectorSheet ? (
             <div className="flex h-10 items-center justify-end border-b border-border/70 px-4">
-              <Button onClick={() => setInspectorOpen(true)} size="sm" variant="outline">
+              <Button onClick={() => store.setInspectorOpen(true)} size="sm" variant="outline">
                 <PanelRightIcon className="size-3.5" />
                 Inspector
               </Button>
@@ -498,48 +297,42 @@ export function PrReviewShell({
           ) : null}
           <PrWorkspace
             dashboard={dashboardQuery.data}
+            agentResult={agentReviewResult}
+            onStartAgentReview={undefined}
+            isStartingAgentReview={undefined}
             onCreateThread={async (input) => {
-              await addThreadMutation.mutateAsync(input);
+              await mutations.addThreadMutation.mutateAsync(input);
             }}
-            onSelectFilePath={setSelectedFilePath}
+            onSelectFilePath={store.selectFile}
             onSelectThreadId={(threadId) => {
-              setSelectedThreadId(threadId);
+              store.selectThread(threadId);
               // Auto-expand inspector when clicking a thread
-              if (threadId && inspectorCollapsed && !isInspectorSheet) {
-                userExplicitlyOpenedInspector.current = true;
-                setInspectorCollapsed(false);
+              if (threadId && store.inspectorCollapsed && !isInspectorSheet) {
+                store.expandInspectorToTab("threads");
               }
             }}
-            onToggleFileReviewed={(path) => {
-              setReviewedFiles((prev) => {
-                const set = new Set(prev);
-                if (set.has(path)) set.delete(path);
-                else set.add(path);
-                return [...set];
-              });
-            }}
+            onToggleFileReviewed={store.toggleFileReviewed}
             patch={patchQuery.data?.combinedPatch ?? null}
             project={project}
-            reviewedFiles={reviewedFiles}
-            selectedFilePath={selectedFilePath}
-            selectedThreadId={selectedThreadId}
+            reviewedFiles={store.reviewedFiles}
+            selectedFilePath={store.selectedFilePath}
+            selectedThreadId={store.selectedThreadId}
+            approvalBlockers={approvalBlockers}
+            onOpenConflictDrawer={() => store.setConflictDrawerOpen(true)}
           />
         </main>
 
         {/* Right inspector — collapsible (desktop xl+ only) */}
         {!isInspectorSheet ? (
           <PrInspectorPanel
-            collapsed={inspectorCollapsed}
-            hasBlockedWorkflow={blockingWorkflowStepsComputed.length > 0}
-            onExpandToTab={(_tab) => {
-              userExplicitlyOpenedInspector.current = true;
-              setInspectorCollapsed(false);
+            collapsed={store.inspectorCollapsed}
+            hasBlockedWorkflow={blockingWorkflowSteps.length > 0}
+            hasAgentFindings={(agentReviewResult?.findings?.length ?? 0) > 0}
+            agentReviewRunning={false}
+            onExpandToTab={(tab) => {
+              store.expandInspectorToTab(tab);
             }}
-            onToggleCollapsed={() => {
-              const next = !inspectorCollapsed;
-              if (!next) userExplicitlyOpenedInspector.current = true;
-              setInspectorCollapsed(next);
-            }}
+            onToggleCollapsed={store.toggleInspector}
             unresolvedThreadCount={dashboardQuery.data?.pullRequest.unresolvedThreadCount ?? 0}
           >
             <PrConversationInspector {...inspectorProps} />
@@ -547,212 +340,32 @@ export function PrReviewShell({
         ) : null}
       </div>
 
-      {/* Action rail — collapsible (Phase 6) */}
-      <div className="border-t border-border/70 bg-background/96">
-        {/* Collapsed bar */}
-        <div
-          className={cn(
-            "flex min-h-10 items-center justify-between gap-3 px-4 py-2",
-            actionRailExpanded && "border-b border-border/50",
-          )}
-        >
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-            <span className="font-medium text-foreground">Submit review</span>
-            <span
-              className={cn(
-                "capitalize font-medium",
-                reviewDecisionTone(dashboardQuery.data?.pullRequest.reviewDecision),
-              )}
-            >
-              {formatReviewDecision(dashboardQuery.data?.pullRequest.reviewDecision)}
-            </span>
-            <span className="flex items-center gap-1">
-              <MessageSquareIcon className="size-3" />
-              {dashboardQuery.data?.pullRequest.unresolvedThreadCount ?? 0} open
-            </span>
-            <span>{fileStats.changedFileCount} files</span>
-            <span className="flex items-center gap-1">
-              <ShieldCheckIcon className="size-3" />
-              {formatConflictStatus(conflictQuery.data?.status)}
-            </span>
-            {approvalBlockers.length > 0 ? (
-              <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
-                <SparklesIcon className="size-3" />
-                {approvalBlockers.length} blocker{approvalBlockers.length === 1 ? "" : "s"}
-              </span>
-            ) : (
-              <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                <CheckCircle2Icon className="size-3" />
-                ready to approve
-              </span>
-            )}
-          </div>
-          <Button
-            onClick={() => setActionRailExpanded(!actionRailExpanded)}
-            size="xs"
-            variant="ghost"
-          >
-            <ChevronUpIcon
-              className={cn("size-3.5 transition-transform", actionRailExpanded && "rotate-180")}
-            />
-            {actionRailExpanded ? "Collapse" : "Review"}
-          </Button>
-        </div>
-        {/* Expanded content */}
-        <div
-          className={cn(
-            "grid transition-[grid-template-rows] duration-200 ease-in-out",
-            actionRailExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
-          )}
-        >
-          <div className="overflow-hidden">
-            <div className="space-y-3 px-4 py-3">
-              <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.3fr)]">
-                <div className="rounded-xl border border-border/60 bg-muted/30 px-3 py-2.5 text-xs">
-                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                    Review decision
-                  </div>
-                  <div
-                    className={cn(
-                      "mt-1 font-medium capitalize",
-                      reviewDecisionTone(dashboardQuery.data?.pullRequest.reviewDecision),
-                    )}
-                  >
-                    {formatReviewDecision(dashboardQuery.data?.pullRequest.reviewDecision)}
-                  </div>
-                </div>
-                <div className="rounded-xl border border-border/60 bg-muted/30 px-3 py-2.5 text-xs">
-                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                    File impact
-                  </div>
-                  <div className="mt-1 font-medium text-foreground">
-                    {fileStats.changedFileCount}{" "}
-                    {fileStats.changedFileCount === 1 ? "file" : "files"}, +{fileStats.additions} /
-                    -{fileStats.deletions}
-                  </div>
-                </div>
-                <div className="rounded-xl border border-border/60 bg-muted/30 px-3 py-2.5 text-xs">
-                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                    Approval status
-                  </div>
-                  {approvalBlockers.length > 0 ? (
-                    <ul className="mt-1 space-y-1 text-muted-foreground">
-                      {approvalBlockers.slice(0, 4).map((blocker) => (
-                        <li className="flex items-start gap-1.5" key={blocker}>
-                          <AlertTriangleIcon className="mt-0.5 size-3 shrink-0 text-amber-500" />
-                          <span>{blocker}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <div className="mt-1 flex items-center gap-1.5 font-medium text-emerald-600 dark:text-emerald-400">
-                      <CheckCircle2Icon className="size-3.5" />
-                      Ready to approve
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                  Recent maintainer reviews
-                </div>
-                {displayedRecentReviews.length > 0 ? (
-                  <div className="space-y-1.5">
-                    {displayedRecentReviews.map((review) => (
-                      <div
-                        className="rounded-md border border-border/60 bg-muted/30 px-2.5 py-2 text-xs"
-                        key={`${review.authorLogin}:${review.submittedAt}`}
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="min-w-0">
-                            <span className="font-medium text-foreground">
-                              {review.authorLogin}
-                            </span>
-                            <span className="ml-2 capitalize text-muted-foreground">
-                              {review.state.toLowerCase().replaceAll("_", " ")}
-                            </span>
-                          </div>
-                          <span className="shrink-0 text-muted-foreground">
-                            {formatReviewTimestamp(review.submittedAt)}
-                          </span>
-                        </div>
-                        {review.body.trim().length > 0 ? (
-                          <p className="mt-1 line-clamp-2 whitespace-pre-wrap text-muted-foreground">
-                            {review.body}
-                          </p>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-xs text-muted-foreground">No maintainer reviews yet.</div>
-                )}
-              </div>
-              <PrMentionComposer
-                cwd={project.cwd}
-                participants={dashboardQuery.data?.pullRequest.participants ?? []}
-                placeholder="Write a review summary or use @ to notify collaborators."
-                rows={2}
-                value={reviewBody}
-                onChange={(value) => {
-                  setReviewBody(value);
-                  if (value.trim().length > 0 && !actionRailExpanded) {
-                    setActionRailExpanded(true);
-                  }
-                }}
-              />
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="text-xs text-muted-foreground">
-                  {approveDisabled
-                    ? "Approval is gated until blockers are cleared."
-                    : "Approval is available once your summary is ready."}
-                </div>
-                <div className="flex flex-wrap items-center justify-end gap-2">
-                  <Button
-                    disabled={submitReviewMutation.isPending}
-                    onClick={() => {
-                      void submitReviewMutation.mutateAsync("COMMENT");
-                    }}
-                    size="sm"
-                    variant="outline"
-                  >
-                    <MessageSquareIcon className="size-3.5" />
-                    Comment
-                  </Button>
-                  <Button
-                    disabled={approveDisabled}
-                    onClick={() => {
-                      void submitReviewMutation.mutateAsync("APPROVE");
-                    }}
-                    size="sm"
-                    variant="secondary"
-                  >
-                    <CheckCircle2Icon className="size-3.5" />
-                    Approve
-                  </Button>
-                  <Button
-                    disabled={submitReviewMutation.isPending}
-                    onClick={() => {
-                      void submitReviewMutation.mutateAsync("REQUEST_CHANGES");
-                    }}
-                    size="sm"
-                    variant={resolveRequestChangesButtonVariant(
-                      settings.prReviewRequestChangesTone,
-                    )}
-                  >
-                    <AlertTriangleIcon className="size-3.5" />
-                    Request changes
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Action rail */}
+      <PrActionRail
+        projectCwd={project.cwd}
+        dashboard={dashboardQuery.data}
+        config={configQuery.data}
+        conflicts={conflictQuery.data}
+        agentResult={agentReviewResult}
+        reviewBody={store.reviewBody}
+        onReviewBodyChange={(value) => {
+          store.setReviewBody(value);
+        }}
+        onSubmitReview={(event) => {
+          void mutations.submitReviewMutation.mutateAsync({
+            event,
+            body: store.reviewBody.trim(),
+          });
+        }}
+        isSubmitting={mutations.submitReviewMutation.isPending}
+        requestChangesVariant={resolveRequestChangesButtonVariant(
+          settings.prReviewRequestChangesTone,
+        )}
+      />
 
       {/* Inspector sheet (mobile/tablet) */}
       {isInspectorSheet ? (
-        <Sheet onOpenChange={setInspectorOpen} open={inspectorOpen}>
+        <Sheet onOpenChange={store.setInspectorOpen} open={store.inspectorOpen}>
           <SheetPopup side="right" variant="inset">
             <SheetHeader>
               <SheetTitle>Inspector</SheetTitle>
@@ -764,8 +377,8 @@ export function PrReviewShell({
               <PrConversationInspector
                 {...inspectorProps}
                 onOpenConflictDrawer={() => {
-                  setInspectorOpen(false);
-                  setConflictDrawerOpen(true);
+                  store.setInspectorOpen(false);
+                  store.setConflictDrawerOpen(true);
                 }}
               />
             </SheetPanel>
@@ -776,11 +389,16 @@ export function PrReviewShell({
       <PrConflictDrawer
         conflictAnalysis={conflictQuery.data}
         onApplyResolution={(candidateId) =>
-          applyConflictResolutionMutation.mutateAsync(candidateId).then(() => undefined)
+          mutations.applyConflictResolutionMutation.mutateAsync(candidateId).then(() => undefined)
         }
-        onOpenChange={setConflictDrawerOpen}
-        open={conflictDrawerOpen}
+        onOpenChange={store.setConflictDrawerOpen}
+        open={store.conflictDrawerOpen}
         project={project}
+      />
+
+      <PrKeyboardShortcutOverlay
+        open={store.shortcutOverlayOpen}
+        onOpenChange={store.setShortcutOverlayOpen}
       />
     </>
   );

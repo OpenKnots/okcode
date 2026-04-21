@@ -28,7 +28,7 @@ describe("openGitHubUrl", () => {
     });
 
     expect(result).toBe("preview");
-    expect(setPreviewOpen).toHaveBeenCalledWith("project-1", true);
+    expect(setPreviewOpen).toHaveBeenCalledWith("thread-1", true);
     expect(createTab).toHaveBeenCalledWith({
       url: "https://github.com/OpenKnots/okcode/pull/42",
       threadId: "thread-1",

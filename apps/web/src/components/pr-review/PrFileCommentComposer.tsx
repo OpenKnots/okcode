@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { MessageSquareIcon } from "lucide-react";
 import { useLocalStorage } from "~/hooks/useLocalStorage";
 import { Button } from "~/components/ui/button";
-import { Input } from "~/components/ui/input";
 import { Spinner } from "~/components/ui/spinner";
 import { PrMentionComposer } from "./PrMentionComposer";
 import { TEXT_DRAFT_SCHEMA } from "./pr-review-utils";
@@ -32,22 +31,25 @@ export function PrFileCommentComposer({
     setLine(String(defaultLine));
   }, [defaultLine]);
 
+  const parsedLine = Number.parseInt(line, 10);
+  const isValidLine = Number.isFinite(parsedLine) && parsedLine >= 1;
+
   return (
     <div className="space-y-3 rounded-2xl border border-border/70 bg-background/90 p-3">
       <div className="flex items-center gap-3">
-        <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-          Line
-          <Input
-            className="h-8 w-24"
+        <span className="text-xs text-muted-foreground">
+          Comment on line{" "}
+          <input
+            className="inline-flex h-6 w-14 rounded border border-border/70 bg-muted/30 px-1.5 text-center text-xs font-medium text-foreground tabular-nums focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-ring/24"
             disabled={disabled || isSubmitting}
             inputMode="numeric"
             min={1}
             type="number"
             value={line}
             onChange={(event) => setLine(event.target.value)}
-          />
-        </label>
-        <span className="text-xs text-muted-foreground">Creates a review thread on {path}</span>
+          />{" "}
+          of <span className="font-medium text-foreground">{path}</span>
+        </span>
       </div>
       <PrMentionComposer
         cwd={cwd}
@@ -59,12 +61,11 @@ export function PrFileCommentComposer({
       />
       <div className="flex items-center justify-end gap-2">
         <Button
-          disabled={disabled || isSubmitting || body.trim().length === 0}
+          disabled={disabled || isSubmitting || body.trim().length === 0 || !isValidLine}
           onClick={() => {
-            const nextLine = Number.parseInt(line, 10);
-            if (!Number.isFinite(nextLine) || nextLine < 1) return;
+            if (!isValidLine) return;
             setIsSubmitting(true);
-            void onSubmit({ body: body.trim(), line: nextLine }).then(
+            void onSubmit({ body: body.trim(), line: parsedLine }).then(
               () => {
                 setBody("");
                 setIsSubmitting(false);

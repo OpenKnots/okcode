@@ -35,7 +35,9 @@ Step-by-step playbook for the v0.26.0 release. Each phase must complete before a
 - [ ] Push the release-prep commit to `main`.
 - [ ] Create and push tag `v0.26.0`.
 - [ ] Verify the coordinated `release.yml` workflow starts.
-- [ ] Monitor the pipeline through Preflight, Desktop builds, iOS signing preflight, iOS TestFlight, Publish CLI, Publish GitHub Release, and Finalize release.
+- [ ] Trigger `release-ios.yml` manually for `v0.26.0` (or the matching release ref if the tag is unavailable).
+- [ ] Monitor `release.yml` through Preflight, Desktop builds, Publish CLI, Publish GitHub Release, and Finalize release.
+- [ ] Monitor `release-ios.yml` through Preflight, iOS signing preflight, and iOS TestFlight.
 
 ### Asset verification
 

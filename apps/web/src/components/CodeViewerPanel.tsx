@@ -21,11 +21,17 @@ import {
 } from "~/codeViewerStore";
 import { useTheme } from "~/hooks/useTheme";
 import { isElectron } from "~/env";
-import { projectQueryKeys, projectReadFileQueryOptions } from "~/lib/projectReactQuery";
+import {
+  projectPathExistsQueryOptions,
+  projectQueryKeys,
+  projectReadFileQueryOptions,
+} from "~/lib/projectReactQuery";
 import { cn } from "~/lib/utils";
 import { isMarkdownPreviewFilePath } from "~/markdownPreview";
 import { readNativeApi } from "~/nativeApi";
+import { resolvePathLinkTarget } from "~/terminal-links";
 import { type CodeContextSelection, CodeMirrorViewer } from "./CodeMirrorViewer";
+import { MissingOnDiskBadge } from "./MissingOnDiskBadge";
 import { MarkdownPreview } from "./MarkdownPreview";
 import { Button } from "./ui/button";
 import { toastManager } from "./ui/toast";
@@ -143,45 +149,73 @@ export function CodeViewerTabStrip(props: {
   return (
     <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto [-webkit-app-region:no-drag]">
       {props.tabs.map((tab) => {
-        const isActive = tab.tabId === props.activeTabId;
         return (
-          <div
+          <CodeViewerTabStripItem
             key={tab.tabId}
-            className={cn(
-              "group flex max-w-[200px] shrink-0 items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] transition-colors",
-              isActive
-                ? "border-border bg-accent text-accent-foreground"
-                : "border-transparent text-muted-foreground/70 hover:border-border/60 hover:text-foreground/80",
-            )}
-          >
-            <button
-              type="button"
-              className="min-w-0 flex-1 truncate text-left font-mono"
-              onClick={() => props.onSelectTab(tab.tabId)}
-              title={tab.relativePath}
-            >
-              <span className="truncate">{tab.label}</span>
-              {tab.isDirty ? (
-                <span className="ml-1 text-amber-600 dark:text-amber-300">•</span>
-              ) : null}
-            </button>
-            <button
-              type="button"
-              className="shrink-0 rounded-sm p-0.5 opacity-0 transition-opacity hover:bg-accent/80 group-hover:opacity-100"
-              onClick={(event) => {
-                event.stopPropagation();
-                void props.onCloseTab(tab.tabId);
-              }}
-              aria-label={`Close ${tab.label}`}
-            >
-              <XIcon className="size-3" />
-            </button>
-          </div>
+            tab={tab}
+            active={tab.tabId === props.activeTabId}
+            onSelectTab={props.onSelectTab}
+            onCloseTab={props.onCloseTab}
+          />
         );
       })}
     </div>
   );
 }
+
+const CodeViewerTabStripItem = memo(function CodeViewerTabStripItem(props: {
+  tab: CodeViewerTab;
+  active: boolean;
+  onSelectTab: (tabId: string) => void;
+  onCloseTab: (tabId: string) => void | Promise<void>;
+}) {
+  const absolutePath = resolvePathLinkTarget(props.tab.relativePath, props.tab.cwd);
+  const pathExistsQuery = useQuery(
+    projectPathExistsQueryOptions({
+      path: absolutePath,
+    }),
+  );
+  const isMissingOnDisk = pathExistsQuery.data?.exists === false;
+
+  return (
+    <div
+      className={cn(
+        "group flex max-w-[200px] shrink-0 items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] transition-colors",
+        props.active
+          ? "border-border bg-accent text-accent-foreground"
+          : "border-transparent text-muted-foreground/70 hover:border-border/60 hover:text-foreground/80",
+      )}
+    >
+      <button
+        type="button"
+        className="flex min-w-0 flex-1 items-center gap-1 text-left font-mono"
+        onClick={() => props.onSelectTab(props.tab.tabId)}
+        title={props.tab.relativePath}
+      >
+        <span className="min-w-0 truncate">{props.tab.label}</span>
+        {props.tab.isDirty ? <span className="text-amber-600 dark:text-amber-300">•</span> : null}
+        {isMissingOnDisk ? (
+          <MissingOnDiskBadge
+            path={absolutePath}
+            compact
+            className="h-4 min-w-0 shrink-0 px-1 text-[10px]"
+          />
+        ) : null}
+      </button>
+      <button
+        type="button"
+        className="shrink-0 rounded-sm p-0.5 opacity-0 transition-opacity hover:bg-accent/80 group-hover:opacity-100"
+        onClick={(event) => {
+          event.stopPropagation();
+          void props.onCloseTab(props.tab.tabId);
+        }}
+        aria-label={`Close ${props.tab.label}`}
+      >
+        <XIcon className="size-3" />
+      </button>
+    </div>
+  );
+});
 
 type CodeViewerFileContentProps = {
   cwd: string;
@@ -347,11 +381,9 @@ export const CodeViewerFileContent = memo(function CodeViewerFileContent(
       if (payload.cwd !== props.cwd) {
         return;
       }
-      void queryClient.invalidateQueries({
-        queryKey: projectQueryKeys.readFile(props.cwd, props.relativePath),
-      });
+      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
     });
-  }, [props.cwd, props.relativePath, queryClient]);
+  }, [props.cwd, queryClient]);
 
   useEffect(() => {
     if (!settings.codeViewerAutosave || !tab?.isDirty || !editable || isSaving) {

@@ -332,4 +332,56 @@ describe("MessagesTimeline", () => {
     expect(markup).toContain("Open diff");
     expect(markup).toContain("Diff available");
   });
+
+  it("renders a live code preview card for streaming assistant fences", async () => {
+    const { MessagesTimeline } = await import("./MessagesTimeline");
+    const markup = renderWithI18n(
+      <MessagesTimeline
+        threadId={"thread-1" as never}
+        hasMessages
+        isWorking={false}
+        activeTurnInProgress={true}
+        activeTurnStartedAt="2026-03-17T19:12:28.000Z"
+        scrollContainer={null}
+        timelineEntries={[
+          {
+            id: "entry-1",
+            kind: "message",
+            createdAt: "2026-03-17T19:12:28.000Z",
+            message: {
+              id: MessageId.makeUnsafe("assistant-streaming-code"),
+              role: "assistant",
+              text: ["```typescript", "export const answer = 42;", "```"].join("\n"),
+              createdAt: "2026-03-17T19:12:28.000Z",
+              streaming: true,
+            },
+          },
+        ]}
+        completionDividerBeforeEntryId={null}
+        completionSummary={null}
+        turnDiffSummaryByAssistantMessageId={new Map()}
+        nowIso="2026-03-17T19:12:30.000Z"
+        expandedWorkGroups={{}}
+        onToggleWorkGroup={() => {}}
+        revertTurnCountByUserMessageId={new Map()}
+        onRevertUserMessage={() => {}}
+        isRevertingCheckpoint={false}
+        onImageExpand={() => {}}
+        markdownCwd={undefined}
+        resolvedTheme="light"
+        showReasoningContent={false}
+        timestampFormat="locale"
+        workspaceRoot={undefined}
+        onRemoveQueuedMessage={() => {}}
+        shortcutGuides={EMPTY_SHORTCUT_GUIDES}
+        onOpenSettings={() => {}}
+        onOpenTurnDiff={() => {}}
+      />,
+    );
+
+    expect(markup).toContain("Streaming code preview");
+    expect(markup).toContain("TypeScript");
+    expect(markup).toContain("Live");
+    expect(markup).toContain("export const answer = 42;");
+  });
 });

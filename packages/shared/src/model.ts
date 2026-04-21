@@ -288,6 +288,46 @@ export function getEffectiveClaudeCodeEffort(
   return effort === "ultrathink" ? null : effort;
 }
 
+/**
+ * When Ultrathink is selected, it must materially change the Claude Code SDK
+ * request — not just prepend "Ultrathink:" to the prompt. This helper collapses
+ * ultrathink into the highest supported SDK effort for the model ("max" for
+ * Opus 4.6/4.7, "high" for Sonnet 4.6 which has no max, null for models with
+ * no adaptive reasoning like Haiku) and boosts `maxThinkingTokens` to the
+ * ultrathink default, unless the user explicitly configured a higher budget.
+ */
+export const CLAUDE_ULTRATHINK_THINKING_TOKENS = 63999;
+
+export interface ClaudeUltrathinkSdkConfig {
+  effort: Exclude<ClaudeCodeEffort, "ultrathink"> | null;
+  maxThinkingTokens: number | undefined;
+}
+
+export function resolveClaudeUltrathinkSdkConfig(
+  model: string | null | undefined,
+  effort: ClaudeCodeEffort | null | undefined,
+  userMaxThinkingTokens: number | null | undefined,
+): ClaudeUltrathinkSdkConfig {
+  if (effort !== "ultrathink") {
+    return {
+      effort: getEffectiveClaudeCodeEffort(effort),
+      maxThinkingTokens:
+        typeof userMaxThinkingTokens === "number" ? userMaxThinkingTokens : undefined,
+    };
+  }
+  const topEffort: Exclude<ClaudeCodeEffort, "ultrathink"> | null = supportsClaudeMaxEffort(model)
+    ? "max"
+    : supportsClaudeAdaptiveReasoning(model)
+      ? "high"
+      : null;
+  const maxThinkingTokens =
+    typeof userMaxThinkingTokens === "number" &&
+    userMaxThinkingTokens > CLAUDE_ULTRATHINK_THINKING_TOKENS
+      ? userMaxThinkingTokens
+      : CLAUDE_ULTRATHINK_THINKING_TOKENS;
+  return { effort: topEffort, maxThinkingTokens };
+}
+
 export function normalizeCodexModelOptions(
   modelOptions: CodexModelOptions | null | undefined,
 ): CodexModelOptions | undefined {

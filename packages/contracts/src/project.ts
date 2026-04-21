@@ -98,6 +98,16 @@ export const ProjectDeleteEntryInput = Schema.Struct({
 });
 export type ProjectDeleteEntryInput = typeof ProjectDeleteEntryInput.Type;
 
+export const ProjectPathExistsInput = Schema.Struct({
+  path: TrimmedNonEmptyString,
+});
+export type ProjectPathExistsInput = typeof ProjectPathExistsInput.Type;
+
+export const ProjectPathExistsResult = Schema.Struct({
+  exists: Schema.Boolean,
+});
+export type ProjectPathExistsResult = typeof ProjectPathExistsResult.Type;
+
 export const ProjectFileTreeChangedPayload = Schema.Struct({
   cwd: TrimmedNonEmptyString,
 });

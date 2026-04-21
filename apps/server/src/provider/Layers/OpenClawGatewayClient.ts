@@ -445,7 +445,7 @@ function buildConnectParams(input: {
             deviceToken: input.auth.value,
           }
         : undefined;
-  const signatureToken = input.auth.kind === "deviceToken" ? input.auth.value : undefined;
+  const signatureToken = input.auth.kind !== "none" ? input.auth.value : undefined;
   return {
     minProtocol: OPENCLAW_PROTOCOL_VERSION,
     maxProtocol: OPENCLAW_PROTOCOL_VERSION,

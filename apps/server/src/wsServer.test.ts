@@ -64,6 +64,7 @@ import {
   ProjectionSnapshotQuery,
   type ProjectionSnapshotQueryShape,
 } from "./orchestration/Services/ProjectionSnapshotQuery";
+import { createAttachmentId } from "./attachmentStore";
 
 const asEventId = (value: string): EventId => EventId.makeUnsafe(value);
 const asProviderItemId = (value: string): ProviderItemId => ProviderItemId.makeUnsafe(value);
@@ -95,6 +96,10 @@ const defaultCodexConfigSummary = {
   selectedModelProviderId: null,
   entries: [],
   parseError: null,
+  detectedLocalBackends: {
+    ollama: { reachable: false },
+    lmstudio: { reachable: false },
+  },
 } as const;
 
 const expectedServerBuildInfo = expect.objectContaining({
@@ -685,6 +690,29 @@ describe("WebSocket Server", () => {
     expect(response.headers.get("content-type")).toContain("image/png");
     const bytes = Buffer.from(await response.arrayBuffer());
     expect(bytes).toEqual(Buffer.from("hello-attachment"));
+  });
+
+  it("serves persisted attachments by attachment id", async () => {
+    const baseDir = makeTempDir("okcode-state-attachment-id-");
+    const { attachmentsDir } = deriveServerPathsSync(baseDir, undefined);
+    const attachmentId = createAttachmentId("thread-preview");
+    if (!attachmentId) {
+      throw new Error("Failed to create a safe test attachment id.");
+    }
+    const attachmentPath = path.join(attachmentsDir, `${attachmentId}.patch`);
+    fs.mkdirSync(path.dirname(attachmentPath), { recursive: true });
+    fs.writeFileSync(attachmentPath, Buffer.from("diff --git a/a.ts b/a.ts\n"));
+
+    const { cwd } = makeWorkspaceFixture("project");
+    server = await createTestServer({ cwd, baseDir });
+    const addr = server.address();
+    const port = typeof addr === "object" && addr !== null ? addr.port : 0;
+    expect(port).toBeGreaterThan(0);
+
+    const response = await fetch(`http://127.0.0.1:${port}/attachments/${attachmentId}`);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("text/x-diff");
+    expect(await response.text()).toContain("diff --git");
   });
 
   it("serves persisted attachments for URL-encoded paths", async () => {
@@ -2029,6 +2057,31 @@ describe("WebSocket Server", () => {
       ],
       truncated: false,
     });
+  });
+
+  it("reports whether a workspace path exists on disk", async () => {
+    const workspace = makeTempDir("okcode-ws-path-exists-");
+    const missingPath = path.join(workspace, "missing-worktree");
+
+    const { cwd } = makeWorkspaceFixture("test");
+    server = await createTestServer({ cwd });
+    const addr = server.address();
+    const port = typeof addr === "object" && addr !== null ? addr.port : 0;
+
+    const [ws] = await connectAndAwaitWelcome(port);
+    connections.push(ws);
+
+    const existingResponse = await sendRequest(ws, WS_METHODS.projectsPathExists, {
+      path: workspace,
+    });
+    expect(existingResponse.error).toBeUndefined();
+    expect(existingResponse.result).toEqual({ exists: true });
+
+    const missingResponse = await sendRequest(ws, WS_METHODS.projectsPathExists, {
+      path: missingPath,
+    });
+    expect(missingResponse.error).toBeUndefined();
+    expect(missingResponse.result).toEqual({ exists: false });
   });
 
   it("supports projects.writeFile within the workspace root", async () => {

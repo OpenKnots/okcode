@@ -5415,6 +5415,10 @@ export default function ChatView({
                                 : selectableProviders
                               ).includes(provider.provider),
                             )}
+                            codexSelectedModelProviderId={
+                              serverConfigQuery.data?.codexConfig?.selectedModelProviderId ?? null
+                            }
+                            openclawGatewayUrl={settings.openclawGatewayUrl}
                             {...(composerProviderState.modelPickerIconClassName
                               ? {
                                   activeProviderIconClassName:

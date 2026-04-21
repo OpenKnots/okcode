@@ -13,12 +13,18 @@ export type CodexBackendStatusBadge =
   | null;
 export type CodexBackendGroupId = "built-in" | "curated" | "custom";
 
+export interface CodexBackendDetectionBadge {
+  readonly reachable: boolean;
+  readonly modelCount?: number | undefined;
+}
+
 export interface CodexBackendCatalogRow {
   readonly id: string;
   readonly title: string;
   readonly group: CodexBackendGroupId;
   readonly authNote: string;
   readonly statusBadge: CodexBackendStatusBadge;
+  readonly detectionBadge: CodexBackendDetectionBadge | null;
   readonly selected: boolean;
   readonly definedInConfig: boolean;
   readonly isKnownPreset: boolean;
@@ -38,6 +44,11 @@ const DEFAULT_CODEX_CONFIG_SUMMARY: ServerCodexConfigSummary = {
   entries: [],
   parseError: null,
 };
+
+const DETECTABLE_LOCAL_BACKEND_IDS = {
+  ollama: "ollama",
+  lmstudio: "lmstudio",
+} as const;
 
 function humanizeCodexBackendId(id: string): string {
   return id
@@ -92,6 +103,7 @@ function toCatalogRow(input: {
   readonly selected: boolean;
   readonly definedInConfig: boolean;
   readonly isKnownPreset: boolean;
+  readonly detectionBadge: CodexBackendDetectionBadge | null;
 }): CodexBackendCatalogRow {
   const preset = getCodexModelProviderPreset(input.id);
 
@@ -101,10 +113,34 @@ function toCatalogRow(input: {
     group: preset ? toPresetGroup(preset.kind) : "custom",
     authNote: toAuthNote(input.id),
     statusBadge: getStatusBadge(input),
+    detectionBadge: input.detectionBadge,
     selected: input.selected,
     definedInConfig: input.definedInConfig,
     isKnownPreset: input.isKnownPreset,
   };
+}
+
+function resolveDetectionBadge(
+  id: string,
+  summary: ServerCodexConfigSummary,
+): CodexBackendDetectionBadge | null {
+  const detected = summary.detectedLocalBackends;
+  if (!detected) {
+    return null;
+  }
+  if (id === DETECTABLE_LOCAL_BACKEND_IDS.ollama) {
+    return {
+      reachable: detected.ollama.reachable,
+      modelCount: detected.ollama.modelCount,
+    };
+  }
+  if (id === DETECTABLE_LOCAL_BACKEND_IDS.lmstudio) {
+    return {
+      reachable: detected.lmstudio.reachable,
+      modelCount: detected.lmstudio.modelCount,
+    };
+  }
+  return null;
 }
 
 export function buildCodexBackendCatalog(
@@ -123,6 +159,7 @@ export function buildCodexBackendCatalog(
       selected: dynamicEntry?.selected ?? false,
       definedInConfig: dynamicEntry?.definedInConfig ?? false,
       isKnownPreset: true,
+      detectionBadge: resolveDetectionBadge(preset.id, resolvedSummary),
     });
   });
 
@@ -135,6 +172,7 @@ export function buildCodexBackendCatalog(
         selected: entry.selected,
         definedInConfig: entry.definedInConfig,
         isKnownPreset: false,
+        detectionBadge: resolveDetectionBadge(entry.id, resolvedSummary),
       }),
     );
 

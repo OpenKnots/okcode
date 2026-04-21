@@ -17,6 +17,37 @@ import {
   MenuTrigger,
 } from "../ui/menu";
 
+const CODEX_LOCAL_BACKEND_LABELS: Record<string, string> = {
+  ollama: "Ollama",
+  lmstudio: "LM Studio",
+};
+
+function getCodexLocalBackendLabel(id: string | null | undefined): string | null {
+  if (typeof id !== "string") {
+    return null;
+  }
+  return CODEX_LOCAL_BACKEND_LABELS[id] ?? null;
+}
+
+type OpenclawGatewayBadge = "connected" | "url-configured" | null;
+
+function getOpenclawGatewayBadge(input: {
+  readonly snapshot: ServerProviderStatus | null;
+  readonly gatewayUrl: string | null | undefined;
+}): OpenclawGatewayBadge {
+  const snapshot = input.snapshot;
+  if (snapshot !== null) {
+    const isAvailable = snapshot.available === true || snapshot.enabled === true;
+    if (snapshot.status === "ready" && isAvailable) {
+      return "connected";
+    }
+  }
+  if (typeof input.gatewayUrl === "string" && input.gatewayUrl.trim().length > 0) {
+    return "url-configured";
+  }
+  return null;
+}
+
 const PROVIDER_ICON_BY_PROVIDER: Record<ProviderKind, Icon> = {
   codex: OpenAI,
   claudeAgent: ClaudeAI,
@@ -50,6 +81,8 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
   lockedProvider: ProviderKind | null;
   providers: ReadonlyArray<ServerProviderStatus>;
   activeProviderIconClassName?: string;
+  codexSelectedModelProviderId?: string | null | undefined;
+  openclawGatewayUrl?: string | null | undefined;
   compact?: boolean;
   disabled?: boolean;
   onProviderModelChange: (provider: ProviderKind, model: ModelSlug) => void;
@@ -61,9 +94,16 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
       ? [props.lockedProvider]
       : props.providers.map((provider) => provider.provider);
   const activeProviderSnapshot = getProviderSnapshot(props.providers, activeProvider);
-  const selectedModelLabel =
+  const rawSelectedModelLabel =
     activeProviderSnapshot?.models?.find((option) => option.slug === props.model)?.name ??
     props.model;
+  const codexLocalBackendLabel =
+    activeProvider === "codex"
+      ? getCodexLocalBackendLabel(props.codexSelectedModelProviderId ?? null)
+      : null;
+  const selectedModelLabel = codexLocalBackendLabel
+    ? `${rawSelectedModelLabel} · ${codexLocalBackendLabel}`
+    : rawSelectedModelLabel;
   const ProviderIcon = PROVIDER_ICON_BY_PROVIDER[activeProvider];
 
   const handleModelChange = (provider: ProviderKind, value: string) => {
@@ -130,6 +170,18 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
             return null;
           }
 
+          const openclawBadge =
+            provider === "openclaw"
+              ? getOpenclawGatewayBadge({
+                  snapshot: providerSnapshot,
+                  gatewayUrl: props.openclawGatewayUrl,
+                })
+              : null;
+          const codexGroupBackendLabel =
+            provider === "codex"
+              ? getCodexLocalBackendLabel(props.codexSelectedModelProviderId ?? null)
+              : null;
+
           return (
             <MenuGroup key={provider}>
               {index > 0 ? <MenuDivider /> : null}
@@ -143,8 +195,24 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
                 />
                 <span>
                   {getProviderLabel(provider)}
+                  {codexGroupBackendLabel ? ` · ${codexGroupBackendLabel}` : ""}
                   {props.lockedProvider === provider ? " · locked for this thread" : ""}
                 </span>
+                {openclawBadge === "connected" ? (
+                  <span
+                    className="ml-auto shrink-0 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[9px] font-medium uppercase tracking-[0.08em] text-emerald-700 dark:text-emerald-300"
+                    aria-label="OpenClaw gateway connected"
+                  >
+                    ✓ Connected
+                  </span>
+                ) : openclawBadge === "url-configured" ? (
+                  <span
+                    className="ml-auto shrink-0 rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[9px] font-medium uppercase tracking-[0.08em] text-amber-700 dark:text-amber-300"
+                    aria-label="OpenClaw gateway URL configured"
+                  >
+                    URL configured
+                  </span>
+                ) : null}
               </MenuGroupLabel>
               <MenuRadioGroup
                 value={props.provider === provider ? props.model : ""}

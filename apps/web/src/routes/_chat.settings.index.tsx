@@ -84,6 +84,9 @@ import {
 } from "../components/chat/providerStatusPresentation";
 import {
   INSTALL_PROVIDER_SETTINGS,
+  LOCAL_BACKEND_AUTH_GUIDES,
+  LOCAL_BACKEND_LABELS,
+  type LocalBackendKey,
   PROVIDER_AUTH_GUIDES,
   SETTINGS_AUTH_PROVIDER_ORDER,
 } from "../lib/settingsProviderMetadata";
@@ -338,6 +341,73 @@ function AuthenticationStatusCard({
           <code className="mt-1 block break-all text-[11px]">
             {guide.authCmd ?? "Use gateway shared secret/token"}
           </code>
+        </div>
+        <div className="rounded-lg border border-border/60 bg-card/60 px-3 py-2">
+          <div className="font-medium text-foreground">Verify</div>
+          <code className="mt-1 block break-all text-[11px]">{guide.verifyCmd ?? "N/A"}</code>
+        </div>
+      </div>
+
+      <p className="mt-3 text-xs text-muted-foreground">{guide.note}</p>
+    </div>
+  );
+}
+
+function LocalBackendAuthenticationCard({
+  backend,
+  detection,
+}: {
+  backend: LocalBackendKey;
+  detection?: { reachable: boolean; modelCount?: number | undefined } | null;
+}) {
+  const guide = LOCAL_BACKEND_AUTH_GUIDES[backend];
+  const label = LOCAL_BACKEND_LABELS[backend];
+  const reachable = detection?.reachable === true;
+  const badgeClassName = reachable
+    ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+    : "border-slate-500/25 bg-slate-500/10 text-slate-700 dark:text-slate-300";
+  const badgeLabel = reachable
+    ? typeof detection?.modelCount === "number"
+      ? `Detected · ${detection.modelCount} model${detection.modelCount === 1 ? "" : "s"}`
+      : "Detected"
+    : "Not running";
+  const heading = reachable
+    ? `${label} is reachable on localhost`
+    : `${label} is not running locally yet`;
+  const description = reachable
+    ? `${label} is ready to use as a Codex backend. Set model_provider in ~/.codex/config.toml to activate it for new threads.`
+    : guide.note;
+
+  return (
+    <div className="rounded-xl border border-border/70 bg-background/70 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-medium text-foreground">{label}</h3>
+            <span
+              className={cn(
+                "rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em]",
+                badgeClassName,
+              )}
+            >
+              {badgeLabel}
+            </span>
+          </div>
+          <p className="text-xs font-medium text-foreground">{heading}</p>
+          <p className="max-w-2xl text-xs text-muted-foreground">{description}</p>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
+        <div className="rounded-lg border border-border/60 bg-card/60 px-3 py-2">
+          <div className="font-medium text-foreground">Install</div>
+          <code className="mt-1 block break-all text-[11px]">
+            {guide.installCmd ?? "Configured in-app"}
+          </code>
+        </div>
+        <div className="rounded-lg border border-border/60 bg-card/60 px-3 py-2">
+          <div className="font-medium text-foreground">Run</div>
+          <code className="mt-1 block break-all text-[11px]">{guide.authCmd ?? "N/A"}</code>
         </div>
         <div className="rounded-lg border border-border/60 bg-card/60 px-3 py-2">
           <div className="font-medium text-foreground">Verify</div>
@@ -617,6 +687,9 @@ function SettingsRouteView() {
         password: settings.openclawPassword || undefined,
       });
       setOpenclawTestResult(result);
+      if (result.success) {
+        await queryClient.invalidateQueries({ queryKey: serverQueryKeys.config() });
+      }
     } catch (err) {
       setOpenclawTestResult({
         success: false,
@@ -627,7 +700,7 @@ function SettingsRouteView() {
     } finally {
       setOpenclawTestLoading(false);
     }
-  }, [openclawTestLoading, settings.openclawGatewayUrl, settings.openclawPassword]);
+  }, [openclawTestLoading, queryClient, settings.openclawGatewayUrl, settings.openclawPassword]);
 
   const handleCopyOpenclawDebugReport = useCallback(() => {
     if (!openclawTestResult) return;
@@ -1321,14 +1394,39 @@ function SettingsRouteView() {
               status={`${selectableProviders.length} provider${selectableProviders.length === 1 ? "" : "s"} currently selectable`}
             >
               <div className="mt-4 space-y-3">
-                {SETTINGS_AUTH_PROVIDER_ORDER.map((provider) => (
-                  <AuthenticationStatusCard
-                    key={provider}
-                    provider={provider}
-                    status={providerStatuses.find((status) => status.provider === provider) ?? null}
-                    openclawGatewayUrl={settings.openclawGatewayUrl}
-                  />
-                ))}
+                {SETTINGS_AUTH_PROVIDER_ORDER.flatMap((provider) => {
+                  const card = (
+                    <AuthenticationStatusCard
+                      key={provider}
+                      provider={provider}
+                      status={
+                        providerStatuses.find((status) => status.provider === provider) ?? null
+                      }
+                      openclawGatewayUrl={settings.openclawGatewayUrl}
+                    />
+                  );
+                  if (provider === "codex") {
+                    return [
+                      card,
+                      <LocalBackendAuthenticationCard
+                        key="local-backend-ollama"
+                        backend="ollama"
+                        detection={
+                          serverConfigQuery.data?.codexConfig?.detectedLocalBackends?.ollama ?? null
+                        }
+                      />,
+                      <LocalBackendAuthenticationCard
+                        key="local-backend-lmstudio"
+                        backend="lmstudio"
+                        detection={
+                          serverConfigQuery.data?.codexConfig?.detectedLocalBackends?.lmstudio ??
+                          null
+                        }
+                      />,
+                    ];
+                  }
+                  return [card];
+                })}
               </div>
             </SettingsRow>
 

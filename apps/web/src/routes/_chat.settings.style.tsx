@@ -26,9 +26,22 @@ import {
 } from "../components/settings/SettingsUi";
 import { Button } from "../components/ui/button";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../components/ui/tooltip";
-import { COLOR_THEMES, FONT_FAMILIES, DEFAULT_COLOR_THEME } from "../hooks/useTheme";
+import {
+  CODE_FONTS,
+  COLOR_THEMES,
+  DEFAULT_CODE_FONT,
+  DEFAULT_COLOR_THEME,
+  DEFAULT_MESSAGE_FONT,
+  MESSAGE_FONTS,
+  getCodeFontStack,
+  getMessageFontStack,
+} from "../hooks/useTheme";
 import { useSettingsRouteContext } from "../components/settings/SettingsRouteContext";
 import {
+  ZOOM_DEFAULT,
+  ZOOM_MAX,
+  ZOOM_MIN,
+  ZOOM_STEP,
   applyCustomTheme,
   clearStoredCustomTheme,
   getStoredCustomTheme,
@@ -76,8 +89,10 @@ function SettingsStyleRouteView() {
     setTheme,
     colorTheme,
     setColorTheme,
-    fontFamily,
-    setFontFamily,
+    messageFont,
+    setMessageFont,
+    codeFont,
+    setCodeFont,
     settingsState: { settings, defaults, updateSettings },
     radiusOverride,
     setRadiusOverride,
@@ -85,6 +100,8 @@ function SettingsStyleRouteView() {
     setFontOverride,
     fontSizeOverride,
     setFontSizeOverride,
+    zoom,
+    setZoom,
     changedSettingLabels,
     restoreDefaults,
   } = useSettingsRouteContext();
@@ -237,35 +254,91 @@ function SettingsStyleRouteView() {
           />
 
           <SettingsRow
-            title="Font"
-            description="Choose the typeface for the interface."
+            title="Message font"
+            description="Typeface for chat messages and most UI text."
             resetAction={
-              fontFamily !== "inter" ? (
-                <SettingResetButton label="font" onClick={() => setFontFamily("inter")} />
+              messageFont !== DEFAULT_MESSAGE_FONT ? (
+                <SettingResetButton
+                  label="message font"
+                  onClick={() => setMessageFont(DEFAULT_MESSAGE_FONT)}
+                />
               ) : null
             }
             control={
-              <Select
-                value={fontFamily}
-                onValueChange={(value) => {
-                  const match = FONT_FAMILIES.find((family) => family.id === value);
-                  if (!match) return;
-                  setFontFamily(match.id);
-                }}
-              >
-                <SelectTrigger className="w-full sm:w-40" aria-label="Font family">
-                  <SelectValue>
-                    {FONT_FAMILIES.find((family) => family.id === fontFamily)?.label ?? "Inter"}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectPopup align="end" alignItemWithTrigger={false}>
-                  {FONT_FAMILIES.map((family) => (
-                    <SelectItem hideIndicator key={family.id} value={family.id}>
-                      {family.label}
-                    </SelectItem>
-                  ))}
-                </SelectPopup>
-              </Select>
+              <div className="flex flex-col items-stretch gap-1 sm:items-end">
+                <Select
+                  value={messageFont}
+                  onValueChange={(value) => {
+                    const match = MESSAGE_FONTS.find((family) => family.id === value);
+                    if (!match) return;
+                    setMessageFont(match.id);
+                  }}
+                >
+                  <SelectTrigger className="w-full sm:w-48" aria-label="Message font">
+                    <SelectValue>
+                      {MESSAGE_FONTS.find((family) => family.id === messageFont)?.label ?? "Inter"}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectPopup align="end" alignItemWithTrigger={false}>
+                    {MESSAGE_FONTS.map((family) => (
+                      <SelectItem hideIndicator key={family.id} value={family.id}>
+                        <span style={{ fontFamily: family.stack }}>{family.label}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectPopup>
+                </Select>
+                <span
+                  className="text-xs text-muted-foreground"
+                  style={{ fontFamily: getMessageFontStack(messageFont) }}
+                >
+                  The quick brown fox jumps over the lazy dog.
+                </span>
+              </div>
+            }
+          />
+
+          <SettingsRow
+            title="Code font"
+            description="Typeface for code blocks, diff viewer, terminal, and editor."
+            resetAction={
+              codeFont !== DEFAULT_CODE_FONT ? (
+                <SettingResetButton
+                  label="code font"
+                  onClick={() => setCodeFont(DEFAULT_CODE_FONT)}
+                />
+              ) : null
+            }
+            control={
+              <div className="flex flex-col items-stretch gap-1 sm:items-end">
+                <Select
+                  value={codeFont}
+                  onValueChange={(value) => {
+                    const match = CODE_FONTS.find((family) => family.id === value);
+                    if (!match) return;
+                    setCodeFont(match.id);
+                  }}
+                >
+                  <SelectTrigger className="w-full sm:w-48" aria-label="Code font">
+                    <SelectValue>
+                      {CODE_FONTS.find((family) => family.id === codeFont)?.label ??
+                        "JetBrains Mono"}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectPopup align="end" alignItemWithTrigger={false}>
+                    {CODE_FONTS.map((family) => (
+                      <SelectItem hideIndicator key={family.id} value={family.id}>
+                        <span style={{ fontFamily: family.stack }}>{family.label}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectPopup>
+                </Select>
+                <span
+                  className="text-xs text-muted-foreground"
+                  style={{ fontFamily: getCodeFontStack(codeFont) }}
+                >
+                  const greet = (name) =&gt; `hi, ${"{"}name{"}"}`;
+                </span>
+              </div>
             }
           />
 
@@ -325,6 +398,35 @@ function SettingsStyleRouteView() {
                 />
                 <span className="w-12 text-right text-xs tabular-nums text-muted-foreground">
                   {fontSizeOverride ?? 12}px
+                </span>
+              </div>
+            }
+          />
+
+          <SettingsRow
+            title="App zoom"
+            description="Scale the entire interface. Keyboard: ⌘= / ⌘- / ⌘0."
+            resetAction={
+              zoom !== ZOOM_DEFAULT ? (
+                <SettingResetButton label="app zoom" onClick={() => setZoom(ZOOM_DEFAULT)} />
+              ) : null
+            }
+            control={
+              <div className="flex items-center gap-2">
+                <input
+                  type="range"
+                  min={ZOOM_MIN}
+                  max={ZOOM_MAX}
+                  step={ZOOM_STEP}
+                  value={zoom}
+                  onChange={(e) => {
+                    setZoom(Number.parseFloat(e.target.value));
+                  }}
+                  className="h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-muted accent-foreground sm:w-28"
+                  aria-label="App zoom"
+                />
+                <span className="w-12 text-right text-xs tabular-nums text-muted-foreground">
+                  {Math.round(zoom * 100)}%
                 </span>
               </div>
             }

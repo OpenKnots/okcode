@@ -8,6 +8,7 @@ import { CommandPalette } from "../components/CommandPalette";
 import { ScreenshotTool, ScreenshotButton } from "../components/ScreenshotTool";
 import { WorktreeCleanupDialog } from "../components/WorktreeCleanupDialog";
 import { useHandleNewThread } from "../hooks/useHandleNewThread";
+import { ZOOM_STEP, clearZoom, getStoredZoom, setStoredZoom } from "../lib/customTheme";
 import { readDesktopBridge } from "../lib/runtimeBridge";
 import { isTerminalFocused } from "../lib/terminalFocus";
 import { isMacPlatform } from "../lib/utils";
@@ -157,15 +158,37 @@ function ChatRouteGlobalShortcuts() {
         return;
       }
 
-      const projectId = activeThread?.projectId ?? activeDraftThread?.projectId ?? projects[0]?.id;
-      if (!projectId) return;
-
       const command = resolveShortcutCommand(event, keybindings, {
         context: {
           terminalFocus: isTerminalFocused(),
           terminalOpen,
         },
       });
+
+      // Zoom commands are available anywhere (no project dependency). Handle
+      // these before the project-scoped branches so a user on the welcome
+      // screen (no projects yet) can still resize the UI.
+      if (command === "view.zoomIn") {
+        event.preventDefault();
+        event.stopPropagation();
+        setStoredZoom(getStoredZoom() + ZOOM_STEP);
+        return;
+      }
+      if (command === "view.zoomOut") {
+        event.preventDefault();
+        event.stopPropagation();
+        setStoredZoom(getStoredZoom() - ZOOM_STEP);
+        return;
+      }
+      if (command === "view.zoomReset") {
+        event.preventDefault();
+        event.stopPropagation();
+        clearZoom();
+        return;
+      }
+
+      const projectId = activeThread?.projectId ?? activeDraftThread?.projectId ?? projects[0]?.id;
+      if (!projectId) return;
 
       if (command === "chat.newLocal") {
         event.preventDefault();
@@ -264,8 +287,24 @@ function ChatRouteLayout() {
     }
 
     const unsubscribe = onMenuAction((action) => {
-      if (action !== "open-settings") return;
-      void navigate({ to: "/settings" });
+      if (action === "open-settings") {
+        void navigate({ to: "/settings" });
+        return;
+      }
+      // Native View-menu entries dispatch through the same renderer path as
+      // the Cmd+= / Cmd+- / Cmd+0 keybindings, so stored zoom stays in sync.
+      if (action === "view-zoom-in") {
+        setStoredZoom(getStoredZoom() + ZOOM_STEP);
+        return;
+      }
+      if (action === "view-zoom-out") {
+        setStoredZoom(getStoredZoom() - ZOOM_STEP);
+        return;
+      }
+      if (action === "view-zoom-reset") {
+        clearZoom();
+        return;
+      }
     });
 
     return () => {

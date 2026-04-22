@@ -26,6 +26,13 @@ export const DEFAULT_KEYBINDINGS: ReadonlyArray<KeybindingRule> = [
   { key: "mod+down", command: "git.pullRequest", when: "!terminalFocus" },
   { key: "mod+shift+p", command: "git.pullRequest", when: "!terminalFocus" },
   { key: "mod+o", command: "editor.openFavorite" },
+  // App zoom — available anywhere for accessibility. `=` is the unshifted
+  // character on US layouts; `+` is the shifted variant, registered so
+  // Cmd+Shift+= (which the OS often reports as Cmd++) still fires zoom-in.
+  { key: "mod+=", command: "view.zoomIn" },
+  { key: "mod+plus", command: "view.zoomIn" },
+  { key: "mod+-", command: "view.zoomOut" },
+  { key: "mod+0", command: "view.zoomReset" },
 ] as const;
 
 export const HOTKEY_COMMAND_DEFINITIONS = [
@@ -57,6 +64,27 @@ export const HOTKEY_COMMAND_DEFINITIONS = [
     command: "editor.openFavorite",
     title: "Favorite editor",
     description: "Jump straight to the editor you last used for this project.",
+    group: "Workspace",
+    contextLabel: "Available anywhere",
+  },
+  {
+    command: "view.zoomIn",
+    title: "Zoom in",
+    description: "Scale the entire interface up by one step.",
+    group: "Workspace",
+    contextLabel: "Available anywhere",
+  },
+  {
+    command: "view.zoomOut",
+    title: "Zoom out",
+    description: "Scale the entire interface down by one step.",
+    group: "Workspace",
+    contextLabel: "Available anywhere",
+  },
+  {
+    command: "view.zoomReset",
+    title: "Reset zoom",
+    description: "Return the interface to 100 %.",
     group: "Workspace",
     contextLabel: "Available anywhere",
   },
@@ -108,6 +136,9 @@ function isMacLikePlatform(platform: string): boolean {
 function normalizeKeyToken(token: string): string {
   if (token === "space") return " ";
   if (token === "esc") return "escape";
+  // `mod+plus` authored in config gets parsed to the literal `+` character so
+  // it matches a KeyboardEvent with `event.key === "+"` at runtime.
+  if (token === "plus") return "+";
   return token;
 }
 

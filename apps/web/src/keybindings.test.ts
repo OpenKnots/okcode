@@ -417,6 +417,43 @@ describe("resolveShortcutCommand", () => {
       "git.pullRequest",
     );
   });
+
+  it("resolves Cmd+= / Cmd++ / Cmd+- / Cmd+0 to the zoom commands", () => {
+    const zoomBindings = compile([
+      { shortcut: modShortcut("="), command: "view.zoomIn" },
+      { shortcut: modShortcut("+"), command: "view.zoomIn" },
+      { shortcut: modShortcut("-"), command: "view.zoomOut" },
+      { shortcut: modShortcut("0"), command: "view.zoomReset" },
+    ]);
+
+    assert.strictEqual(
+      resolveShortcutCommand(event({ key: "=", metaKey: true }), zoomBindings, {
+        platform: "MacIntel",
+      }),
+      "view.zoomIn",
+    );
+    // The `+` binding catches layouts / numeric keypads that emit `+`
+    // without shift; strict shift-equality means Cmd+Shift+= stays on the
+    // `=` binding via the browser's reported key.
+    assert.strictEqual(
+      resolveShortcutCommand(event({ key: "+", metaKey: true }), zoomBindings, {
+        platform: "MacIntel",
+      }),
+      "view.zoomIn",
+    );
+    assert.strictEqual(
+      resolveShortcutCommand(event({ key: "-", ctrlKey: true }), zoomBindings, {
+        platform: "Linux",
+      }),
+      "view.zoomOut",
+    );
+    assert.strictEqual(
+      resolveShortcutCommand(event({ key: "0", metaKey: true }), zoomBindings, {
+        platform: "MacIntel",
+      }),
+      "view.zoomReset",
+    );
+  });
 });
 
 describe("formatShortcutLabel", () => {

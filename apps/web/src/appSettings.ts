@@ -21,9 +21,9 @@ const MAX_CUSTOM_MODEL_COUNT = 32;
 export const MAX_CUSTOM_MODEL_LENGTH = 256;
 const BACKGROUND_IMAGE_KEY = "okcode:background-image";
 const BACKGROUND_OPACITY_KEY = "okcode:background-opacity";
-export const SIDEBAR_PROJECT_ROW_HEIGHT_MIN = 24;
-export const SIDEBAR_PROJECT_ROW_HEIGHT_MAX = 44;
-export const DEFAULT_SIDEBAR_PROJECT_ROW_HEIGHT = 28;
+export const SIDEBAR_PROJECT_ROW_HEIGHT_MIN = 32;
+export const SIDEBAR_PROJECT_ROW_HEIGHT_MAX = 72;
+export const DEFAULT_SIDEBAR_PROJECT_ROW_HEIGHT = 32;
 export const SIDEBAR_THREAD_ROW_HEIGHT_MIN = 24;
 export const SIDEBAR_THREAD_ROW_HEIGHT_MAX = 44;
 export const DEFAULT_SIDEBAR_THREAD_ROW_HEIGHT = 28;
@@ -237,7 +237,7 @@ function clampBackgroundOpacity(value: number): number {
   return Math.max(0.05, Math.min(1, value));
 }
 
-function clampSidebarProjectRowHeight(value: number): number {
+export function clampSidebarProjectRowHeight(value: number): number {
   return Math.round(
     Math.max(SIDEBAR_PROJECT_ROW_HEIGHT_MIN, Math.min(SIDEBAR_PROJECT_ROW_HEIGHT_MAX, value)),
   );

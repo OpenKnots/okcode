@@ -281,6 +281,12 @@ export interface DesktopBridge {
   setTheme: (theme: DesktopTheme) => Promise<void>;
   setSidebarOpacity: (opacity: number) => Promise<void>;
   setWindowButtonVisibility: (visible: boolean) => Promise<void>;
+  /**
+   * Scale the entire Electron webContents by `factor` (e.g. 1.25 → 125 %).
+   * Values are clamped to [0.75, 1.75] server-side to match the UI slider's
+   * range. Falls back to a CSS `zoom` style on non-Electron shells.
+   */
+  setZoomFactor: (factor: number) => Promise<void>;
   showContextMenu: <T extends string>(
     items: readonly ContextMenuItem<T>[],
     position?: { x: number; y: number },

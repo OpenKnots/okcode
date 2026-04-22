@@ -172,30 +172,30 @@ export function ServerFolderPickerDialog({
                 }
               }}
               placeholder="/absolute/path"
-              className="flex-1 font-mono text-xs"
+              className="min-w-0 flex-1 font-mono text-xs"
               aria-label="Current path"
             />
           </div>
 
-          <div className="mt-3 flex h-[320px] flex-col overflow-hidden rounded-md border border-border bg-secondary">
-            <div className="flex shrink-0 items-center border-b border-border/60 px-3 py-1.5">
+          <div className="mt-3 flex flex-col overflow-hidden rounded-md border border-border bg-secondary">
+            <div className="flex shrink-0 items-center border-b border-border/60 px-3 py-2">
               <button
                 type="button"
                 onClick={toggleSort}
-                className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
+                className="flex items-center gap-1.5 text-xs font-medium text-foreground/70 hover:text-foreground"
                 aria-label={`Sort by name ${sortDirection === "asc" ? "descending" : "ascending"}`}
               >
                 Name
                 {sortDirection === "asc" ? (
-                  <ArrowDownAZIcon className="size-3" />
+                  <ArrowDownAZIcon className="size-3.5" />
                 ) : (
-                  <ArrowUpAZIcon className="size-3" />
+                  <ArrowUpAZIcon className="size-3.5" />
                 )}
               </button>
             </div>
-            <div className="flex-1 overflow-auto">
+            <div className="max-h-[320px] min-h-[80px] overflow-auto">
               {browseQuery.isLoading ? (
-                <div className="flex h-full items-center justify-center text-muted-foreground">
+                <div className="flex min-h-[80px] items-center justify-center text-muted-foreground">
                   <Loader2Icon className="size-4 animate-spin" />
                 </div>
               ) : browseQuery.error ? (

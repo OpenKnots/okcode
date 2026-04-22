@@ -228,7 +228,25 @@ jobs:
             fi
           fi
 
-          bun run dist:desktop:artifact -- "${args[@]}"
+          build_desktop_artifact() {
+            bun run dist:desktop:artifact -- "${args[@]}"
+          }
+
+          if [[ "${{ matrix.platform }}" == "mac" ]]; then
+            for attempt in 1 2; do
+              if build_desktop_artifact; then
+                break
+              fi
+              if [[ "$attempt" -eq 1 ]]; then
+                echo "macOS desktop packaging failed once; retrying after a short delay..." >&2
+                sleep 30
+                continue
+              fi
+              exit 1
+            done
+          else
+            build_desktop_artifact
+          fi
 
       - name: Validate packaged artifact outputs
         shell: bash

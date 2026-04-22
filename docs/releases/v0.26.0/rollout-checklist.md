@@ -52,7 +52,7 @@ Step-by-step playbook for the v0.26.0 release. Each phase must complete before a
 
 ## Phase 2: Post-release verification
 
-- [ ] `npx --yes okcodes@0.26.0 --version` returns `0.26.0`.
+- [ ] `npm exec --yes --package okcodes@0.26.0 -- okcode --version` returns `0.26.0`.
 - [ ] macOS installer launches and passes Gatekeeper.
 - [ ] Linux AppImage launches.
 - [ ] Windows installer installs and launches.

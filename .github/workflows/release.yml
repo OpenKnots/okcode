@@ -342,8 +342,8 @@ jobs:
 
       - name: Verify published CLI
         run: |
-          npx --yes okcodes@${{ needs.preflight.outputs.version }} --version
-          npx --yes okcodes@${{ needs.preflight.outputs.version }} --help >/dev/null
+          npm exec --yes --package okcodes@${{ needs.preflight.outputs.version }} -- okcode --version
+          npm exec --yes --package okcodes@${{ needs.preflight.outputs.version }} -- okcode --help >/dev/null
 
   release:
     name: Publish GitHub Release

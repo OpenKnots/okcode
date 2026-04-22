@@ -341,9 +341,16 @@ jobs:
           --verbose
 
       - name: Verify published CLI
+        shell: bash
         run: |
-          npm exec --yes --package okcodes@${{ needs.preflight.outputs.version }} -- okcode --version
-          npm exec --yes --package okcodes@${{ needs.preflight.outputs.version }} -- okcode --help >/dev/null
+          set -euo pipefail
+          tmpdir="$(mktemp -d)"
+          pushd "$tmpdir" >/dev/null
+          npm init -y >/dev/null 2>&1
+          npm install --no-save "okcodes@${{ needs.preflight.outputs.version }}" >/dev/null 2>&1
+          ./node_modules/.bin/okcode --version
+          ./node_modules/.bin/okcode --help >/dev/null
+          popd >/dev/null
 
   release:
     name: Publish GitHub Release

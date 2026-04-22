@@ -8,7 +8,6 @@ import {
   FolderIcon,
   FolderOpenIcon,
   HomeIcon,
-  Loader2Icon,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -24,6 +23,8 @@ import {
   DialogTitle,
 } from "./ui/dialog";
 import { Input } from "./ui/input";
+import { ScrollArea } from "./ui/scroll-area";
+import { Spinner } from "./ui/spinner";
 
 interface ServerFolderPickerDialogProps {
   open: boolean;
@@ -50,7 +51,6 @@ export function ServerFolderPickerDialog({
   const [selectedChild, setSelectedChild] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
-  // Reset when dialog opens so stale state from a previous session doesn't leak.
   useEffect(() => {
     if (open) {
       setCurrentPath(initialPath);
@@ -73,8 +73,6 @@ export function ServerFolderPickerDialog({
     retry: false,
   });
 
-  // Keep pathInput in sync with the resolved server path (handles the case where
-  // we opened at `undefined` and the server resolves it to $HOME).
   useEffect(() => {
     if (browseQuery.data?.path && currentPath !== browseQuery.data.path) {
       setCurrentPath(browseQuery.data.path);
@@ -133,34 +131,33 @@ export function ServerFolderPickerDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogPopup>
-        <DialogPanel className="w-[min(560px,95vw)]">
-          <DialogHeader>
-            <DialogTitle>Select project folder</DialogTitle>
-            <DialogDescription>
-              Browse the OK Code server&rsquo;s filesystem. Only directories you can read are shown.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="mt-3 flex gap-1.5">
+      <DialogPopup className="max-w-xl">
+        <DialogHeader>
+          <DialogTitle>Select project folder</DialogTitle>
+          <DialogDescription>
+            Browse the server&rsquo;s filesystem and pick a directory to open as a project.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogPanel className="space-y-3">
+          <div className="flex gap-2">
             <Button
               type="button"
               variant="outline"
-              size="icon"
+              size="icon-sm"
               onClick={navigateUp}
               disabled={!browseQuery.data?.parentPath}
               aria-label="Up to parent directory"
             >
-              <ArrowUpIcon className="size-4" />
+              <ArrowUpIcon className="size-3.5" />
             </Button>
             <Button
               type="button"
               variant="outline"
-              size="icon"
+              size="icon-sm"
               onClick={navigateHome}
               aria-label="Go to home directory"
             >
-              <HomeIcon className="size-4" />
+              <HomeIcon className="size-3.5" />
             </Button>
             <Input
               value={pathInput}
@@ -177,12 +174,12 @@ export function ServerFolderPickerDialog({
             />
           </div>
 
-          <div className="mt-3 flex flex-col overflow-hidden rounded-md border border-border bg-secondary">
-            <div className="flex shrink-0 items-center border-b border-border/60 px-3 py-2">
+          <div className="overflow-hidden rounded-xl border border-border/70 bg-muted/24">
+            <div className="flex items-center justify-between border-b border-border/50 bg-muted/30 px-3 py-2">
               <button
                 type="button"
                 onClick={toggleSort}
-                className="flex items-center gap-1.5 text-xs font-medium text-foreground/70 hover:text-foreground"
+                className="flex items-center gap-1.5 text-xs font-medium text-foreground/80 hover:text-foreground"
                 aria-label={`Sort by name ${sortDirection === "asc" ? "descending" : "ascending"}`}
               >
                 Name
@@ -192,22 +189,29 @@ export function ServerFolderPickerDialog({
                   <ArrowUpAZIcon className="size-3.5" />
                 )}
               </button>
+              {browseQuery.data?.partial ? (
+                <span className="text-[11px] text-muted-foreground">Some entries skipped</span>
+              ) : null}
             </div>
-            <div className="max-h-[320px] min-h-[80px] overflow-auto">
-              {browseQuery.isLoading ? (
-                <div className="flex min-h-[80px] items-center justify-center text-muted-foreground">
-                  <Loader2Icon className="size-4 animate-spin" />
-                </div>
-              ) : browseQuery.error ? (
-                <div className="p-3 text-xs text-red-500">
-                  {browseQuery.error instanceof Error
-                    ? browseQuery.error.message
-                    : "Failed to list directory"}
-                </div>
-              ) : sortedEntries.length === 0 ? (
-                <div className="p-3 text-xs text-muted-foreground">(empty directory)</div>
-              ) : (
-                <ul className="divide-y divide-border/50">
+
+            {browseQuery.isLoading ? (
+              <div className="flex items-center justify-center gap-2 py-10 text-xs text-muted-foreground">
+                <Spinner className="size-3.5" />
+                Loading...
+              </div>
+            ) : browseQuery.error ? (
+              <div className="px-3 py-6 text-xs text-destructive">
+                {browseQuery.error instanceof Error
+                  ? browseQuery.error.message
+                  : "Failed to list directory"}
+              </div>
+            ) : sortedEntries.length === 0 ? (
+              <div className="px-3 py-6 text-xs text-muted-foreground">
+                This directory is empty.
+              </div>
+            ) : (
+              <ScrollArea className="max-h-[280px]" scrollbarGutter>
+                <ul className="divide-y divide-border/40">
                   {sortedEntries.map((entry) => {
                     const isDirectory = entry.kind === "directory";
                     const isSelected = selectedChild === entry.name;
@@ -215,13 +219,13 @@ export function ServerFolderPickerDialog({
                       return (
                         <li
                           key={`f:${entry.name}`}
-                          className="flex items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground/70"
+                          className="flex items-center gap-2.5 px-3 py-1.5 text-xs text-muted-foreground/70"
                         >
                           <FileIcon className="size-3.5 shrink-0 text-muted-foreground/50" />
                           <span className="flex-1 truncate font-mono">{entry.name}</span>
-                          {entry.isSymlink && (
+                          {entry.isSymlink ? (
                             <span className="text-[10px] text-muted-foreground/80">link</span>
-                          )}
+                          ) : null}
                         </li>
                       );
                     }
@@ -229,8 +233,8 @@ export function ServerFolderPickerDialog({
                       <li key={`d:${entry.name}`}>
                         <button
                           type="button"
-                          className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors hover:bg-accent ${
-                            isSelected ? "bg-accent" : ""
+                          className={`flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-xs transition-colors hover:bg-accent/60 ${
+                            isSelected ? "bg-accent/80" : ""
                           }`}
                           onClick={() => setSelectedChild(entry.name)}
                           onDoubleClick={() => {
@@ -245,39 +249,33 @@ export function ServerFolderPickerDialog({
                             <FolderIcon className="size-3.5 shrink-0 text-foreground/60" />
                           )}
                           <span className="flex-1 truncate font-mono">{entry.name}</span>
-                          {entry.isSymlink && (
+                          {entry.isSymlink ? (
                             <span className="text-[10px] text-muted-foreground/80">link</span>
-                          )}
+                          ) : null}
                         </button>
                       </li>
                     );
                   })}
                 </ul>
-              )}
-            </div>
+              </ScrollArea>
+            )}
           </div>
-
-          {browseQuery.data?.partial && (
-            <p className="mt-2 text-[11px] text-muted-foreground">
-              Some entries were skipped (broken symlinks or permission denied).
-            </p>
-          )}
-
-          <DialogFooter className="mt-4">
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={handleSelect}
-              disabled={!pickPath}
-              title={pickPath ? `Use: ${pickPath}` : undefined}
-            >
-              <CheckIcon className="mr-1 size-4" />
-              {selectedChild ? "Select subfolder" : "Use this folder"}
-            </Button>
-          </DialogFooter>
         </DialogPanel>
+        <DialogFooter>
+          <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            onClick={handleSelect}
+            disabled={!pickPath}
+            title={pickPath ? `Use: ${pickPath}` : undefined}
+          >
+            <CheckIcon className="size-3.5" />
+            {selectedChild ? "Select subfolder" : "Use this folder"}
+          </Button>
+        </DialogFooter>
       </DialogPopup>
     </Dialog>
   );

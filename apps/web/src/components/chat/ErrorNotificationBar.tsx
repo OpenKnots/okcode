@@ -60,6 +60,10 @@ interface NotificationItem {
   onDismiss?: () => void;
 }
 
+function buildThreadErrorNotificationId(error: string): string {
+  return `thread-error:${error}`;
+}
+
 export const ErrorNotificationBar = memo(function ErrorNotificationBar({
   threadError,
   showAuthFailuresAsErrors = true,
@@ -139,7 +143,7 @@ export const ErrorNotificationBar = memo(function ErrorNotificationBar({
         const showOutOfMemoryRecovery =
           isOutOfMemoryThreadError(threadError) && onRecoverFromOutOfMemory !== undefined;
         items.push({
-          id: "thread-error",
+          id: buildThreadErrorNotificationId(threadError),
           kind: "thread-error",
           icon: CircleAlertIcon,
           title: presentation.title ?? "Error",
@@ -227,8 +231,8 @@ export const ErrorNotificationBar = memo(function ErrorNotificationBar({
         notif.onDismiss();
       }
     }
-    setDismissedIds(new Set(notifications.map((n) => n.id)));
-  }, [visibleNotifications, notifications]);
+    setDismissedIds(new Set(visibleNotifications.filter((n) => n.dismissible).map((n) => n.id)));
+  }, [visibleNotifications]);
 
   // Nothing to show
   if (visibleNotifications.length === 0) return null;

@@ -93,6 +93,12 @@ function uniqueScopes(scopes: ReadonlyArray<string> | undefined): string[] {
   return [...values];
 }
 
+function isPasswordAuthError(error: ParsedGatewayError | undefined): boolean {
+  return (
+    error?.detailCode === "AUTH_PASSWORD_MISSING" || error?.detailCode === "AUTH_PASSWORD_MISMATCH"
+  );
+}
+
 function closeDetail(code: number | undefined, reason: string | undefined): string {
   if (code === undefined) {
     return "";
@@ -292,25 +298,39 @@ export class OpenclawGatewayClient {
       typeof this.options.deviceToken === "string" && this.options.deviceToken.length > 0;
 
     try {
-      return await this.performConnectAttempt("shared");
+      return await this.performConnectAttempt("sharedToken");
     } catch (error) {
-      const parsedError =
+      let parsedError =
         error instanceof OpenclawGatewayClientError ? error.gatewayError : undefined;
+
+      if (this.options.sharedSecret !== undefined && isPasswordAuthError(parsedError)) {
+        await this.closeCurrentSocket();
+        try {
+          return await this.performConnectAttempt("sharedPassword");
+        } catch (passwordError) {
+          error = passwordError;
+          parsedError =
+            passwordError instanceof OpenclawGatewayClientError
+              ? passwordError.gatewayError
+              : undefined;
+        }
+      }
+
       const shouldRetryWithDeviceToken =
         canUseStoredDeviceToken &&
         parsedError?.canRetryWithDeviceToken === true &&
         this.options.sharedSecret !== undefined;
-      if (!shouldRetryWithDeviceToken) {
-        throw error;
+      if (shouldRetryWithDeviceToken) {
+        await this.closeCurrentSocket();
+        return await this.performConnectAttempt("deviceToken");
       }
 
-      await this.closeCurrentSocket();
-      return await this.performConnectAttempt("deviceToken");
+      throw error;
     }
   }
 
   private async performConnectAttempt(
-    authMode: "shared" | "deviceToken",
+    authMode: "sharedToken" | "sharedPassword" | "deviceToken",
   ): Promise<OpenclawGatewayConnectResult> {
     await this.openSocket();
     const challenge = await this.waitForEvent("connect.challenge");
@@ -331,7 +351,10 @@ export class OpenclawGatewayClient {
     const authToken =
       authMode === "deviceToken"
         ? (this.options.deviceToken ?? "")
-        : (this.options.sharedSecret ?? "");
+        : authMode === "sharedToken"
+          ? (this.options.sharedSecret ?? "")
+          : "";
+    const authPassword = authMode === "sharedPassword" ? (this.options.sharedSecret ?? "") : "";
     const signedDevice = signOpenclawDeviceChallenge(this.options.identity, {
       clientId: this.options.clientId,
       clientMode: this.options.clientMode,
@@ -356,7 +379,10 @@ export class OpenclawGatewayClient {
       caps: [],
       commands: [],
       permissions: {},
-      ...(authMode === "shared" && authToken.length > 0 ? { auth: { token: authToken } } : {}),
+      ...(authMode === "sharedToken" && authToken.length > 0 ? { auth: { token: authToken } } : {}),
+      ...(authMode === "sharedPassword" && authPassword.length > 0
+        ? { auth: { password: authPassword } }
+        : {}),
       ...(authMode === "deviceToken" && authToken.length > 0
         ? { auth: { deviceToken: authToken } }
         : {}),

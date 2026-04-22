@@ -334,7 +334,10 @@ function buildHints(
 
   if (
     !sharedSecretProvided &&
-    (detailCode === "AUTH_TOKEN_MISSING" || errorLower.includes("auth_token_missing"))
+    (detailCode === "AUTH_TOKEN_MISSING" ||
+      detailCode === "AUTH_PASSWORD_MISSING" ||
+      errorLower.includes("auth_token_missing") ||
+      errorLower.includes("auth_password_missing"))
   ) {
     hints.push(
       "No shared secret was provided for this test. If your OpenClaw gateway uses token/password auth, add the configured secret and test again.",
@@ -344,8 +347,10 @@ function buildHints(
   if (
     sharedSecretProvided &&
     (detailCode === "AUTH_TOKEN_MISMATCH" ||
+      detailCode === "AUTH_PASSWORD_MISMATCH" ||
       detailCode === "AUTH_DEVICE_TOKEN_MISMATCH" ||
-      errorLower.includes("auth_token_mismatch"))
+      errorLower.includes("auth_token_mismatch") ||
+      errorLower.includes("auth_password_mismatch"))
   ) {
     hints.push(
       "The gateway rejected the provided auth material. Re-check the configured shared secret and confirm whether this gateway expects token auth, password auth, or a paired device token.",

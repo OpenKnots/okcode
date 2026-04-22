@@ -127,7 +127,10 @@
   --sidebar-ring: var(--ring);
   --font-sans: Oxanium, sans-serif;
   --font-serif: "Space Grotesk", serif;
-  --font-mono: Oxanium, sans-serif;
+  --font-mono:
+    "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono",
+    monospace;
+  --font-code: var(--font-mono);
   --spacing: 0.25rem;
   --tracking-normal: 0em;
 
@@ -209,9 +212,11 @@ body::after {
 
 pre,
 code,
-textarea,
-input {
-  font-family: var(--font-mono, Oxanium, sans-serif);
+.cm-scroller {
+  font-family: var(
+    --font-code,
+    var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace)
+  );
 }
 
 /* Window drag region (frameless titlebar) */

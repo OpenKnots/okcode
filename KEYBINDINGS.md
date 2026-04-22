@@ -27,7 +27,11 @@ See the full schema for more details: [`packages/contracts/src/keybindings.ts`](
   { "key": "mod+n", "command": "chat.new", "when": "!terminalFocus" },
   { "key": "mod+shift+o", "command": "chat.new", "when": "!terminalFocus" },
   { "key": "mod+shift+n", "command": "chat.newLocal", "when": "!terminalFocus" },
-  { "key": "mod+o", "command": "editor.openFavorite" }
+  { "key": "mod+o", "command": "editor.openFavorite" },
+  { "key": "mod+=", "command": "view.zoomIn" },
+  { "key": "mod+plus", "command": "view.zoomIn" },
+  { "key": "mod+-", "command": "view.zoomOut" },
+  { "key": "mod+0", "command": "view.zoomReset" }
 ]
 ```
 
@@ -54,6 +58,9 @@ Invalid rules are ignored. Invalid config files are ignored. Warnings are logged
 - `chat.new`: create a new chat thread preserving the active thread's branch/worktree state
 - `chat.newLocal`: create a new chat thread for the active project in a new environment (local/worktree determined by app settings (default `local`))
 - `editor.openFavorite`: open current project/worktree in the last-used editor
+- `view.zoomIn`: scale the whole UI up one step (persisted to localStorage)
+- `view.zoomOut`: scale the whole UI down one step (persisted to localStorage)
+- `view.zoomReset`: reset the UI zoom back to 100 %
 - `script.{id}.run`: run a project script by id (for example `script.test.run`)
 
 ### Key Syntax

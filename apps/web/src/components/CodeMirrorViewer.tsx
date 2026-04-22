@@ -40,7 +40,8 @@ const baseExtensions: Extension[] = [
       backgroundColor: "var(--background)",
     },
     ".cm-scroller": {
-      fontFamily: "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace",
+      fontFamily:
+        "var(--font-code, var(--font-mono, ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace))",
       overflow: "auto",
     },
     ".cm-gutters": {

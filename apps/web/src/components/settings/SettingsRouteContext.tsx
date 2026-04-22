@@ -1,22 +1,40 @@
-import { type ReactNode, createContext, useCallback, useContext, useMemo, useState } from "react";
+import {
+  type ReactNode,
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import { DEFAULT_GIT_TEXT_GENERATION_MODEL } from "@okcode/contracts";
 
 import { DEFAULT_PR_REVIEW_REQUEST_CHANGES_TONE, useAppSettings } from "../../appSettings";
-import { DEFAULT_COLOR_THEME, useTheme } from "../../hooks/useTheme";
+import {
+  DEFAULT_CODE_FONT,
+  DEFAULT_COLOR_THEME,
+  DEFAULT_MESSAGE_FONT,
+  useTheme,
+} from "../../hooks/useTheme";
 import { readNativeApi, ensureNativeApi } from "../../nativeApi";
 import {
+  ZOOM_CHANGE_EVENT,
+  ZOOM_DEFAULT,
   clearFontOverride,
   clearFontSizeOverride,
   clearRadiusOverride,
   clearStoredCustomTheme,
+  clearZoom,
   getStoredFontOverride,
   getStoredFontSizeOverride,
   getStoredRadiusOverride,
+  getStoredZoom,
   removeCustomTheme,
   setStoredFontOverride,
   setStoredFontSizeOverride,
   setStoredRadiusOverride,
+  setStoredZoom,
 } from "../../lib/customTheme";
 
 type ThemeState = ReturnType<typeof useTheme>;
@@ -26,8 +44,10 @@ interface SettingsRouteContextValue {
   setTheme: ThemeState["setTheme"];
   colorTheme: ThemeState["colorTheme"];
   setColorTheme: ThemeState["setColorTheme"];
-  fontFamily: ThemeState["fontFamily"];
-  setFontFamily: ThemeState["setFontFamily"];
+  messageFont: ThemeState["messageFont"];
+  setMessageFont: ThemeState["setMessageFont"];
+  codeFont: ThemeState["codeFont"];
+  setCodeFont: ThemeState["setCodeFont"];
   settingsState: ReturnType<typeof useAppSettings>;
   radiusOverride: number | null;
   setRadiusOverride: (value: number | null) => void;
@@ -35,6 +55,8 @@ interface SettingsRouteContextValue {
   setFontOverride: (value: string) => void;
   fontSizeOverride: number | null;
   setFontSizeOverride: (value: number | null) => void;
+  zoom: number;
+  setZoom: (value: number) => void;
   changedSettingLabels: readonly string[];
   restoreDefaults: () => Promise<void>;
 }
@@ -42,7 +64,16 @@ interface SettingsRouteContextValue {
 const SettingsRouteContext = createContext<SettingsRouteContextValue | null>(null);
 
 export function SettingsRouteContextProvider({ children }: { children: ReactNode }) {
-  const { theme, setTheme, colorTheme, setColorTheme, fontFamily, setFontFamily } = useTheme();
+  const {
+    theme,
+    setTheme,
+    colorTheme,
+    setColorTheme,
+    messageFont,
+    setMessageFont,
+    codeFont,
+    setCodeFont,
+  } = useTheme();
   const settingsState = useAppSettings();
   const { settings, defaults, resetSettings } = settingsState;
   const [radiusOverrideState, setRadiusOverrideState] = useState<number | null>(() =>
@@ -54,6 +85,7 @@ export function SettingsRouteContextProvider({ children }: { children: ReactNode
   const [fontSizeOverrideState, setFontSizeOverrideState] = useState<number | null>(() =>
     getStoredFontSizeOverride(),
   );
+  const [zoomState, setZoomState] = useState<number>(() => getStoredZoom());
 
   const setRadiusOverride = useCallback((value: number | null) => {
     setRadiusOverrideState(value);
@@ -82,6 +114,32 @@ export function SettingsRouteContextProvider({ children }: { children: ReactNode
     setStoredFontSizeOverride(value);
   }, []);
 
+  // Keep local React state in sync with storage. `setStoredZoom` also
+  // clamps — we read back via `getStoredZoom` so the slider shows the clamped
+  // value rather than the raw input when the user drags past the bounds.
+  const setZoom = useCallback((value: number) => {
+    setStoredZoom(value);
+    setZoomState(getStoredZoom());
+  }, []);
+
+  // The keybinding handler in `ChatRouteGlobalShortcuts` writes zoom directly
+  // to storage via `setStoredZoom`. Listen for the in-window `zoom-change`
+  // event so the slider reflects keyboard-driven changes live; also listen to
+  // `storage` for multi-window consistency.
+  useEffect(() => {
+    const refresh = () => setZoomState(getStoredZoom());
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== "okcode:app-zoom") return;
+      refresh();
+    };
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener(ZOOM_CHANGE_EVENT, refresh as EventListener);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener(ZOOM_CHANGE_EVENT, refresh as EventListener);
+    };
+  }, []);
+
   const currentGitTextGenerationModel =
     settings.textGenerationModel ?? DEFAULT_GIT_TEXT_GENERATION_MODEL;
   const defaultGitTextGenerationModel =
@@ -103,7 +161,8 @@ export function SettingsRouteContextProvider({ children }: { children: ReactNode
       [
         ...(theme !== "system" ? ["Theme"] : []),
         ...(colorTheme !== DEFAULT_COLOR_THEME ? ["Color theme"] : []),
-        ...(fontFamily !== "inter" ? ["Font"] : []),
+        ...(messageFont !== DEFAULT_MESSAGE_FONT ? ["Message font"] : []),
+        ...(codeFont !== DEFAULT_CODE_FONT ? ["Code font"] : []),
         ...(settings.prReviewRequestChangesTone !== DEFAULT_PR_REVIEW_REQUEST_CHANGES_TONE
           ? ["PR request changes button"]
           : []),
@@ -177,19 +236,22 @@ export function SettingsRouteContextProvider({ children }: { children: ReactNode
         ...(radiusOverrideState !== null ? ["Border radius"] : []),
         ...(fontOverrideState ? ["Font family"] : []),
         ...(fontSizeOverrideState !== null ? ["Code font size"] : []),
+        ...(zoomState !== ZOOM_DEFAULT ? ["App zoom"] : []),
       ] as const,
     [
+      codeFont,
       colorTheme,
       defaults,
-      fontFamily,
       fontOverrideState,
       fontSizeOverrideState,
       isGitTextGenerationModelDirty,
       isInstallSettingsDirty,
       isOpenClawSettingsDirty,
+      messageFont,
       radiusOverrideState,
       settings,
       theme,
+      zoomState,
     ],
   );
 
@@ -206,7 +268,8 @@ export function SettingsRouteContextProvider({ children }: { children: ReactNode
 
     setTheme("system");
     setColorTheme(DEFAULT_COLOR_THEME);
-    setFontFamily("inter");
+    setMessageFont(DEFAULT_MESSAGE_FONT);
+    setCodeFont(DEFAULT_CODE_FONT);
     resetSettings();
 
     clearStoredCustomTheme();
@@ -217,15 +280,19 @@ export function SettingsRouteContextProvider({ children }: { children: ReactNode
     setFontOverrideState("");
     clearFontSizeOverride();
     setFontSizeOverrideState(null);
+    clearZoom();
+    setZoomState(ZOOM_DEFAULT);
   }, [
     changedSettingLabels,
     resetSettings,
+    setCodeFont,
     setColorTheme,
-    setFontFamily,
+    setMessageFont,
     setTheme,
     setFontOverrideState,
     setFontSizeOverrideState,
     setRadiusOverrideState,
+    setZoomState,
   ]);
 
   const value = useMemo<SettingsRouteContextValue>(
@@ -234,8 +301,10 @@ export function SettingsRouteContextProvider({ children }: { children: ReactNode
       setTheme,
       colorTheme,
       setColorTheme,
-      fontFamily,
-      setFontFamily,
+      messageFont,
+      setMessageFont,
+      codeFont,
+      setCodeFont,
       settingsState,
       radiusOverride: radiusOverrideState,
       setRadiusOverride,
@@ -243,25 +312,31 @@ export function SettingsRouteContextProvider({ children }: { children: ReactNode
       setFontOverride,
       fontSizeOverride: fontSizeOverrideState,
       setFontSizeOverride,
+      zoom: zoomState,
+      setZoom,
       changedSettingLabels,
       restoreDefaults,
     }),
     [
       changedSettingLabels,
+      codeFont,
       colorTheme,
-      fontFamily,
       fontOverrideState,
       fontSizeOverrideState,
+      messageFont,
       radiusOverrideState,
       restoreDefaults,
+      setCodeFont,
       setColorTheme,
-      setFontFamily,
       setFontOverride,
       setFontSizeOverride,
+      setMessageFont,
       setRadiusOverride,
       setTheme,
+      setZoom,
       settingsState,
       theme,
+      zoomState,
     ],
   );
 

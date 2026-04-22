@@ -21,7 +21,8 @@ export const MARKDOWN_PREVIEW_CONTAINER_STYLE: CSSProperties = {
   "--cm-radius": "12px",
   "--cm-font":
     'var(--font-ui, "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif)',
-  "--cm-mono": '"SF Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace',
+  "--cm-mono":
+    'var(--font-code, var(--font-mono, ui-monospace, "SF Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace))',
 } as CSSProperties;
 
 function getThemeCss(theme: MarkdownPreviewTheme): string {

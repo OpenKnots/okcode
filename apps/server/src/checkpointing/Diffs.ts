@@ -1,9 +1,21 @@
-import { parsePatchFiles } from "@pierre/diffs";
-
 export interface TurnDiffFileSummary {
   readonly path: string;
   readonly additions: number;
   readonly deletions: number;
+}
+
+interface MutableTurnDiffFileSummary {
+  path: string;
+  additions: number;
+  deletions: number;
+}
+
+function normalizeDiffPath(path: string): string {
+  return path.replace(/^a\//, "").replace(/^b\//, "");
+}
+
+function createFileSummary(path: string): MutableTurnDiffFileSummary {
+  return { path, additions: 0, deletions: 0 };
 }
 
 export function parseTurnDiffFilesFromUnifiedDiff(
@@ -14,14 +26,48 @@ export function parseTurnDiffFilesFromUnifiedDiff(
     return [];
   }
 
-  const parsedPatches = parsePatchFiles(normalized);
-  const files = parsedPatches.flatMap((patch) =>
-    patch.files.map((file) => ({
-      path: file.name,
-      additions: file.hunks.reduce((total, hunk) => total + hunk.additionLines, 0),
-      deletions: file.hunks.reduce((total, hunk) => total + hunk.deletionLines, 0),
-    })),
-  );
+  const files: MutableTurnDiffFileSummary[] = [];
+  let currentFile: MutableTurnDiffFileSummary | null = null;
+  let inHunk = false;
+
+  for (const line of normalized.split("\n")) {
+    if (line.startsWith("diff --git ")) {
+      if (currentFile) files.push(currentFile);
+
+      const match = /^diff --git a\/(.+?) b\/(.+)$/.exec(line);
+      currentFile = createFileSummary(normalizeDiffPath(match?.[2] ?? match?.[1] ?? line));
+      inHunk = false;
+      continue;
+    }
+
+    if (!currentFile) {
+      continue;
+    }
+
+    if (line.startsWith("@@")) {
+      inHunk = true;
+      continue;
+    }
+
+    if (!inHunk) {
+      continue;
+    }
+
+    if (line.startsWith("+++ ") || line.startsWith("--- ")) {
+      continue;
+    }
+
+    if (line.startsWith("+")) {
+      currentFile.additions += 1;
+      continue;
+    }
+
+    if (line.startsWith("-")) {
+      currentFile.deletions += 1;
+    }
+  }
+
+  if (currentFile) files.push(currentFile);
 
   return files.toSorted((left, right) => left.path.localeCompare(right.path));
 }

@@ -8,7 +8,7 @@
     "directory": "apps/server"
   },
   "bin": {
-    "okcode": "./dist/index.mjs"
+    "okcode": "./dist/index.cjs"
   },
   "files": [
     "dist"

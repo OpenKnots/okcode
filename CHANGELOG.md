@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.4] - 2026-04-22
+
+See [docs/releases/v0.26.4.md](docs/releases/v0.26.4.md) for full notes and [docs/releases/v0.26.4/assets.md](docs/releases/v0.26.4/assets.md) for release asset inventory.
+
+### Added
+
+- Add out-of-memory session recovery.
+
+### Changed
+
+- Bundle diffs into the server cli.
+- Inline diff parsing for cli release.
+
+### Fixed
+
+- Publish cli from cjs bin.
+- Make npm publish rerun-safe.
+- Verify published cli with okcode bin.
+- Verify published cli with temp install.
+
 ## [0.26.2] - 2026-04-21
 
 See [docs/releases/v0.26.2.md](docs/releases/v0.26.2.md) for full notes and [docs/releases/v0.26.2/assets.md](docs/releases/v0.26.2/assets.md) for release asset inventory.

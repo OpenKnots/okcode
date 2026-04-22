@@ -72,6 +72,7 @@ import {
   SaveProjectEnvironmentVariablesInput,
 } from "./environment";
 import {
+  ProjectBrowseDirectoryInput,
   ProjectDeleteEntryInput,
   ProjectListDirectoryInput,
   ProjectReadFileInput,
@@ -131,6 +132,7 @@ export const WS_METHODS = {
   projectsRemove: "projects.remove",
   projectsSearchEntries: "projects.searchEntries",
   projectsListDirectory: "projects.listDirectory",
+  projectsBrowseDirectory: "projects.browseDirectory",
   projectsWriteFile: "projects.writeFile",
   projectsReadFile: "projects.readFile",
   projectsDeleteEntry: "projects.deleteEntry",
@@ -292,6 +294,7 @@ const WebSocketRequestBody = Schema.Union([
   // Project Search
   tagRequestBody(WS_METHODS.projectsSearchEntries, ProjectSearchEntriesInput),
   tagRequestBody(WS_METHODS.projectsListDirectory, ProjectListDirectoryInput),
+  tagRequestBody(WS_METHODS.projectsBrowseDirectory, ProjectBrowseDirectoryInput),
   tagRequestBody(WS_METHODS.projectsWriteFile, ProjectWriteFileInput),
   tagRequestBody(WS_METHODS.projectsReadFile, ProjectReadFileInput),
   tagRequestBody(WS_METHODS.projectsDeleteEntry, ProjectDeleteEntryInput),

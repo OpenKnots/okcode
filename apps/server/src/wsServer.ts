@@ -57,6 +57,7 @@ import { pickFolderNative } from "./nativeFolderPicker.ts";
 import { GitManager } from "./git/Services/GitManager.ts";
 import { TerminalManager } from "./terminal/Services/Manager.ts";
 import { Keybindings } from "./keybindings";
+import { browseFileSystemDirectory } from "./fileSystemBrowser.ts";
 import {
   clearWorkspaceIndexCache,
   listWorkspaceDirectory,
@@ -1114,6 +1115,17 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
           catch: (cause) =>
             new RouteRequestError({
               message: `Failed to list workspace directory: ${String(cause)}`,
+            }),
+        });
+      }
+
+      case WS_METHODS.projectsBrowseDirectory: {
+        const body = stripRequestTag(request.body);
+        return yield* Effect.tryPromise({
+          try: () => browseFileSystemDirectory(body),
+          catch: (cause) =>
+            new RouteRequestError({
+              message: `Failed to browse directory: ${String(cause)}`,
             }),
         });
       }

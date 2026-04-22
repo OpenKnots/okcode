@@ -58,6 +58,39 @@ export const ProjectListDirectoryResult = Schema.Struct({
 });
 export type ProjectListDirectoryResult = typeof ProjectListDirectoryResult.Type;
 
+export const FileSystemEntry = Schema.Struct({
+  name: TrimmedNonEmptyString,
+  kind: ProjectEntryKind,
+  /** True if the entry is a symlink (regardless of its target kind). */
+  isSymlink: Schema.Boolean,
+});
+export type FileSystemEntry = typeof FileSystemEntry.Type;
+
+export const ProjectBrowseDirectoryInput = Schema.Struct({
+  /**
+   * Absolute path to browse. When omitted, the service user's home directory
+   * is used. Unlike listDirectory, this endpoint walks any accessible path
+   * without project-scoped indexing.
+   */
+  path: Schema.optional(
+    TrimmedNonEmptyString.check(Schema.isMaxLength(PROJECT_DIRECTORY_PATH_MAX_LENGTH)),
+  ),
+  /** Include entries whose name starts with ".". Default false. */
+  includeHidden: Schema.optional(Schema.Boolean),
+});
+export type ProjectBrowseDirectoryInput = typeof ProjectBrowseDirectoryInput.Type;
+
+export const ProjectBrowseDirectoryResult = Schema.Struct({
+  /** Resolved absolute path that was listed. */
+  path: TrimmedNonEmptyString,
+  /** Absolute path of the parent directory, or absent if at filesystem root. */
+  parentPath: Schema.optional(TrimmedNonEmptyString),
+  entries: Schema.Array(FileSystemEntry),
+  /** True if some entries were skipped because they were unreadable. */
+  partial: Schema.Boolean,
+});
+export type ProjectBrowseDirectoryResult = typeof ProjectBrowseDirectoryResult.Type;
+
 export const ProjectWriteFileInput = Schema.Struct({
   cwd: TrimmedNonEmptyString,
   relativePath: TrimmedNonEmptyString.check(Schema.isMaxLength(PROJECT_WRITE_FILE_PATH_MAX_LENGTH)),

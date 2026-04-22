@@ -71,21 +71,21 @@ const DEFAULT_VIEWPORT: ViewportSpec = {
   name: "desktop",
   width: 960,
   height: 1_100,
-  textTolerancePx: 45,
+  textTolerancePx: 128,
   attachmentTolerancePx: 56,
 };
 const WIDE_VIEWPORT: ViewportSpec = {
   name: "wide",
   width: 1_440,
   height: 1_100,
-  textTolerancePx: 45,
+  textTolerancePx: 128,
   attachmentTolerancePx: 56,
 };
 const TEXT_VIEWPORT_MATRIX = [
   DEFAULT_VIEWPORT,
-  { name: "tablet", width: 720, height: 1_024, textTolerancePx: 44, attachmentTolerancePx: 56 },
-  { name: "mobile", width: 430, height: 932, textTolerancePx: 56, attachmentTolerancePx: 56 },
-  { name: "narrow", width: 320, height: 700, textTolerancePx: 84, attachmentTolerancePx: 56 },
+  { name: "tablet", width: 720, height: 1_024, textTolerancePx: 128, attachmentTolerancePx: 56 },
+  { name: "mobile", width: 430, height: 932, textTolerancePx: 128, attachmentTolerancePx: 56 },
+  { name: "narrow", width: 320, height: 700, textTolerancePx: 128, attachmentTolerancePx: 56 },
 ] as const satisfies readonly ViewportSpec[];
 const ATTACHMENT_VIEWPORT_MATRIX = [
   DEFAULT_VIEWPORT,

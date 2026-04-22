@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.3] - 2026-04-22
+
+See [docs/releases/v0.26.3.md](docs/releases/v0.26.3.md) for full notes and [docs/releases/v0.26.3/assets.md](docs/releases/v0.26.3/assets.md) for release asset inventory.
+
+### Added
+
+- Split message/code fonts and add app zoom persistence.
+- Add out-of-memory session recovery.
+
 ## [0.26.2] - 2026-04-21
 
 See [docs/releases/v0.26.2.md](docs/releases/v0.26.2.md) for full notes and [docs/releases/v0.26.2/assets.md](docs/releases/v0.26.2/assets.md) for release asset inventory.
@@ -867,3 +876,4 @@ First public version tag. See [docs/releases/v0.0.1.md](docs/releases/v0.0.1.md)
 [0.25.0]: https://github.com/OpenKnots/okcode/releases/tag/v0.25.0
 [0.26.0]: https://github.com/OpenKnots/okcode/releases/tag/v0.26.0
 [0.26.2]: https://github.com/OpenKnots/okcode/releases/tag/v0.26.2
+[0.26.3]: https://github.com/OpenKnots/okcode/releases/tag/v0.26.3

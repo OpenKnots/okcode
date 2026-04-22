@@ -9,6 +9,7 @@ Use this directory for versioned release notes and asset manifests only:
 
 | Version              | Summary                                                                                                   | Assets                        |
 | -------------------- | --------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| [0.26.2](v0.26.2.md) | Release with 1 new feature(s), 4 fix(es), 3 improvement(s)                                                | [manifest](v0.26.2/assets.md) |
 | [0.26.0](v0.26.0.md) | File-content search, desktop terminal docking, transport sna                                              | [manifest](v0.26.0/assets.md) |
 | [0.25.0](v0.25.0.md) | Project icon file picker, gateway auth terminology cleanup,                                               | [manifest](v0.25.0/assets.md) |
 | [0.24.0](v0.24.0.md) | Theme presets, markdown rendering unification, project icon                                               | [manifest](v0.24.0/assets.md) |

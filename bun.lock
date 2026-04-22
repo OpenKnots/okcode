@@ -19,7 +19,7 @@
     },
     "apps/desktop": {
       "name": "@okcode/desktop",
-      "version": "0.26.0",
+      "version": "0.26.2",
       "dependencies": {
         "effect": "catalog:",
         "electron": "40.6.0",
@@ -103,7 +103,7 @@
     },
     "apps/mobile": {
       "name": "@okcode/mobile",
-      "version": "0.26.0",
+      "version": "0.26.2",
       "dependencies": {
         "@capacitor/android": "^8.3.1",
         "@capacitor/app": "^8.1.0",
@@ -123,9 +123,9 @@
     },
     "apps/server": {
       "name": "okcodes",
-      "version": "0.26.0",
+      "version": "0.26.2",
       "bin": {
-        "okcode": "./dist/index.mjs",
+        "okcode": "./dist/index.cjs",
       },
       "dependencies": {
         "@anthropic-ai/claude-agent-sdk": "^0.2.77",
@@ -156,7 +156,7 @@
     },
     "apps/web": {
       "name": "@okcode/web",
-      "version": "0.26.0",
+      "version": "0.26.2",
       "dependencies": {
         "@base-ui/react": "^1.2.0",
         "@codemirror/language": "^6.12.3",
@@ -219,7 +219,7 @@
     },
     "packages/contracts": {
       "name": "@okcode/contracts",
-      "version": "0.26.0",
+      "version": "0.26.2",
       "dependencies": {
         "effect": "catalog:",
       },

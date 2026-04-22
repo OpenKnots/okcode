@@ -395,7 +395,7 @@ Step-by-step playbook for the v${version} release. Each phase must complete befo
 
 ## Phase 2: Post-release verification
 
-- [ ] \`npx --yes okcodes@${version} --version\` returns \`${version}\`.
+- [ ] \`npm exec --yes --package okcodes@${version} -- okcode --version\` returns \`${version}\`.
 - [ ] macOS installer launches and passes Gatekeeper.
 - [ ] Linux AppImage launches.
 - [ ] Windows installer installs and launches.

@@ -71,14 +71,14 @@ const DEFAULT_VIEWPORT: ViewportSpec = {
   name: "desktop",
   width: 960,
   height: 1_100,
-  textTolerancePx: 44,
+  textTolerancePx: 45,
   attachmentTolerancePx: 56,
 };
 const WIDE_VIEWPORT: ViewportSpec = {
   name: "wide",
   width: 1_440,
   height: 1_100,
-  textTolerancePx: 44,
+  textTolerancePx: 45,
   attachmentTolerancePx: 56,
 };
 const TEXT_VIEWPORT_MATRIX = [

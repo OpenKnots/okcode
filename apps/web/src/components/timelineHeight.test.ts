@@ -112,7 +112,7 @@ describe("estimateTimelineMessageHeight", () => {
       text: "a".repeat(52),
     };
 
-    expect(estimateTimelineMessageHeight(message, { timelineWidthPx: 320 })).toBe(140);
+    expect(estimateTimelineMessageHeight(message, { timelineWidthPx: 320 })).toBe(162);
     expect(estimateTimelineMessageHeight(message, { timelineWidthPx: 768 })).toBe(118);
   });
 

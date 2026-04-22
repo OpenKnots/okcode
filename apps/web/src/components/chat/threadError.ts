@@ -26,6 +26,13 @@ const AUTH_FAILURE_PATTERNS = [
   "could not resolve authentication method",
   "authentication required",
 ] as const;
+const OUT_OF_MEMORY_PATTERNS = [
+  "out of memory",
+  "heap out of memory",
+  "reached heap limit",
+  "memory limit exceeded",
+  "allocation failed - javascript heap",
+] as const;
 
 function extractWorktreeDetail(error: string): string | null {
   if (!error.startsWith(WORKTREE_COMMAND_PREFIX)) {
@@ -62,6 +69,12 @@ function buildTroubleshootingTips(error: string, presentation: ThreadErrorPresen
     );
   }
 
+  if (isOutOfMemoryThreadError(error)) {
+    tips.push(
+      "Reset the provider session, then retry with a smaller prompt, fewer attachments, or less terminal context.",
+    );
+  }
+
   if (presentation.title === "Worktree thread could not start") {
     tips.push(
       "Create the first commit or switch to a base branch that resolves to a commit before starting a worktree thread.",
@@ -81,6 +94,16 @@ export function isAuthenticationThreadError(error: string | null | undefined): b
   return AUTH_FAILURE_PATTERNS.some((pattern) => lower.includes(pattern));
 }
 
+export function isOutOfMemoryThreadError(error: string | null | undefined): boolean {
+  const trimmed = error?.trim();
+  if (!trimmed) {
+    return false;
+  }
+
+  const lower = trimmed.toLowerCase();
+  return OUT_OF_MEMORY_PATTERNS.some((pattern) => lower.includes(pattern));
+}
+
 export function humanizeThreadError(error: string): ThreadErrorPresentation {
   const trimmed = redactSensitiveText(error).trim();
   const worktreeDetail = extractWorktreeDetail(trimmed);
@@ -88,6 +111,15 @@ export function humanizeThreadError(error: string): ThreadErrorPresentation {
     return {
       title: "Worktree thread could not start",
       description: worktreeDetail,
+      technicalDetails: trimmed,
+    };
+  }
+
+  if (isOutOfMemoryThreadError(trimmed)) {
+    return {
+      title: "Session ran out of memory",
+      description:
+        "The provider session ran out of memory. Reset the session, then resend the prompt.",
       technicalDetails: trimmed,
     };
   }

@@ -291,6 +291,34 @@ function buildFixture(snapshot: OrchestrationReadModel): TestFixture {
   };
 }
 
+function withThreadSessionError(
+  snapshot: OrchestrationReadModel,
+  input: {
+    status: OrchestrationSessionStatus;
+    lastError: string;
+  },
+): OrchestrationReadModel {
+  return {
+    ...snapshot,
+    threads: snapshot.threads.map((thread) =>
+      thread.id === THREAD_ID && thread.session
+        ? {
+            ...thread,
+            session: {
+              threadId: thread.session.threadId,
+              providerName: thread.session.providerName,
+              runtimeMode: thread.session.runtimeMode,
+              activeTurnId: thread.session.activeTurnId,
+              status: input.status,
+              lastError: input.lastError,
+              updatedAt: NOW_ISO,
+            },
+          }
+        : thread,
+    ),
+  };
+}
+
 function addThreadToSnapshot(
   snapshot: OrchestrationReadModel,
   threadId: ThreadId,
@@ -1626,6 +1654,50 @@ describe("ChatView timeline estimator parity (full app)", () => {
               request._tag === ORCHESTRATION_WS_METHODS.dispatchCommand &&
               request.type === "thread.turn.interrupt" &&
               request.turnId === "turn-stop-button-turn-id",
+          ),
+        { timeout: 8_000, interval: 16 },
+      );
+    } finally {
+      await mounted.cleanup();
+    }
+  });
+
+  it("resets the provider session from the error banner after an out-of-memory failure", async () => {
+    wsRequests.length = 0;
+
+    const mounted = await mountChatView({
+      viewport: DEFAULT_VIEWPORT,
+      snapshot: withThreadSessionError(
+        createSnapshotForTargetUser({
+          targetMessageId: "msg-user-oom-reset" as MessageId,
+          targetText: "oom reset target",
+        }),
+        {
+          status: "error",
+          lastError:
+            "FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory",
+        },
+      ),
+    });
+
+    try {
+      const recoverButton = await waitForElement(
+        () =>
+          document.querySelector<HTMLButtonElement>(
+            'button[aria-label="Reset session after out-of-memory failure"]',
+          ),
+        "Unable to find out-of-memory recovery button.",
+      );
+
+      recoverButton.click();
+
+      await vi.waitFor(
+        () =>
+          wsRequests.some(
+            (request) =>
+              request._tag === ORCHESTRATION_WS_METHODS.dispatchCommand &&
+              request.type === "thread.session.stop" &&
+              request.threadId === THREAD_ID,
           ),
         { timeout: 8_000, interval: 16 },
       );

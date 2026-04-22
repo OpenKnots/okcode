@@ -24,7 +24,8 @@ const THREAD_ERROR =
 function renderBar(
   overrides: Partial<ComponentProps<typeof ErrorNotificationBar>> = {},
 ): ReactElement {
-  const { onDismissThreadError, transportState, ...restOverrides } = overrides;
+  const { onDismissThreadError, onRecoverFromOutOfMemory, transportState, ...restOverrides } =
+    overrides;
   return (
     <ErrorNotificationBar
       threadError={THREAD_ERROR}
@@ -35,6 +36,7 @@ function renderBar(
       isMobileCompanion={false}
       {...restOverrides}
       {...(onDismissThreadError ? { onDismissThreadError } : {})}
+      {...(onRecoverFromOutOfMemory ? { onRecoverFromOutOfMemory } : {})}
       {...(transportState ? { transportState } : {})}
     />
   );
@@ -84,5 +86,30 @@ describe("ErrorNotificationBar", () => {
     expect(markup).toContain("Hide 2 notifications");
     expect(markup).toContain("Worktree thread could not start");
     expect(markup).toContain("Base branch &#x27;main&#x27; does not resolve to a commit yet.");
+  });
+
+  it("shows an out-of-memory recovery action when the thread error is recoverable", async () => {
+    const onRecoverFromOutOfMemory = vi.fn();
+    let renderer: ReactTestRenderer | null = null;
+    await act(async () => {
+      renderer = create(
+        renderBar({
+          threadError:
+            "FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory",
+          onRecoverFromOutOfMemory,
+        }),
+      );
+    });
+
+    const root = renderer!.root;
+    const recoverButton = root.findByProps({
+      "aria-label": "Reset session after out-of-memory failure",
+    });
+
+    await act(async () => {
+      recoverButton.props.onClick();
+    });
+
+    expect(onRecoverFromOutOfMemory).toHaveBeenCalledTimes(1);
   });
 });

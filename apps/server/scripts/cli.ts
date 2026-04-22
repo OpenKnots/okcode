@@ -185,6 +185,8 @@ const publishCmd = Command.make(
       const serverDir = path.join(repoRoot, "apps/server");
       const packageJsonPath = path.join(serverDir, "package.json");
       const backupPath = `${packageJsonPath}.bak`;
+      const version = Option.getOrElse(config.appVersion, () => serverPackageJson.version);
+      const publishTarget = `${serverPackageJson.name}@${version}`;
 
       // Assert build assets exist
       for (const relPath of ["dist/index.mjs", "dist/client/index.html"]) {
@@ -201,7 +203,6 @@ const publishCmd = Command.make(
         Effect.gen(function* () {
           // Resolve catalog dependencies before any file mutations. If this throws,
           // acquire fails and no release hook runs, so filesystem must still be untouched.
-          const version = Option.getOrElse(config.appVersion, () => serverPackageJson.version);
           const pkg = {
             name: serverPackageJson.name,
             repository: serverPackageJson.repository,
@@ -230,6 +231,25 @@ const publishCmd = Command.make(
         // Use: npm publish
         () =>
           Effect.gen(function* () {
+            const versionExists = yield* runCommand(
+              ChildProcess.make("npm", ["view", publishTarget, "version"], {
+                cwd: serverDir,
+                stdout: config.verbose ? "inherit" : "ignore",
+                stderr: "inherit",
+                shell: process.platform === "win32",
+              }),
+            ).pipe(
+              Effect.as(true),
+              Effect.catchTag("CliError", () => Effect.succeed(false)),
+            );
+
+            if (versionExists) {
+              yield* Effect.logWarning(
+                `[cli] ${publishTarget} is already published; skipping npm publish.`,
+              );
+              return;
+            }
+
             const args = ["publish", "--access", config.access, "--tag", config.tag];
             if (config.provenance) args.push("--provenance");
             if (config.dryRun) args.push("--dry-run");

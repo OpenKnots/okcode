@@ -13,6 +13,7 @@ import {
   buildThreadErrorDiagnosticsCopy,
   humanizeThreadError,
   isAuthenticationThreadError,
+  isOutOfMemoryThreadError,
 } from "./threadError";
 import {
   getProviderStatusHeading,
@@ -33,6 +34,8 @@ interface ErrorNotificationBarProps {
   includeDiagnosticsTipsInCopy?: boolean;
   /** Dismiss the thread error */
   onDismissThreadError?: () => void;
+  /** Reset a provider session after an OOM failure */
+  onRecoverFromOutOfMemory?: () => void;
   /** Provider health status */
   providerStatus: ServerProviderStatus | null;
   /** Companion transport state (only relevant for mobile companion) */
@@ -49,6 +52,9 @@ interface NotificationItem {
   description: string;
   detailsText?: string | null;
   diagnosticsCopyText?: string | null;
+  actionLabel?: string;
+  actionAriaLabel?: string;
+  onAction?: () => void;
   severity: "error" | "warning" | "info";
   dismissible: boolean;
   onDismiss?: () => void;
@@ -64,6 +70,7 @@ export const ErrorNotificationBar = memo(function ErrorNotificationBar({
   showNotificationDetails = false,
   includeDiagnosticsTipsInCopy = false,
   onDismissThreadError,
+  onRecoverFromOutOfMemory,
   providerStatus,
   transportState,
   isMobileCompanion,
@@ -133,6 +140,8 @@ export const ErrorNotificationBar = memo(function ErrorNotificationBar({
     if (threadError) {
       if (showAuthFailuresAsErrors || !isAuthenticationThreadError(threadError)) {
         const presentation = humanizeThreadError(threadError);
+        const showOutOfMemoryRecovery =
+          isOutOfMemoryThreadError(threadError) && onRecoverFromOutOfMemory !== undefined;
         items.push({
           id: buildThreadErrorNotificationId(threadError),
           kind: "thread-error",
@@ -143,6 +152,13 @@ export const ErrorNotificationBar = memo(function ErrorNotificationBar({
           diagnosticsCopyText: buildThreadErrorDiagnosticsCopy(threadError, {
             includeTips: includeDiagnosticsTipsInCopy,
           }),
+          ...(showOutOfMemoryRecovery
+            ? {
+                actionLabel: "Reset session",
+                actionAriaLabel: "Reset session after out-of-memory failure",
+                onAction: onRecoverFromOutOfMemory,
+              }
+            : {}),
           severity: "error",
           dismissible: !!onDismissThreadError,
           ...(onDismissThreadError ? { onDismiss: onDismissThreadError } : {}),
@@ -156,6 +172,7 @@ export const ErrorNotificationBar = memo(function ErrorNotificationBar({
     showAuthFailuresAsErrors,
     includeDiagnosticsTipsInCopy,
     onDismissThreadError,
+    onRecoverFromOutOfMemory,
     providerStatus,
     transportState,
     isMobileCompanion,
@@ -221,6 +238,9 @@ export const ErrorNotificationBar = memo(function ErrorNotificationBar({
   if (visibleNotifications.length === 0) return null;
 
   const primary = visibleNotifications[0]!;
+  const actionNotification = visibleNotifications.find(
+    (notification) => notification.onAction && notification.actionLabel,
+  );
   const PrimaryIcon = primary.icon;
   const count = visibleNotifications.length;
   const countLabel = count === 1 ? "1 notification" : `${count} notifications`;
@@ -261,6 +281,18 @@ export const ErrorNotificationBar = memo(function ErrorNotificationBar({
           </span>
 
           <div className="flex shrink-0 items-center gap-1">
+            {actionNotification?.onAction && actionNotification.actionLabel ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="xs"
+                aria-label={actionNotification.actionAriaLabel ?? actionNotification.actionLabel}
+                className="min-w-0 px-2 text-[10px] font-medium"
+                onClick={actionNotification.onAction}
+              >
+                {actionNotification.actionLabel}
+              </Button>
+            ) : null}
             <Button
               type="button"
               variant="outline"
@@ -313,6 +345,18 @@ export const ErrorNotificationBar = memo(function ErrorNotificationBar({
                     ) : null}
                   </div>
                   <div className="mt-0.5 flex shrink-0 items-center gap-1">
+                    {notif.onAction && notif.actionLabel ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="xs"
+                        aria-label={notif.actionAriaLabel ?? notif.actionLabel}
+                        className="h-6 px-2 text-[10px]"
+                        onClick={notif.onAction}
+                      >
+                        {notif.actionLabel}
+                      </Button>
+                    ) : null}
                     {notif.kind === "thread-error" && notif.diagnosticsCopyText ? (
                       <MessageCopyButton
                         text={notif.diagnosticsCopyText}

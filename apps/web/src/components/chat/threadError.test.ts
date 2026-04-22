@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildThreadErrorDiagnosticsCopy,
   humanizeThreadError,
+  isOutOfMemoryThreadError,
   isAuthenticationThreadError,
 } from "./threadError";
 
@@ -55,6 +56,18 @@ describe("humanizeThreadError", () => {
 
   it("does not classify unrelated failures as authentication errors", () => {
     expect(isAuthenticationThreadError("Provider crashed while starting.")).toBe(false);
+  });
+
+  it("detects out-of-memory failures", () => {
+    expect(
+      isOutOfMemoryThreadError(
+        "Provider crashed: FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory",
+      ),
+    ).toBe(true);
+    expect(
+      isOutOfMemoryThreadError("Process exited: memory limit exceeded while streaming turn"),
+    ).toBe(true);
+    expect(isOutOfMemoryThreadError("Provider crashed while starting.")).toBe(false);
   });
 
   it("builds redacted diagnostics copy without optional tips by default", () => {

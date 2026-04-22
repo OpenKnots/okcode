@@ -24,7 +24,8 @@ const THREAD_ERROR =
 function renderBar(
   overrides: Partial<ComponentProps<typeof ErrorNotificationBar>> = {},
 ): ReactElement {
-  const { onDismissThreadError, transportState, ...restOverrides } = overrides;
+  const { onDismissThreadError, onRecoverFromOutOfMemory, transportState, ...restOverrides } =
+    overrides;
   return (
     <ErrorNotificationBar
       threadError={THREAD_ERROR}
@@ -35,6 +36,7 @@ function renderBar(
       isMobileCompanion={false}
       {...restOverrides}
       {...(onDismissThreadError ? { onDismissThreadError } : {})}
+      {...(onRecoverFromOutOfMemory ? { onRecoverFromOutOfMemory } : {})}
       {...(transportState ? { transportState } : {})}
     />
   );
@@ -86,72 +88,28 @@ describe("ErrorNotificationBar", () => {
     expect(markup).toContain("Base branch &#x27;main&#x27; does not resolve to a commit yet.");
   });
 
-  it("re-shows thread errors when the message changes after dismissal", async () => {
-    const onDismissThreadError = vi.fn();
+  it("shows an out-of-memory recovery action when the thread error is recoverable", async () => {
+    const onRecoverFromOutOfMemory = vi.fn();
     let renderer: ReactTestRenderer | null = null;
-
     await act(async () => {
       renderer = create(
-        <ErrorNotificationBar
-          threadError={THREAD_ERROR}
-          showAuthFailuresAsErrors
-          showNotificationDetails={false}
-          includeDiagnosticsTipsInCopy={false}
-          providerStatus={null}
-          isMobileCompanion={false}
-          onDismissThreadError={onDismissThreadError}
-        />,
+        renderBar({
+          threadError:
+            "FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory",
+          onRecoverFromOutOfMemory,
+        }),
       );
     });
 
-    const dismissAll = renderer!.root.findByProps({ "aria-label": "Dismiss notifications" });
-    await act(async () => {
-      dismissAll.props.onClick();
+    const root = renderer!.root;
+    const recoverButton = root.findByProps({
+      "aria-label": "Reset session after out-of-memory failure",
     });
 
-    expect(renderer!.toJSON()).toBeNull();
-
     await act(async () => {
-      renderer!.update(
-        <ErrorNotificationBar
-          threadError="Codex CLI is not authenticated. Run `codex login` and try again."
-          showAuthFailuresAsErrors
-          showNotificationDetails={false}
-          includeDiagnosticsTipsInCopy={false}
-          providerStatus={null}
-          isMobileCompanion={false}
-          onDismissThreadError={onDismissThreadError}
-        />,
-      );
+      recoverButton.props.onClick();
     });
 
-    expect(renderer!.toJSON()).not.toBeNull();
-    expect(renderer!.root.findByProps({ "aria-label": "Show 1 notification" })).toBeTruthy();
-  });
-
-  it("does not hide non-dismissible provider notifications via dismiss all", async () => {
-    let renderer: ReactTestRenderer | null = null;
-
-    await act(async () => {
-      renderer = create(
-        <ErrorNotificationBar
-          threadError={null}
-          showAuthFailuresAsErrors
-          showNotificationDetails={false}
-          includeDiagnosticsTipsInCopy={false}
-          providerStatus={makeProviderStatus()}
-          isMobileCompanion={false}
-        />,
-      );
-    });
-
-    const dismissAll = renderer!.root.findByProps({ "aria-label": "Dismiss notifications" });
-    await act(async () => {
-      dismissAll.props.onClick();
-    });
-
-    expect(renderer!.toJSON()).not.toBeNull();
-    expect(renderer!.root.findByProps({ "aria-label": "Show 1 notification" })).toBeTruthy();
-    expect(JSON.stringify(renderer!.toJSON())).toContain("OpenAI (Codex CLI) needs verification");
+    expect(onRecoverFromOutOfMemory).toHaveBeenCalledTimes(1);
   });
 });

@@ -2318,7 +2318,7 @@ export default function Sidebar() {
                   ? "Picking folder..."
                   : shouldUseWebFolderBrowser
                     ? "Browse server folders"
-                    : "Browse on this Mac"}
+                    : "Browse on this computer"}
               </button>
               <button
                 type="button"

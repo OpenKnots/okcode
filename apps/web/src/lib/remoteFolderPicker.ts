@@ -42,7 +42,7 @@ export function deriveRemoteFolderBrowserRoot(cwd: string | null | undefined): s
 
 export function joinRemoteFolderPath(rootPath: string, relativePath: string): string {
   const normalizedRelativePath = normalizeRelativePath(relativePath);
-  const normalizedRoot = trimTrailingSeparators(rootPath);
+  const normalizedRoot = trimTrailingNativeSeparators(rootPath);
   if (!normalizedRelativePath) {
     return normalizedRoot || rootPath;
   }
@@ -58,8 +58,10 @@ export function relativeRemoteFolderPath(
   absolutePath: string | null | undefined,
   rootPath: string,
 ): string {
-  const normalizedAbsolutePath = trimTrailingSeparators(normalizeSlashes(absolutePath ?? ""));
-  const normalizedRoot = trimTrailingSeparators(normalizeSlashes(rootPath));
+  const normalizedAbsolutePath = trimTrailingNormalizedSeparators(
+    normalizeSlashes(absolutePath ?? ""),
+  );
+  const normalizedRoot = trimTrailingNormalizedSeparators(normalizeSlashes(rootPath));
 
   if (!normalizedAbsolutePath || !normalizedRoot) {
     return "";
@@ -81,7 +83,7 @@ function normalizeSlashes(value: string): string {
   return value.replace(/\\/g, "/");
 }
 
-function trimTrailingSeparators(value: string): string {
+function trimTrailingNativeSeparators(value: string): string {
   if (value === "/") {
     return value;
   }
@@ -89,6 +91,16 @@ function trimTrailingSeparators(value: string): string {
     return `${value.slice(0, 2)}\\`;
   }
   return value.replace(/[\\/]+$/g, "");
+}
+
+function trimTrailingNormalizedSeparators(value: string): string {
+  if (value === "/") {
+    return value;
+  }
+  if (/^[a-z]:\/?$/i.test(value)) {
+    return `${value.slice(0, 2)}/`;
+  }
+  return value.replace(/\/+$/g, "");
 }
 
 function normalizeRelativePath(value: string): string {

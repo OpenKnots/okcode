@@ -8,6 +8,7 @@
  * @module ProviderHealthLive
  */
 import { spawn } from "node:child_process";
+import type { ChildProcessWithoutNullStreams } from "node:child_process";
 import { createInterface } from "node:readline";
 import { CopilotClient } from "@github/copilot-sdk";
 import type {
@@ -281,6 +282,7 @@ async function probeCodexAppServerThreadStart(): Promise<void> {
   const child = spawn("codex", ["app-server"], {
     env: process.env,
     stdio: ["pipe", "pipe", "pipe"],
+    detached: process.platform !== "win32",
     shell: process.platform === "win32",
   });
 
@@ -303,9 +305,7 @@ async function probeCodexAppServerThreadStart(): Promise<void> {
       settled = true;
       clearTimeout(timeout);
       stdout.close();
-      if (!child.killed) {
-        child.kill("SIGKILL");
-      }
+      killCodexProbeChildTree(child);
     };
 
     child.stderr.on("data", (chunk) => {
@@ -371,6 +371,46 @@ async function probeCodexAppServerThreadStart(): Promise<void> {
       }
     })();
   });
+}
+
+function killCodexProbeChildTree(child: ChildProcessWithoutNullStreams): void {
+  if (child.killed) {
+    return;
+  }
+
+  try {
+    if (process.platform === "win32") {
+      if (typeof child.pid === "number") {
+        const killer = spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"], {
+          stdio: "ignore",
+          windowsHide: true,
+        });
+        killer.unref();
+      }
+      return;
+    }
+
+    if (typeof child.pid === "number") {
+      process.kill(-child.pid, "SIGKILL");
+      return;
+    }
+
+    child.kill("SIGKILL");
+  } catch {
+    // Best-effort cleanup only.
+  }
+}
+
+let codexAppServerThreadStartProbe: () => Promise<void> = probeCodexAppServerThreadStart;
+
+export function setCodexAppServerThreadStartProbeForTest(
+  probe: (() => Promise<void>) | null,
+): () => void {
+  const previous = codexAppServerThreadStartProbe;
+  codexAppServerThreadStartProbe = probe ?? probeCodexAppServerThreadStart;
+  return () => {
+    codexAppServerThreadStartProbe = previous;
+  };
 }
 
 const runClaudeCommand = (args: ReadonlyArray<string>) =>
@@ -656,7 +696,7 @@ export const checkCodexProviderStatus: Effect.Effect<
   const parsed = parseAuthStatusFromOutput(authProbe.success.value);
   if (parsed.authStatus === "unauthenticated") {
     const runtimeProbe = yield* Effect.tryPromise({
-      try: () => probeCodexAppServerThreadStart(),
+      try: () => codexAppServerThreadStartProbe(),
       catch: (cause) => (cause instanceof Error ? cause : new Error(String(cause))),
     }).pipe(Effect.result);
 

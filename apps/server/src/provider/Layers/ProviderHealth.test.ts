@@ -9,6 +9,7 @@ import {
   checkCodexProviderStatus,
   parseAuthStatusFromOutput,
   parseClaudeAuthStatusFromOutput,
+  setCodexAppServerThreadStartProbeForTest,
 } from "./ProviderHealth";
 
 // ── Test helpers ────────────────────────────────────────────────────
@@ -92,6 +93,17 @@ function withTempCodexHome(configContent?: string) {
   });
 }
 
+function withCodexAppServerThreadStartProbe<A, E, R>(
+  probe: (() => Promise<void>) | null,
+  effect: Effect.Effect<A, E, R>,
+): Effect.Effect<A, E, R> {
+  return Effect.acquireUseRelease(
+    Effect.sync(() => setCodexAppServerThreadStartProbeForTest(probe)),
+    () => effect,
+    (restoreProbe) => Effect.sync(restoreProbe),
+  );
+}
+
 it.layer(NodeServices.layer)("ProviderHealth", (it) => {
   // ── checkCodexProviderStatus tests ────────────────────────────────
   //
@@ -160,7 +172,10 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
     it.effect("returns unauthenticated when auth probe reports login required", () =>
       Effect.gen(function* () {
         yield* withTempCodexHome();
-        const status = yield* checkCodexProviderStatus;
+        const status = yield* withCodexAppServerThreadStartProbe(
+          () => Promise.reject(new Error("probe disabled in test")),
+          checkCodexProviderStatus,
+        );
         assert.strictEqual(status.provider, "codex");
         assert.strictEqual(status.status, "error");
         assert.strictEqual(status.available, true);
@@ -186,7 +201,10 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
     it.effect("returns unauthenticated when login status output includes 'not logged in'", () =>
       Effect.gen(function* () {
         yield* withTempCodexHome();
-        const status = yield* checkCodexProviderStatus;
+        const status = yield* withCodexAppServerThreadStartProbe(
+          () => Promise.reject(new Error("probe disabled in test")),
+          checkCodexProviderStatus,
+        );
         assert.strictEqual(status.provider, "codex");
         assert.strictEqual(status.status, "error");
         assert.strictEqual(status.available, true);
@@ -206,6 +224,33 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
           }),
         ),
       ),
+    );
+
+    it.effect(
+      "returns ready when app-server turns can start despite unauthenticated login status",
+      () =>
+        Effect.gen(function* () {
+          yield* withTempCodexHome();
+          const status = yield* withCodexAppServerThreadStartProbe(
+            () => Promise.resolve(),
+            checkCodexProviderStatus,
+          );
+          assert.strictEqual(status.provider, "codex");
+          assert.strictEqual(status.status, "ready");
+          assert.strictEqual(status.available, true);
+          assert.strictEqual(status.authStatus, "unknown");
+        }).pipe(
+          Effect.provide(
+            mockSpawnerLayer((args) => {
+              const joined = args.join(" ");
+              if (joined === "--version") return { stdout: "codex 1.0.0\n", stderr: "", code: 0 };
+              if (joined === "login status") {
+                return { stdout: "", stderr: "Not logged in. Run codex login.", code: 1 };
+              }
+              throw new Error(`Unexpected args: ${joined}`);
+            }),
+          ),
+        ),
     );
 
     it.effect("returns warning when login status command is unsupported", () =>
@@ -284,7 +329,10 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
     it.effect("still runs auth probe when model_provider is openai", () =>
       Effect.gen(function* () {
         yield* withTempCodexHome('model_provider = "openai"\n');
-        const status = yield* checkCodexProviderStatus;
+        const status = yield* withCodexAppServerThreadStartProbe(
+          () => Promise.reject(new Error("probe disabled in test")),
+          checkCodexProviderStatus,
+        );
         // The auth probe runs and sees "not logged in" → error
         assert.strictEqual(status.status, "error");
         assert.strictEqual(status.authStatus, "unauthenticated");

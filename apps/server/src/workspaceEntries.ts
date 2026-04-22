@@ -1156,18 +1156,9 @@ async function listWorkspaceDirectoryShallow(
       continue;
     }
 
-    const entryAbsolutePath = path.join(absoluteDirectoryPath, dirent.name);
-    let hasChildren = false;
-    if (dirent.isDirectory()) {
-      try {
-        const childEntries = await fs.readdir(entryAbsolutePath, { withFileTypes: true });
-        hasChildren = childEntries.some(
-          (child) => child.name && child.name !== "." && child.name !== "..",
-        );
-      } catch {
-        hasChildren = false;
-      }
-    }
+    // Keep shallow listings to a single readdir() for the requested directory.
+    // Directory rows stay navigable without paying an extra filesystem probe per entry.
+    const hasChildren = dirent.isDirectory();
 
     const parentPath = parentPathOf(relativePath);
     if (parentPath) {

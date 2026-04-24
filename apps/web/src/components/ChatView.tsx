@@ -991,6 +991,7 @@ export default function ChatView({
   const isTransportReady = transportState === "open";
   const isRemoteActionBlocked = !isTransportReady;
   const isWorking = isTurnActive || isSendBusy || isConnecting || isRevertingCheckpoint;
+  const canInterruptComposerWork = isTurnActive || isSendBusy || isConnecting;
   const nowIso = new Date(nowTick).toISOString();
   const activeWorkStartedAt = deriveActiveWorkStartedAt(
     activeLatestTurn,
@@ -3868,16 +3869,18 @@ export default function ChatView({
   const onInterrupt = async () => {
     const api = readNativeApi();
     if (!api || !activeThread || isRemoteActionBlocked) return;
+    const activeTurnId = activeThread.session?.activeTurnId ?? undefined;
     await api.orchestration.dispatchCommand({
       type: "thread.turn.interrupt",
       commandId: newCommandId(),
       threadId: activeThread.id,
-      ...(activeThread.session?.activeTurnId !== undefined &&
-      activeThread.session?.activeTurnId !== null
-        ? { turnId: activeThread.session.activeTurnId }
-        : {}),
+      ...(activeTurnId !== undefined ? { turnId: activeTurnId } : {}),
       createdAt: new Date().toISOString(),
     });
+    if (activeTurnId === undefined) {
+      sendInFlightRef.current = false;
+      resetSendPhase();
+    }
   };
 
   const onRecoverFromOutOfMemory = async () => {
@@ -5681,13 +5684,14 @@ export default function ChatView({
                                     : "Next question"}
                               </Button>
                             </div>
-                          ) : isTurnActive ? (
+                          ) : canInterruptComposerWork ? (
                             <div className="flex items-center gap-1.5">
                               <button
                                 type="button"
                                 className="flex size-8 cursor-pointer items-center justify-center rounded-full bg-rose-500/90 text-white transition-all duration-150 hover:bg-rose-500 hover:scale-105 sm:h-8 sm:w-8"
                                 onClick={() => void onInterrupt()}
-                                aria-label="Stop generation"
+                                aria-label={isTurnActive ? "Stop generation" : "Cancel send"}
+                                title={isTurnActive ? "Stop generation" : "Cancel send"}
                               >
                                 <svg
                                   width="12"
@@ -5699,35 +5703,37 @@ export default function ChatView({
                                   <rect x="2" y="2" width="8" height="8" rx="1.5" />
                                 </svg>
                               </button>
-                              <Button
-                                type="submit"
-                                size="icon"
-                                className="h-9 w-9 rounded-full hover:scale-105 disabled:opacity-30 disabled:hover:scale-100 sm:h-8 sm:w-8"
-                                disabled={
-                                  isSendBusy ||
-                                  isConnecting ||
-                                  isRemoteActionBlocked ||
-                                  !composerSendState.hasSendableContent
-                                }
-                                aria-label="Queue message"
-                                title="Queue message (will send after current turn completes)"
-                              >
-                                <svg
-                                  width="14"
-                                  height="14"
-                                  viewBox="0 0 14 14"
-                                  fill="none"
-                                  aria-hidden="true"
+                              {isTurnActive ? (
+                                <Button
+                                  type="submit"
+                                  size="icon"
+                                  className="h-9 w-9 rounded-full hover:scale-105 disabled:opacity-30 disabled:hover:scale-100 sm:h-8 sm:w-8"
+                                  disabled={
+                                    isSendBusy ||
+                                    isConnecting ||
+                                    isRemoteActionBlocked ||
+                                    !composerSendState.hasSendableContent
+                                  }
+                                  aria-label="Queue message"
+                                  title="Queue message (will send after current turn completes)"
                                 >
-                                  <path
-                                    d="M7 11.5V2.5M7 2.5L3 6.5M7 2.5L11 6.5"
-                                    stroke="currentColor"
-                                    strokeWidth="1.8"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                  />
-                                </svg>
-                              </Button>
+                                  <svg
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 14 14"
+                                    fill="none"
+                                    aria-hidden="true"
+                                  >
+                                    <path
+                                      d="M7 11.5V2.5M7 2.5L3 6.5M7 2.5L11 6.5"
+                                      stroke="currentColor"
+                                      strokeWidth="1.8"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                    />
+                                  </svg>
+                                </Button>
+                              ) : null}
                             </div>
                           ) : pendingUserInputs.length === 0 ? (
                             showPlanFollowUpPrompt ? (

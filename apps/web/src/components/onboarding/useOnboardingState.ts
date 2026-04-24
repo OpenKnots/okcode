@@ -4,6 +4,9 @@ const STORAGE_KEY = "okcode:onboarding-completed:v1";
 
 export function useOnboardingState() {
   const [open, setOpen] = useState(() => {
+    if (typeof window === "undefined") {
+      return false;
+    }
     try {
       return localStorage.getItem(STORAGE_KEY) !== "true";
     } catch {

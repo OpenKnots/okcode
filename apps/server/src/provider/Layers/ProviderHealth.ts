@@ -7,6 +7,9 @@
  *
  * @module ProviderHealthLive
  */
+import { spawn } from "node:child_process";
+import type { ChildProcessWithoutNullStreams } from "node:child_process";
+import { createInterface } from "node:readline";
 import { CopilotClient } from "@github/copilot-sdk";
 import type {
   ServerProvider,
@@ -18,6 +21,7 @@ import { Array, Data, Effect, FileSystem, Layer, Option, Result, Stream } from "
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
 import { serverBuildInfo } from "../../buildInfo.ts";
+import { buildCodexInitializeParams } from "../../codexAppServerManager.ts";
 import { OpenclawGatewayClient, OpenclawGatewayClientError } from "../../openclaw/GatewayClient.ts";
 import { OpenclawGatewayConfig } from "../../persistence/Services/OpenclawGatewayConfig.ts";
 import {
@@ -273,6 +277,141 @@ const runCodexCommand = (args: ReadonlyArray<string>) =>
 
     return { stdout, stderr, code: exitCode } satisfies CommandResult;
   }).pipe(Effect.scoped);
+
+async function probeCodexAppServerThreadStart(): Promise<void> {
+  const child = spawn("codex", ["app-server"], {
+    env: process.env,
+    stdio: ["pipe", "pipe", "pipe"],
+    detached: process.platform !== "win32",
+    shell: process.platform === "win32",
+  });
+
+  await new Promise<void>((resolve, reject) => {
+    let settled = false;
+    let nextId = 1;
+    const pending = new Map<
+      number,
+      { resolve: (value: unknown) => void; reject: (error: Error) => void }
+    >();
+    const stdout = createInterface({ input: child.stdout });
+    const stderrLines: string[] = [];
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject(new Error("Timed out while probing codex app-server thread/start readiness."));
+    }, DEFAULT_TIMEOUT_MS);
+
+    const cleanup = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      stdout.close();
+      killCodexProbeChildTree(child);
+    };
+
+    child.stderr.on("data", (chunk) => {
+      stderrLines.push(chunk.toString("utf-8"));
+    });
+
+    child.on("error", (error) => {
+      cleanup();
+      reject(error);
+    });
+
+    child.on("exit", (code) => {
+      if (settled) return;
+      cleanup();
+      reject(
+        new Error(
+          `Codex app-server exited before thread/start completed (code ${code ?? "unknown"}). ${stderrLines.join("").trim()}`,
+        ),
+      );
+    });
+
+    stdout.on("line", (line) => {
+      let parsed: { id?: number; result?: unknown; error?: { message?: string } };
+      try {
+        parsed = JSON.parse(line);
+      } catch {
+        return;
+      }
+      if (typeof parsed.id !== "number") {
+        return;
+      }
+      const request = pending.get(parsed.id);
+      if (!request) {
+        return;
+      }
+      pending.delete(parsed.id);
+      if (parsed.error) {
+        request.reject(new Error(parsed.error.message ?? "JSON-RPC request failed."));
+        return;
+      }
+      request.resolve(parsed.result);
+    });
+
+    const sendRequest = (method: string, params?: unknown) =>
+      new Promise<unknown>((requestResolve, requestReject) => {
+        const id = nextId++;
+        pending.set(id, { resolve: requestResolve, reject: requestReject });
+        child.stdin.write(
+          `${JSON.stringify({ jsonrpc: "2.0", id, method, ...(params === undefined ? {} : { params }) })}\n`,
+        );
+      });
+
+    void (async () => {
+      try {
+        await sendRequest("initialize", buildCodexInitializeParams());
+        child.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", method: "initialized" })}\n`);
+        await sendRequest("thread/start", {});
+        cleanup();
+        resolve();
+      } catch (error) {
+        cleanup();
+        reject(error instanceof Error ? error : new Error(String(error)));
+      }
+    })();
+  });
+}
+
+function killCodexProbeChildTree(child: ChildProcessWithoutNullStreams): void {
+  if (child.killed) {
+    return;
+  }
+
+  try {
+    if (process.platform === "win32") {
+      if (typeof child.pid === "number") {
+        const killer = spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"], {
+          stdio: "ignore",
+          windowsHide: true,
+        });
+        killer.unref();
+      }
+      return;
+    }
+
+    if (typeof child.pid === "number") {
+      process.kill(-child.pid, "SIGKILL");
+      return;
+    }
+
+    child.kill("SIGKILL");
+  } catch {
+    // Best-effort cleanup only.
+  }
+}
+
+let codexAppServerThreadStartProbe: () => Promise<void> = probeCodexAppServerThreadStart;
+
+export function setCodexAppServerThreadStartProbeForTest(
+  probe: (() => Promise<void>) | null,
+): () => void {
+  const previous = codexAppServerThreadStartProbe;
+  codexAppServerThreadStartProbe = probe ?? probeCodexAppServerThreadStart;
+  return () => {
+    codexAppServerThreadStartProbe = previous;
+  };
+}
 
 const runClaudeCommand = (args: ReadonlyArray<string>) =>
   Effect.gen(function* () {
@@ -555,6 +694,27 @@ export const checkCodexProviderStatus: Effect.Effect<
   }
 
   const parsed = parseAuthStatusFromOutput(authProbe.success.value);
+  if (parsed.authStatus === "unauthenticated") {
+    const runtimeProbe = yield* Effect.tryPromise({
+      try: () => codexAppServerThreadStartProbe(),
+      catch: (cause) => (cause instanceof Error ? cause : new Error(String(cause))),
+    }).pipe(Effect.result);
+
+    if (Result.isSuccess(runtimeProbe)) {
+      return createServerProviderStatus({
+        provider: CODEX_PROVIDER,
+        enabled: true,
+        installed: true,
+        version: nonEmptyVersion(version.stdout, version.stderr),
+        status: "ready" as const,
+        auth: { status: "unknown" as const },
+        checkedAt,
+        message:
+          "Codex app-server can start turns with the current configuration even though `codex login status` did not report an authenticated account.",
+      });
+    }
+  }
+
   return createServerProviderStatus({
     provider: CODEX_PROVIDER,
     enabled: true,

@@ -112,6 +112,28 @@ describe("searchWorkspaceEntries", () => {
     );
   });
 
+  it("keeps shallow directory listing to a single readdir call", async () => {
+    const cwd = makeTempDir("okcode-workspace-list-directory-shallow-");
+    writeFile(cwd, "src/components/Composer.tsx");
+    writeFile(cwd, "README.md");
+    const readdirSpy = vi.spyOn(fsPromises, "readdir");
+
+    const result = await listWorkspaceDirectory({ cwd, shallow: true });
+
+    assert.deepEqual(
+      result.entries.map((entry) => ({
+        path: entry.path,
+        kind: entry.kind,
+        hasChildren: entry.hasChildren,
+      })),
+      [
+        { path: "README.md", kind: "file", hasChildren: false },
+        { path: "src", kind: "directory", hasChildren: true },
+      ],
+    );
+    assert.strictEqual(readdirSpy.mock.calls.length, 1);
+  });
+
   it("filters and ranks entries by query", async () => {
     const cwd = makeTempDir("okcode-workspace-query-");
     writeFile(cwd, "src/components/Composer.tsx");

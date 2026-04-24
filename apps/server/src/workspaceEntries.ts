@@ -1012,6 +1012,10 @@ export function clearWorkspaceIndexCache(cwd: string): void {
 export async function listWorkspaceDirectory(
   input: ProjectListDirectoryInput,
 ): Promise<ProjectListDirectoryResult> {
+  if (input.shallow) {
+    return await listWorkspaceDirectoryShallow(input);
+  }
+
   const index = await getWorkspaceIndex(input.cwd);
   const parentKey = input.directoryPath ?? ROOT_PARENT_KEY;
   const entries = index.entriesByParent.get(parentKey) ?? [];
@@ -1116,6 +1120,68 @@ async function searchFileContents(
   }
 
   return matches;
+}
+
+async function listWorkspaceDirectoryShallow(
+  input: ProjectListDirectoryInput,
+): Promise<ProjectListDirectoryResult> {
+  const relativeDirectoryPath = input.directoryPath?.trim() ?? "";
+  const absoluteDirectoryPath = path.resolve(input.cwd, relativeDirectoryPath || ".");
+  const normalizedRelativePath = path.relative(input.cwd, absoluteDirectoryPath);
+
+  if (normalizedRelativePath.startsWith("..") || path.isAbsolute(normalizedRelativePath)) {
+    throw new Error(`Directory path escapes workspace root: ${relativeDirectoryPath || "."}`);
+  }
+
+  const directoryEntries = await fs.readdir(absoluteDirectoryPath, { withFileTypes: true });
+  const entries: ProjectDirectoryEntry[] = [];
+
+  for (const dirent of directoryEntries.toSorted((left, right) =>
+    left.name.localeCompare(right.name),
+  )) {
+    if (!dirent.name || dirent.name === "." || dirent.name === "..") {
+      continue;
+    }
+    if (dirent.isDirectory() && IGNORED_DIRECTORY_NAMES.has(dirent.name)) {
+      continue;
+    }
+    if (!dirent.isDirectory() && !dirent.isFile()) {
+      continue;
+    }
+
+    const relativePath = toPosixPath(
+      relativeDirectoryPath ? path.join(relativeDirectoryPath, dirent.name) : dirent.name,
+    );
+    if (isPathInIgnoredDirectory(relativePath)) {
+      continue;
+    }
+
+    // Keep shallow listings to a single readdir() for the requested directory.
+    // Directory rows stay navigable without paying an extra filesystem probe per entry.
+    const hasChildren = dirent.isDirectory();
+
+    const parentPath = parentPathOf(relativePath);
+    if (parentPath) {
+      entries.push({
+        path: relativePath,
+        kind: dirent.isDirectory() ? "directory" : "file",
+        parentPath,
+        hasChildren,
+      });
+      continue;
+    }
+
+    entries.push({
+      path: relativePath,
+      kind: dirent.isDirectory() ? "directory" : "file",
+      hasChildren,
+    });
+  }
+
+  return {
+    entries,
+    truncated: false,
+  };
 }
 
 export async function searchWorkspaceEntries(

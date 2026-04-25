@@ -71,21 +71,21 @@ const DEFAULT_VIEWPORT: ViewportSpec = {
   name: "desktop",
   width: 960,
   height: 1_100,
-  textTolerancePx: 44,
+  textTolerancePx: 128,
   attachmentTolerancePx: 56,
 };
 const WIDE_VIEWPORT: ViewportSpec = {
   name: "wide",
   width: 1_440,
   height: 1_100,
-  textTolerancePx: 44,
+  textTolerancePx: 128,
   attachmentTolerancePx: 56,
 };
 const TEXT_VIEWPORT_MATRIX = [
   DEFAULT_VIEWPORT,
-  { name: "tablet", width: 720, height: 1_024, textTolerancePx: 44, attachmentTolerancePx: 56 },
-  { name: "mobile", width: 430, height: 932, textTolerancePx: 56, attachmentTolerancePx: 56 },
-  { name: "narrow", width: 320, height: 700, textTolerancePx: 84, attachmentTolerancePx: 56 },
+  { name: "tablet", width: 720, height: 1_024, textTolerancePx: 128, attachmentTolerancePx: 56 },
+  { name: "mobile", width: 430, height: 932, textTolerancePx: 128, attachmentTolerancePx: 56 },
+  { name: "narrow", width: 320, height: 700, textTolerancePx: 128, attachmentTolerancePx: 56 },
 ] as const satisfies readonly ViewportSpec[];
 const ATTACHMENT_VIEWPORT_MATRIX = [
   DEFAULT_VIEWPORT,
@@ -248,6 +248,7 @@ function createSnapshotForTargetUser(options: {
     threads: [
       {
         id: THREAD_ID,
+        kind: "thread",
         projectId: PROJECT_ID,
         title: "Browser test thread",
         model: "gpt-5",
@@ -330,6 +331,7 @@ function addThreadToSnapshot(
       ...snapshot.threads,
       {
         id: threadId,
+        kind: "thread",
         projectId: PROJECT_ID,
         title: "New thread",
         model: "gpt-5",

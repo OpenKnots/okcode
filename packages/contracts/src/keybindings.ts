@@ -16,6 +16,9 @@ const STATIC_KEYBINDING_COMMANDS = [
   "chat.newLocal",
   "git.pullRequest",
   "editor.openFavorite",
+  "view.zoomIn",
+  "view.zoomOut",
+  "view.zoomReset",
 ] as const;
 
 export const SCRIPT_RUN_COMMAND_PATTERN = Schema.TemplateLiteral([

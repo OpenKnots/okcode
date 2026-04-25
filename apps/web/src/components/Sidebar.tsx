@@ -18,7 +18,7 @@ import {
   DEFAULT_MODEL_BY_PROVIDER,
   type DesktopUpdateState,
   type GitStatusResult,
-  type ProjectId,
+  ProjectId,
   type ResolvedKeybindingsConfig,
   ThreadId,
 } from "@okcode/contracts";
@@ -28,8 +28,9 @@ import { isNonEmpty as isNonEmptyString } from "effect/String";
 import {
   ArrowLeftIcon,
   ArrowUpDownIcon,
-  BookOpenIcon,
   CheckCircleIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
   ChevronsDownUpIcon,
   ChevronsUpDownIcon,
   CircleDotIcon,
@@ -59,8 +60,10 @@ import {
 } from "react";
 import { CloneRepositoryDialog } from "~/components/CloneRepositoryDialog";
 import { EditableThreadTitle } from "~/components/EditableThreadTitle";
+import { ServerFolderPickerDialog } from "~/components/ServerFolderPickerDialog";
 import { ProjectIconEditorDialog } from "~/components/ProjectIconEditorDialog";
 import { ProjectIcon } from "~/components/ProjectIcon";
+import { RemoteFolderPickerDialog } from "~/components/RemoteFolderPickerDialog";
 import { useClientMode } from "~/hooks/useClientMode";
 import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
 import { useCurrentWorktreeCleanupCandidates } from "~/hooks/useCurrentWorktreeCleanupCandidates";
@@ -84,6 +87,10 @@ import { isElectron } from "../env";
 import { useHandleNewThread } from "../hooks/useHandleNewThread";
 import { shortcutLabelForCommand } from "../keybindings";
 import { gitRemoveWorktreeMutationOptions, gitStatusQueryOptions } from "../lib/gitReactQuery";
+import {
+  deriveRemoteFolderBrowserRoot,
+  isProbablyLocalWebSession,
+} from "../lib/remoteFolderPicker";
 import { serverConfigQueryOptions, serverUpdateQueryOptions } from "../lib/serverReactQuery";
 import { cn, isLinuxPlatform, isMacPlatform, newCommandId, newProjectId } from "../lib/utils";
 import { readNativeApi } from "../nativeApi";
@@ -110,6 +117,7 @@ import {
   getVisibleThreadsForProject,
   isActionableThreadStatus,
   mergeDraftThreadsIntoSidebarThreads,
+  partitionProjectThreadsForSidebar,
   resolveProjectNameTone,
   resolveSidebarNewThreadEnvMode,
   resolveThreadStatusPill,
@@ -573,8 +581,7 @@ export default function Sidebar() {
   const isOnSubPage =
     pathname.startsWith("/settings") ||
     pathname === "/pr-review" ||
-    pathname === "/merge-conflicts" ||
-    pathname === "/sme-chat";
+    pathname === "/merge-conflicts";
   const { settings: appSettings, updateSettings } = useAppSettings();
   const { resolvedTheme } = useTheme();
   const { toggleSidebar } = useSidebar();
@@ -583,9 +590,11 @@ export default function Sidebar() {
     strict: false,
     select: (params) => (params.threadId ? ThreadId.makeUnsafe(params.threadId) : null),
   });
-  const { data: keybindings = EMPTY_KEYBINDINGS } = useQuery({
-    ...serverConfigQueryOptions(),
-    select: (config) => config.keybindings,
+  const serverConfigQuery = useQuery(serverConfigQueryOptions());
+  const keybindings = serverConfigQuery.data?.keybindings ?? EMPTY_KEYBINDINGS;
+  const routeProjectId = useParams({
+    strict: false,
+    select: (params) => (params.projectId ? ProjectId.makeUnsafe(params.projectId) : null),
   });
   const { hasCandidates: hasWorktreeCleanupCandidates } = useCurrentWorktreeCleanupCandidates();
   const queryClient = useQueryClient();
@@ -597,7 +606,9 @@ export default function Sidebar() {
   const [isAddingProject, setIsAddingProject] = useState(false);
   const [addProjectError, setAddProjectError] = useState<string | null>(null);
   const [manualProjectPathEntry, setManualProjectPathEntry] = useState(false);
+  const [remoteFolderPickerOpen, setRemoteFolderPickerOpen] = useState(false);
   const [cloneDialogOpen, setCloneDialogOpen] = useState(false);
+  const [serverFolderPickerOpen, setServerFolderPickerOpen] = useState(false);
   const [projectIconDialogOpen, setProjectIconDialogOpen] = useState(false);
   const [projectIconDialogProjectId, setProjectIconDialogProjectId] = useState<ProjectId | null>(
     null,
@@ -624,6 +635,14 @@ export default function Sidebar() {
   const isLinuxDesktop = isElectron && isLinuxPlatform(navigator.platform);
   const shouldBrowseForProjectImmediately = isElectron && !isLinuxDesktop;
   const shouldShowProjectPathEntry = addingProject && !shouldBrowseForProjectImmediately;
+  const shouldUseWebFolderBrowser = !isElectron && !isProbablyLocalWebSession();
+  const canUseRemoteFolderBrowser =
+    shouldUseWebFolderBrowser && Boolean(serverConfigQuery.data?.cwd);
+  const remoteFolderBrowserRoot = useMemo(
+    () =>
+      serverConfigQuery.data?.cwd ? deriveRemoteFolderBrowserRoot(serverConfigQuery.data.cwd) : "",
+    [serverConfigQuery.data?.cwd],
+  );
   const {
     editingThreadId,
     draftTitle: editingThreadTitle,
@@ -698,12 +717,30 @@ export default function Sidebar() {
     [sidebarThreads],
   );
   const serverThreadIds = useMemo(() => new Set(threads.map((thread) => thread.id)), [threads]);
-  const activeProjectId = routeThreadId ? (threadById.get(routeThreadId)?.projectId ?? null) : null;
+  const activeProjectId =
+    routeProjectId ?? (routeThreadId ? (threadById.get(routeThreadId)?.projectId ?? null) : null);
   const lastAutoExpandedThreadIdRef = useRef<ThreadIdType | null>(null);
   const sortedThreadsByProjectId = useMemo(
     () => sortThreadsByProjectIdForSidebar(sidebarThreads, appSettings.sidebarThreadSortOrder),
     [appSettings.sidebarThreadSortOrder, sidebarThreads],
   );
+  const sidebarThreadsByProjectId = useMemo(() => {
+    const map = new Map<ProjectId, Thread[]>();
+    for (const [projectId, projectThreads] of sortedThreadsByProjectId) {
+      map.set(projectId, partitionProjectThreadsForSidebar(projectThreads).sidebarThreads);
+    }
+    return map;
+  }, [sortedThreadsByProjectId]);
+  const projectChatThreadByProjectId = useMemo(() => {
+    const map = new Map<ProjectId, Thread>();
+    for (const [projectId, projectThreads] of sortedThreadsByProjectId) {
+      const projectChatThread = partitionProjectThreadsForSidebar(projectThreads).projectChatThread;
+      if (projectChatThread) {
+        map.set(projectId, projectChatThread);
+      }
+    }
+    return map;
+  }, [sortedThreadsByProjectId]);
   const sidebarDensityStyle = useMemo(
     () =>
       ({
@@ -721,24 +758,14 @@ export default function Sidebar() {
   );
   const orderedThreadIdsByProjectId = useMemo(() => {
     const orderedThreadIds = new Map<ProjectId, ThreadIdType[]>();
-    for (const [projectId, projectThreads] of sortedThreadsByProjectId) {
+    for (const [projectId, projectThreads] of sidebarThreadsByProjectId) {
       orderedThreadIds.set(
         projectId,
         projectThreads.map((thread) => thread.id),
       );
     }
     return orderedThreadIds;
-  }, [sortedThreadsByProjectId]);
-  const latestThreadByProjectId = useMemo(() => {
-    const latestThreads = new Map<ProjectId, Thread>();
-    for (const [projectId, projectThreads] of sortedThreadsByProjectId) {
-      const latestThread = projectThreads[0];
-      if (latestThread) {
-        latestThreads.set(projectId, latestThread);
-      }
-    }
-    return latestThreads;
-  }, [sortedThreadsByProjectId]);
+  }, [sidebarThreadsByProjectId]);
 
   useEffect(() => {
     if (!routeThreadId || !activeProjectId) {
@@ -750,6 +777,13 @@ export default function Sidebar() {
     lastAutoExpandedThreadIdRef.current = routeThreadId;
     setProjectExpanded(activeProjectId, true);
   }, [activeProjectId, routeThreadId, setProjectExpanded]);
+
+  useEffect(() => {
+    if (!routeProjectId) {
+      return;
+    }
+    setProjectExpanded(routeProjectId, true);
+  }, [routeProjectId, setProjectExpanded]);
 
   useEffect(() => {
     if (!projectIconDialogProjectId) {
@@ -839,17 +873,14 @@ export default function Sidebar() {
     return map;
   }, [threadGitStatusCwds, threadGitStatusQueries, threadGitTargets]);
 
-  const focusMostRecentThreadForProject = useCallback(
+  const openProjectChatForProject = useCallback(
     (projectId: ProjectId) => {
-      const latestThread = latestThreadByProjectId.get(projectId);
-      if (!latestThread) return;
-
       void navigate({
-        to: "/$threadId",
-        params: { threadId: latestThread.id },
+        to: "/project/$projectId",
+        params: { projectId },
       });
     },
-    [latestThreadByProjectId, navigate],
+    [navigate],
   );
 
   const addProjectFromPath = useCallback(
@@ -869,7 +900,7 @@ export default function Sidebar() {
 
       const existing = projects.find((project) => project.cwd === cwd);
       if (existing) {
-        focusMostRecentThreadForProject(existing.id);
+        openProjectChatForProject(existing.id);
         finishAddingProject();
         return;
       }
@@ -898,9 +929,7 @@ export default function Sidebar() {
             description: packageScriptWarning,
           });
         }
-        await handleNewThread(projectId, {
-          envMode: appSettings.defaultThreadEnvMode,
-        }).catch(() => undefined);
+        openProjectChatForProject(projectId);
       } catch (error) {
         const description =
           error instanceof Error ? error.message : "An error occurred while adding the project.";
@@ -918,14 +947,7 @@ export default function Sidebar() {
       }
       finishAddingProject();
     },
-    [
-      focusMostRecentThreadForProject,
-      handleNewThread,
-      isAddingProject,
-      projects,
-      shouldBrowseForProjectImmediately,
-      appSettings.defaultThreadEnvMode,
-    ],
+    [openProjectChatForProject, isAddingProject, projects, shouldBrowseForProjectImmediately],
   );
 
   const handleAddProject = () => {
@@ -948,23 +970,56 @@ export default function Sidebar() {
   const handlePickFolder = async () => {
     const api = readNativeApi();
     if (!api || isPickingFolder) return;
+    if (shouldUseWebFolderBrowser) {
+      if (!canUseRemoteFolderBrowser) {
+        toastManager.add({
+          type: "error",
+          title: "Folder browser is still loading",
+          description: "Wait a moment for the server path to load, then try again.",
+        });
+        return;
+      }
+      setRemoteFolderPickerOpen(true);
+      return;
+    }
     setIsPickingFolder(true);
     let pickedPath: string | null = null;
+    let pickerFailed = false;
     try {
       pickedPath = await api.dialogs.pickFolder();
     } catch (error) {
+      pickerFailed = true;
       toastManager.add({
         type: "error",
         title: "Could not open folder picker",
         description: error instanceof Error ? error.message : "An unexpected error occurred.",
       });
     }
+    setIsPickingFolder(false);
+
     if (pickedPath) {
       await addProjectFromPath(pickedPath);
-    } else if (!shouldBrowseForProjectImmediately) {
+      return;
+    }
+
+    // In browser/mobile mode the server-side native picker (osascript / zenity
+    // / kdialog) will return null on headless hosts — that's the normal remote
+    // case. Fall back to the in-app folder browser so users can still navigate
+    // the server's filesystem. Electron desktop users keep the native OS
+    // dialog flow and don't see this fallback.
+    if (!isElectron && !pickerFailed) {
+      setServerFolderPickerOpen(true);
+      return;
+    }
+
+    if (!shouldBrowseForProjectImmediately) {
       addProjectInputRef.current?.focus();
     }
-    setIsPickingFolder(false);
+  };
+
+  const handleServerFolderSelected = async (selectedPath: string) => {
+    setServerFolderPickerOpen(false);
+    await addProjectFromPath(selectedPath);
   };
 
   const handleStartAddProject = () => {
@@ -1354,8 +1409,9 @@ export default function Sidebar() {
       const project = projectById.get(projectId);
       if (!project) return;
 
-      const projectThreads = sortedThreadsByProjectId.get(projectId) ?? EMPTY_THREADS;
-      if (projectThreads.length > 1) {
+      const projectThreads = sidebarThreadsByProjectId.get(projectId) ?? EMPTY_THREADS;
+      const projectChatThread = projectChatThreadByProjectId.get(projectId) ?? null;
+      if (projectThreads.length > 0) {
         toastManager.add({
           type: "warning",
           title: "Project is not empty",
@@ -1365,19 +1421,16 @@ export default function Sidebar() {
       }
 
       const confirmed = await api.dialogs.confirm(
-        projectThreads.length === 1
-          ? `Remove project "${project.name}" and delete its only thread?`
+        projectChatThread
+          ? `Remove project "${project.name}" and delete its project chat?`
           : `Remove project "${project.name}"?`,
       );
       if (!confirmed) return;
 
       try {
-        if (projectThreads.length === 1) {
-          const [projectThread] = projectThreads;
-          if (projectThread) {
-            clearSelection();
-            await deleteThread(projectThread.id);
-          }
+        if (projectChatThread) {
+          clearSelection();
+          await deleteThread(projectChatThread.id);
         } else {
           const projectDraftThread = getDraftThreadByProjectId(projectId);
           if (projectDraftThread) {
@@ -1409,7 +1462,8 @@ export default function Sidebar() {
       projectById,
       setProjectIconDialogOpen,
       setProjectIconDialogProjectId,
-      sortedThreadsByProjectId,
+      sidebarThreadsByProjectId,
+      projectChatThreadByProjectId,
       startProjectEditing,
     ],
   );
@@ -1514,7 +1568,8 @@ export default function Sidebar() {
     dragHandleProps: SortableProjectHandleProps | null,
     visualIndex: number,
   ) {
-    const projectThreads = sortedThreadsByProjectId.get(project.id) ?? EMPTY_THREADS;
+    const projectThreads = sidebarThreadsByProjectId.get(project.id) ?? EMPTY_THREADS;
+    const hasProjectChat = projectChatThreadByProjectId.has(project.id);
     const activeThreadId = routeThreadId ?? undefined;
     const isThreadListExpanded = expandedThreadListsByProject.has(project.id);
     const pinnedCollapsedThread =
@@ -1533,8 +1588,9 @@ export default function Sidebar() {
     const pColor = getProjectColor(project.id);
     const isDark = resolvedTheme === "dark";
     const isMissingOnDisk = projectPathExistsByCwd.get(project.cwd) === false;
+    const isActiveProject = activeProjectId === project.id;
     const projectNameTone = resolveProjectNameTone({
-      isSelectedProject: activeProjectId === project.id,
+      isSelectedProject: isActiveProject,
       accentProjectNames: appSettings.sidebarAccentProjectNames,
       visualIndex,
     });
@@ -1548,12 +1604,29 @@ export default function Sidebar() {
             backgroundColor: isDark ? pColor.bgDark : pColor.bg,
           }}
         >
+          <button
+            type="button"
+            aria-label={project.expanded ? "Collapse project threads" : "Expand project threads"}
+            className="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground/60 transition-colors hover:bg-accent hover:text-foreground"
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              toggleProject(project.id);
+            }}
+          >
+            {project.expanded ? (
+              <ChevronDownIcon className="size-3.5" />
+            ) : (
+              <ChevronRightIcon className="size-3.5" />
+            )}
+          </button>
           <SidebarMenuButton
             ref={isManualProjectSorting ? dragHandleProps?.setActivatorNodeRef : undefined}
             size="sm"
             className={cn(
-              "h-auto min-w-0 flex-1 gap-1.5 rounded-md text-left hover:bg-transparent",
+              "h-auto min-w-0 flex-1 gap-1.5 rounded-md px-2 text-left transition-colors hover:bg-transparent",
               isManualProjectSorting ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
+              isActiveProject && "bg-background/70 text-foreground shadow-sm",
             )}
             style={SIDEBAR_PROJECT_ROW_STYLE}
             {...(isManualProjectSorting && dragHandleProps ? dragHandleProps.attributes : {})}
@@ -1607,6 +1680,11 @@ export default function Sidebar() {
                 >
                   {project.name}
                 </span>
+                {hasProjectChat ? (
+                  <span className="shrink-0 rounded-full bg-background/70 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground/80">
+                    Chat
+                  </span>
+                ) : null}
                 {isMissingOnDisk ? <MissingOnDiskBadge path={project.cwd} /> : null}
               </span>
             )}
@@ -1727,29 +1805,12 @@ export default function Sidebar() {
       if (selectedThreadIds.size > 0) {
         clearSelection();
       }
-      // When expanding a project with exactly one thread, navigate directly to it.
-      const project = projectById.get(projectId);
-      if (project && !project.expanded) {
-        const projectThreads = sortedThreadsByProjectId.get(projectId) ?? EMPTY_THREADS;
-        if (projectThreads.length === 1) {
-          toggleProject(projectId);
-          void navigate({
-            to: "/$threadId",
-            params: { threadId: projectThreads[0]!.id },
-          });
-          return;
-        }
-      }
-      toggleProject(projectId);
+      void navigate({
+        to: "/project/$projectId",
+        params: { projectId },
+      });
     },
-    [
-      clearSelection,
-      navigate,
-      projectById,
-      selectedThreadIds.size,
-      sortedThreadsByProjectId,
-      toggleProject,
-    ],
+    [clearSelection, navigate, selectedThreadIds.size],
   );
 
   const handleProjectTitleKeyDown = useCallback(
@@ -1759,22 +1820,12 @@ export default function Sidebar() {
       if (dragInProgressRef.current) {
         return;
       }
-      // When expanding a project with exactly one thread, navigate directly to it.
-      const project = projectById.get(projectId);
-      if (project && !project.expanded) {
-        const projectThreads = sortedThreadsByProjectId.get(projectId) ?? EMPTY_THREADS;
-        if (projectThreads.length === 1) {
-          toggleProject(projectId);
-          void navigate({
-            to: "/$threadId",
-            params: { threadId: projectThreads[0]!.id },
-          });
-          return;
-        }
-      }
-      toggleProject(projectId);
+      void navigate({
+        to: "/project/$projectId",
+        params: { projectId },
+      });
     },
-    [navigate, projectById, sortedThreadsByProjectId, toggleProject],
+    [navigate],
   );
 
   useEffect(() => {
@@ -2232,7 +2283,12 @@ export default function Sidebar() {
                       aria-label="Open workspace"
                       className="inline-flex size-5 cursor-pointer items-center justify-center rounded-md text-muted-foreground/60 transition-colors hover:bg-accent hover:text-foreground"
                       onClick={() => {
-                        useRightPanelStore.getState().open("workspace");
+                        const panelState = useRightPanelStore.getState();
+                        if (panelState.isOpen && panelState.activeTab === "workspace") {
+                          panelState.close();
+                          return;
+                        }
+                        panelState.open("workspace");
                       }}
                     />
                   }
@@ -2285,7 +2341,11 @@ export default function Sidebar() {
                 disabled={isPickingFolder || isAddingProject}
               >
                 <FolderIcon className="size-3.5" />
-                {isPickingFolder ? "Picking folder..." : "Browse for folder"}
+                {isPickingFolder
+                  ? "Picking folder..."
+                  : shouldUseWebFolderBrowser
+                    ? "Browse server folders"
+                    : "Browse on this computer"}
               </button>
               <button
                 type="button"
@@ -2441,10 +2501,10 @@ export default function Sidebar() {
                 <SidebarMenuButton
                   size="sm"
                   className="gap-2 px-2 py-1.5 text-muted-foreground/70 hover:bg-accent hover:text-foreground"
-                  onClick={() => void navigate({ to: "/sme-chat" })}
+                  onClick={() => void navigate({ to: "/" })}
                 >
-                  <BookOpenIcon className="size-3.5" />
-                  <span className="text-xs">SME Chat</span>
+                  <ChevronRightIcon className="size-3.5" />
+                  <span className="text-xs">Projects</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               {hasWorktreeCleanupCandidates ? (
@@ -2525,10 +2585,29 @@ export default function Sidebar() {
         </Tooltip>
       </SidebarFooter>
 
+      <RemoteFolderPickerDialog
+        open={remoteFolderPickerOpen}
+        onOpenChange={setRemoteFolderPickerOpen}
+        rootPath={remoteFolderBrowserRoot}
+        initialPath={newCwd || undefined}
+        title="Browse server folders"
+        description="Pick a folder on the machine running OK Code. This works from remote web sessions such as Tailscale."
+        onPick={(path) => {
+          setNewCwd(path);
+          void addProjectFromPath(path);
+        }}
+      />
+
       <CloneRepositoryDialog
         open={cloneDialogOpen}
         onOpenChange={setCloneDialogOpen}
         onCloned={handleCloneComplete}
+      />
+
+      <ServerFolderPickerDialog
+        open={serverFolderPickerOpen}
+        onOpenChange={setServerFolderPickerOpen}
+        onSelect={handleServerFolderSelected}
       />
     </>
   );

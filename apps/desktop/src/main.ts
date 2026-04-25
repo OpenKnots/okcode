@@ -60,6 +60,9 @@ const CONFIRM_CHANNEL = "desktop:confirm";
 const SET_THEME_CHANNEL = "desktop:set-theme";
 const SET_SIDEBAR_OPACITY_CHANNEL = "desktop:set-sidebar-opacity";
 const SET_WINDOW_BUTTON_VISIBILITY_CHANNEL = "desktop:set-window-button-visibility";
+const SET_ZOOM_FACTOR_CHANNEL = "desktop:set-zoom-factor";
+const ZOOM_MIN = 0.75;
+const ZOOM_MAX = 1.75;
 const CONTEXT_MENU_CHANNEL = "desktop:context-menu";
 const OPEN_EXTERNAL_CHANNEL = "desktop:open-external";
 const MENU_ACTION_CHANNEL = "desktop:menu-action";
@@ -648,10 +651,30 @@ function configureApplicationMenu(): void {
         { role: "forceReload" },
         { role: "toggleDevTools" },
         { type: "separator" },
-        { role: "resetZoom" },
-        { role: "zoomIn", accelerator: "CmdOrCtrl+=" },
-        { role: "zoomIn", accelerator: "CmdOrCtrl+Plus", visible: false },
-        { role: "zoomOut" },
+        // Dispatch to the renderer instead of using Electron's role-based zoom.
+        // The renderer owns the persisted zoom factor; native roles would
+        // bypass our storage and the two would drift.
+        {
+          label: "Actual Size",
+          accelerator: "CmdOrCtrl+0",
+          click: () => dispatchMenuAction("view-zoom-reset"),
+        },
+        {
+          label: "Zoom In",
+          accelerator: "CmdOrCtrl+=",
+          click: () => dispatchMenuAction("view-zoom-in"),
+        },
+        {
+          label: "Zoom In",
+          accelerator: "CmdOrCtrl+Plus",
+          visible: false,
+          click: () => dispatchMenuAction("view-zoom-in"),
+        },
+        {
+          label: "Zoom Out",
+          accelerator: "CmdOrCtrl+-",
+          click: () => dispatchMenuAction("view-zoom-out"),
+        },
         { type: "separator" },
         { role: "togglefullscreen" },
       ],
@@ -1193,6 +1216,19 @@ function registerIpcHandlers(): void {
     // Sidebar opacity is handled purely on the renderer side via CSS.
     // This channel exists so the bridge contract is satisfied; the renderer
     // applies the value through a CSS custom-property.
+  });
+
+  ipcMain.removeHandler(SET_ZOOM_FACTOR_CHANNEL);
+  ipcMain.handle(SET_ZOOM_FACTOR_CHANNEL, async (event, rawFactor: unknown) => {
+    // Scale the requesting webContents. We clamp to the same [0.75, 1.75]
+    // range the renderer enforces so a malicious or buggy call can't drive
+    // the UI into an unreadable state.
+    const contents = event.sender;
+    if (!contents || typeof contents.setZoomFactor !== "function") return;
+    const numeric = typeof rawFactor === "number" ? rawFactor : Number(rawFactor);
+    const factor = Number.isFinite(numeric) ? numeric : 1;
+    const clamped = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, factor));
+    contents.setZoomFactor(clamped);
   });
 
   ipcMain.removeHandler(SET_WINDOW_BUTTON_VISIBILITY_CHANNEL);

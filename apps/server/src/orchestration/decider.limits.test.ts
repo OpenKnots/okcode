@@ -39,6 +39,7 @@ function makeThread(input: {
 }): OrchestrationThread {
   return {
     id: ThreadId.makeUnsafe(input.id),
+    kind: "thread",
     projectId: ProjectId.makeUnsafe(input.projectId),
     title: input.id,
     model: "gpt-5-codex",

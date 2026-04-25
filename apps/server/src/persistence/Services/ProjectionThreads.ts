@@ -12,6 +12,7 @@ import {
   ProjectId,
   ProviderInteractionMode,
   RuntimeMode,
+  ThreadKind,
   ThreadId,
   TurnId,
 } from "@okcode/contracts";
@@ -22,6 +23,7 @@ import type { ProjectionRepositoryError } from "../Errors.ts";
 
 export const ProjectionThread = Schema.Struct({
   threadId: ThreadId,
+  kind: ThreadKind,
   projectId: ProjectId,
   title: Schema.String,
   model: Schema.String,

@@ -155,6 +155,7 @@ interface GatewayConnectPayload {
 }
 
 type OpenClawGatewayAuthSelection =
+  | { readonly kind: "token"; readonly value: string }
   | { readonly kind: "password"; readonly value: string }
   | { readonly kind: "deviceToken"; readonly value: string }
   | { readonly kind: "none" };
@@ -434,18 +435,23 @@ function buildConnectParams(input: {
 }): Record<string, unknown> {
   const signedAtMs = Date.now();
   const auth =
-    input.auth.kind === "password"
+    input.auth.kind === "token"
       ? {
           token: input.auth.value,
         }
-      : input.auth.kind === "deviceToken"
+      : input.auth.kind === "password"
         ? {
-            // Legacy compatibility: device-token auth keeps `token` populated too.
-            token: input.auth.value,
-            deviceToken: input.auth.value,
+            password: input.auth.value,
           }
-        : undefined;
-  const signatureToken = input.auth.kind !== "none" ? input.auth.value : undefined;
+        : input.auth.kind === "deviceToken"
+          ? {
+              // Legacy compatibility: device-token auth keeps `token` populated too.
+              token: input.auth.value,
+              deviceToken: input.auth.value,
+            }
+          : undefined;
+  const signatureToken =
+    input.auth.kind === "token" || input.auth.kind === "deviceToken" ? input.auth.value : undefined;
   return {
     minProtocol: OPENCLAW_PROTOCOL_VERSION,
     maxProtocol: OPENCLAW_PROTOCOL_VERSION,
@@ -496,6 +502,17 @@ function isDeviceTokenError(error: OpenClawGatewayError | undefined): boolean {
   );
 }
 
+function isPasswordAuthError(error: OpenClawGatewayError | undefined): boolean {
+  const code =
+    error?.details && isObject(error.details) ? readString(error.details.code) : undefined;
+  return (
+    code === "AUTH_PASSWORD_MISSING" ||
+    code === "AUTH_PASSWORD_MISMATCH" ||
+    error?.message.toLowerCase().includes("auth_password_missing") === true ||
+    error?.message.toLowerCase().includes("auth_password_mismatch") === true
+  );
+}
+
 export function createOpenClawIdempotencyKey(parts: ReadonlyArray<string>): string {
   return `okcode-${createHash("sha256").update(parts.join("\u0000")).digest("hex")}`;
 }
@@ -511,64 +528,82 @@ export async function connectOpenClawGateway(
   const requestTimeoutMs = options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
   const connectTimeoutMs = options.connectTimeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS;
 
-  const candidateAuthSelections: OpenClawGatewayAuthSelection[] = [];
-  if (options.password && options.password.length > 0) {
-    candidateAuthSelections.push({ kind: "password", value: options.password });
-  }
+  const deviceTokenSelections: OpenClawGatewayAuthSelection[] = [];
   if (options.deviceToken && options.deviceToken.length > 0) {
-    candidateAuthSelections.push({ kind: "deviceToken", value: options.deviceToken });
+    deviceTokenSelections.push({ kind: "deviceToken", value: options.deviceToken });
   }
   const cachedDeviceToken = await authStore.getDeviceToken(origin);
   if (cachedDeviceToken) {
-    candidateAuthSelections.push({ kind: "deviceToken", value: cachedDeviceToken });
-  }
-  if (candidateAuthSelections.length === 0) {
-    candidateAuthSelections.push({ kind: "none" });
+    deviceTokenSelections.push({ kind: "deviceToken", value: cachedDeviceToken });
   }
 
   let lastError: Error | undefined;
+  const attemptConnect = async (auth: OpenClawGatewayAuthSelection) =>
+    await connectOnce({
+      gatewayUrl: options.gatewayUrl,
+      origin,
+      authStore,
+      deviceIdentity,
+      auth,
+      connectTimeoutMs,
+      requestTimeoutMs,
+      onEvent: options.onEvent,
+      client: options.client,
+      role: options.role,
+      scopes: options.scopes,
+      userAgent: options.userAgent,
+      locale: options.locale,
+      caps: options.caps,
+      commands: options.commands,
+      permissions: options.permissions,
+      sessionKey: options.sessionKey ?? `okcode:${normalizePathSegments(options.client.id)}`,
+    });
 
-  for (let index = 0; index < candidateAuthSelections.length; index += 1) {
-    const auth = candidateAuthSelections[index];
-    if (auth === undefined) {
-      continue;
-    }
+  const sharedSecret = options.password?.trim();
+  if (sharedSecret) {
     try {
-      const connection = await connectOnce({
-        gatewayUrl: options.gatewayUrl,
-        origin,
-        authStore,
-        deviceIdentity,
-        auth,
-        connectTimeoutMs,
-        requestTimeoutMs,
-        onEvent: options.onEvent,
-        client: options.client,
-        role: options.role,
-        scopes: options.scopes,
-        userAgent: options.userAgent,
-        locale: options.locale,
-        caps: options.caps,
-        commands: options.commands,
-        permissions: options.permissions,
-        sessionKey: options.sessionKey ?? `okcode:${normalizePathSegments(options.client.id)}`,
-      });
-      return connection;
+      return await attemptConnect({ kind: "token", value: sharedSecret });
     } catch (cause) {
       const error = cause instanceof Error ? cause : new Error(String(cause));
       lastError = error;
       const parsedError = error as Error & { readonly gatewayError?: OpenClawGatewayError };
       const gatewayError = parsedError.gatewayError;
-      const usedExplicitPassword = options.password !== undefined && options.password.length > 0;
-      const canRetryWithCachedToken =
-        usedExplicitPassword &&
-        cachedDeviceToken !== undefined &&
-        auth.kind === "password" &&
-        isDeviceTokenError(gatewayError);
 
-      if (!canRetryWithCachedToken || index + 1 >= candidateAuthSelections.length) {
-        break;
+      if (isPasswordAuthError(gatewayError)) {
+        try {
+          return await attemptConnect({ kind: "password", value: sharedSecret });
+        } catch (passwordCause) {
+          lastError =
+            passwordCause instanceof Error ? passwordCause : new Error(String(passwordCause));
+        }
+      } else if (deviceTokenSelections.length > 0 && isDeviceTokenError(gatewayError)) {
+        for (const auth of deviceTokenSelections) {
+          try {
+            return await attemptConnect(auth);
+          } catch (deviceTokenCause) {
+            lastError =
+              deviceTokenCause instanceof Error
+                ? deviceTokenCause
+                : new Error(String(deviceTokenCause));
+          }
+        }
       }
+    }
+  }
+
+  for (const auth of deviceTokenSelections) {
+    try {
+      return await attemptConnect(auth);
+    } catch (cause) {
+      lastError = cause instanceof Error ? cause : new Error(String(cause));
+    }
+  }
+
+  if (!sharedSecret) {
+    try {
+      return await attemptConnect({ kind: "none" });
+    } catch (cause) {
+      lastError = cause instanceof Error ? cause : new Error(String(cause));
     }
   }
 

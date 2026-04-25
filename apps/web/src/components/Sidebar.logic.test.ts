@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   computeProjectDisambiguationPaths,
   getVisibleThreadsForProject,
+  partitionProjectThreadsForSidebar,
   getProjectSortTimestamp,
   hasUnseenCompletion,
   mergeDraftThreadsIntoSidebarThreads,
@@ -154,6 +155,27 @@ describe("mergeDraftThreadsIntoSidebarThreads", () => {
 
     expect(merged).toHaveLength(1);
     expect(merged[0]?.id).toBe(threadId);
+  });
+});
+
+describe("partitionProjectThreadsForSidebar", () => {
+  it("keeps the canonical project chat out of the child thread list", () => {
+    const projectChatThread = makeThread({
+      id: ThreadId.makeUnsafe("thread-project-chat"),
+      kind: "project-chat",
+      title: "Project chat",
+    });
+    const branchThread = makeThread({
+      id: ThreadId.makeUnsafe("thread-branch"),
+      kind: "thread",
+      title: "Feature branch",
+      branch: "feature/refactor",
+    });
+
+    const result = partitionProjectThreadsForSidebar([projectChatThread, branchThread]);
+
+    expect(result.projectChatThread?.id).toBe(projectChatThread.id);
+    expect(result.sidebarThreads.map((thread) => thread.id)).toEqual([branchThread.id]);
   });
 });
 
@@ -544,6 +566,7 @@ function makeThread(overrides: Partial<Thread> = {}): Thread {
   return {
     id: ThreadId.makeUnsafe("thread-1"),
     codexThreadId: null,
+    kind: "thread",
     projectId: ProjectId.makeUnsafe("project-1"),
     title: "Thread",
     model: "gpt-5.4",

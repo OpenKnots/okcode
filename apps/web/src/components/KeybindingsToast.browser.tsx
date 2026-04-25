@@ -80,6 +80,7 @@ function createMinimalSnapshot(): OrchestrationReadModel {
     threads: [
       {
         id: THREAD_ID,
+        kind: "thread",
         projectId: PROJECT_ID,
         title: "Test thread",
         model: "gpt-5",

@@ -11,16 +11,28 @@ interface RequiredAssetRule {
 
 const REQUIRED_ASSET_RULES: readonly RequiredAssetRule[] = [
   {
-    label: "macOS DMG",
-    matches: (assetName) => assetName.endsWith(".dmg"),
+    label: "macOS arm64 DMG",
+    matches: (assetName) => assetName.endsWith("-arm64.dmg"),
   },
   {
-    label: "macOS ZIP payload",
-    matches: (assetName) => assetName.endsWith(".zip"),
+    label: "macOS arm64 ZIP payload",
+    matches: (assetName) => assetName.endsWith("-arm64.zip"),
   },
   {
-    label: "macOS ZIP blockmap",
-    matches: (assetName) => assetName.endsWith(".zip.blockmap"),
+    label: "macOS arm64 ZIP blockmap",
+    matches: (assetName) => assetName.endsWith("-arm64.zip.blockmap"),
+  },
+  {
+    label: "macOS x64 DMG",
+    matches: (assetName) => assetName.endsWith("-x64.dmg"),
+  },
+  {
+    label: "macOS x64 ZIP payload",
+    matches: (assetName) => assetName.endsWith("-x64.zip"),
+  },
+  {
+    label: "macOS x64 ZIP blockmap",
+    matches: (assetName) => assetName.endsWith("-x64.zip.blockmap"),
   },
   {
     label: "macOS updater manifest",

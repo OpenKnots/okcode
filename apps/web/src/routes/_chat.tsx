@@ -1,6 +1,6 @@
-import { type ResolvedKeybindingsConfig } from "@okcode/contracts";
+import { ProjectId, type ResolvedKeybindingsConfig } from "@okcode/contracts";
 import { useQuery } from "@tanstack/react-query";
-import { Outlet, createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Outlet, createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
 import { type CSSProperties, useEffect } from "react";
 
 import ThreadSidebar from "../components/Sidebar";
@@ -8,6 +8,7 @@ import { CommandPalette } from "../components/CommandPalette";
 import { ScreenshotTool, ScreenshotButton } from "../components/ScreenshotTool";
 import { WorktreeCleanupDialog } from "../components/WorktreeCleanupDialog";
 import { useHandleNewThread } from "../hooks/useHandleNewThread";
+import { ZOOM_STEP, clearZoom, getStoredZoom, setStoredZoom } from "../lib/customTheme";
 import { readDesktopBridge } from "../lib/runtimeBridge";
 import { isTerminalFocused } from "../lib/terminalFocus";
 import { isMacPlatform } from "../lib/utils";
@@ -60,6 +61,10 @@ function ChatRouteGlobalShortcuts() {
   const selectedThreadIdsSize = useThreadSelectionStore((state) => state.selectedThreadIds.size);
   const { activeDraftThread, activeThread, handleNewThread, projects, routeThreadId } =
     useHandleNewThread();
+  const routeProjectId = useParams({
+    strict: false,
+    select: (params) => (params.projectId ? ProjectId.makeUnsafe(params.projectId) : null),
+  });
   const serverConfigQuery = useQuery(serverConfigQueryOptions());
   const keybindings = serverConfigQuery.data?.keybindings ?? EMPTY_KEYBINDINGS;
   const terminalOpen = useTerminalStateStore((state) =>
@@ -80,11 +85,19 @@ function ChatRouteGlobalShortcuts() {
 
   // ── Track MRU on route changes ──────────────────────────────────
   useEffect(() => {
-    if (!routeThreadId) return;
-    pushMruThread(routeThreadId);
-    const thread = storeThreads.find((t) => t.id === routeThreadId);
-    if (thread) pushMruProject(thread.projectId);
-  }, [routeThreadId, storeThreads, pushMruThread, pushMruProject]);
+    if (routeThreadId) {
+      pushMruThread(routeThreadId);
+      const thread = storeThreads.find((t) => t.id === routeThreadId);
+      if (thread) {
+        pushMruProject(thread.projectId);
+      }
+      return;
+    }
+
+    if (routeProjectId) {
+      pushMruProject(routeProjectId);
+    }
+  }, [routeProjectId, routeThreadId, storeThreads, pushMruThread, pushMruProject]);
 
   useEffect(() => {
     const onWindowKeyDown = (event: KeyboardEvent) => {
@@ -133,17 +146,7 @@ function ChatRouteGlobalShortcuts() {
           const project = storeProjects[index];
           if (project) {
             pushMruProject(project.id);
-            // Navigate to the most recent thread in that project
-            const projectThreads = storeThreads
-              .filter((t) => t.projectId === project.id)
-              .toSorted((a, b) =>
-                (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt),
-              );
-            const latestThread = projectThreads[0];
-            if (latestThread) {
-              pushMruThread(latestThread.id);
-              void navigate({ to: "/$threadId", params: { threadId: latestThread.id } });
-            }
+            void navigate({ to: "/project/$projectId", params: { projectId: project.id } });
           }
           return;
         }
@@ -157,15 +160,40 @@ function ChatRouteGlobalShortcuts() {
         return;
       }
 
-      const projectId = activeThread?.projectId ?? activeDraftThread?.projectId ?? projects[0]?.id;
+      const projectId =
+        routeProjectId ??
+        activeThread?.projectId ??
+        activeDraftThread?.projectId ??
+        projects[0]?.id;
       if (!projectId) return;
-
       const command = resolveShortcutCommand(event, keybindings, {
         context: {
           terminalFocus: isTerminalFocused(),
           terminalOpen,
         },
       });
+
+      // Zoom commands are available anywhere (no project dependency). Handle
+      // these before the project-scoped branches so a user on the welcome
+      // screen (no projects yet) can still resize the UI.
+      if (command === "view.zoomIn") {
+        event.preventDefault();
+        event.stopPropagation();
+        setStoredZoom(getStoredZoom() + ZOOM_STEP);
+        return;
+      }
+      if (command === "view.zoomOut") {
+        event.preventDefault();
+        event.stopPropagation();
+        setStoredZoom(getStoredZoom() - ZOOM_STEP);
+        return;
+      }
+      if (command === "view.zoomReset") {
+        event.preventDefault();
+        event.stopPropagation();
+        clearZoom();
+        return;
+      }
 
       if (command === "chat.newLocal") {
         event.preventDefault();
@@ -202,6 +230,7 @@ function ChatRouteGlobalShortcuts() {
     openPalette,
     paletteOpen,
     projects,
+    routeProjectId,
     pushMruProject,
     pushMruThread,
     selectedThreadIdsSize,
@@ -264,8 +293,24 @@ function ChatRouteLayout() {
     }
 
     const unsubscribe = onMenuAction((action) => {
-      if (action !== "open-settings") return;
-      void navigate({ to: "/settings" });
+      if (action === "open-settings") {
+        void navigate({ to: "/settings" });
+        return;
+      }
+      // Native View-menu entries dispatch through the same renderer path as
+      // the Cmd+= / Cmd+- / Cmd+0 keybindings, so stored zoom stays in sync.
+      if (action === "view-zoom-in") {
+        setStoredZoom(getStoredZoom() + ZOOM_STEP);
+        return;
+      }
+      if (action === "view-zoom-out") {
+        setStoredZoom(getStoredZoom() - ZOOM_STEP);
+        return;
+      }
+      if (action === "view-zoom-reset") {
+        clearZoom();
+        return;
+      }
     });
 
     return () => {

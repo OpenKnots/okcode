@@ -1,10 +1,14 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FolderOpenIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { isElectron } from "~/env";
 import { gitCloneRepositoryMutationOptions } from "~/lib/gitReactQuery";
 import { parseGitHubRepositoryUrl, type ParsedGitHubUrl } from "~/githubRepositoryUrl";
+import { deriveRemoteFolderBrowserRoot, isProbablyLocalWebSession } from "~/lib/remoteFolderPicker";
+import { serverConfigQueryOptions } from "~/lib/serverReactQuery";
 import { readNativeApi } from "~/nativeApi";
+import { RemoteFolderPickerDialog } from "./RemoteFolderPickerDialog";
 import { Button } from "./ui/button";
 import {
   Dialog,
@@ -17,6 +21,7 @@ import {
 } from "./ui/dialog";
 import { Input } from "./ui/input";
 import { Spinner } from "./ui/spinner";
+import { toastManager } from "./ui/toast";
 
 interface CloneRepositoryDialogProps {
   open: boolean;
@@ -35,9 +40,19 @@ export function CloneRepositoryDialog({
   const [urlDirty, setUrlDirty] = useState(false);
   const [targetDir, setTargetDir] = useState("");
   const [isPickingFolder, setIsPickingFolder] = useState(false);
+  const [remoteFolderPickerOpen, setRemoteFolderPickerOpen] = useState(false);
 
   const cloneMutation = useMutation(gitCloneRepositoryMutationOptions({ queryClient }));
   const { reset: resetCloneMutation } = cloneMutation;
+  const serverConfigQuery = useQuery(serverConfigQueryOptions());
+  const shouldUseWebFolderBrowser = !isElectron && !isProbablyLocalWebSession();
+  const canUseRemoteFolderBrowser =
+    shouldUseWebFolderBrowser && Boolean(serverConfigQuery.data?.cwd);
+  const remoteFolderBrowserRoot = useMemo(
+    () =>
+      serverConfigQuery.data?.cwd ? deriveRemoteFolderBrowserRoot(serverConfigQuery.data.cwd) : "",
+    [serverConfigQuery.data?.cwd],
+  );
 
   const parsed: ParsedGitHubUrl | null = useMemo(() => parseGitHubRepositoryUrl(url), [url]);
 
@@ -62,6 +77,18 @@ export function CloneRepositoryDialog({
   const pickTargetDir = useCallback(async () => {
     const api = readNativeApi();
     if (!api || isPickingFolder) return;
+    if (shouldUseWebFolderBrowser) {
+      if (!canUseRemoteFolderBrowser) {
+        toastManager.add({
+          type: "error",
+          title: "Folder browser is still loading",
+          description: "Wait a moment for the server path to load, then try again.",
+        });
+        return;
+      }
+      setRemoteFolderPickerOpen(true);
+      return;
+    }
 
     setIsPickingFolder(true);
     try {
@@ -74,7 +101,7 @@ export function CloneRepositoryDialog({
     } finally {
       setIsPickingFolder(false);
     }
-  }, [isPickingFolder]);
+  }, [canUseRemoteFolderBrowser, isPickingFolder, shouldUseWebFolderBrowser]);
 
   const handleClone = useCallback(async () => {
     if (!parsed) {
@@ -193,7 +220,7 @@ export function CloneRepositoryDialog({
                 disabled={isPickingFolder || cloneMutation.isPending}
               >
                 <FolderOpenIcon className="size-3.5" />
-                Browse
+                {shouldUseWebFolderBrowser ? "Browse server folders" : "Browse"}
               </Button>
             </div>
             {parsed && targetDir ? (
@@ -232,6 +259,15 @@ export function CloneRepositoryDialog({
           </Button>
         </DialogFooter>
       </DialogPopup>
+      <RemoteFolderPickerDialog
+        open={remoteFolderPickerOpen}
+        onOpenChange={setRemoteFolderPickerOpen}
+        rootPath={remoteFolderBrowserRoot}
+        initialPath={targetDir || undefined}
+        title="Browse server folders"
+        description="Pick a parent directory on the machine running OK Code. This works from remote web sessions such as Tailscale."
+        onPick={setTargetDir}
+      />
     </Dialog>
   );
 }

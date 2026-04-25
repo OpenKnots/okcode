@@ -30,6 +30,8 @@ import type {
 import type {
   ProjectDeleteEntryInput,
   ProjectFileTreeChangedPayload,
+  ProjectBrowseDirectoryInput,
+  ProjectBrowseDirectoryResult,
   ProjectListDirectoryInput,
   ProjectListDirectoryResult,
   ProjectReadFileInput,
@@ -132,35 +134,6 @@ import type {
   OrchestrationReadModel,
   OrchestrationThread,
 } from "./orchestration";
-import type {
-  DecisionCaseSummary,
-  DecisionExecuteRecommendationInput,
-  DecisionExecutionResult,
-  DecisionGetWorkspaceInput,
-  DecisionListCasesInput,
-  DecisionRequestConsultationInput,
-  DecisionRespondConsultationInput,
-  DecisionUpdatedPayload,
-  DecisionWorkspace,
-} from "./decision";
-import type {
-  SmeConversation,
-  SmeCreateConversationInput,
-  SmeDeleteConversationInput,
-  SmeDeleteDocumentInput,
-  SmeGetConversationInput,
-  SmeInterruptMessageInput,
-  SmeKnowledgeDocument,
-  SmeListConversationsInput,
-  SmeListDocumentsInput,
-  SmeMessage,
-  SmeMessageEvent,
-  SmeSendMessageInput,
-  SmeUpdateConversationInput,
-  SmeUploadDocumentInput,
-  SmeValidateSetupInput,
-  SmeValidateSetupResult,
-} from "./sme";
 import { EditorId } from "./editor";
 
 export interface ContextMenuItem<T extends string = string> {
@@ -281,6 +254,12 @@ export interface DesktopBridge {
   setTheme: (theme: DesktopTheme) => Promise<void>;
   setSidebarOpacity: (opacity: number) => Promise<void>;
   setWindowButtonVisibility: (visible: boolean) => Promise<void>;
+  /**
+   * Scale the entire Electron webContents by `factor` (e.g. 1.25 → 125 %).
+   * Values are clamped to [0.75, 1.75] server-side to match the UI slider's
+   * range. Falls back to a CSS `zoom` style on non-Electron shells.
+   */
+  setZoomFactor: (factor: number) => Promise<void>;
   showContextMenu: <T extends string>(
     items: readonly ContextMenuItem<T>[],
     position?: { x: number; y: number },
@@ -380,6 +359,7 @@ export interface NativeApi {
   projects: {
     searchEntries: (input: ProjectSearchEntriesInput) => Promise<ProjectSearchEntriesResult>;
     listDirectory: (input: ProjectListDirectoryInput) => Promise<ProjectListDirectoryResult>;
+    browseDirectory: (input: ProjectBrowseDirectoryInput) => Promise<ProjectBrowseDirectoryResult>;
     writeFile: (input: ProjectWriteFileInput) => Promise<ProjectWriteFileResult>;
     readFile: (input: ProjectReadFileInput) => Promise<ProjectReadFileResult>;
     deleteEntry: (input: ProjectDeleteEntryInput) => Promise<void>;
@@ -444,17 +424,6 @@ export interface NativeApi {
       callback: (payload: PrReviewRepoConfigUpdatedPayload) => void,
     ) => () => void;
   };
-  decision: {
-    listCases: (input: DecisionListCasesInput) => Promise<ReadonlyArray<DecisionCaseSummary>>;
-    getWorkspace: (input: DecisionGetWorkspaceInput) => Promise<DecisionWorkspace>;
-    reanalyze: (input: DecisionGetWorkspaceInput) => Promise<DecisionWorkspace>;
-    requestConsultation: (input: DecisionRequestConsultationInput) => Promise<DecisionWorkspace>;
-    respondConsultation: (input: DecisionRespondConsultationInput) => Promise<DecisionWorkspace>;
-    executeRecommendation: (
-      input: DecisionExecuteRecommendationInput,
-    ) => Promise<DecisionExecutionResult>;
-    onUpdated: (callback: (payload: DecisionUpdatedPayload) => void) => () => void;
-  };
   skills: {
     list: (input?: SkillListInput) => Promise<SkillListResult>;
     catalog: (input?: SkillCatalogInput) => Promise<SkillCatalogResult>;
@@ -511,23 +480,5 @@ export interface NativeApi {
     ) => Promise<OrchestrationGetFullThreadDiffResult>;
     replayEvents: (fromSequenceExclusive: number) => Promise<OrchestrationEvent[]>;
     onDomainEvent: (callback: (event: OrchestrationEvent) => void) => () => void;
-  };
-  sme: {
-    uploadDocument: (input: SmeUploadDocumentInput) => Promise<SmeKnowledgeDocument>;
-    deleteDocument: (input: SmeDeleteDocumentInput) => Promise<void>;
-    listDocuments: (input: SmeListDocumentsInput) => Promise<ReadonlyArray<SmeKnowledgeDocument>>;
-    createConversation: (input: SmeCreateConversationInput) => Promise<SmeConversation>;
-    updateConversation: (input: SmeUpdateConversationInput) => Promise<SmeConversation>;
-    deleteConversation: (input: SmeDeleteConversationInput) => Promise<void>;
-    listConversations: (
-      input: SmeListConversationsInput,
-    ) => Promise<ReadonlyArray<SmeConversation>>;
-    getConversation: (
-      input: SmeGetConversationInput,
-    ) => Promise<{ conversation: SmeConversation; messages: ReadonlyArray<SmeMessage> } | null>;
-    validateSetup: (input: SmeValidateSetupInput) => Promise<SmeValidateSetupResult>;
-    sendMessage: (input: SmeSendMessageInput) => Promise<void>;
-    interruptMessage: (input: SmeInterruptMessageInput) => Promise<void>;
-    onMessageEvent: (callback: (event: SmeMessageEvent) => void) => () => void;
   };
 }

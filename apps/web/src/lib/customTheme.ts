@@ -72,6 +72,7 @@ const CUSTOM_THEME_FONT_LINK_ID = "okcode-custom-theme-fonts";
 const RADIUS_OVERRIDE_KEY = "okcode:radius-override";
 const FONT_OVERRIDE_KEY = "okcode:font-override";
 const FONT_SIZE_OVERRIDE_KEY = "okcode:font-size-override";
+const ZOOM_KEY = "okcode:app-zoom";
 const LEGACY_BACKGROUND_STYLE_ID = "okcode-background-image-style";
 
 /** System-bundled fonts that don't need to be loaded from Google Fonts. */
@@ -549,7 +550,11 @@ export function applyFontOverride(): void {
     styleEl.id = "okcode-font-override-style";
     document.head.appendChild(styleEl);
   }
-  styleEl.textContent = `body { font-family: ${font} !important; }`;
+  // Scope the override to prose/message text only — never override the
+  // `--font-code` stack selected separately in the Code font picker. Keeping
+  // `code, pre, .cm-scroller` on the native stack prevents the escape-hatch
+  // input from accidentally changing how source text renders.
+  styleEl.textContent = `body, .chat-markdown { font-family: ${font} !important; } code, pre, .cm-scroller { font-family: var(--font-code) !important; }`;
 
   // Load from Google Fonts if it's not a system font
   const families = font.split(",").map((f) => f.trim().replace(/^["']|["']$/g, ""));
@@ -603,6 +608,102 @@ export function applyFontSizeOverride(): void {
 }
 
 // ---------------------------------------------------------------------------
+// App Zoom (accessibility — scale the entire UI)
+// ---------------------------------------------------------------------------
+
+/** Lowest allowed zoom factor. Below this, fixed-width panels become unreadable. */
+export const ZOOM_MIN = 0.75;
+/** Highest allowed zoom factor. Above this, fixed-width panels clip. */
+export const ZOOM_MAX = 1.75;
+/** Slider + keyboard increment. 5 % steps feel responsive without overshoot. */
+export const ZOOM_STEP = 0.05;
+/** Default 100 % — matches the baseline designers ship against. */
+export const ZOOM_DEFAULT = 1.0;
+
+/**
+ * Normalize a numeric factor into the allowed zoom range.
+ *
+ * Non-finite inputs fall back to the default so a corrupt storage value or
+ * unbounded `x / 0` calculation can't propagate into the UI. We round to two
+ * decimals so that successive additions of `ZOOM_STEP` (0.05) don't drift due
+ * to float imprecision.
+ */
+export function clampZoom(value: number): number {
+  if (!Number.isFinite(value)) return ZOOM_DEFAULT;
+  const rounded = Math.round(value * 100) / 100;
+  return Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, rounded));
+}
+
+/** Read the persisted zoom factor; falls back to the default when missing/invalid. */
+export function getStoredZoom(): number {
+  if (!hasDom() || typeof localStorage === "undefined") return ZOOM_DEFAULT;
+  const raw = localStorage.getItem(ZOOM_KEY);
+  if (raw === null) return ZOOM_DEFAULT;
+  const parsed = Number.parseFloat(raw);
+  return Number.isFinite(parsed) ? clampZoom(parsed) : ZOOM_DEFAULT;
+}
+
+/** Persist and apply a zoom factor. Value is clamped before storage. */
+export function setStoredZoom(value: number): void {
+  const clamped = clampZoom(value);
+  if (hasDom() && typeof localStorage !== "undefined") {
+    localStorage.setItem(ZOOM_KEY, String(clamped));
+  }
+  applyZoom(clamped);
+}
+
+/** Reset zoom back to 100 % and drop the stored override. */
+export function clearZoom(): void {
+  if (hasDom() && typeof localStorage !== "undefined") {
+    localStorage.removeItem(ZOOM_KEY);
+  }
+  applyZoom(ZOOM_DEFAULT);
+}
+
+interface ZoomBridgeShape {
+  setZoomFactor?: (factor: number) => Promise<void>;
+}
+
+/**
+ * Apply the given factor both natively (Electron) and in-DOM.
+ *
+ * On Electron we call `webContents.setZoomFactor` via the preload bridge — this
+ * gives crisp, text-rendered scaling that respects DPI. We also set
+ * `document.documentElement.style.zoom` so:
+ *   1. The web-only shell (no Electron bridge) still scales.
+ *   2. The two scaling paths stay in sync for CSS that reads `zoom`.
+ * Both paths accept the same numeric factor, so there's one source of truth.
+ */
+/**
+ * Custom event dispatched whenever app zoom changes (storage event only fires
+ * cross-window). Settings UI listens to this so the slider stays in sync when
+ * the user triggers zoom via keybindings in the same window.
+ */
+export const ZOOM_CHANGE_EVENT = "okcode:zoom-change";
+
+function applyZoom(factor: number): void {
+  if (!hasDom()) return;
+  const bridge = (window as unknown as { desktopBridge?: ZoomBridgeShape }).desktopBridge;
+  if (bridge?.setZoomFactor) {
+    void bridge.setZoomFactor(factor).catch(() => {
+      // Bridge rejection is non-fatal — the DOM `zoom` fallback still applies.
+    });
+  }
+  document.documentElement.style.setProperty("zoom", String(factor));
+  try {
+    window.dispatchEvent(new CustomEvent(ZOOM_CHANGE_EVENT, { detail: factor }));
+  } catch {
+    // `CustomEvent` is unavailable in some SSR/test stubs — ignore.
+  }
+}
+
+/** Read-and-apply the stored zoom. Called synchronously on boot to avoid FOUC. */
+export function applyStoredZoom(): void {
+  if (!hasDom()) return;
+  applyZoom(getStoredZoom());
+}
+
+// ---------------------------------------------------------------------------
 // Initialization (called on module load)
 // ---------------------------------------------------------------------------
 
@@ -627,4 +728,8 @@ export function initCustomTheme(): void {
 
   // Always apply font size override if set
   applyFontSizeOverride();
+
+  // Always apply stored zoom (runs before first paint when imported from
+  // useTheme, so users don't see a 100 % → N % flash on reload).
+  applyStoredZoom();
 }

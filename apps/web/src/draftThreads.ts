@@ -12,6 +12,7 @@ export function buildLocalDraftThread(
   return {
     id: threadId,
     codexThreadId: null,
+    kind: "thread",
     projectId: draftThread.projectId,
     title: normalizeThreadTitle(draftThread.title),
     model: fallbackModel,

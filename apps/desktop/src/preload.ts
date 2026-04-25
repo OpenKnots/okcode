@@ -7,6 +7,7 @@ const CONFIRM_CHANNEL = "desktop:confirm";
 const SET_THEME_CHANNEL = "desktop:set-theme";
 const SET_SIDEBAR_OPACITY_CHANNEL = "desktop:set-sidebar-opacity";
 const SET_WINDOW_BUTTON_VISIBILITY_CHANNEL = "desktop:set-window-button-visibility";
+const SET_ZOOM_FACTOR_CHANNEL = "desktop:set-zoom-factor";
 const CONTEXT_MENU_CHANNEL = "desktop:context-menu";
 const OPEN_EXTERNAL_CHANNEL = "desktop:open-external";
 const MENU_ACTION_CHANNEL = "desktop:menu-action";
@@ -42,6 +43,7 @@ contextBridge.exposeInMainWorld("desktopBridge", {
   setSidebarOpacity: (opacity) => ipcRenderer.invoke(SET_SIDEBAR_OPACITY_CHANNEL, opacity),
   setWindowButtonVisibility: (visible) =>
     ipcRenderer.invoke(SET_WINDOW_BUTTON_VISIBILITY_CHANNEL, visible),
+  setZoomFactor: (factor) => ipcRenderer.invoke(SET_ZOOM_FACTOR_CHANNEL, factor),
   showContextMenu: (items, position) => ipcRenderer.invoke(CONTEXT_MENU_CHANNEL, items, position),
   openExternal: (url: string) => ipcRenderer.invoke(OPEN_EXTERNAL_CHANNEL, url),
   onMenuAction: (listener) => {

@@ -8,11 +8,16 @@ import { APP_DISPLAY_NAME } from "../../branding";
 import { isElectron } from "../../env";
 import { useHandleNewThread } from "../../hooks/useHandleNewThread";
 import { resolveImportedProjectScripts } from "../../lib/projectImport";
+import {
+  deriveRemoteFolderBrowserRoot,
+  isProbablyLocalWebSession,
+} from "../../lib/remoteFolderPicker";
 import { serverConfigQueryOptions } from "../../lib/serverReactQuery";
 import { newCommandId, newProjectId } from "../../lib/utils";
 import { readNativeApi } from "../../nativeApi";
 import { useStore } from "../../store";
 import { CloneRepositoryDialog } from "../CloneRepositoryDialog";
+import { RemoteFolderPickerDialog } from "../RemoteFolderPickerDialog";
 import { sortProjectsForSidebar } from "../Sidebar.logic";
 import { ProviderSetupCard } from "../chat/ProviderSetupCard";
 import { SidebarTrigger, useSidebar } from "../ui/sidebar";
@@ -39,7 +44,16 @@ export function ChatHomeEmptyState() {
   const { handleNewThread } = useHandleNewThread();
   const [isOpeningProject, setIsOpeningProject] = useState(false);
   const [cloneDialogOpen, setCloneDialogOpen] = useState(false);
+  const [remoteFolderPickerOpen, setRemoteFolderPickerOpen] = useState(false);
   const { open: sidebarOpen, isMobile: sidebarIsMobile } = useSidebar();
+  const shouldUseWebFolderBrowser = !isElectron && !isProbablyLocalWebSession();
+  const canUseRemoteFolderBrowser =
+    shouldUseWebFolderBrowser && Boolean(serverConfigQuery.data?.cwd);
+  const remoteFolderBrowserRoot = useMemo(
+    () =>
+      serverConfigQuery.data?.cwd ? deriveRemoteFolderBrowserRoot(serverConfigQuery.data.cwd) : "",
+    [serverConfigQuery.data?.cwd],
+  );
 
   const latestProject = useMemo(
     () => sortProjectsForSidebar(projects, threads, appSettings.sidebarProjectSortOrder)[0] ?? null,
@@ -69,9 +83,76 @@ export function ChatHomeEmptyState() {
       }));
   }, [projects, threads]);
 
+  const openProjectPath = useCallback(
+    async (pickedPath: string) => {
+      const api = readNativeApi();
+      if (!api) {
+        return;
+      }
+
+      const existingProject = projects.find((project) => project.cwd === pickedPath);
+      if (existingProject) {
+        await handleNewThread(existingProject.id, {
+          envMode: appSettings.defaultThreadEnvMode,
+        }).catch(() => undefined);
+        return;
+      }
+
+      const title =
+        pickedPath.split(/[/\\]/).findLast((segment) => segment.length > 0) ?? pickedPath;
+      try {
+        const projectId = newProjectId();
+        const { scripts: projectScripts, warning: packageScriptWarning } =
+          await resolveImportedProjectScripts(api, pickedPath);
+        await api.orchestration.dispatchCommand({
+          type: "project.create",
+          commandId: newCommandId(),
+          projectId,
+          title,
+          workspaceRoot: pickedPath,
+          defaultModel: DEFAULT_MODEL_BY_PROVIDER.codex,
+          ...(projectScripts ? { scripts: projectScripts } : {}),
+          createdAt: new Date().toISOString(),
+        });
+        if (packageScriptWarning) {
+          toastManager.add({
+            type: "warning",
+            title: "Project actions need a package manager choice",
+            description: packageScriptWarning,
+          });
+        }
+        await handleNewThread(projectId, {
+          envMode: appSettings.defaultThreadEnvMode,
+        }).catch(() => undefined);
+      } catch (error) {
+        toastManager.add({
+          type: "error",
+          title: "Failed to add project",
+          description:
+            error instanceof Error
+              ? error.message
+              : "An unexpected error occurred while adding the project.",
+        });
+      }
+    },
+    [appSettings.defaultThreadEnvMode, handleNewThread, projects],
+  );
+
   const openProjectFolder = useCallback(async () => {
     const api = readNativeApi();
     if (!api || isOpeningProject) {
+      return;
+    }
+    if (shouldUseWebFolderBrowser) {
+      if (!canUseRemoteFolderBrowser) {
+        toastManager.add({
+          type: "error",
+          title: "Folder browser is still loading",
+          description: "Wait a moment for the server path to load, then try again.",
+        });
+        return;
+      }
+      setRemoteFolderPickerOpen(true);
       return;
     }
 
@@ -94,53 +175,9 @@ export function ChatHomeEmptyState() {
       return;
     }
 
-    const existingProject = projects.find((project) => project.cwd === pickedPath);
-    if (existingProject) {
-      await handleNewThread(existingProject.id, {
-        envMode: appSettings.defaultThreadEnvMode,
-      }).catch(() => undefined);
-      setIsOpeningProject(false);
-      return;
-    }
-
-    const title = pickedPath.split(/[/\\]/).findLast((segment) => segment.length > 0) ?? pickedPath;
-    try {
-      const projectId = newProjectId();
-      const { scripts: projectScripts, warning: packageScriptWarning } =
-        await resolveImportedProjectScripts(api, pickedPath);
-      await api.orchestration.dispatchCommand({
-        type: "project.create",
-        commandId: newCommandId(),
-        projectId,
-        title,
-        workspaceRoot: pickedPath,
-        defaultModel: DEFAULT_MODEL_BY_PROVIDER.codex,
-        ...(projectScripts ? { scripts: projectScripts } : {}),
-        createdAt: new Date().toISOString(),
-      });
-      if (packageScriptWarning) {
-        toastManager.add({
-          type: "warning",
-          title: "Project actions need a package manager choice",
-          description: packageScriptWarning,
-        });
-      }
-      await handleNewThread(projectId, {
-        envMode: appSettings.defaultThreadEnvMode,
-      }).catch(() => undefined);
-    } catch (error) {
-      toastManager.add({
-        type: "error",
-        title: "Failed to add project",
-        description:
-          error instanceof Error
-            ? error.message
-            : "An unexpected error occurred while adding the project.",
-      });
-    }
-
+    await openProjectPath(pickedPath);
     setIsOpeningProject(false);
-  }, [appSettings.defaultThreadEnvMode, handleNewThread, isOpeningProject, projects]);
+  }, [canUseRemoteFolderBrowser, isOpeningProject, openProjectPath, shouldUseWebFolderBrowser]);
 
   const handleCloneComplete = useCallback(
     async (result: { path: string; branch: string; repoName: string }) => {
@@ -250,6 +287,17 @@ export function ChatHomeEmptyState() {
                 open={cloneDialogOpen}
                 onOpenChange={setCloneDialogOpen}
                 onCloned={handleCloneComplete}
+              />
+
+              <RemoteFolderPickerDialog
+                open={remoteFolderPickerOpen}
+                onOpenChange={setRemoteFolderPickerOpen}
+                rootPath={remoteFolderBrowserRoot}
+                title="Browse server folders"
+                description="Pick a folder on the machine running OK Code. This works from remote web sessions such as Tailscale."
+                onPick={(path) => {
+                  void openProjectPath(path);
+                }}
               />
 
               <HomeProviderStatus

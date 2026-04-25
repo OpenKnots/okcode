@@ -117,6 +117,11 @@ jobs:
             platform: mac
             target: dmg
             arch: arm64
+          - label: macOS x64
+            runner: macos-13
+            platform: mac
+            target: dmg
+            arch: x64
           - label: Linux x64
             runner: ubuntu-24.04
             platform: linux
@@ -223,8 +228,11 @@ jobs:
               "$AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME" \
               "$AZURE_TRUSTED_SIGNING_PUBLISHER_NAME"; then
               args+=(--signed --require-signed)
+            elif [[ "${{ needs.preflight.outputs.release_channel }}" == "stable" ]]; then
+              echo "Stable Windows releases require Azure Trusted Signing secrets." >&2
+              exit 1
             else
-              echo "Azure Trusted Signing secrets not configured; building unsigned Windows artifact." >&2
+              echo "Azure Trusted Signing secrets not configured; building unsigned Windows prerelease artifact." >&2
             fi
           fi
 
@@ -359,6 +367,7 @@ jobs:
           --verbose
 
       - name: Verify published CLI
+        shell: bash
         run: |
           set -euo pipefail
           tmpdir="$(mktemp -d)"
@@ -391,6 +400,13 @@ jobs:
           pattern: desktop-*
           merge-multiple: true
           path: release-assets
+
+      - name: Merge macOS updater manifests
+        run: >
+          node scripts/merge-mac-update-manifests.ts
+          release-assets/latest-mac.yml
+          release-assets/latest-mac-x64.yml
+          release-assets/latest-mac.yml
 
       - name: Stage release documentation
         env:

@@ -269,6 +269,24 @@ export function getVisibleThreadsForProject(input: {
   };
 }
 
+export function partitionProjectThreadsForSidebar(threads: readonly Thread[]): {
+  projectChatThread: Thread | null;
+  sidebarThreads: Thread[];
+} {
+  let projectChatThread: Thread | null = null;
+  const sidebarThreads: Thread[] = [];
+
+  for (const thread of threads) {
+    if (thread.kind === "project-chat") {
+      projectChatThread ??= thread;
+      continue;
+    }
+    sidebarThreads.push(thread);
+  }
+
+  return { projectChatThread, sidebarThreads };
+}
+
 export function groupThreadsByProjectId<TThread extends SidebarProjectThread>(
   threads: readonly TThread[],
 ): Map<TThread["projectId"], TThread[]> {

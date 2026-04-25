@@ -332,12 +332,19 @@ function TerminalViewport({
     let disposed = false;
 
     const fitAddon = new FitAddon();
+    // Resolve `--font-code` at mount time so the terminal picks up the user's
+    // Code font selection. xterm.js renders via canvas and does not accept
+    // CSS vars in `fontFamily`, so we have to snapshot the value here.
+    const resolvedCodeFont =
+      (typeof window !== "undefined" &&
+        getComputedStyle(document.documentElement).getPropertyValue("--font-code").trim()) ||
+      '"JetBrains Mono", "SF Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace';
     const terminal = new Terminal({
       cursorBlink: true,
       lineHeight: 1.2,
       fontSize: getStoredFontSizeOverride() ?? 12,
       scrollback: 5_000,
-      fontFamily: '"SF Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace',
+      fontFamily: resolvedCodeFont,
       theme: terminalThemeFromApp(),
     });
     terminal.loadAddon(fitAddon);

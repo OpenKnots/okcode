@@ -174,13 +174,16 @@ const RightPanelSheet = (props: { open: boolean; onClose: () => void; children: 
   );
 };
 
-function ChatThreadRouteView() {
+export function ThreadChatSurface({
+  threadId,
+  onMinimize,
+}: {
+  threadId: ThreadId;
+  onMinimize?: (() => void) | undefined;
+}) {
   const threadsHydrated = useStore((store) => store.threadsHydrated);
   const navigate = useNavigate();
   const { toggleSidebar } = useSidebar();
-  const threadId = Route.useParams({
-    select: (params) => ThreadId.makeUnsafe(params.threadId),
-  });
   const threadExists = useStore((store) => store.threads.some((thread) => thread.id === threadId));
   const draftThreadExists = useComposerDraftStore((store) =>
     Object.hasOwn(store.draftThreadsByThreadId, threadId),
@@ -192,8 +195,6 @@ function ChatThreadRouteView() {
   const clientMode = useClientMode();
   const shouldUseSheet = clientMode === "mobile";
   const { resolvedTheme } = useTheme();
-  const widgetMinimize = useChatWidgetStore((s) => s.minimize);
-  const onMinimize = isMobileShell ? widgetMinimize : undefined;
 
   // ── Right panel store ─────────────────────────────────────────────
   const rightPanelOpen = useRightPanelStore((s) => s.isOpen);
@@ -480,5 +481,13 @@ function ChatThreadRouteView() {
 }
 
 export const Route = createFileRoute("/_chat/$threadId")({
-  component: ChatThreadRouteView,
+  component: function ChatThreadRouteView() {
+    const threadId = Route.useParams({
+      select: (params) => ThreadId.makeUnsafe(params.threadId),
+    });
+    const widgetMinimize = useChatWidgetStore((s) => s.minimize);
+    const onMinimize = isMobileShell ? widgetMinimize : undefined;
+
+    return <ThreadChatSurface threadId={threadId} onMinimize={onMinimize} />;
+  },
 });

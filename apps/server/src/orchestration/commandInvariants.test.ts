@@ -13,6 +13,7 @@ import { Effect } from "effect";
 import {
   findThreadById,
   requireProject,
+  requireProjectChatThreadAbsent,
   listThreadsByProjectId,
   requireNonNegativeInteger,
   requireThread,
@@ -62,6 +63,7 @@ const readModel: OrchestrationReadModel = {
   threads: [
     {
       id: ThreadId.makeUnsafe("thread-1"),
+      kind: "thread",
       projectId: ProjectId.makeUnsafe("project-a"),
       title: "Thread A",
       model: "gpt-5-codex",
@@ -81,6 +83,7 @@ const readModel: OrchestrationReadModel = {
     },
     {
       id: ThreadId.makeUnsafe("thread-2"),
+      kind: "thread",
       projectId: ProjectId.makeUnsafe("project-b"),
       title: "Thread B",
       model: "gpt-5-codex",
@@ -100,6 +103,7 @@ const readModel: OrchestrationReadModel = {
     },
     {
       id: ThreadId.makeUnsafe("thread-archived"),
+      kind: "thread",
       projectId: ProjectId.makeUnsafe("project-archived"),
       title: "Thread Archived",
       model: "gpt-5-codex",
@@ -215,6 +219,7 @@ describe("commandInvariants", () => {
           type: "thread.create",
           commandId: CommandId.makeUnsafe("cmd-2"),
           threadId: ThreadId.makeUnsafe("thread-3"),
+          kind: "thread",
           projectId: ProjectId.makeUnsafe("project-a"),
           title: "new",
           model: "gpt-5-codex",
@@ -236,6 +241,7 @@ describe("commandInvariants", () => {
             type: "thread.create",
             commandId: CommandId.makeUnsafe("cmd-3"),
             threadId: ThreadId.makeUnsafe("thread-1"),
+            kind: "thread",
             projectId: ProjectId.makeUnsafe("project-a"),
             title: "dup",
             model: "gpt-5-codex",
@@ -249,6 +255,58 @@ describe("commandInvariants", () => {
         }),
       ),
     ).rejects.toThrow("already exists");
+  });
+
+  it("rejects duplicate project-chat threads within the same project", async () => {
+    const readModelWithProjectChat: OrchestrationReadModel = {
+      ...readModel,
+      threads: [
+        ...readModel.threads,
+        {
+          id: ThreadId.makeUnsafe("thread-project-chat"),
+          kind: "project-chat",
+          projectId: ProjectId.makeUnsafe("project-a"),
+          title: "Project chat",
+          model: "gpt-5-codex",
+          interactionMode: DEFAULT_PROVIDER_INTERACTION_MODE,
+          runtimeMode: "full-access",
+          branch: null,
+          worktreePath: null,
+          createdAt: now,
+          updatedAt: now,
+          latestTurn: null,
+          messages: [],
+          session: null,
+          activities: [],
+          proposedPlans: [],
+          checkpoints: [],
+          deletedAt: null,
+        },
+      ],
+    };
+
+    await expect(
+      Effect.runPromise(
+        requireProjectChatThreadAbsent({
+          readModel: readModelWithProjectChat,
+          command: {
+            type: "thread.create",
+            commandId: CommandId.makeUnsafe("cmd-project-chat"),
+            threadId: ThreadId.makeUnsafe("thread-project-chat-next"),
+            kind: "project-chat",
+            projectId: ProjectId.makeUnsafe("project-a"),
+            title: "Project chat",
+            model: "gpt-5-codex",
+            interactionMode: DEFAULT_PROVIDER_INTERACTION_MODE,
+            runtimeMode: "full-access",
+            branch: null,
+            worktreePath: null,
+            createdAt: now,
+          },
+          projectId: ProjectId.makeUnsafe("project-a"),
+        }),
+      ),
+    ).rejects.toThrow("already has a project chat");
   });
 
   it("requires non-negative integers", async () => {

@@ -30,6 +30,8 @@ import type {
 import type {
   ProjectDeleteEntryInput,
   ProjectFileTreeChangedPayload,
+  ProjectBrowseDirectoryInput,
+  ProjectBrowseDirectoryResult,
   ProjectListDirectoryInput,
   ProjectListDirectoryResult,
   ProjectReadFileInput,
@@ -357,6 +359,7 @@ export interface NativeApi {
   projects: {
     searchEntries: (input: ProjectSearchEntriesInput) => Promise<ProjectSearchEntriesResult>;
     listDirectory: (input: ProjectListDirectoryInput) => Promise<ProjectListDirectoryResult>;
+    browseDirectory: (input: ProjectBrowseDirectoryInput) => Promise<ProjectBrowseDirectoryResult>;
     writeFile: (input: ProjectWriteFileInput) => Promise<ProjectWriteFileResult>;
     readFile: (input: ProjectReadFileInput) => Promise<ProjectReadFileResult>;
     deleteEntry: (input: ProjectDeleteEntryInput) => Promise<void>;

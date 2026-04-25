@@ -107,9 +107,9 @@ export const PROVIDER_AUTH_GUIDES: Record<ProviderKind, ProviderAuthGuide> = {
     note: "GitHub Copilot must be installed and signed in before it appears in the thread picker.",
   },
   openclaw: {
-    authCmd: "Use gateway shared secret/token",
+    authCmd: "Use gateway shared secret",
     verifyCmd: "Test Connection",
-    note: "OpenClaw uses the gateway URL and shared secret/token below rather than a local CLI login. Shared-secret auth usually works without device pairing and is the recommended default for Tailscale and remote gateways. Connection is verified by a WebSocket handshake plus /health probe and a connect handshake; click Test Connection again if the gateway restarts or your network changes.",
+    note: "OpenClaw uses the gateway URL and shared secret below rather than a local CLI login. Depending on gateway auth mode, OK Code sends that shared secret as token-style or password-style auth. Shared-secret auth usually works without device pairing and is the recommended default for Tailscale and remote gateways. Connection is verified by a WebSocket handshake plus /health probe and a connect handshake; click Test Connection again if the gateway restarts or your network changes.",
   },
 };
 

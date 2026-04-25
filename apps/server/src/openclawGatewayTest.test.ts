@@ -152,6 +152,55 @@ describe("runOpenclawGatewayTest", () => {
     expect(typeof connectParams?.device?.signedAt).toBe("number");
   });
 
+  it("retries with password-style auth when the gateway requires auth.password", async () => {
+    const attemptedParams: GatewayRequestFrame["params"][] = [];
+
+    const gateway = await createGatewayServer((socket) => {
+      sendChallenge(socket);
+      socket.on("message", (data) => {
+        const message = JSON.parse(data.toString()) as GatewayRequestFrame;
+        if (message.type === "req" && message.method === "connect") {
+          attemptedParams.push(message.params);
+          if (message.params?.auth?.password === "topsecret") {
+            socket.send(
+              JSON.stringify({
+                type: "res",
+                id: message.id,
+                ok: true,
+                payload: { type: "hello-ok", protocol: 3 },
+              }),
+            );
+            return;
+          }
+
+          socket.send(
+            JSON.stringify({
+              type: "res",
+              id: message.id,
+              ok: false,
+              error: {
+                message: "unauthorized: gateway password missing",
+                details: {
+                  code: "AUTH_PASSWORD_MISSING",
+                  reason: "provide gateway auth password",
+                  recommendedNextStep: "update_auth_configuration",
+                },
+              },
+            }),
+          );
+        }
+      });
+    });
+
+    const result = await runOpenclawGatewayTest({
+      gatewayUrl: gateway.url,
+      password: "topsecret",
+    });
+
+    expect(result.success).toBe(true);
+    expect(attemptedParams.some((params) => params?.auth?.password === "topsecret")).toBe(true);
+  });
+
   it("reports pairing-required detail codes from the connect handshake", async () => {
     const gateway = await createGatewayServer((socket) => {
       sendChallenge(socket);
@@ -193,5 +242,26 @@ describe("runOpenclawGatewayTest", () => {
     expect(result.diagnostics?.gatewayErrorDetailReason).toBe("pairing-required");
     expect(result.diagnostics?.gatewayRecommendedNextStep).toBe("approve_device");
     expect(result.diagnostics?.hints.some((hint) => hint.includes("pairing approval"))).toBe(true);
+  });
+
+  it("adds a shared-secret hint for password-missing handshake errors", () => {
+    const hints = OpenclawGatewayTestInternals.buildHints(
+      new URL("wss://vals-mini.example.ts.net"),
+      {
+        resolvedAddresses: ["100.90.12.34"],
+        hostKind: "tailscale",
+        healthStatus: "pass",
+        observedNotifications: ["connect.challenge"],
+        hints: [],
+        gatewayErrorDetailCode: "AUTH_PASSWORD_MISSING",
+      },
+      "Gateway handshake",
+      "unauthorized: gateway password missing (AUTH_PASSWORD_MISSING)",
+      false,
+    );
+
+    expect(hints.some((hint) => hint.includes("add the configured secret and test again"))).toBe(
+      true,
+    );
   });
 });

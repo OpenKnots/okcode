@@ -7,6 +7,7 @@ import { stripTaggedBody } from "./shared";
 export function createWorkspaceRouteHandlers(input: {
   searchWorkspaceEntries: (body: unknown) => Promise<unknown>;
   listWorkspaceDirectory: (body: unknown) => Promise<unknown>;
+  browseFileSystemDirectory: (body: unknown) => Promise<unknown>;
   resolveCheckPath: (path: string) => Effect.Effect<string, unknown, never>;
   fileSystem: {
     stat: (path: string) => Effect.Effect<{ type: string; size?: bigint | number }, unknown, never>;
@@ -61,6 +62,15 @@ export function createWorkspaceRouteHandlers(input: {
         try: () => input.listWorkspaceDirectory(body),
         catch: (cause) =>
           input.createRouteRequestError(`Failed to list workspace directory: ${String(cause)}`),
+      });
+    },
+
+    [WS_METHODS.projectsBrowseDirectory]: (_ws, request) => {
+      const body = stripTaggedBody(request.body as any);
+      return Effect.tryPromise({
+        try: () => input.browseFileSystemDirectory(body),
+        catch: (cause) =>
+          input.createRouteRequestError(`Failed to browse directory: ${String(cause)}`),
       });
     },
 

@@ -55,6 +55,7 @@ import { createLogger } from "./logger";
 import { pickFolderNative } from "./nativeFolderPicker.ts";
 import { TerminalManager } from "./terminal/Services/Manager.ts";
 import { Keybindings } from "./keybindings";
+import { browseFileSystemDirectory } from "./fileSystemBrowser.ts";
 import {
   clearWorkspaceIndexCache,
   listWorkspaceDirectory,
@@ -1139,6 +1140,7 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
     ...createWorkspaceRouteHandlers({
       searchWorkspaceEntries,
       listWorkspaceDirectory,
+      browseFileSystemDirectory,
       resolveCheckPath,
       fileSystem,
       path,

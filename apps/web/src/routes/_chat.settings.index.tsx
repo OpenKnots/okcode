@@ -1412,9 +1412,7 @@ function SettingsRouteView() {
                   </span>
                 </label>
                 <label htmlFor="openclaw-password" className="block">
-                  <span className="block text-xs font-medium text-foreground">
-                    Shared Secret / Token
-                  </span>
+                  <span className="block text-xs font-medium text-foreground">Shared Secret</span>
                   <Input
                     id="openclaw-password"
                     className="mt-1"
@@ -1429,8 +1427,9 @@ function SettingsRouteView() {
                     autoComplete="off"
                   />
                   <span className="mt-1 block text-xs text-muted-foreground">
-                    Shared secret used to authenticate with the gateway. This is the recommended
-                    default for remote and Tailscale gateways.
+                    Shared secret used to authenticate with the gateway. OK Code will try
+                    token-style and password-style auth as needed. This is the recommended default
+                    for remote and Tailscale gateways.
                   </span>
                 </label>
 

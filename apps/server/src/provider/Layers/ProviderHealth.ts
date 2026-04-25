@@ -74,6 +74,20 @@ const OPENCLAW_HEALTH_REQUIRED_METHODS = [
   "sessions.messages.subscribe",
 ] as const;
 
+export function isOpenClawGatewayUnauthenticatedDetailCode(
+  detailCode: string | undefined,
+): boolean {
+  return (
+    detailCode === "PAIRING_REQUIRED" ||
+    detailCode === "AUTH_TOKEN_MISSING" ||
+    detailCode === "AUTH_PASSWORD_MISSING" ||
+    detailCode === "AUTH_TOKEN_MISMATCH" ||
+    detailCode === "AUTH_PASSWORD_MISMATCH" ||
+    detailCode === "AUTH_DEVICE_TOKEN_MISMATCH" ||
+    detailCode?.startsWith("DEVICE_AUTH_") === true
+  );
+}
+
 // ── Pure helpers ────────────────────────────────────────────────────
 
 export interface CommandResult {
@@ -1076,13 +1090,7 @@ const checkOpenClawProviderStatus: Effect.Effect<
     if (error instanceof OpenclawGatewayClientError) {
       const detailCode = error.gatewayError?.detailCode;
       const gatewayMessage = error.gatewayError?.message ?? error.message;
-      if (
-        detailCode === "PAIRING_REQUIRED" ||
-        detailCode === "AUTH_TOKEN_MISSING" ||
-        detailCode === "AUTH_TOKEN_MISMATCH" ||
-        detailCode === "AUTH_DEVICE_TOKEN_MISMATCH" ||
-        detailCode?.startsWith("DEVICE_AUTH_")
-      ) {
+      if (isOpenClawGatewayUnauthenticatedDetailCode(detailCode)) {
         return createServerProviderStatus({
           provider: OPENCLAW_PROVIDER,
           enabled: true,

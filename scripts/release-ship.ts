@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { execFileSync } from "node:child_process";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { parseMacUpdateManifest } from "./merge-mac-update-manifests.ts";
@@ -11,6 +11,8 @@ const DEFAULT_GH_REPO = process.env.OKCODE_RELEASE_GH_REPO?.trim() || "OpenKnots
 const DEFAULT_WORKFLOW_ID = "release.yml";
 const DEFAULT_TIMEOUT_MS = 30 * 60 * 1000;
 const DEFAULT_POLL_INTERVAL_MS = 5_000;
+
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 export interface WorkflowRunSummary {
   readonly id: number;
@@ -172,14 +174,18 @@ function createReleaseShipDeps(repo: string): ReleaseShipDeps {
         runCommand("gh", ["auth", "status"]);
       },
       runPreReleaseValidate: async (version) => {
-        execFileSync(process.execPath, ["scripts/pre-release-validate.ts", version, "--ci"], {
-          stdio: "inherit",
-        });
+        execFileSync(
+          process.execPath,
+          [resolve(repoRoot, "scripts/pre-release-validate.ts"), version, "--ci"],
+          { stdio: "inherit", cwd: repoRoot },
+        );
       },
       runPrepareRelease: async (version) => {
-        execFileSync(process.execPath, ["scripts/prepare-release.ts", version, "--skip-checks"], {
-          stdio: "inherit",
-        });
+        execFileSync(
+          process.execPath,
+          [resolve(repoRoot, "scripts/prepare-release.ts"), version, "--skip-checks"],
+          { stdio: "inherit", cwd: repoRoot },
+        );
       },
     },
     github: {
@@ -266,14 +272,30 @@ function parseArgs(argv: readonly string[]): {
         repo = argv[index + 1] ?? repo;
         index += 1;
         break;
-      case "--timeout-ms":
-        timeoutMs = Number(argv[index + 1] ?? timeoutMs);
+      case "--timeout-ms": {
+        const rawTimeout = argv[index + 1];
+        const parsed = Number(rawTimeout);
+        if (!rawTimeout || !Number.isFinite(parsed) || parsed <= 0) {
+          throw new Error(
+            `--timeout-ms requires a positive finite number (got: ${rawTimeout ?? "<missing>"}).`,
+          );
+        }
+        timeoutMs = parsed;
         index += 1;
         break;
-      case "--poll-interval-ms":
-        pollIntervalMs = Number(argv[index + 1] ?? pollIntervalMs);
+      }
+      case "--poll-interval-ms": {
+        const rawInterval = argv[index + 1];
+        const parsed = Number(rawInterval);
+        if (!rawInterval || !Number.isFinite(parsed) || parsed <= 0) {
+          throw new Error(
+            `--poll-interval-ms requires a positive finite number (got: ${rawInterval ?? "<missing>"}).`,
+          );
+        }
+        pollIntervalMs = parsed;
         index += 1;
         break;
+      }
       default:
         if (argument.startsWith("--")) {
           throw new Error(`Unknown argument: ${argument}`);

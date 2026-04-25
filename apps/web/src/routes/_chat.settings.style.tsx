@@ -38,10 +38,6 @@ import {
 } from "../hooks/useTheme";
 import { useSettingsRouteContext } from "../components/settings/SettingsRouteContext";
 import {
-  ZOOM_DEFAULT,
-  ZOOM_MAX,
-  ZOOM_MIN,
-  ZOOM_STEP,
   applyCustomTheme,
   clearStoredCustomTheme,
   getStoredCustomTheme,
@@ -100,8 +96,6 @@ function SettingsStyleRouteView() {
     setFontOverride,
     fontSizeOverride,
     setFontSizeOverride,
-    zoom,
-    setZoom,
     changedSettingLabels,
     restoreDefaults,
   } = useSettingsRouteContext();
@@ -398,35 +392,6 @@ function SettingsStyleRouteView() {
                 />
                 <span className="w-12 text-right text-xs tabular-nums text-muted-foreground">
                   {fontSizeOverride ?? 12}px
-                </span>
-              </div>
-            }
-          />
-
-          <SettingsRow
-            title="App zoom"
-            description="Scale the entire interface. Keyboard: ⌘= / ⌘- / ⌘0."
-            resetAction={
-              zoom !== ZOOM_DEFAULT ? (
-                <SettingResetButton label="app zoom" onClick={() => setZoom(ZOOM_DEFAULT)} />
-              ) : null
-            }
-            control={
-              <div className="flex items-center gap-2">
-                <input
-                  type="range"
-                  min={ZOOM_MIN}
-                  max={ZOOM_MAX}
-                  step={ZOOM_STEP}
-                  value={zoom}
-                  onChange={(e) => {
-                    setZoom(Number.parseFloat(e.target.value));
-                  }}
-                  className="h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-muted accent-foreground sm:w-28"
-                  aria-label="App zoom"
-                />
-                <span className="w-12 text-right text-xs tabular-nums text-muted-foreground">
-                  {Math.round(zoom * 100)}%
                 </span>
               </div>
             }

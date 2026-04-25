@@ -1,12 +1,4 @@
-import {
-  type ReactNode,
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { type ReactNode, createContext, useCallback, useContext, useMemo, useState } from "react";
 
 import { DEFAULT_GIT_TEXT_GENERATION_MODEL } from "@okcode/contracts";
 
@@ -19,22 +11,17 @@ import {
 } from "../../hooks/useTheme";
 import { readNativeApi, ensureNativeApi } from "../../nativeApi";
 import {
-  ZOOM_CHANGE_EVENT,
-  ZOOM_DEFAULT,
   clearFontOverride,
   clearFontSizeOverride,
   clearRadiusOverride,
   clearStoredCustomTheme,
-  clearZoom,
   getStoredFontOverride,
   getStoredFontSizeOverride,
   getStoredRadiusOverride,
-  getStoredZoom,
   removeCustomTheme,
   setStoredFontOverride,
   setStoredFontSizeOverride,
   setStoredRadiusOverride,
-  setStoredZoom,
 } from "../../lib/customTheme";
 
 type ThemeState = ReturnType<typeof useTheme>;
@@ -55,8 +42,6 @@ interface SettingsRouteContextValue {
   setFontOverride: (value: string) => void;
   fontSizeOverride: number | null;
   setFontSizeOverride: (value: number | null) => void;
-  zoom: number;
-  setZoom: (value: number) => void;
   changedSettingLabels: readonly string[];
   restoreDefaults: () => Promise<void>;
 }
@@ -85,7 +70,6 @@ export function SettingsRouteContextProvider({ children }: { children: ReactNode
   const [fontSizeOverrideState, setFontSizeOverrideState] = useState<number | null>(() =>
     getStoredFontSizeOverride(),
   );
-  const [zoomState, setZoomState] = useState<number>(() => getStoredZoom());
 
   const setRadiusOverride = useCallback((value: number | null) => {
     setRadiusOverrideState(value);
@@ -112,32 +96,6 @@ export function SettingsRouteContextProvider({ children }: { children: ReactNode
       return;
     }
     setStoredFontSizeOverride(value);
-  }, []);
-
-  // Keep local React state in sync with storage. `setStoredZoom` also
-  // clamps — we read back via `getStoredZoom` so the slider shows the clamped
-  // value rather than the raw input when the user drags past the bounds.
-  const setZoom = useCallback((value: number) => {
-    setStoredZoom(value);
-    setZoomState(getStoredZoom());
-  }, []);
-
-  // The keybinding handler in `ChatRouteGlobalShortcuts` writes zoom directly
-  // to storage via `setStoredZoom`. Listen for the in-window `zoom-change`
-  // event so the slider reflects keyboard-driven changes live; also listen to
-  // `storage` for multi-window consistency.
-  useEffect(() => {
-    const refresh = () => setZoomState(getStoredZoom());
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key !== "okcode:app-zoom") return;
-      refresh();
-    };
-    window.addEventListener("storage", handleStorage);
-    window.addEventListener(ZOOM_CHANGE_EVENT, refresh as EventListener);
-    return () => {
-      window.removeEventListener("storage", handleStorage);
-      window.removeEventListener(ZOOM_CHANGE_EVENT, refresh as EventListener);
-    };
   }, []);
 
   const currentGitTextGenerationModel =
@@ -236,7 +194,6 @@ export function SettingsRouteContextProvider({ children }: { children: ReactNode
         ...(radiusOverrideState !== null ? ["Border radius"] : []),
         ...(fontOverrideState ? ["Font family"] : []),
         ...(fontSizeOverrideState !== null ? ["Code font size"] : []),
-        ...(zoomState !== ZOOM_DEFAULT ? ["App zoom"] : []),
       ] as const,
     [
       codeFont,
@@ -251,7 +208,6 @@ export function SettingsRouteContextProvider({ children }: { children: ReactNode
       radiusOverrideState,
       settings,
       theme,
-      zoomState,
     ],
   );
 
@@ -280,8 +236,6 @@ export function SettingsRouteContextProvider({ children }: { children: ReactNode
     setFontOverrideState("");
     clearFontSizeOverride();
     setFontSizeOverrideState(null);
-    clearZoom();
-    setZoomState(ZOOM_DEFAULT);
   }, [
     changedSettingLabels,
     resetSettings,
@@ -292,7 +246,6 @@ export function SettingsRouteContextProvider({ children }: { children: ReactNode
     setFontOverrideState,
     setFontSizeOverrideState,
     setRadiusOverrideState,
-    setZoomState,
   ]);
 
   const value = useMemo<SettingsRouteContextValue>(
@@ -312,8 +265,6 @@ export function SettingsRouteContextProvider({ children }: { children: ReactNode
       setFontOverride,
       fontSizeOverride: fontSizeOverrideState,
       setFontSizeOverride,
-      zoom: zoomState,
-      setZoom,
       changedSettingLabels,
       restoreDefaults,
     }),
@@ -333,10 +284,8 @@ export function SettingsRouteContextProvider({ children }: { children: ReactNode
       setMessageFont,
       setRadiusOverride,
       setTheme,
-      setZoom,
       settingsState,
       theme,
-      zoomState,
     ],
   );
 

@@ -54,6 +54,7 @@
     "release:prepare": "node scripts/prepare-release.ts",
     "release:validate": "node scripts/pre-release-validate.ts",
     "release:smoke": "node scripts/release-smoke.ts",
+    "release:ship": "node scripts/release-ship.ts",
     "dist:mobile:build": "bun run --cwd apps/mobile build",
     "dist:mobile:sync:ios": "cd apps/mobile && bunx cap sync ios --deployment",
     "patch:capacitor-local-notifications": "node scripts/patch-capacitor-local-notifications.ts",

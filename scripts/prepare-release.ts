@@ -388,10 +388,10 @@ Step-by-step playbook for the v${version} release. Each phase must complete befo
 - [ ] \`okcode-CHANGELOG.md\` is attached.
 - [ ] \`okcode-RELEASE-NOTES.md\` is attached.
 - [ ] \`okcode-ASSETS-MANIFEST.md\` is attached.
-- [ ] macOS release artifacts are attached: DMG, ZIP, updater manifest, and blockmaps.
+- [ ] macOS arm64 release artifacts are attached: DMG, ZIP, updater manifest coverage, and blockmaps.
+- [ ] macOS x64 release artifacts are attached: DMG, ZIP, updater manifest coverage, and blockmaps.
 - [ ] Linux release artifacts are attached: AppImage and updater manifest if generated.
 - [ ] Windows release artifacts are attached: installer, updater manifest, and blockmaps.
-- [ ] If the Intel compatibility workflow is run, confirm the x64 macOS DMG is attached separately.
 
 ## Phase 2: Post-release verification
 
@@ -405,7 +405,6 @@ Step-by-step playbook for the v${version} release. Each phase must complete befo
 
 ## Phase 3: Follow-through
 
-- [ ] Trigger the Intel compatibility workflow if macOS x64 artifacts are required for this train.
 - [ ] Update external release references or announcements.
 - [ ] Monitor reports for regressions in provider onboarding, auth flows, release packaging, and cross-platform install/update behavior.
 `;

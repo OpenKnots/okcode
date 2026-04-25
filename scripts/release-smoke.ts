@@ -78,6 +78,9 @@ function writeReleaseAssetFixtures(targetRoot: string): void {
     "OK-Code-9.9.9-smoke.0-arm64.dmg",
     "OK-Code-9.9.9-smoke.0-arm64.zip",
     "OK-Code-9.9.9-smoke.0-arm64.zip.blockmap",
+    "OK-Code-9.9.9-smoke.0-x64.dmg",
+    "OK-Code-9.9.9-smoke.0-x64.zip",
+    "OK-Code-9.9.9-smoke.0-x64.zip.blockmap",
     "OK-Code-9.9.9-smoke.0.AppImage",
     "OK-Code-9.9.9-smoke.0.exe",
     "OK-Code-9.9.9-smoke.0.exe.blockmap",
@@ -149,6 +152,11 @@ try {
     mergedManifest,
     "OK-Code-9.9.9-smoke.0-x64.zip",
     "Merged manifest is missing the x64 asset.",
+  );
+  assertContains(
+    mergedManifest,
+    "OK-Code-9.9.9-smoke.0-x64.dmg",
+    "Merged manifest is missing the x64 DMG asset.",
   );
 
   execFileSync(

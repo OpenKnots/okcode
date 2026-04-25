@@ -442,7 +442,7 @@ export default function ChatView({
     activeProjectId ? (state.dockByProjectId[activeProjectId] ?? "top") : "top",
   );
   const previewLayoutMode = usePreviewStateStore((state) =>
-    activeProjectId ? (state.layoutModeByProjectId[activeProjectId] ?? "top") : "top",
+    activeProjectId ? (state.layoutModeByProjectId[activeProjectId] ?? "side") : "side",
   );
   const previewSizeDefault =
     previewLayoutMode === "side"
@@ -5054,7 +5054,7 @@ export default function ChatView({
                 className="rounded-md border border-border/50 bg-background px-2 py-0.5 text-xs text-foreground transition-colors hover:bg-muted"
                 onClick={() => {
                   if (activeProjectId) {
-                    usePreviewStateStore.getState().setProjectLayoutMode(activeProjectId, "top");
+                    usePreviewStateStore.getState().setProjectLayoutMode(activeProjectId, "side");
                     void readDesktopPreviewBridge()?.popIn?.();
                   }
                 }}

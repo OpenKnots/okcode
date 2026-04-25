@@ -7,7 +7,8 @@ describe("Sidebar file tree shortcut", () => {
     const src = readFileSync(resolve(import.meta.dirname, "./Sidebar.tsx"), "utf8");
 
     expect(src).toContain('aria-label="Open workspace"');
-    expect(src).toContain('useRightPanelStore.getState().open("workspace")');
+    expect(src).toContain("const panelState = useRightPanelStore.getState();");
+    expect(src).toContain('panelState.open("workspace")');
     expect(src).not.toContain("<WorkspaceFileTree");
   });
 

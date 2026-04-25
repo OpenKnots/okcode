@@ -27,6 +27,7 @@ import type {
 
 export interface TestTurnResponse {
   readonly events: ReadonlyArray<FixtureProviderRuntimeEvent>;
+  readonly autoComplete?: boolean | undefined;
   readonly mutateWorkspace?: (input: {
     readonly cwd: string;
     readonly turnCount: number;
@@ -50,7 +51,7 @@ export type FixtureProviderRuntimeEvent = {
 export type LegacyProviderRuntimeEvent = FixtureProviderRuntimeEvent;
 
 interface SessionState {
-  readonly session: ProviderSession;
+  session: ProviderSession;
   snapshot: ProviderThreadSnapshot;
   turnCount: number;
   readonly queuedResponses: Array<TestTurnResponse>;
@@ -290,6 +291,12 @@ export const makeTestProviderAdapterHarness = (options?: MakeTestProviderAdapter
         state.turnCount += 1;
         const turnCount = state.turnCount;
         const turnId = TurnId.makeUnsafe(`turn-${turnCount}`);
+        state.session = {
+          ...state.session,
+          status: "running",
+          activeTurnId: turnId,
+          updatedAt: nowIso(),
+        };
 
         const response = state.queuedResponses.shift();
         if (!response) {
@@ -360,7 +367,9 @@ export const makeTestProviderAdapterHarness = (options?: MakeTestProviderAdapter
           turns: [...state.snapshot.turns, nextTurn],
         };
 
-        if (deferredTurnCompletedEvents.length === 0) {
+        const shouldAutoComplete =
+          deferredTurnCompletedEvents.length === 0 && response.autoComplete !== false;
+        if (shouldAutoComplete) {
           yield* emit({
             type: "turn.completed",
             eventId: EventId.makeUnsafe(randomUUID()),
@@ -376,6 +385,15 @@ export const makeTestProviderAdapterHarness = (options?: MakeTestProviderAdapter
           for (const completedEvent of deferredTurnCompletedEvents) {
             yield* emit(completedEvent);
           }
+        }
+
+        if (shouldAutoComplete || deferredTurnCompletedEvents.length > 0) {
+          state.session = {
+            ...state.session,
+            status: "ready",
+            activeTurnId: undefined,
+            updatedAt: nowIso(),
+          };
         }
 
         return {

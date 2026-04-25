@@ -1128,6 +1128,7 @@ it.live("forwards thread.turn.interrupt to claudeAgent provider sessions", () =>
         yield* seedProjectAndThread(harness);
 
         yield* harness.adapterHarness!.queueTurnResponseForNextSession({
+          autoComplete: false,
           events: [
             {
               type: "turn.started",
@@ -1141,13 +1142,6 @@ it.live("forwards thread.turn.interrupt to claudeAgent provider sessions", () =>
               threadId: THREAD_ID,
               turnId: FIXTURE_TURN_ID,
               delta: "Long running output.\n",
-            },
-            {
-              type: "turn.completed",
-              ...runtimeBase("evt-claude-interrupt-3", "2026-02-24T10:13:00.100Z", "claudeAgent"),
-              threadId: THREAD_ID,
-              turnId: FIXTURE_TURN_ID,
-              status: "completed",
             },
           ],
         });

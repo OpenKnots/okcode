@@ -187,6 +187,20 @@ describe("ProviderCommandReactor", () => {
         }
       }),
     );
+    const dropRuntimeSession = (threadId: ThreadId) => {
+      const index = runtimeSessions.findIndex((session) => session.threadId === threadId);
+      if (index >= 0) {
+        runtimeSessions.splice(index, 1);
+      }
+    };
+    const upsertRuntimeSession = (session: ProviderSession) => {
+      const index = runtimeSessions.findIndex((entry) => entry.threadId === session.threadId);
+      if (index >= 0) {
+        runtimeSessions[index] = session;
+        return;
+      }
+      runtimeSessions.push(session);
+    };
     const renameBranch = vi.fn((input: unknown) =>
       Effect.succeed({
         branch:
@@ -288,6 +302,8 @@ describe("ProviderCommandReactor", () => {
       stopSession,
       renameBranch,
       generateBranchName,
+      dropRuntimeSession,
+      upsertRuntimeSession,
       projectWorkspaceRoot,
       stateDir,
       drain,
@@ -1149,6 +1165,7 @@ describe("ProviderCommandReactor", () => {
         createdAt: now,
       }),
     );
+    harness.dropRuntimeSession(ThreadId.makeUnsafe("thread-1"));
 
     harness.startSession.mockImplementationOnce(
       (_: unknown, __: unknown) => Effect.fail(new Error("simulated start failure")) as never,
@@ -1208,6 +1225,17 @@ describe("ProviderCommandReactor", () => {
         createdAt: now,
       }),
     );
+    harness.upsertRuntimeSession({
+      provider: "codex",
+      status: "running",
+      runtimeMode: "approval-required",
+      cwd: harness.projectWorkspaceRoot,
+      threadId: ThreadId.makeUnsafe("thread-1"),
+      resumeCursor: { opaque: "interrupt-session" },
+      activeTurnId: asTurnId("turn-1"),
+      createdAt: now,
+      updatedAt: now,
+    });
 
     await Effect.runPromise(
       harness.engine.dispatch({

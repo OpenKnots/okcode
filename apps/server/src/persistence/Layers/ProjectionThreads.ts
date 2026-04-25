@@ -77,7 +77,7 @@ const makeProjectionThreadRepository = Effect.gen(function* () {
           created_at = excluded.created_at,
           updated_at = excluded.updated_at,
           deleted_at = excluded.deleted_at,
-          kind = excluded.kind,
+          kind = excluded.kind
       `,
   });
 

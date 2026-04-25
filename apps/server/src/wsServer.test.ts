@@ -96,10 +96,6 @@ const defaultCodexConfigSummary = {
   selectedModelProviderId: null,
   entries: [],
   parseError: null,
-  detectedLocalBackends: {
-    ollama: { reachable: false },
-    lmstudio: { reachable: false },
-  },
 } as const;
 
 const expectedServerBuildInfo = expect.objectContaining({

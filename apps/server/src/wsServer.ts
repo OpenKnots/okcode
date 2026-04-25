@@ -1001,42 +1001,63 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
     | SqlClient.SqlClient
   >();
   const runPromise = Effect.runPromiseWith(serverContext);
+  const providedGitManager = ServiceMap.getOrUndefined(serverContext, GitManager);
+  const providedPrReview = ServiceMap.getOrUndefined(serverContext, PrReview);
+  const providedGitHub = ServiceMap.getOrUndefined(serverContext, GitHub);
+  const providedSkillService = ServiceMap.getOrUndefined(serverContext, SkillService);
+  const providedTerminalRuntimeEnvResolver = ServiceMap.getOrUndefined(
+    serverContext,
+    TerminalRuntimeEnvResolver,
+  );
+  const providedTerminalManager = ServiceMap.getOrUndefined(serverContext, TerminalManager);
   const gitManagerLoader = yield* Effect.cached(
-    GitManager.asEffect().pipe(
-      Effect.provide(makeOptionalGitManagerLayer()),
-      Effect.provide(serverContext),
-    ),
+    providedGitManager
+      ? Effect.succeed(providedGitManager)
+      : GitManager.asEffect().pipe(
+          Effect.provide(makeOptionalGitManagerLayer()),
+          Effect.provide(serverContext),
+        ),
   );
   const prReviewLoader = yield* Effect.cached(
-    PrReview.asEffect().pipe(
-      Effect.provide(makeOptionalPrReviewLayer()),
-      Effect.provide(serverContext),
-    ),
+    providedPrReview
+      ? Effect.succeed(providedPrReview)
+      : PrReview.asEffect().pipe(
+          Effect.provide(makeOptionalPrReviewLayer()),
+          Effect.provide(serverContext),
+        ),
   );
   const githubLoader = yield* Effect.cached(
-    GitHub.asEffect().pipe(
-      Effect.provide(makeOptionalGitHubLayer()),
-      Effect.provide(serverContext),
-    ),
+    providedGitHub
+      ? Effect.succeed(providedGitHub)
+      : GitHub.asEffect().pipe(
+          Effect.provide(makeOptionalGitHubLayer()),
+          Effect.provide(serverContext),
+        ),
   );
   const skillServiceLoader = yield* Effect.cached(
-    SkillService.asEffect().pipe(
-      Effect.provide(makeOptionalSkillServiceLayer()),
-      Effect.provide(serverContext),
-    ),
+    providedSkillService
+      ? Effect.succeed(providedSkillService)
+      : SkillService.asEffect().pipe(
+          Effect.provide(makeOptionalSkillServiceLayer()),
+          Effect.provide(serverContext),
+        ),
   );
   const terminalRuntimeEnvResolverLoader = yield* Effect.cached(
-    TerminalRuntimeEnvResolver.asEffect().pipe(
-      Effect.provide(makeOptionalTerminalRuntimeEnvResolverLayer()),
-      Effect.provide(serverContext),
-    ),
+    providedTerminalRuntimeEnvResolver
+      ? Effect.succeed(providedTerminalRuntimeEnvResolver)
+      : TerminalRuntimeEnvResolver.asEffect().pipe(
+          Effect.provide(makeOptionalTerminalRuntimeEnvResolverLayer()),
+          Effect.provide(serverContext),
+        ),
   );
   const terminalManagerWithSubscription = yield* Effect.cached(
     Effect.gen(function* () {
-      const terminalManager = yield* TerminalManager.asEffect().pipe(
-        Effect.provide(makeOptionalTerminalManagerLayer()),
-        Effect.provide(serverContext),
-      );
+      const terminalManager = providedTerminalManager
+        ? providedTerminalManager
+        : yield* TerminalManager.asEffect().pipe(
+            Effect.provide(makeOptionalTerminalManagerLayer()),
+            Effect.provide(serverContext),
+          );
       const unsubscribeTerminalEvents = yield* terminalManager.subscribe(
         (event) => void Effect.runPromise(pushBus.publishAll(WS_CHANNELS.terminalEvent, event)),
       );
@@ -1044,6 +1065,12 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
       yield* readiness.markTerminalSubscriptionsReady;
       return terminalManager;
     }),
+  );
+  yield* terminalManagerWithSubscription.pipe(
+    Effect.mapError(
+      (cause) => new ServerLifecycleError({ operation: "terminalSubscriptionsStart", cause }),
+    ),
+    Effect.asVoid,
   );
 
   // ── File tree watcher ──────────────────────────────────────────────

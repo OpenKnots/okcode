@@ -2553,15 +2553,12 @@ export default function Sidebar() {
                   >
                     <OkCodeMark className="size-4" />
                   </div>
-                  <div className="flex min-w-0 flex-col leading-none">
+                  <div className="min-w-0 flex-1">
                     <span className="truncate text-sm font-semibold tracking-tight text-foreground">
                       {APP_BASE_NAME}
                     </span>
-                    <span className="text-[10px] font-medium uppercase tracking-[0.22em] text-muted-foreground/80">
-                      {brandFooterStatus.detail}
-                    </span>
                   </div>
-                  <div className="ml-auto flex shrink-0 flex-col items-end gap-1">
+                  <div className="ml-auto flex shrink-0 items-center gap-2">
                     <span
                       className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]"
                       style={brandFooterStatus.pillStyle}

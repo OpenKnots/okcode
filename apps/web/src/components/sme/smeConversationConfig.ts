@@ -44,9 +44,9 @@ export function getSmeAuthMethodOptions(
       ];
     case "openclaw":
       return [
-        { value: "password", label: "Gateway Shared Secret / Token" },
+        { value: "password", label: "Gateway Shared Secret" },
         { value: "none", label: "Device Token Only" },
-        { value: "auto", label: "Auto (prefer shared secret/token)" },
+        { value: "auto", label: "Auto (prefer shared secret)" },
       ];
     case "gemini":
       return [

@@ -24,7 +24,7 @@ interface PreviewLayoutSwitcherProps {
 
 export function PreviewLayoutSwitcher({ projectId }: PreviewLayoutSwitcherProps) {
   const layoutMode = usePreviewStateStore(
-    (state) => state.layoutModeByProjectId[projectId] ?? "top",
+    (state) => state.layoutModeByProjectId[projectId] ?? "side",
   );
   const setProjectLayoutMode = usePreviewStateStore((state) => state.setProjectLayoutMode);
 

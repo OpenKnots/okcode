@@ -292,7 +292,7 @@ export const usePreviewStateStore = create<PreviewStateStore>((set, get) => ({
   },
 
   toggleProjectLayout: (_projectId) => {
-    // No-op: browser is locked to "top" position.
+    // No-op: browser layout switching stays explicit in the preview controls.
   },
 
   setProjectSize: (projectId, size) => {
@@ -395,7 +395,7 @@ export const usePreviewStateStore = create<PreviewStateStore>((set, get) => ({
 
   setProjectLayoutMode: (projectId, mode) => {
     set((state) => {
-      const currentMode = state.layoutModeByProjectId[projectId] ?? "top";
+      const currentMode = state.layoutModeByProjectId[projectId] ?? "side";
       const nextLayoutModeByProjectId = {
         ...state.layoutModeByProjectId,
         [projectId]: mode,
@@ -418,10 +418,10 @@ export const usePreviewStateStore = create<PreviewStateStore>((set, get) => ({
   },
 
   toggleFullscreen: (projectId) => {
-    const current = get().layoutModeByProjectId[projectId] ?? "top";
+    const current = get().layoutModeByProjectId[projectId] ?? "side";
     if (current === "fullscreen") {
       // Restore previous mode
-      const previous = get().previousLayoutModeByProjectId[projectId] ?? "top";
+      const previous = get().previousLayoutModeByProjectId[projectId] ?? "side";
       get().setProjectLayoutMode(projectId, previous);
     } else {
       get().setProjectLayoutMode(projectId, "fullscreen");

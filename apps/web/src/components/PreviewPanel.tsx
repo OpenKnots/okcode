@@ -163,7 +163,7 @@ export function PreviewPanel({ projectId, threadId, onClose }: PreviewPanelProps
   );
   const setCustomViewport = usePreviewStateStore((state) => state.setCustomViewport);
   const layoutMode = usePreviewStateStore(
-    (state) => state.layoutModeByProjectId[projectId] ?? "top",
+    (state) => state.layoutModeByProjectId[projectId] ?? "side",
   );
   const toggleFullscreen = usePreviewStateStore((state) => state.toggleFullscreen);
 

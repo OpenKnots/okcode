@@ -57,9 +57,9 @@ describe("PreviewLayoutSwitcher", () => {
 describe("previewStateStore layout mode", () => {
   const projectId = "test-project";
 
-  it("defaults layout mode to 'top'", () => {
+  it("defaults layout mode to 'side'", () => {
     const state = usePreviewStateStore.getState();
-    expect(state.layoutModeByProjectId[projectId] ?? "top").toBe("top");
+    expect(state.layoutModeByProjectId[projectId] ?? "side").toBe("side");
   });
 
   it("sets and persists layout mode", () => {

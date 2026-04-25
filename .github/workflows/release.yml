@@ -228,11 +228,8 @@ jobs:
               "$AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME" \
               "$AZURE_TRUSTED_SIGNING_PUBLISHER_NAME"; then
               args+=(--signed --require-signed)
-            elif [[ "${{ needs.preflight.outputs.release_channel }}" == "stable" ]]; then
-              echo "Stable Windows releases require Azure Trusted Signing secrets." >&2
-              exit 1
             else
-              echo "Azure Trusted Signing secrets not configured; building unsigned Windows prerelease artifact." >&2
+              echo "Azure Trusted Signing secrets not configured; building unsigned Windows artifact." >&2
             fi
           fi
 

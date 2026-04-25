@@ -4917,8 +4917,11 @@ export default function ChatView({
   const isFullscreenPreviewMode = Boolean(
     previewOpen && activeProject && previewLayoutMode === "fullscreen",
   );
+  const activeWorkElapsed = activeWorkStartedAt ? formatElapsed(activeWorkStartedAt, nowIso) : null;
   const floatingComposerStatus = isTurnActive
-    ? `Working for ${formatElapsed(activeWorkStartedAt, nowIso)}`
+    ? activeWorkElapsed
+      ? `Working for ${activeWorkElapsed}`
+      : "Working"
     : showPlanFollowUpPrompt && activeProposedPlan
       ? "Plan ready for follow-up"
       : phase === "disconnected"

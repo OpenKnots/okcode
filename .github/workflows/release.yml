@@ -295,6 +295,10 @@ jobs:
             done
           done
 
+          if [[ "${{ matrix.platform }}" == "mac" && "${{ matrix.arch }}" == "x64" && -f release-publish/latest-mac.yml ]]; then
+            mv release-publish/latest-mac.yml release-publish/latest-mac-x64.yml
+          fi
+
       - name: Upload desktop artifact bundle
         uses: actions/upload-artifact@v7
         with:
@@ -399,11 +403,12 @@ jobs:
           path: release-assets
 
       - name: Merge macOS updater manifests
-        run: >
-          node scripts/merge-mac-update-manifests.ts
-          release-assets/latest-mac.yml
-          release-assets/latest-mac-x64.yml
-          release-assets/latest-mac.yml
+        run: |
+          node scripts/merge-mac-update-manifests.ts \
+            release-assets/latest-mac.yml \
+            release-assets/latest-mac-x64.yml \
+            release-assets/latest-mac.yml
+          rm release-assets/latest-mac-x64.yml
 
       - name: Stage release documentation
         env:

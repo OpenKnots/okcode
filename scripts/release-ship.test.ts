@@ -128,7 +128,7 @@ describe("runReleaseShip", () => {
               },
               getReleaseAssets: async (tag) => {
                 calls.push(`assets:${tag}`);
-                return dualArchReleaseAssets.map((asset) => ({ ...asset }));
+                return dualArchReleaseAssets;
               },
               downloadReleaseAssetText: async (tag, assetName) => {
                 calls.push(`download:${tag}:${assetName}`);

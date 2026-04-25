@@ -72,6 +72,9 @@ function parseJson<T>(raw: string, label: string): T {
   } catch (error) {
     throw new Error(
       `Failed to parse ${label}: ${error instanceof Error ? error.message : String(error)}`,
+      {
+        cause: error,
+      },
     );
   }
 }
@@ -83,7 +86,8 @@ export function findWorkflowRunForTag(
   return (
     [...runs]
       .filter((run) => run.headBranch === tag)
-      .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt))[0] ?? null
+      .toSorted((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt))[0] ??
+    null
   );
 }
 

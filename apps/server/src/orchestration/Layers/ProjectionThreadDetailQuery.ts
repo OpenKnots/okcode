@@ -115,6 +115,7 @@ const makeProjectionThreadDetailQuery = Effect.gen(function* () {
       sql`
         SELECT
           thread_id AS "threadId",
+          kind,
           project_id AS "projectId",
           title,
           model,
@@ -368,6 +369,7 @@ const makeProjectionThreadDetailQuery = Effect.gen(function* () {
 
           return Schema.decodeUnknownSync(OrchestrationThread)({
             id: threadRow.value.threadId,
+            kind: threadRow.value.kind,
             projectId: threadRow.value.projectId,
             title: threadRow.value.title,
             model: threadRow.value.model,

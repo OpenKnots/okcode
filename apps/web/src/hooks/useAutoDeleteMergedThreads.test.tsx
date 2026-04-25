@@ -114,6 +114,7 @@ function seedStore(input?: { sharedWorktreePath?: string | null }) {
       {
         id: threadId,
         codexThreadId: null,
+        kind: "thread",
         projectId,
         title: "Merged worktree",
         model: "gpt-5.4",
@@ -134,6 +135,7 @@ function seedStore(input?: { sharedWorktreePath?: string | null }) {
       {
         id: threadTwoId,
         codexThreadId: null,
+        kind: "thread",
         projectId,
         title: "Neighbor thread",
         model: "gpt-5.4",

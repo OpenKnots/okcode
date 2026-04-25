@@ -300,6 +300,7 @@ export function syncServerReadModel(state: AppState, readModel: OrchestrationRea
       return {
         id: thread.id,
         codexThreadId: null,
+        kind: thread.kind,
         projectId: thread.projectId,
         title: thread.title,
         model: resolveModelSlugForProvider(

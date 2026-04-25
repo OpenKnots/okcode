@@ -101,30 +101,6 @@ function isCatalogSkill(
   return "installed" in skill;
 }
 
-function SkillLibraryTabs(props: { current: "skills" | "plugins" }) {
-  const navigate = useNavigate();
-  return (
-    <div className="inline-flex rounded-xl border bg-muted/35 p-1">
-      <Button
-        variant={props.current === "plugins" ? "secondary" : "ghost"}
-        size="sm"
-        onClick={() => void navigate({ to: "/plugins" })}
-      >
-        Plugins
-      </Button>
-      <Button
-        variant={props.current === "skills" ? "secondary" : "ghost"}
-        size="sm"
-        onClick={() =>
-          void navigate({ to: "/skills", search: { create: undefined, name: undefined } })
-        }
-      >
-        Skills
-      </Button>
-    </div>
-  );
-}
-
 function SkillDetailDialog(props: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -453,7 +429,9 @@ export function SkillsPage(props: {
         <div className="border-b px-4 py-3 sm:px-6">
           <div className="flex items-center gap-3">
             <SidebarTrigger />
-            <SkillLibraryTabs current="skills" />
+            <div className="rounded-xl border bg-muted/35 px-3 py-1.5 text-sm font-medium text-foreground">
+              Skills
+            </div>
           </div>
         </div>
         <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 overflow-y-auto px-4 py-8 sm:px-6">

@@ -178,6 +178,7 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
       sql`
         SELECT
           thread_id AS "threadId",
+          kind,
           project_id AS "projectId",
           title,
           model,
@@ -572,6 +573,7 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
             const githubRef = parseGithubRef(row.githubRef);
             const thread: OrchestrationThread = {
               id: row.threadId,
+              kind: row.kind,
               projectId: row.projectId,
               title: row.title,
               model: row.model,

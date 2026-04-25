@@ -1,25 +1,26 @@
-import vscodeIconsManifest from "./vscode-icons-manifest.json";
+import vscodeIconsLookupData from "./vscode-icons-lookup.json";
 import languageAssociationsData from "./vscode-icons-language-associations.json";
 
 const VSCODE_ICONS_VERSION = "v12.17.0";
 const VSCODE_ICONS_BASE_URL = `https://cdn.jsdelivr.net/gh/vscode-icons/vscode-icons@${VSCODE_ICONS_VERSION}/icons`;
 
-interface IconDefinition {
-  iconPath: string;
-}
-
-interface IconLookupSection {
-  file?: string;
-  folder?: string;
-  fileNames: Record<string, string>;
-  fileExtensions: Record<string, string>;
-  folderNames: Record<string, string>;
-  languageIds?: Record<string, string>;
-}
-
-interface VscodeIconsManifest extends IconLookupSection {
-  iconDefinitions: Record<string, IconDefinition>;
-  light: IconLookupSection;
+interface VscodeIconLookup {
+  version: string;
+  generatedAt: string;
+  defaults: {
+    darkFile: string;
+    lightFile: string;
+    darkFolder: string;
+    lightFolder: string;
+  };
+  lightFileNames: Record<string, string>;
+  darkFileNames: Record<string, string>;
+  lightFileExtensions: Record<string, string>;
+  darkFileExtensions: Record<string, string>;
+  lightFolderNames: Record<string, string>;
+  darkFolderNames: Record<string, string>;
+  lightLanguageIds: Record<string, string>;
+  darkLanguageIds: Record<string, string>;
 }
 
 interface LanguageAssociations {
@@ -28,18 +29,17 @@ interface LanguageAssociations {
   fileNameToLanguageId: Record<string, string>;
 }
 
-const manifest = vscodeIconsManifest as VscodeIconsManifest;
+const iconLookup = vscodeIconsLookupData as VscodeIconLookup;
 const languageAssociations = languageAssociationsData as LanguageAssociations;
-const iconDefinitions = manifest.iconDefinitions;
 
-const darkFileNames = toLowercaseLookup(manifest.fileNames);
-const lightFileNames = toLowercaseLookup(manifest.light.fileNames);
-const darkFileExtensions = toLowercaseLookup(manifest.fileExtensions);
-const lightFileExtensions = toLowercaseLookup(manifest.light.fileExtensions);
-const darkFolderNames = toLowercaseLookup(manifest.folderNames);
-const lightFolderNames = toLowercaseLookup(manifest.light.folderNames);
-const darkLanguageIds = toLowercaseLookup(manifest.languageIds ?? {});
-const lightLanguageIds = toLowercaseLookup(manifest.light.languageIds ?? {});
+const darkFileNames = iconLookup.darkFileNames;
+const lightFileNames = iconLookup.lightFileNames;
+const darkFileExtensions = iconLookup.darkFileExtensions;
+const lightFileExtensions = iconLookup.lightFileExtensions;
+const darkFolderNames = iconLookup.darkFolderNames;
+const lightFolderNames = iconLookup.lightFolderNames;
+const darkLanguageIds = iconLookup.darkLanguageIds;
+const lightLanguageIds = iconLookup.lightLanguageIds;
 const languageIdByExtension = toLowercaseLookup(languageAssociations.extensionToLanguageId);
 const languageIdByFileName = toLowercaseLookup(languageAssociations.fileNameToLanguageId);
 const localLanguageIdByExtensionOverrides = {
@@ -55,10 +55,10 @@ const localLanguageIdByExtensionOverrides = {
   yaml: "yaml",
 } as const;
 
-const defaultDarkFileIconDefinition = manifest.file ?? "_file";
-const defaultLightFileIconDefinition = manifest.light.file ?? defaultDarkFileIconDefinition;
-const defaultDarkFolderIconDefinition = manifest.folder ?? "_folder";
-const defaultLightFolderIconDefinition = manifest.light.folder ?? defaultDarkFolderIconDefinition;
+const defaultDarkFileIconFilename = iconLookup.defaults.darkFile;
+const defaultLightFileIconFilename = iconLookup.defaults.lightFile;
+const defaultDarkFolderIconFilename = iconLookup.defaults.darkFolder;
+const defaultLightFolderIconFilename = iconLookup.defaults.lightFolder;
 
 function toLowercaseLookup(source: Record<string, string>): Record<string, string> {
   const entries = Object.entries(source);
@@ -132,18 +132,7 @@ export function inferLanguageIdForPath(pathValue: string): string | null {
   return null;
 }
 
-function iconFilenameForDefinitionKey(definitionKey: string | undefined): string | null {
-  if (!definitionKey) return null;
-  const iconPath = iconDefinitions[definitionKey]?.iconPath;
-  if (!iconPath) return null;
-  const slashIndex = iconPath.lastIndexOf("/");
-  if (slashIndex === -1) {
-    return iconPath;
-  }
-  return iconPath.slice(slashIndex + 1);
-}
-
-function resolveFileDefinition(pathValue: string, theme: "light" | "dark"): string {
+function resolveFileIconFilename(pathValue: string, theme: "light" | "dark"): string {
   const basename = basenameOfPath(pathValue).toLowerCase();
   const fileNames = theme === "light" ? lightFileNames : darkFileNames;
   const fileExtensions = theme === "light" ? lightFileExtensions : darkFileExtensions;
@@ -159,16 +148,16 @@ function resolveFileDefinition(pathValue: string, theme: "light" | "dark"): stri
   const fromLanguage = resolveLanguageFallbackDefinition(pathValue, theme);
   if (fromLanguage) return fromLanguage;
 
-  return theme === "light" ? defaultLightFileIconDefinition : defaultDarkFileIconDefinition;
+  return theme === "light" ? defaultLightFileIconFilename : defaultDarkFileIconFilename;
 }
 
-function resolveFolderDefinition(pathValue: string, theme: "light" | "dark"): string {
+function resolveFolderIconFilename(pathValue: string, theme: "light" | "dark"): string {
   const basename = basenameOfPath(pathValue).toLowerCase();
   const folderNames = theme === "light" ? lightFolderNames : darkFolderNames;
   return (
     folderNames[basename] ??
     darkFolderNames[basename] ??
-    (theme === "light" ? defaultLightFolderIconDefinition : defaultDarkFolderIconDefinition)
+    (theme === "light" ? defaultLightFolderIconFilename : defaultDarkFolderIconFilename)
   );
 }
 
@@ -177,12 +166,9 @@ export function getVscodeIconUrlForEntry(
   kind: "file" | "directory",
   theme: "light" | "dark",
 ): string {
-  const definitionKey =
-    kind === "directory"
-      ? resolveFolderDefinition(pathValue, theme)
-      : resolveFileDefinition(pathValue, theme);
   const iconFilename =
-    iconFilenameForDefinitionKey(definitionKey) ??
-    (kind === "directory" ? "default_folder.svg" : "default_file.svg");
+    kind === "directory"
+      ? resolveFolderIconFilename(pathValue, theme)
+      : resolveFileIconFilename(pathValue, theme);
   return `${VSCODE_ICONS_BASE_URL}/${iconFilename}`;
 }

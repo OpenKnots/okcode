@@ -266,6 +266,7 @@ describe("ProviderCommandReactor", () => {
         type: "thread.create",
         commandId: CommandId.makeUnsafe("cmd-thread-create"),
         threadId: ThreadId.makeUnsafe("thread-1"),
+        kind: "thread",
         projectId: asProjectId("project-1"),
         title: "Thread",
         model: threadModel,

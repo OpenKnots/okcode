@@ -8,8 +8,6 @@ import {
   type PrReviewRepoConfigUpdatedPayload,
   type PrReviewSyncUpdatedPayload,
   ServerConfigUpdatedPayload,
-  SME_WS_CHANNELS,
-  type SmeMessageEvent,
   WS_CHANNELS,
   WS_METHODS,
   type WsWelcomePayload,
@@ -28,7 +26,6 @@ const prReviewRepoConfigUpdatedListeners = new Set<
   (payload: PrReviewRepoConfigUpdatedPayload) => void
 >();
 const projectFileTreeChangedListeners = new Set<(payload: ProjectFileTreeChangedPayload) => void>();
-const smeMessageEventListeners = new Set<(event: SmeMessageEvent) => void>();
 const transportStateListeners = new Set<(state: TransportState) => void>();
 const pendingReconnectedListeners = new Set<() => void>();
 const activeReconnectedUnsubscribers = new Map<() => void, () => void>();
@@ -222,17 +219,6 @@ export function createWsNativeApi(): NativeApi {
       }
     }
   });
-  transport.subscribe(SME_WS_CHANNELS.messageEvent, (message) => {
-    const payload = message.data;
-    for (const listener of smeMessageEventListeners) {
-      try {
-        listener(payload);
-      } catch {
-        // Swallow listener errors
-      }
-    }
-  });
-
   const api: NativeApi = {
     dialogs: {
       pickFolder: async () => {
@@ -366,19 +352,6 @@ export function createWsNativeApi(): NativeApi {
         };
       },
     },
-    decision: {
-      listCases: (input) => transport.request(WS_METHODS.decisionListCases, input),
-      getWorkspace: (input) => transport.request(WS_METHODS.decisionGetWorkspace, input),
-      reanalyze: (input) => transport.request(WS_METHODS.decisionReanalyze, input),
-      requestConsultation: (input) =>
-        transport.request(WS_METHODS.decisionRequestConsultation, input),
-      respondConsultation: (input) =>
-        transport.request(WS_METHODS.decisionRespondConsultation, input),
-      executeRecommendation: (input) =>
-        transport.request(WS_METHODS.decisionExecuteRecommendation, input),
-      onUpdated: (callback) =>
-        transport.subscribe(WS_CHANNELS.decisionUpdated, (message) => callback(message.data)),
-    },
     skills: {
       list: (input) => transport.request(WS_METHODS.skillList, input ?? {}),
       catalog: (input) => transport.request(WS_METHODS.skillCatalog, input ?? {}),
@@ -445,26 +418,6 @@ export function createWsNativeApi(): NativeApi {
         transport.subscribe(ORCHESTRATION_WS_CHANNELS.domainEvent, (message) =>
           callback(message.data),
         ),
-    },
-    sme: {
-      uploadDocument: (input) => transport.request(WS_METHODS.smeUploadDocument, input),
-      deleteDocument: (input) => transport.request(WS_METHODS.smeDeleteDocument, input),
-      listDocuments: (input) => transport.request(WS_METHODS.smeListDocuments, input),
-      createConversation: (input) => transport.request(WS_METHODS.smeCreateConversation, input),
-      updateConversation: (input) => transport.request(WS_METHODS.smeUpdateConversation, input),
-      deleteConversation: (input) => transport.request(WS_METHODS.smeDeleteConversation, input),
-      listConversations: (input) => transport.request(WS_METHODS.smeListConversations, input),
-      getConversation: (input) => transport.request(WS_METHODS.smeGetConversation, input),
-      validateSetup: (input) => transport.request(WS_METHODS.smeValidateSetup, input),
-      sendMessage: (input) =>
-        transport.request(WS_METHODS.smeSendMessage, input, { timeoutMs: null }),
-      interruptMessage: (input) => transport.request(WS_METHODS.smeInterruptMessage, input),
-      onMessageEvent: (callback) => {
-        smeMessageEventListeners.add(callback);
-        return () => {
-          smeMessageEventListeners.delete(callback);
-        };
-      },
     },
   };
 

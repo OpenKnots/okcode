@@ -15,6 +15,7 @@ import {
   getThreadsToArchive,
   listActiveThreadsByProjectIds,
   requireProject,
+  requireProjectChatThreadAbsent,
   requireProjectAbsent,
   requireThread,
   requireThreadAbsent,
@@ -255,6 +256,13 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
         command,
         threadId: command.threadId,
       });
+      if (command.kind === "project-chat") {
+        yield* requireProjectChatThreadAbsent({
+          readModel,
+          command,
+          projectId: command.projectId,
+        });
+      }
 
       const threadCreatedEvent: Omit<OrchestrationEvent, "sequence"> = {
         ...withEventBase({
@@ -266,6 +274,7 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
         type: "thread.created",
         payload: {
           threadId: command.threadId,
+          kind: command.kind,
           projectId: command.projectId,
           title: command.title,
           model: command.model,

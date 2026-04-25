@@ -459,6 +459,7 @@ const makeOrchestrationProjectionPipeline = Effect.gen(function* () {
         case "thread.created":
           yield* projectionThreadRepository.upsert({
             threadId: event.payload.threadId,
+            kind: event.payload.kind ?? "thread",
             projectId: event.payload.projectId,
             title: event.payload.title,
             model: event.payload.model,

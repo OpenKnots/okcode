@@ -30,6 +30,7 @@ const makeProjectionThreadRepository = Effect.gen(function* () {
       sql`
         INSERT INTO projection_threads (
           thread_id,
+          kind,
           project_id,
           title,
           model,
@@ -46,6 +47,7 @@ const makeProjectionThreadRepository = Effect.gen(function* () {
         )
         VALUES (
           ${row.threadId},
+          ${row.kind},
           ${row.projectId},
           ${row.title},
           ${row.model},
@@ -74,7 +76,8 @@ const makeProjectionThreadRepository = Effect.gen(function* () {
           latest_turn_id = excluded.latest_turn_id,
           created_at = excluded.created_at,
           updated_at = excluded.updated_at,
-          deleted_at = excluded.deleted_at
+          deleted_at = excluded.deleted_at,
+          kind = excluded.kind,
       `,
   });
 
@@ -85,6 +88,7 @@ const makeProjectionThreadRepository = Effect.gen(function* () {
       sql`
         SELECT
           thread_id AS "threadId",
+          kind,
           project_id AS "projectId",
           title,
           model,
@@ -110,6 +114,7 @@ const makeProjectionThreadRepository = Effect.gen(function* () {
       sql`
         SELECT
           thread_id AS "threadId",
+          kind,
           project_id AS "projectId",
           title,
           model,

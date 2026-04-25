@@ -20,6 +20,7 @@ const ASSOCIATIONS_PATH = path.join(
   REPO_ROOT,
   "apps/web/src/vscode-icons-language-associations.json",
 );
+const LOOKUP_PATH = path.join(REPO_ROOT, "apps/web/src/vscode-icons-lookup.json");
 
 function normalizeExtension(value) {
   return value.trim().toLowerCase().replace(/^\./, "");
@@ -33,6 +34,75 @@ function putIfAbsent(target, key, value) {
   if (!(key in target)) {
     target[key] = value;
   }
+}
+
+function toLowercaseLookup(source) {
+  const lookup = {};
+  for (const [key, value] of Object.entries(source ?? {})) {
+    lookup[key.toLowerCase()] = value;
+  }
+  return lookup;
+}
+
+function iconFilenameForDefinitionKey(iconDefinitions, definitionKey) {
+  if (!definitionKey) return null;
+  const iconPath = iconDefinitions?.[definitionKey]?.iconPath;
+  if (typeof iconPath !== "string" || iconPath.length === 0) {
+    return null;
+  }
+  const slashIndex = iconPath.lastIndexOf("/");
+  return slashIndex === -1 ? iconPath : iconPath.slice(slashIndex + 1);
+}
+
+function mapLookupToFilenames(iconDefinitions, lookup) {
+  const resolved = {};
+  for (const [key, definitionKey] of Object.entries(lookup ?? {})) {
+    const filename = iconFilenameForDefinitionKey(iconDefinitions, definitionKey);
+    if (!filename) continue;
+    resolved[key] = filename;
+  }
+  return resolved;
+}
+
+function buildCompactLookup(manifest) {
+  const iconDefinitions = manifest.iconDefinitions ?? {};
+  const light = manifest.light ?? {};
+  const defaultDarkFileFilename =
+    iconFilenameForDefinitionKey(iconDefinitions, manifest.file ?? "_file") ?? "default_file.svg";
+  const defaultLightFileFilename =
+    iconFilenameForDefinitionKey(iconDefinitions, light.file ?? manifest.file ?? "_file") ??
+    defaultDarkFileFilename;
+  const defaultDarkFolderFilename =
+    iconFilenameForDefinitionKey(iconDefinitions, manifest.folder ?? "_folder") ??
+    "default_folder.svg";
+  const defaultLightFolderFilename =
+    iconFilenameForDefinitionKey(iconDefinitions, light.folder ?? manifest.folder ?? "_folder") ??
+    defaultDarkFolderFilename;
+
+  return {
+    version: VERSION,
+    generatedAt: new Date().toISOString(),
+    defaults: {
+      darkFile: defaultDarkFileFilename,
+      lightFile: defaultLightFileFilename,
+      darkFolder: defaultDarkFolderFilename,
+      lightFolder: defaultLightFolderFilename,
+    },
+    darkFileNames: mapLookupToFilenames(iconDefinitions, toLowercaseLookup(manifest.fileNames)),
+    lightFileNames: mapLookupToFilenames(iconDefinitions, toLowercaseLookup(light.fileNames)),
+    darkFileExtensions: mapLookupToFilenames(
+      iconDefinitions,
+      toLowercaseLookup(manifest.fileExtensions),
+    ),
+    lightFileExtensions: mapLookupToFilenames(
+      iconDefinitions,
+      toLowercaseLookup(light.fileExtensions),
+    ),
+    darkFolderNames: mapLookupToFilenames(iconDefinitions, toLowercaseLookup(manifest.folderNames)),
+    lightFolderNames: mapLookupToFilenames(iconDefinitions, toLowercaseLookup(light.folderNames)),
+    darkLanguageIds: mapLookupToFilenames(iconDefinitions, toLowercaseLookup(manifest.languageIds)),
+    lightLanguageIds: mapLookupToFilenames(iconDefinitions, toLowercaseLookup(light.languageIds)),
+  };
 }
 
 async function downloadVsix(tmpDir) {
@@ -129,15 +199,18 @@ async function main() {
     const manifest = await extractManifestFromVsix(vsixPath);
     const languages = await loadLanguagesCollection();
     const associations = buildLanguageAssociations(manifest, languages);
+    const compactLookup = buildCompactLookup(manifest);
 
     await fs.writeFile(MANIFEST_PATH, `${JSON.stringify(manifest)}\n`, "utf8");
     await fs.writeFile(ASSOCIATIONS_PATH, `${JSON.stringify(associations)}\n`, "utf8");
+    await fs.writeFile(LOOKUP_PATH, `${JSON.stringify(compactLookup)}\n`, "utf8");
 
     process.stdout.write(
       [
         `Synced vscode-icons ${VERSION}`,
         `manifest: ${MANIFEST_PATH}`,
         `language associations: ${ASSOCIATIONS_PATH}`,
+        `compact lookup: ${LOOKUP_PATH}`,
         `extension mappings: ${Object.keys(associations.extensionToLanguageId).length}`,
         `filename mappings: ${Object.keys(associations.fileNameToLanguageId).length}`,
       ].join("\n") + "\n",

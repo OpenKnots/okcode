@@ -21,6 +21,7 @@ function makeThread(overrides: Partial<Thread> = {}): Thread {
   return {
     id: ThreadId.makeUnsafe("thread-1"),
     codexThreadId: null,
+    kind: "thread",
     projectId: ProjectId.makeUnsafe("project-1"),
     title: "Thread",
     model: "gpt-5-codex",
@@ -60,6 +61,7 @@ function makeState(thread: Thread): AppState {
 function makeReadModelThread(overrides: Partial<OrchestrationReadModel["threads"][number]>) {
   return {
     id: ThreadId.makeUnsafe("thread-1"),
+    kind: "thread",
     projectId: ProjectId.makeUnsafe("project-1"),
     title: "Thread",
     model: "gpt-5.3-codex",
@@ -248,6 +250,21 @@ describe("store read model sync", () => {
     const next = syncServerReadModel(initialState, readModel);
 
     expect(next.threads[0]?.model).toBe("claude-opus-4-6");
+  });
+
+  it("maps project-chat thread kinds from the read model", () => {
+    const initialState = makeState(makeThread());
+    const readModel = makeReadModel(
+      makeReadModelThread({
+        kind: "project-chat",
+        title: "Project chat",
+      }),
+    );
+
+    const next = syncServerReadModel(initialState, readModel);
+
+    expect(next.threads[0]?.kind).toBe("project-chat");
+    expect(next.threads[0]?.title).toBe("Project chat");
   });
 
   it("resolves claude aliases when session provider is claudeAgent", () => {

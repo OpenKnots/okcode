@@ -44,6 +44,8 @@ export const ProviderKind = Schema.Literals([
   "gemini",
 ]);
 export type ProviderKind = typeof ProviderKind.Type;
+export const ThreadKind = Schema.Literals(["thread", "project-chat"]);
+export type ThreadKind = typeof ThreadKind.Type;
 export const ProviderApprovalPolicy = Schema.Literals([
   "untrusted",
   "on-failure",
@@ -396,6 +398,7 @@ export type OrchestrationLatestTurn = typeof OrchestrationLatestTurn.Type;
 
 export const OrchestrationThread = Schema.Struct({
   id: ThreadId,
+  kind: ThreadKind.pipe(Schema.withDecodingDefault(() => "thread" as const)),
   projectId: ProjectId,
   title: TrimmedNonEmptyString,
   model: TrimmedNonEmptyString,
@@ -441,6 +444,7 @@ export type OrchestrationOverviewProject = typeof OrchestrationOverviewProject.T
 
 export const OrchestrationOverviewThread = Schema.Struct({
   id: ThreadId,
+  kind: ThreadKind.pipe(Schema.withDecodingDefault(() => "thread" as const)),
   projectId: ProjectId,
   title: TrimmedNonEmptyString,
   model: TrimmedNonEmptyString,
@@ -515,6 +519,7 @@ const ThreadCreateCommand = Schema.Struct({
   type: Schema.Literal("thread.create"),
   commandId: CommandId,
   threadId: ThreadId,
+  kind: Schema.optional(ThreadKind).pipe(Schema.withDecodingDefault(() => "thread" as const)),
   projectId: ProjectId,
   title: TrimmedNonEmptyString,
   model: TrimmedNonEmptyString,
@@ -837,6 +842,7 @@ export const ProjectDeletedPayload = Schema.Struct({
 
 export const ThreadCreatedPayload = Schema.Struct({
   threadId: ThreadId,
+  kind: Schema.optional(ThreadKind).pipe(Schema.withDecodingDefault(() => "thread" as const)),
   projectId: ProjectId,
   title: TrimmedNonEmptyString,
   model: TrimmedNonEmptyString,

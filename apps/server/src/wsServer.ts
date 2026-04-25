@@ -19,12 +19,10 @@ import {
   type ClientOrchestrationCommand,
   type OrchestrationCommand,
   ORCHESTRATION_WS_CHANNELS,
-  ORCHESTRATION_WS_METHODS,
   PROVIDER_SEND_TURN_MAX_FILE_BYTES,
   PROVIDER_SEND_TURN_MAX_IMAGE_BYTES,
   ProjectId,
   ThreadId,
-  SME_WS_CHANNELS,
   WS_CHANNELS,
   WS_METHODS,
   type WebSocketError,
@@ -34,6 +32,8 @@ import {
   type WsPushEnvelopeBase,
 } from "@okcode/contracts";
 import * as NodeHttpServer from "@effect/platform-node/NodeHttpServer";
+import { ChildProcessSpawner } from "effect/unstable/process";
+import * as SqlClient from "effect/unstable/sql/SqlClient";
 import {
   Cause,
   Effect,
@@ -48,13 +48,11 @@ import {
   Scope,
   ServiceMap,
   Stream,
-  Struct,
 } from "effect";
 import { WebSocketServer, type WebSocket } from "ws";
 
 import { createLogger } from "./logger";
 import { pickFolderNative } from "./nativeFolderPicker.ts";
-import { GitManager } from "./git/Services/GitManager.ts";
 import { TerminalManager } from "./terminal/Services/Manager.ts";
 import { Keybindings } from "./keybindings";
 import {
@@ -68,10 +66,10 @@ import { OrchestrationReactor } from "./orchestration/Services/OrchestrationReac
 import { ProviderService } from "./provider/Services/ProviderService";
 import { ProviderHealth } from "./provider/Services/ProviderHealth";
 import { CheckpointDiffQuery } from "./checkpointing/Services/CheckpointDiffQuery";
-import { clamp } from "effect/Number";
 import { Open, resolveAvailableEditors } from "./open";
 import { ServerConfig } from "./config";
 import { GitCore } from "./git/Services/GitCore.ts";
+import { GitManager } from "./git/Services/GitManager.ts";
 import { collectMergedWorktreeCleanupCandidates } from "./git/worktreeCleanup.ts";
 import {
   ATTACHMENTS_ROUTE_PREFIX,
@@ -90,6 +88,15 @@ import { extractTextAttachmentContents } from "./attachmentText.ts";
 import { expandHomePath } from "./os-jank.ts";
 import { makeServerPushBus } from "./wsServer/pushBus.ts";
 import { makeServerReadiness } from "./wsServer/readiness.ts";
+import { createGitRouteHandlers } from "./wsServer/routes/git.ts";
+import { createGitHubRouteHandlers } from "./wsServer/routes/github.ts";
+import { createOrchestrationRouteHandlers } from "./wsServer/routes/orchestration.ts";
+import { createPrReviewRouteHandlers } from "./wsServer/routes/prReview.ts";
+import { createServerRouteHandlers } from "./wsServer/routes/server.ts";
+import { createShellRouteHandlers } from "./wsServer/routes/shell.ts";
+import { createSkillRouteHandlers } from "./wsServer/routes/skills.ts";
+import { createTerminalRouteHandlers } from "./wsServer/routes/terminal.ts";
+import { createWorkspaceRouteHandlers } from "./wsServer/routes/workspace.ts";
 import { decodeJsonResult, formatSchemaError } from "@okcode/shared/schemaJson";
 import { redactSensitiveText, redactSensitiveValue } from "@okcode/shared/redaction";
 import { PrReview } from "./prReview/Services/PrReview.ts";
@@ -98,11 +105,18 @@ import { GitActionExecutionError } from "./git/Errors.ts";
 import { EnvironmentVariables } from "./persistence/Services/EnvironmentVariables.ts";
 import { OpenclawGatewayConfig } from "./persistence/Services/OpenclawGatewayConfig.ts";
 import { SkillService } from "./skills/SkillService.ts";
-import { SmeChatService } from "./sme/Services/SmeChatService.ts";
 import { TokenManager } from "./tokenManager.ts";
-import { resolveRuntimeEnvironment, RuntimeEnv } from "./runtimeEnvironment.ts";
+import { resolveRuntimeEnvironment } from "./runtimeEnvironment.ts";
 import { readCodexConfigSummary } from "./provider/codexConfig";
 import { TerminalRuntimeEnvResolver } from "./terminal/Services/RuntimeEnvResolver.ts";
+import {
+  makeOptionalGitHubLayer,
+  makeOptionalGitManagerLayer,
+  makeOptionalPrReviewLayer,
+  makeOptionalSkillServiceLayer,
+  makeOptionalTerminalManagerLayer,
+  makeOptionalTerminalRuntimeEnvResolverLayer,
+} from "./serverLayers.ts";
 import { version as serverVersion } from "../package.json" with { type: "json" };
 import { serverBuildInfo } from "./buildInfo";
 import { runOpenclawGatewayTest } from "./openclawGatewayTest.ts";
@@ -212,7 +226,13 @@ export interface ServerShape {
   readonly start: Effect.Effect<
     http.Server,
     ServerLifecycleError,
-    Scope.Scope | ServerRuntimeServices | ServerConfig | FileSystem.FileSystem | Path.Path
+    | Scope.Scope
+    | ServerRuntimeServices
+    | ServerConfig
+    | FileSystem.FileSystem
+    | Path.Path
+    | ChildProcessSpawner.ChildProcessSpawner
+    | SqlClient.SqlClient
   >;
 
   /**
@@ -318,10 +338,6 @@ function resolveWorkspaceWritePath(params: {
   });
 }
 
-function stripRequestTag<T extends { _tag: string }>(body: T) {
-  return Struct.omit(body, ["_tag"]);
-}
-
 const encodeWsResponse = Schema.encodeEffect(Schema.fromJsonString(WsResponse));
 const decodeWebSocketRequest = decodeJsonResult(WebSocketRequest);
 
@@ -335,15 +351,8 @@ export type ServerCoreRuntimeServices =
 
 export type ServerRuntimeServices =
   | ServerCoreRuntimeServices
-  | GitManager
   | GitCore
-  | PrReview
-  | GitHub
-  | TerminalManager
-  | TerminalRuntimeEnvResolver
   | Keybindings
-  | SkillService
-  | SmeChatService
   | Open
   | EnvironmentVariables
   | OpenclawGatewayConfig;
@@ -370,7 +379,13 @@ class GitActionStoppedError extends Schema.TaggedErrorClass<GitActionStoppedErro
 export const createServer = Effect.fn(function* (): Effect.fn.Return<
   http.Server,
   ServerLifecycleError,
-  Scope.Scope | ServerRuntimeServices | ServerConfig | FileSystem.FileSystem | Path.Path
+  | Scope.Scope
+  | ServerRuntimeServices
+  | ServerConfig
+  | FileSystem.FileSystem
+  | Path.Path
+  | ChildProcessSpawner.ChildProcessSpawner
+  | SqlClient.SqlClient
 > {
   const serverConfig = yield* ServerConfig;
   const {
@@ -393,8 +408,6 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
     tokenManager,
   });
 
-  const gitManager = yield* GitManager;
-  const terminalManager = yield* TerminalManager;
   const keybindingsManager = yield* Keybindings;
   const providerHealth = yield* ProviderHealth;
   const openclawGatewayConfig = yield* OpenclawGatewayConfig;
@@ -880,13 +893,8 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
   const projectionReadModelQuery = yield* ProjectionSnapshotQuery;
   const checkpointDiffQuery = yield* CheckpointDiffQuery;
   const orchestrationReactor = yield* OrchestrationReactor;
-  const prReview = yield* PrReview;
-  const github = yield* GitHub;
-  const terminalRuntimeEnvResolver = yield* TerminalRuntimeEnvResolver;
   const { openInEditor, openInFileManager, revealInFileManager } = yield* Open;
   const environmentVariables = yield* EnvironmentVariables;
-  const skillService = yield* SkillService;
-  const smeChatService = yield* SmeChatService;
 
   const subscriptionsScope = yield* Scope.make("sequential");
   yield* Effect.addFinalizer(() => Scope.close(subscriptionsScope, Exit.void));
@@ -982,16 +990,60 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
     );
   }
 
-  const runtimeServices = yield* Effect.services<
-    ServerRuntimeServices | ServerConfig | FileSystem.FileSystem | Path.Path
+  const serverContext = yield* Effect.services<
+    | Scope.Scope
+    | ServerRuntimeServices
+    | ServerConfig
+    | FileSystem.FileSystem
+    | Path.Path
+    | ChildProcessSpawner.ChildProcessSpawner
+    | SqlClient.SqlClient
   >();
-  const runPromise = Effect.runPromiseWith(runtimeServices);
-
-  const unsubscribeTerminalEvents = yield* terminalManager.subscribe(
-    (event) => void Effect.runPromise(pushBus.publishAll(WS_CHANNELS.terminalEvent, event)),
+  const runPromise = Effect.runPromiseWith(serverContext);
+  const gitManagerLoader = yield* Effect.cached(
+    GitManager.asEffect().pipe(
+      Effect.provide(makeOptionalGitManagerLayer()),
+      Effect.provide(serverContext),
+    ),
   );
-  yield* Effect.addFinalizer(() => Effect.sync(() => unsubscribeTerminalEvents()));
-  yield* readiness.markTerminalSubscriptionsReady;
+  const prReviewLoader = yield* Effect.cached(
+    PrReview.asEffect().pipe(
+      Effect.provide(makeOptionalPrReviewLayer()),
+      Effect.provide(serverContext),
+    ),
+  );
+  const githubLoader = yield* Effect.cached(
+    GitHub.asEffect().pipe(
+      Effect.provide(makeOptionalGitHubLayer()),
+      Effect.provide(serverContext),
+    ),
+  );
+  const skillServiceLoader = yield* Effect.cached(
+    SkillService.asEffect().pipe(
+      Effect.provide(makeOptionalSkillServiceLayer()),
+      Effect.provide(serverContext),
+    ),
+  );
+  const terminalRuntimeEnvResolverLoader = yield* Effect.cached(
+    TerminalRuntimeEnvResolver.asEffect().pipe(
+      Effect.provide(makeOptionalTerminalRuntimeEnvResolverLayer()),
+      Effect.provide(serverContext),
+    ),
+  );
+  const terminalManagerWithSubscription = yield* Effect.cached(
+    Effect.gen(function* () {
+      const terminalManager = yield* TerminalManager.asEffect().pipe(
+        Effect.provide(makeOptionalTerminalManagerLayer()),
+        Effect.provide(serverContext),
+      );
+      const unsubscribeTerminalEvents = yield* terminalManager.subscribe(
+        (event) => void Effect.runPromise(pushBus.publishAll(WS_CHANNELS.terminalEvent, event)),
+      );
+      yield* Effect.addFinalizer(() => Effect.sync(() => unsubscribeTerminalEvents()));
+      yield* readiness.markTerminalSubscriptionsReady;
+      return terminalManager;
+    }),
+  );
 
   // ── File tree watcher ──────────────────────────────────────────────
   // Watch the workspace directory for file system changes and push
@@ -1052,886 +1104,87 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
     Effect.all([closeAllClients, closeWebSocketServer.pipe(Effect.ignoreCause({ log: true }))]),
   );
 
+  const domainRouteHandlers = {
+    ...createOrchestrationRouteHandlers({
+      projectionReadModelQuery,
+      normalizeDispatchCommand,
+      orchestrationEngine,
+      checkpointDiffQuery,
+    } as any),
+    ...createGitRouteHandlers({
+      projectionReadModelQuery,
+      resolveRuntimeEnvironment,
+      git,
+      gitManagerLoader,
+      runTrackedGitRequest,
+      stopActiveGitRequest,
+      pushBus,
+      collectMergedWorktreeCleanupCandidates,
+    } as any),
+    ...createPrReviewRouteHandlers({
+      prReviewLoader,
+      pushBus,
+    } as any),
+    ...createGitHubRouteHandlers({
+      githubLoader,
+    } as any),
+    ...createTerminalRouteHandlers({
+      terminalRuntimeEnvResolverLoader,
+      terminalManagerWithSubscription,
+      logger,
+    } as any),
+    ...createSkillRouteHandlers({
+      skillServiceLoader,
+    } as any),
+    ...createWorkspaceRouteHandlers({
+      searchWorkspaceEntries,
+      listWorkspaceDirectory,
+      resolveCheckPath,
+      fileSystem,
+      path,
+      resolveWorkspaceWritePath,
+      resolveFilePreview,
+      containsBinaryBytes,
+      buildPreviewDataUrl,
+      createRouteRequestError: (message: string) => new RouteRequestError({ message }),
+    } as any),
+    ...createShellRouteHandlers({
+      openInEditor,
+      openInFileManager,
+      revealInFileManager,
+    } as any),
+    ...createServerRouteHandlers({
+      cwd,
+      host,
+      port,
+      keybindingsConfigPath,
+      availableEditors,
+      serverBuildInfo,
+      serverVersion,
+      keybindingsManager,
+      getProviderStatuses,
+      getCodexConfigSummary: readCodexConfigSummary,
+      environmentVariables,
+      isLocalWebSocketClient,
+      pickFolder: pickFolderNative,
+      tokenManager,
+      openclawGatewayConfig,
+      publishServerConfigUpdated,
+      testOpenclawGateway,
+      isNewerSemver,
+      createRouteRequestError: (message: string) => new RouteRequestError({ message }),
+    } as any),
+  };
+
   const routeRequest = Effect.fnUntraced(function* (ws: WebSocket, request: WebSocketRequest) {
-    switch (request.body._tag) {
-      case ORCHESTRATION_WS_METHODS.getSnapshot:
-        return yield* projectionReadModelQuery.getSnapshot();
-
-      case ORCHESTRATION_WS_METHODS.getThreadDetail: {
-        const body = stripRequestTag(request.body);
-        return yield* projectionReadModelQuery
-          .getSnapshot()
-          .pipe(
-            Effect.map(
-              (snapshot) => snapshot.threads.find((thread) => thread.id === body.threadId) ?? null,
-            ),
-          );
-      }
-
-      case ORCHESTRATION_WS_METHODS.dispatchCommand: {
-        const { command } = request.body;
-        const normalizedCommand = yield* normalizeDispatchCommand({ command });
-        return yield* orchestrationEngine.dispatch(normalizedCommand);
-      }
-
-      case ORCHESTRATION_WS_METHODS.getTurnDiff: {
-        const body = stripRequestTag(request.body);
-        return yield* checkpointDiffQuery.getTurnDiff(body);
-      }
-
-      case ORCHESTRATION_WS_METHODS.getFullThreadDiff: {
-        const body = stripRequestTag(request.body);
-        return yield* checkpointDiffQuery.getFullThreadDiff(body);
-      }
-
-      case ORCHESTRATION_WS_METHODS.replayEvents: {
-        const { fromSequenceExclusive } = request.body;
-        return yield* Stream.runCollect(
-          orchestrationEngine.readEvents(
-            clamp(fromSequenceExclusive, {
-              maximum: Number.MAX_SAFE_INTEGER,
-              minimum: 0,
-            }),
-          ),
-        ).pipe(Effect.map((events) => Array.from(events)));
-      }
-
-      case WS_METHODS.projectsSearchEntries: {
-        const body = stripRequestTag(request.body);
-        return yield* Effect.tryPromise({
-          try: () => searchWorkspaceEntries(body),
-          catch: (cause) =>
-            new RouteRequestError({
-              message: `Failed to search workspace entries: ${String(cause)}`,
-            }),
-        });
-      }
-
-      case WS_METHODS.projectsListDirectory: {
-        const body = stripRequestTag(request.body);
-        return yield* Effect.tryPromise({
-          try: () => listWorkspaceDirectory(body),
-          catch: (cause) =>
-            new RouteRequestError({
-              message: `Failed to list workspace directory: ${String(cause)}`,
-            }),
-        });
-      }
-
-      case WS_METHODS.projectsPathExists: {
-        const body = stripRequestTag(request.body);
-        return yield* Effect.gen(function* () {
-          const resolvedPath = yield* resolveCheckPath(body.path);
-          const fileInfo = yield* fileSystem
-            .stat(resolvedPath)
-            .pipe(Effect.catch(() => Effect.succeed(null)));
-          return {
-            exists: fileInfo !== null,
-          };
-        });
-      }
-
-      case WS_METHODS.projectsWriteFile: {
-        const body = stripRequestTag(request.body);
-        const target = yield* resolveWorkspaceWritePath({
-          workspaceRoot: body.cwd,
-          relativePath: body.relativePath,
-          path,
-        });
-        yield* fileSystem
-          .makeDirectory(path.dirname(target.absolutePath), { recursive: true })
-          .pipe(
-            Effect.mapError(
-              (cause) =>
-                new RouteRequestError({
-                  message: `Failed to prepare workspace path: ${String(cause)}`,
-                }),
-            ),
-          );
-        const writeEffect =
-          body.encoding === "base64"
-            ? fileSystem.writeFile(
-                target.absolutePath,
-                new Uint8Array(Buffer.from(body.contents, "base64")),
-              )
-            : fileSystem.writeFileString(target.absolutePath, body.contents);
-        yield* writeEffect.pipe(
-          Effect.mapError(
-            (cause) =>
-              new RouteRequestError({
-                message: `Failed to write workspace file: ${String(cause)}`,
-              }),
-          ),
-        );
-        return { relativePath: target.relativePath };
-      }
-
-      case WS_METHODS.projectsReadFile: {
-        const body = stripRequestTag(request.body);
-        const target = yield* resolveWorkspaceWritePath({
-          workspaceRoot: body.cwd,
-          relativePath: body.relativePath,
-          path,
-        });
-        const filePreview = resolveFilePreview(target.absolutePath);
-        const fileStat = yield* fileSystem.stat(target.absolutePath).pipe(
-          Effect.mapError(
-            (cause) =>
-              new RouteRequestError({
-                message: `Failed to read file: ${String(cause)}`,
-              }),
-          ),
-        );
-        if (fileStat.type !== "File") {
-          return yield* new RouteRequestError({
-            message: `Path is not a file: ${target.relativePath}`,
-          });
-        }
-        const sizeBytes = Number(fileStat.size);
-        if (sizeBytes > filePreview.maxReadSizeBytes) {
-          return yield* new RouteRequestError({
-            message: `File is too large to display (${(sizeBytes / 1024 / 1024).toFixed(1)}MB). Maximum supported size is ${(filePreview.maxReadSizeBytes / 1024 / 1024).toFixed(0)}MB.`,
-          });
-        }
-        const rawBytes = yield* fileSystem.readFile(target.absolutePath).pipe(
-          Effect.mapError(
-            (cause) =>
-              new RouteRequestError({
-                message: `Failed to read file: ${String(cause)}`,
-              }),
-          ),
-        );
-        const hasBinaryData = containsBinaryBytes(rawBytes);
-        const previewDataUrl = buildPreviewDataUrl({
-          mimeType: filePreview.mimeType,
-          rawBytes,
-          containsBinaryData: hasBinaryData,
-          previewableByMime: filePreview.previewable,
-        });
-        const hasTextContents = !hasBinaryData || filePreview.textLike;
-        const contents = hasTextContents ? new TextDecoder().decode(rawBytes) : "";
-        return {
-          relativePath: target.relativePath,
-          contents,
-          hasTextContents,
-          sizeBytes,
-          truncated: false,
-          ...(previewDataUrl
-            ? {
-                previewDataUrl,
-                previewMimeType: filePreview.mimeType,
-              }
-            : {}),
-        };
-      }
-
-      case WS_METHODS.projectsDeleteEntry: {
-        const body = stripRequestTag(request.body);
-        const target = yield* resolveWorkspaceWritePath({
-          workspaceRoot: body.cwd,
-          relativePath: body.relativePath,
-          path,
-        });
-        yield* fileSystem.remove(target.absolutePath, { recursive: true }).pipe(
-          Effect.mapError(
-            (cause) =>
-              new RouteRequestError({
-                message: `Failed to delete entry: ${String(cause)}`,
-              }),
-          ),
-        );
-        return {};
-      }
-
-      case WS_METHODS.shellOpenInEditor: {
-        const body = stripRequestTag(request.body);
-        return yield* openInEditor(body);
-      }
-
-      case WS_METHODS.shellOpenInFileManager: {
-        const body = stripRequestTag(request.body);
-        return yield* openInFileManager(body);
-      }
-
-      case WS_METHODS.shellRevealInFileManager: {
-        const body = stripRequestTag(request.body);
-        return yield* revealInFileManager(body);
-      }
-
-      case WS_METHODS.gitStatus: {
-        const body = stripRequestTag(request.body);
-        const snapshot = yield* projectionReadModelQuery.getSnapshot();
-        const gitEnv = yield* resolveRuntimeEnvironment({ cwd: body.cwd, readModel: snapshot });
-        return yield* gitManager.status(body).pipe(Effect.provideService(RuntimeEnv, gitEnv));
-      }
-
-      case WS_METHODS.gitPull: {
-        const body = stripRequestTag(request.body);
-        const snapshot = yield* projectionReadModelQuery.getSnapshot();
-        const gitEnv = yield* resolveRuntimeEnvironment({ cwd: body.cwd, readModel: snapshot });
-        return yield* runTrackedGitRequest(
-          ws,
-          { kind: "pull", cwd: body.cwd },
-          git.syncCurrentBranch(body.cwd).pipe(Effect.provideService(RuntimeEnv, gitEnv)),
-          "Git pull stopped.",
-        );
-      }
-
-      case WS_METHODS.gitStopAction: {
-        const body = stripRequestTag(request.body);
-        yield* stopActiveGitRequest(ws, body);
-        return {};
-      }
-
-      case WS_METHODS.gitRunStackedAction: {
-        const body = stripRequestTag(request.body);
-        const snapshot = yield* projectionReadModelQuery.getSnapshot();
-        const gitEnv = yield* resolveRuntimeEnvironment({ cwd: body.cwd, readModel: snapshot });
-        return yield* runTrackedGitRequest(
-          ws,
-          { kind: "stacked_action", cwd: body.cwd, actionId: body.actionId },
-          gitManager
-            .runStackedAction(body, {
-              actionId: body.actionId,
-              progressReporter: {
-                publish: (event) =>
-                  pushBus
-                    .publishClient(ws, WS_CHANNELS.gitActionProgress, event)
-                    .pipe(Effect.asVoid),
-              },
-            })
-            .pipe(Effect.provideService(RuntimeEnv, gitEnv)),
-          "Git action stopped.",
-        );
-      }
-
-      case WS_METHODS.gitResolvePullRequest: {
-        const body = stripRequestTag(request.body);
-        const snapshot = yield* projectionReadModelQuery.getSnapshot();
-        const gitEnv = yield* resolveRuntimeEnvironment({ cwd: body.cwd, readModel: snapshot });
-        return yield* gitManager
-          .resolvePullRequest(body)
-          .pipe(Effect.provideService(RuntimeEnv, gitEnv));
-      }
-
-      case WS_METHODS.gitPreparePullRequestThread: {
-        const body = stripRequestTag(request.body);
-        const snapshot = yield* projectionReadModelQuery.getSnapshot();
-        const gitEnv = yield* resolveRuntimeEnvironment({ cwd: body.cwd, readModel: snapshot });
-        return yield* gitManager
-          .preparePullRequestThread(body)
-          .pipe(Effect.provideService(RuntimeEnv, gitEnv));
-      }
-
-      case WS_METHODS.gitListPullRequests: {
-        const body = stripRequestTag(request.body);
-        const snapshot = yield* projectionReadModelQuery.getSnapshot();
-        const gitEnv = yield* resolveRuntimeEnvironment({ cwd: body.cwd, readModel: snapshot });
-        return yield* gitManager
-          .listPullRequests(body)
-          .pipe(Effect.provideService(RuntimeEnv, gitEnv));
-      }
-
-      case WS_METHODS.gitListMergedWorktreeCleanupCandidates: {
-        const body = stripRequestTag(request.body);
-        const snapshot = yield* projectionReadModelQuery.getSnapshot();
-        const gitEnv = yield* resolveRuntimeEnvironment({ cwd: body.cwd, readModel: snapshot });
-        const mergedPullRequests = yield* gitManager
-          .listPullRequests({
-            cwd: body.cwd,
-            state: "merged",
-            limit: 500,
-          })
-          .pipe(Effect.provideService(RuntimeEnv, gitEnv));
-        const worktreeList = yield* git
-          .execute({
-            operation: "GitCore.listMergedWorktreeCleanupCandidates.worktreeList",
-            cwd: body.cwd,
-            args: ["worktree", "list", "--porcelain"],
-            timeoutMs: 5_000,
-            allowNonZeroExit: true,
-          })
-          .pipe(Effect.provideService(RuntimeEnv, gitEnv));
-
-        return collectMergedWorktreeCleanupCandidates({
-          cwd: body.cwd,
-          worktreeListStdout: worktreeList.stdout,
-          mergedPullRequests: mergedPullRequests.pullRequests.map((pr) => ({
-            number: pr.number,
-            title: pr.title,
-            url: pr.url,
-            headBranch: pr.headBranch,
-            mergedAt: pr.updatedAt,
-          })),
-        });
-      }
-
-      case WS_METHODS.prReviewGetConfig: {
-        const body = stripRequestTag(request.body);
-        yield* prReview
-          .watchRepoConfig({
-            cwd: body.cwd,
-            onChange: (payload) => {
-              void Effect.runPromise(
-                pushBus.publishAll(WS_CHANNELS.prReviewRepoConfigUpdated, payload),
-              );
-            },
-          })
-          .pipe(Effect.ignoreCause({ log: true }));
-        return yield* prReview.getConfig(body);
-      }
-
-      case WS_METHODS.prReviewGetDashboard: {
-        const body = stripRequestTag(request.body);
-        yield* prReview
-          .watchRepoConfig({
-            cwd: body.cwd,
-            onChange: (payload) => {
-              void Effect.runPromise(
-                pushBus.publishAll(WS_CHANNELS.prReviewRepoConfigUpdated, payload),
-              );
-            },
-          })
-          .pipe(Effect.ignoreCause({ log: true }));
-        return yield* prReview.getDashboard(body);
-      }
-
-      case WS_METHODS.prReviewGetPatch: {
-        const body = stripRequestTag(request.body);
-        return yield* prReview.getPatch(body);
-      }
-
-      case WS_METHODS.prReviewAddThread: {
-        const body = stripRequestTag(request.body);
-        const result = yield* prReview.addThread(body);
-        yield* pushBus.publishAll(WS_CHANNELS.prReviewSyncUpdated, {
-          cwd: body.cwd,
-          prNumber: body.prNumber,
-        });
-        return result;
-      }
-
-      case WS_METHODS.prReviewReplyToThread: {
-        const body = stripRequestTag(request.body);
-        const result = yield* prReview.replyToThread(body);
-        yield* pushBus.publishAll(WS_CHANNELS.prReviewSyncUpdated, {
-          cwd: body.cwd,
-          prNumber: body.prNumber,
-        });
-        return result;
-      }
-
-      case WS_METHODS.prReviewResolveThread: {
-        const body = stripRequestTag(request.body);
-        const result = yield* prReview.resolveThread(body);
-        yield* pushBus.publishAll(WS_CHANNELS.prReviewSyncUpdated, {
-          cwd: body.cwd,
-          prNumber: body.prNumber,
-        });
-        return result;
-      }
-
-      case WS_METHODS.prReviewUnresolveThread: {
-        const body = stripRequestTag(request.body);
-        const result = yield* prReview.unresolveThread(body);
-        yield* pushBus.publishAll(WS_CHANNELS.prReviewSyncUpdated, {
-          cwd: body.cwd,
-          prNumber: body.prNumber,
-        });
-        return result;
-      }
-
-      case WS_METHODS.prReviewSearchUsers: {
-        const body = stripRequestTag(request.body);
-        return yield* prReview.searchUsers(body);
-      }
-
-      case WS_METHODS.prReviewGetUserPreview: {
-        const body = stripRequestTag(request.body);
-        return yield* prReview.getUserPreview(body);
-      }
-
-      case WS_METHODS.prReviewAnalyzeConflicts: {
-        const body = stripRequestTag(request.body);
-        return yield* prReview.analyzeConflicts(body);
-      }
-
-      case WS_METHODS.prReviewApplyConflictResolution: {
-        const body = stripRequestTag(request.body);
-        const result = yield* prReview.applyConflictResolution(body);
-        yield* pushBus.publishAll(WS_CHANNELS.prReviewSyncUpdated, {
-          cwd: body.cwd,
-          prNumber: body.prNumber,
-        });
-        return result;
-      }
-
-      case WS_METHODS.prReviewRunWorkflowStep: {
-        const body = stripRequestTag(request.body);
-        const result = yield* prReview.runWorkflowStep(body);
-        yield* pushBus.publishAll(WS_CHANNELS.prReviewSyncUpdated, {
-          cwd: body.cwd,
-          prNumber: body.prNumber,
-        });
-        return result;
-      }
-
-      case WS_METHODS.prReviewSubmitReview: {
-        const body = stripRequestTag(request.body);
-        const result = yield* prReview.submitReview(body);
-        yield* pushBus.publishAll(WS_CHANNELS.prReviewSyncUpdated, {
-          cwd: body.cwd,
-          prNumber: body.prNumber,
-        });
-        return result;
-      }
-
-      // ── GitHub issue methods ──────────────────────────────────────
-
-      case WS_METHODS.githubListIssues: {
-        const body = stripRequestTag(request.body);
-        return yield* github.listIssues(body);
-      }
-
-      case WS_METHODS.githubGetIssue: {
-        const body = stripRequestTag(request.body);
-        return yield* github.getIssue(body);
-      }
-
-      case WS_METHODS.githubPostComment: {
-        const body = stripRequestTag(request.body);
-        return yield* github.postComment(body);
-      }
-
-      case WS_METHODS.gitListBranches: {
-        const body = stripRequestTag(request.body);
-        const snapshot = yield* projectionReadModelQuery.getSnapshot();
-        const gitEnv = yield* resolveRuntimeEnvironment({ cwd: body.cwd, readModel: snapshot });
-        return yield* git.listBranches(body).pipe(Effect.provideService(RuntimeEnv, gitEnv));
-      }
-
-      case WS_METHODS.gitCreateWorktree: {
-        const body = stripRequestTag(request.body);
-        const snapshot = yield* projectionReadModelQuery.getSnapshot();
-        const gitEnv = yield* resolveRuntimeEnvironment({ cwd: body.cwd, readModel: snapshot });
-        return yield* git.createWorktree(body).pipe(Effect.provideService(RuntimeEnv, gitEnv));
-      }
-
-      case WS_METHODS.gitRemoveWorktree: {
-        const body = stripRequestTag(request.body);
-        const snapshot = yield* projectionReadModelQuery.getSnapshot();
-        const gitEnv = yield* resolveRuntimeEnvironment({ cwd: body.cwd, readModel: snapshot });
-        return yield* git.removeWorktree(body).pipe(Effect.provideService(RuntimeEnv, gitEnv));
-      }
-
-      case WS_METHODS.gitPruneWorktrees: {
-        const body = stripRequestTag(request.body);
-        const snapshot = yield* projectionReadModelQuery.getSnapshot();
-        const gitEnv = yield* resolveRuntimeEnvironment({ cwd: body.cwd, readModel: snapshot });
-        return yield* git
-          .execute({
-            operation: "GitCore.pruneWorktrees",
-            cwd: body.cwd,
-            args: ["worktree", "prune", "--expire", "now"],
-            timeoutMs: 15_000,
-          })
-          .pipe(Effect.provideService(RuntimeEnv, gitEnv), Effect.asVoid);
-      }
-
-      case WS_METHODS.gitCreateBranch: {
-        const body = stripRequestTag(request.body);
-        const snapshot = yield* projectionReadModelQuery.getSnapshot();
-        const gitEnv = yield* resolveRuntimeEnvironment({ cwd: body.cwd, readModel: snapshot });
-        return yield* Effect.scoped(git.createBranch(body)).pipe(
-          Effect.provideService(RuntimeEnv, gitEnv),
-        );
-      }
-
-      case WS_METHODS.gitCheckout: {
-        const body = stripRequestTag(request.body);
-        const snapshot = yield* projectionReadModelQuery.getSnapshot();
-        const gitEnv = yield* resolveRuntimeEnvironment({ cwd: body.cwd, readModel: snapshot });
-        return yield* Effect.scoped(git.checkoutBranch(body)).pipe(
-          Effect.provideService(RuntimeEnv, gitEnv),
-        );
-      }
-
-      case WS_METHODS.gitInit: {
-        const body = stripRequestTag(request.body);
-        const snapshot = yield* projectionReadModelQuery.getSnapshot();
-        const gitEnv = yield* resolveRuntimeEnvironment({ cwd: body.cwd, readModel: snapshot });
-        return yield* git.initRepo(body).pipe(Effect.provideService(RuntimeEnv, gitEnv));
-      }
-
-      case WS_METHODS.gitCloneRepository: {
-        const body = stripRequestTag(request.body);
-        const snapshot = yield* projectionReadModelQuery.getSnapshot();
-        const gitEnv = yield* resolveRuntimeEnvironment({
-          cwd: body.targetDir,
-          readModel: snapshot,
-        });
-        return yield* git.cloneRepository(body).pipe(Effect.provideService(RuntimeEnv, gitEnv));
-      }
-
-      case WS_METHODS.terminalOpen: {
-        const body = stripRequestTag(request.body);
-        const envResolutionStartedAt = performance.now();
-        const runtimeEnv = yield* terminalRuntimeEnvResolver.resolve({
-          threadId: ThreadId.makeUnsafe(body.threadId),
-          cwd: body.cwd,
-          ...(body.env !== undefined ? { extraEnv: body.env } : {}),
-        });
-        const envResolutionMs =
-          Math.round((performance.now() - envResolutionStartedAt) * 100) / 100;
-        const session = yield* terminalManager.open({
-          ...body,
-          env: runtimeEnv,
-        });
-        logger.info("terminal open prepared", {
-          threadId: body.threadId,
-          terminalId: body.terminalId ?? "default",
-          envResolutionMs,
-        });
-        return session;
-      }
-
-      case WS_METHODS.terminalWrite: {
-        const body = stripRequestTag(request.body);
-        return yield* terminalManager.write(body);
-      }
-
-      case WS_METHODS.terminalResize: {
-        const body = stripRequestTag(request.body);
-        return yield* terminalManager.resize(body);
-      }
-
-      case WS_METHODS.terminalClear: {
-        const body = stripRequestTag(request.body);
-        return yield* terminalManager.clear(body);
-      }
-
-      case WS_METHODS.terminalRestart: {
-        const body = stripRequestTag(request.body);
-        const envResolutionStartedAt = performance.now();
-        const runtimeEnv = yield* terminalRuntimeEnvResolver.resolve({
-          threadId: ThreadId.makeUnsafe(body.threadId),
-          cwd: body.cwd,
-          ...(body.env !== undefined ? { extraEnv: body.env } : {}),
-        });
-        const envResolutionMs =
-          Math.round((performance.now() - envResolutionStartedAt) * 100) / 100;
-        const session = yield* terminalManager.restart({
-          ...body,
-          env: runtimeEnv,
-        });
-        logger.info("terminal restart prepared", {
-          threadId: body.threadId,
-          terminalId: body.terminalId ?? "default",
-          envResolutionMs,
-        });
-        return session;
-      }
-
-      case WS_METHODS.terminalClose: {
-        const body = stripRequestTag(request.body);
-        return yield* terminalManager.close(body);
-      }
-
-      case WS_METHODS.serverGetConfig:
-        const keybindingsConfig = yield* keybindingsManager.loadConfigState;
-        const providers = yield* getProviderStatuses();
-        const codexConfig = yield* readCodexConfigSummary({ probeLocalBackends: true });
-        return {
-          cwd,
-          keybindingsConfigPath,
-          keybindings: keybindingsConfig.keybindings,
-          issues: keybindingsConfig.issues,
-          providers,
-          codexConfig,
-          availableEditors,
-          buildInfo: serverBuildInfo,
-        };
-
-      case WS_METHODS.serverCheckUpdate: {
-        const latestVersion = yield* Effect.tryPromise(async () => {
-          const res = await fetch("https://registry.npmjs.org/okcodes/latest", {
-            headers: { Accept: "application/json" },
-            signal: AbortSignal.timeout(10_000),
-          });
-          if (!res.ok) return null;
-          const data = (await res.json()) as Record<string, unknown>;
-          return typeof data["version"] === "string" ? data["version"] : null;
-        }).pipe(Effect.orElseSucceed(() => null as string | null));
-        const updateAvailable =
-          latestVersion !== null && isNewerSemver(latestVersion, serverVersion);
-        return { currentVersion: serverVersion, latestVersion, updateAvailable };
-      }
-
-      case WS_METHODS.serverUpsertKeybinding: {
-        const body = stripRequestTag(request.body);
-        const keybindingsConfig = yield* keybindingsManager.upsertKeybindingRule(body);
-        return { keybindings: keybindingsConfig, issues: [] };
-      }
-
-      case WS_METHODS.serverReplaceKeybindingRules: {
-        const body = stripRequestTag(request.body);
-        const keybindingsConfig = yield* keybindingsManager.replaceKeybindingRules(
-          body.command,
-          body.rules,
-        );
-        return { keybindings: keybindingsConfig, issues: [] };
-      }
-
-      case WS_METHODS.serverGetGlobalEnvironmentVariables:
-        return yield* environmentVariables.getGlobal();
-
-      case WS_METHODS.serverSaveGlobalEnvironmentVariables: {
-        const body = stripRequestTag(request.body);
-        return yield* environmentVariables.saveGlobal(body);
-      }
-
-      case WS_METHODS.serverGetProjectEnvironmentVariables: {
-        const body = stripRequestTag(request.body);
-        return yield* environmentVariables.getProject(body);
-      }
-
-      case WS_METHODS.serverSaveProjectEnvironmentVariables: {
-        const body = stripRequestTag(request.body);
-        return yield* environmentVariables.saveProject(body);
-      }
-
-      case WS_METHODS.serverPickFolder: {
-        if (!isLocalWebSocketClient(ws)) {
-          return { path: null };
-        }
-        const pickedPath = yield* Effect.sync(() => pickFolderNative());
-        return { path: pickedPath };
-      }
-
-      case WS_METHODS.serverGeneratePairingLink: {
-        const body = stripRequestTag(request.body);
-        const record = tokenManager.generatePairingToken({
-          ttlSeconds: body.ttlSeconds,
-          label: body.label,
-        });
-        const serverUrl = `http://${host ?? "localhost"}:${port}`;
-        const pairingUrl = `okcode://pair?server=${encodeURIComponent(serverUrl)}&token=${encodeURIComponent(record.tokenValue)}`;
-        return {
-          pairingUrl,
-          token: record.tokenValue,
-          expiresAt: record.expiresAt!,
-        };
-      }
-
-      case WS_METHODS.serverRotateToken: {
-        const { previousTokenId, newRecord } = tokenManager.rotate();
-        return {
-          previousTokenId,
-          newToken: newRecord.tokenValue,
-          newTokenId: newRecord.tokenId,
-          issuedAt: newRecord.createdAt,
-        };
-      }
-
-      case WS_METHODS.serverRevokeToken: {
-        const body = stripRequestTag(request.body);
-        const revoked = tokenManager.revoke(body.tokenId);
-        return { tokenId: body.tokenId, revoked };
-      }
-
-      case WS_METHODS.serverListTokens: {
-        const tokens = tokenManager.list();
-        return { tokens };
-      }
-      case WS_METHODS.serverGetOpenclawGatewayConfig:
-        return yield* openclawGatewayConfig.getSummary();
-
-      case WS_METHODS.serverSaveOpenclawGatewayConfig: {
-        const body = stripRequestTag(request.body);
-        const summary = yield* openclawGatewayConfig.save(body);
-        yield* publishServerConfigUpdated();
-        return summary;
-      }
-
-      case WS_METHODS.serverResetOpenclawGatewayDeviceState: {
-        const body = stripRequestTag(request.body);
-        const summary = yield* openclawGatewayConfig.resetDeviceState(body);
-        yield* publishServerConfigUpdated();
-        return summary;
-      }
-
-      // ── Companion pairing (placeholder) ─────────────────────────────
-      // These handlers are wired for type-exhaustiveness but return
-      // stub responses until the full companion session manager is built.
-
-      case WS_METHODS.serverGenerateCompanionPairingBundle: {
-        return yield* new RouteRequestError({
-          message: "Companion pairing bundle generation is not yet implemented.",
-        });
-      }
-
-      case WS_METHODS.serverExchangeCompanionBootstrap: {
-        return yield* new RouteRequestError({
-          message: "Companion bootstrap exchange is not yet implemented.",
-        });
-      }
-
-      case WS_METHODS.serverListPairedDevices: {
-        return { devices: [] };
-      }
-
-      case WS_METHODS.serverRevokePairedDevice: {
-        return yield* new RouteRequestError({
-          message: "Companion device revocation is not yet implemented.",
-        });
-      }
-
-      // ── OpenClaw gateway test ────────────────────────────────────────
-      case WS_METHODS.serverTestOpenclawGateway: {
-        const body = stripRequestTag(request.body);
-        const resolvedConfig = yield* openclawGatewayConfig.resolveForConnect({
-          ...(body.gatewayUrl ? { gatewayUrl: body.gatewayUrl } : {}),
-          ...(body.password ? { sharedSecret: body.password } : {}),
-          allowEphemeralIdentity: body.gatewayUrl !== undefined,
-        });
-        if (!resolvedConfig) {
-          return yield* new RouteRequestError({
-            message:
-              "OpenClaw gateway URL is not configured. Save it in Settings or provide a test override.",
-          });
-        }
-        const result = yield* testOpenclawGateway({
-          gatewayUrl: resolvedConfig.gatewayUrl,
-          password: body.password ?? resolvedConfig.sharedSecret,
-        });
-        yield* publishServerConfigUpdated();
-        return result;
-      }
-
-      // ── Connection health ───────────────────────────────────────────
-      case WS_METHODS.serverPing:
-        return { pong: true, serverTime: Date.now() };
-
-      case WS_METHODS.skillList: {
-        const body = stripRequestTag(request.body);
-        return yield* skillService.list(body);
-      }
-
-      case WS_METHODS.skillCatalog: {
-        const body = stripRequestTag(request.body);
-        return yield* skillService.catalog(body);
-      }
-
-      case WS_METHODS.skillRead: {
-        const body = stripRequestTag(request.body);
-        return yield* skillService.read(body);
-      }
-
-      case WS_METHODS.skillCreate: {
-        const body = stripRequestTag(request.body);
-        return yield* skillService.create(body);
-      }
-
-      case WS_METHODS.skillDelete: {
-        const body = stripRequestTag(request.body);
-        return yield* skillService.delete(body);
-      }
-
-      case WS_METHODS.skillInstall: {
-        const body = stripRequestTag(request.body);
-        return yield* skillService.install(body);
-      }
-
-      case WS_METHODS.skillUninstall: {
-        const body = stripRequestTag(request.body);
-        return yield* skillService.uninstall(body);
-      }
-
-      case WS_METHODS.skillImport: {
-        const body = stripRequestTag(request.body);
-        return yield* skillService.importSkill(body);
-      }
-
-      case WS_METHODS.skillSearch: {
-        const body = stripRequestTag(request.body);
-        return yield* skillService.search(body);
-      }
-
-      // ── SME Chat ────────────────────────────────────────────────────
-      case WS_METHODS.smeUploadDocument: {
-        const body = stripRequestTag(request.body);
-        return yield* smeChatService.uploadDocument(body);
-      }
-
-      case WS_METHODS.smeDeleteDocument: {
-        const body = stripRequestTag(request.body);
-        return yield* smeChatService.deleteDocument(body);
-      }
-
-      case WS_METHODS.smeListDocuments: {
-        const body = stripRequestTag(request.body);
-        return yield* smeChatService.listDocuments(body);
-      }
-
-      case WS_METHODS.smeCreateConversation: {
-        const body = stripRequestTag(request.body);
-        return yield* smeChatService.createConversation(body);
-      }
-
-      case WS_METHODS.smeUpdateConversation: {
-        const body = stripRequestTag(request.body);
-        return yield* smeChatService.updateConversation(body);
-      }
-
-      case WS_METHODS.smeDeleteConversation: {
-        const body = stripRequestTag(request.body);
-        return yield* smeChatService.deleteConversation(body);
-      }
-
-      case WS_METHODS.smeListConversations: {
-        const body = stripRequestTag(request.body);
-        return yield* smeChatService.listConversations(body);
-      }
-
-      case WS_METHODS.smeGetConversation: {
-        const body = stripRequestTag(request.body);
-        return yield* smeChatService.getConversation(body);
-      }
-
-      case WS_METHODS.smeValidateSetup: {
-        const body = stripRequestTag(request.body);
-        return yield* smeChatService.validateSetup(body);
-      }
-
-      case WS_METHODS.smeSendMessage: {
-        const body = stripRequestTag(request.body);
-        return yield* smeChatService.sendMessage(body, (event) => {
-          void Effect.runPromise(pushBus.publishAll(SME_WS_CHANNELS.messageEvent, event));
-        });
-      }
-
-      case WS_METHODS.smeInterruptMessage: {
-        const body = stripRequestTag(request.body);
-        return yield* smeChatService.interruptMessage(body);
-      }
-
-      case WS_METHODS.decisionListCases:
-      case WS_METHODS.decisionGetWorkspace:
-      case WS_METHODS.decisionReanalyze:
-      case WS_METHODS.decisionRequestConsultation:
-      case WS_METHODS.decisionRespondConsultation:
-      case WS_METHODS.decisionExecuteRecommendation:
-        return yield* new RouteRequestError({
-          message: "Decision workspace RPCs are not wired on this server build yet.",
-        });
-
-      default: {
-        const _exhaustiveCheck: never = request.body;
-        return yield* new RouteRequestError({
-          message: `Unknown method: ${String(_exhaustiveCheck)}`,
-        });
-      }
+    const domainHandler = domainRouteHandlers[request.body._tag];
+    if (domainHandler) {
+      return yield* domainHandler(ws, request);
     }
+
+    return yield* new RouteRequestError({
+      message: `Unknown method: ${String(request.body._tag)}`,
+    });
   });
 
   const serializeWebSocketError = (
@@ -1991,7 +1244,7 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
       });
     }
 
-    const result = yield* Effect.exit(routeRequest(ws, request.success));
+    const result = yield* Effect.exit(routeRequest(ws, request.success) as Effect.Effect<unknown>);
     if (Exit.isFailure(result)) {
       return yield* sendWsResponse({
         id: request.success.id,

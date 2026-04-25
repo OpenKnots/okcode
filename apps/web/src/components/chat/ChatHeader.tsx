@@ -26,6 +26,7 @@ import { HeaderPanelsMenu } from "./HeaderPanelsMenu";
 interface ChatHeaderProps {
   activeThreadId: ThreadId;
   activeThreadTitle: string;
+  threadKind: "thread" | "project-chat";
   activeProjectId: ProjectId | undefined;
   activeProjectName: string | undefined;
   activeProjectCwd: string | undefined;
@@ -59,6 +60,7 @@ interface ChatHeaderProps {
 export const ChatHeader = memo(function ChatHeader({
   activeThreadId,
   activeThreadTitle,
+  threadKind,
   activeProjectId,
   activeProjectName,
   activeProjectCwd,
@@ -155,27 +157,38 @@ export const ChatHeader = memo(function ChatHeader({
             <ChevronDownIcon className="size-4" />
           </Button>
         )}
-        <EditableThreadTitle
-          title={activeThreadTitle}
-          isEditing={isEditingTitle}
-          draftTitle={draftTitle}
-          inputRef={bindInputRef}
-          containerClassName="min-w-0 shrink [-webkit-app-region:no-drag]"
-          titleClassName="min-w-0 truncate text-sm font-medium text-foreground"
-          inputClassName="h-7 text-sm"
-          showEditButton
-          editButtonClassName="size-6"
-          onStartEditing={() => {
-            startEditing({
-              threadId: activeThreadId,
-              title: activeThreadTitle,
-              isDraft: isLocalDraftThread,
-            });
-          }}
-          onDraftTitleChange={setDraftTitle}
-          onCommit={() => void commitEditing()}
-          onCancel={cancelEditing}
-        />
+        {threadKind === "project-chat" ? (
+          <div className="min-w-0 shrink [-webkit-app-region:no-drag]">
+            <div className="truncate text-sm font-semibold text-foreground">
+              {activeProjectName ?? activeThreadTitle}
+            </div>
+            <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+              Project chat
+            </div>
+          </div>
+        ) : (
+          <EditableThreadTitle
+            title={activeThreadTitle}
+            isEditing={isEditingTitle}
+            draftTitle={draftTitle}
+            inputRef={bindInputRef}
+            containerClassName="min-w-0 shrink [-webkit-app-region:no-drag]"
+            titleClassName="min-w-0 truncate text-sm font-medium text-foreground"
+            inputClassName="h-7 text-sm"
+            showEditButton
+            editButtonClassName="size-6"
+            onStartEditing={() => {
+              startEditing({
+                threadId: activeThreadId,
+                title: activeThreadTitle,
+                isDraft: isLocalDraftThread,
+              });
+            }}
+            onDraftTitleChange={setDraftTitle}
+            onCommit={() => void commitEditing()}
+            onCancel={cancelEditing}
+          />
+        )}
       </div>
 
       {/* Right: Actions — only primary actions visible, panels in overflow */}

@@ -18,7 +18,7 @@ import {
   DEFAULT_MODEL_BY_PROVIDER,
   type DesktopUpdateState,
   type GitStatusResult,
-  type ProjectId,
+  ProjectId,
   type ResolvedKeybindingsConfig,
   ThreadId,
 } from "@okcode/contracts";
@@ -28,8 +28,9 @@ import { isNonEmpty as isNonEmptyString } from "effect/String";
 import {
   ArrowLeftIcon,
   ArrowUpDownIcon,
-  BookOpenIcon,
   CheckCircleIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
   ChevronsDownUpIcon,
   ChevronsUpDownIcon,
   CircleDotIcon,
@@ -115,6 +116,7 @@ import {
   getVisibleThreadsForProject,
   isActionableThreadStatus,
   mergeDraftThreadsIntoSidebarThreads,
+  partitionProjectThreadsForSidebar,
   resolveProjectNameTone,
   resolveSidebarNewThreadEnvMode,
   resolveThreadStatusPill,
@@ -578,8 +580,7 @@ export default function Sidebar() {
   const isOnSubPage =
     pathname.startsWith("/settings") ||
     pathname === "/pr-review" ||
-    pathname === "/merge-conflicts" ||
-    pathname === "/sme-chat";
+    pathname === "/merge-conflicts";
   const { settings: appSettings, updateSettings } = useAppSettings();
   const { resolvedTheme } = useTheme();
   const { toggleSidebar } = useSidebar();
@@ -590,6 +591,10 @@ export default function Sidebar() {
   });
   const serverConfigQuery = useQuery(serverConfigQueryOptions());
   const keybindings = serverConfigQuery.data?.keybindings ?? EMPTY_KEYBINDINGS;
+  const routeProjectId = useParams({
+    strict: false,
+    select: (params) => (params.projectId ? ProjectId.makeUnsafe(params.projectId) : null),
+  });
   const { hasCandidates: hasWorktreeCleanupCandidates } = useCurrentWorktreeCleanupCandidates();
   const queryClient = useQueryClient();
   const removeWorktreeMutation = useMutation(gitRemoveWorktreeMutationOptions({ queryClient }));
@@ -710,12 +715,30 @@ export default function Sidebar() {
     [sidebarThreads],
   );
   const serverThreadIds = useMemo(() => new Set(threads.map((thread) => thread.id)), [threads]);
-  const activeProjectId = routeThreadId ? (threadById.get(routeThreadId)?.projectId ?? null) : null;
+  const activeProjectId =
+    routeProjectId ?? (routeThreadId ? (threadById.get(routeThreadId)?.projectId ?? null) : null);
   const lastAutoExpandedThreadIdRef = useRef<ThreadIdType | null>(null);
   const sortedThreadsByProjectId = useMemo(
     () => sortThreadsByProjectIdForSidebar(sidebarThreads, appSettings.sidebarThreadSortOrder),
     [appSettings.sidebarThreadSortOrder, sidebarThreads],
   );
+  const sidebarThreadsByProjectId = useMemo(() => {
+    const map = new Map<ProjectId, Thread[]>();
+    for (const [projectId, projectThreads] of sortedThreadsByProjectId) {
+      map.set(projectId, partitionProjectThreadsForSidebar(projectThreads).sidebarThreads);
+    }
+    return map;
+  }, [sortedThreadsByProjectId]);
+  const projectChatThreadByProjectId = useMemo(() => {
+    const map = new Map<ProjectId, Thread>();
+    for (const [projectId, projectThreads] of sortedThreadsByProjectId) {
+      const projectChatThread = partitionProjectThreadsForSidebar(projectThreads).projectChatThread;
+      if (projectChatThread) {
+        map.set(projectId, projectChatThread);
+      }
+    }
+    return map;
+  }, [sortedThreadsByProjectId]);
   const sidebarDensityStyle = useMemo(
     () =>
       ({
@@ -733,24 +756,14 @@ export default function Sidebar() {
   );
   const orderedThreadIdsByProjectId = useMemo(() => {
     const orderedThreadIds = new Map<ProjectId, ThreadIdType[]>();
-    for (const [projectId, projectThreads] of sortedThreadsByProjectId) {
+    for (const [projectId, projectThreads] of sidebarThreadsByProjectId) {
       orderedThreadIds.set(
         projectId,
         projectThreads.map((thread) => thread.id),
       );
     }
     return orderedThreadIds;
-  }, [sortedThreadsByProjectId]);
-  const latestThreadByProjectId = useMemo(() => {
-    const latestThreads = new Map<ProjectId, Thread>();
-    for (const [projectId, projectThreads] of sortedThreadsByProjectId) {
-      const latestThread = projectThreads[0];
-      if (latestThread) {
-        latestThreads.set(projectId, latestThread);
-      }
-    }
-    return latestThreads;
-  }, [sortedThreadsByProjectId]);
+  }, [sidebarThreadsByProjectId]);
 
   useEffect(() => {
     if (!routeThreadId || !activeProjectId) {
@@ -762,6 +775,13 @@ export default function Sidebar() {
     lastAutoExpandedThreadIdRef.current = routeThreadId;
     setProjectExpanded(activeProjectId, true);
   }, [activeProjectId, routeThreadId, setProjectExpanded]);
+
+  useEffect(() => {
+    if (!routeProjectId) {
+      return;
+    }
+    setProjectExpanded(routeProjectId, true);
+  }, [routeProjectId, setProjectExpanded]);
 
   useEffect(() => {
     if (!projectIconDialogProjectId) {
@@ -851,17 +871,14 @@ export default function Sidebar() {
     return map;
   }, [threadGitStatusCwds, threadGitStatusQueries, threadGitTargets]);
 
-  const focusMostRecentThreadForProject = useCallback(
+  const openProjectChatForProject = useCallback(
     (projectId: ProjectId) => {
-      const latestThread = latestThreadByProjectId.get(projectId);
-      if (!latestThread) return;
-
       void navigate({
-        to: "/$threadId",
-        params: { threadId: latestThread.id },
+        to: "/project/$projectId",
+        params: { projectId },
       });
     },
-    [latestThreadByProjectId, navigate],
+    [navigate],
   );
 
   const addProjectFromPath = useCallback(
@@ -881,7 +898,7 @@ export default function Sidebar() {
 
       const existing = projects.find((project) => project.cwd === cwd);
       if (existing) {
-        focusMostRecentThreadForProject(existing.id);
+        openProjectChatForProject(existing.id);
         finishAddingProject();
         return;
       }
@@ -910,9 +927,7 @@ export default function Sidebar() {
             description: packageScriptWarning,
           });
         }
-        await handleNewThread(projectId, {
-          envMode: appSettings.defaultThreadEnvMode,
-        }).catch(() => undefined);
+        openProjectChatForProject(projectId);
       } catch (error) {
         const description =
           error instanceof Error ? error.message : "An error occurred while adding the project.";
@@ -930,14 +945,7 @@ export default function Sidebar() {
       }
       finishAddingProject();
     },
-    [
-      focusMostRecentThreadForProject,
-      handleNewThread,
-      isAddingProject,
-      projects,
-      shouldBrowseForProjectImmediately,
-      appSettings.defaultThreadEnvMode,
-    ],
+    [openProjectChatForProject, isAddingProject, projects, shouldBrowseForProjectImmediately],
   );
 
   const handleAddProject = () => {
@@ -1378,8 +1386,9 @@ export default function Sidebar() {
       const project = projectById.get(projectId);
       if (!project) return;
 
-      const projectThreads = sortedThreadsByProjectId.get(projectId) ?? EMPTY_THREADS;
-      if (projectThreads.length > 1) {
+      const projectThreads = sidebarThreadsByProjectId.get(projectId) ?? EMPTY_THREADS;
+      const projectChatThread = projectChatThreadByProjectId.get(projectId) ?? null;
+      if (projectThreads.length > 0) {
         toastManager.add({
           type: "warning",
           title: "Project is not empty",
@@ -1389,19 +1398,16 @@ export default function Sidebar() {
       }
 
       const confirmed = await api.dialogs.confirm(
-        projectThreads.length === 1
-          ? `Remove project "${project.name}" and delete its only thread?`
+        projectChatThread
+          ? `Remove project "${project.name}" and delete its project chat?`
           : `Remove project "${project.name}"?`,
       );
       if (!confirmed) return;
 
       try {
-        if (projectThreads.length === 1) {
-          const [projectThread] = projectThreads;
-          if (projectThread) {
-            clearSelection();
-            await deleteThread(projectThread.id);
-          }
+        if (projectChatThread) {
+          clearSelection();
+          await deleteThread(projectChatThread.id);
         } else {
           const projectDraftThread = getDraftThreadByProjectId(projectId);
           if (projectDraftThread) {
@@ -1433,7 +1439,8 @@ export default function Sidebar() {
       projectById,
       setProjectIconDialogOpen,
       setProjectIconDialogProjectId,
-      sortedThreadsByProjectId,
+      sidebarThreadsByProjectId,
+      projectChatThreadByProjectId,
       startProjectEditing,
     ],
   );
@@ -1538,7 +1545,8 @@ export default function Sidebar() {
     dragHandleProps: SortableProjectHandleProps | null,
     visualIndex: number,
   ) {
-    const projectThreads = sortedThreadsByProjectId.get(project.id) ?? EMPTY_THREADS;
+    const projectThreads = sidebarThreadsByProjectId.get(project.id) ?? EMPTY_THREADS;
+    const hasProjectChat = projectChatThreadByProjectId.has(project.id);
     const activeThreadId = routeThreadId ?? undefined;
     const isThreadListExpanded = expandedThreadListsByProject.has(project.id);
     const pinnedCollapsedThread =
@@ -1557,8 +1565,9 @@ export default function Sidebar() {
     const pColor = getProjectColor(project.id);
     const isDark = resolvedTheme === "dark";
     const isMissingOnDisk = projectPathExistsByCwd.get(project.cwd) === false;
+    const isActiveProject = activeProjectId === project.id;
     const projectNameTone = resolveProjectNameTone({
-      isSelectedProject: activeProjectId === project.id,
+      isSelectedProject: isActiveProject,
       accentProjectNames: appSettings.sidebarAccentProjectNames,
       visualIndex,
     });
@@ -1572,12 +1581,29 @@ export default function Sidebar() {
             backgroundColor: isDark ? pColor.bgDark : pColor.bg,
           }}
         >
+          <button
+            type="button"
+            aria-label={project.expanded ? "Collapse project threads" : "Expand project threads"}
+            className="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground/60 transition-colors hover:bg-accent hover:text-foreground"
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              toggleProject(project.id);
+            }}
+          >
+            {project.expanded ? (
+              <ChevronDownIcon className="size-3.5" />
+            ) : (
+              <ChevronRightIcon className="size-3.5" />
+            )}
+          </button>
           <SidebarMenuButton
             ref={isManualProjectSorting ? dragHandleProps?.setActivatorNodeRef : undefined}
             size="sm"
             className={cn(
-              "h-auto min-w-0 flex-1 gap-1.5 rounded-md text-left hover:bg-transparent",
+              "h-auto min-w-0 flex-1 gap-1.5 rounded-md px-2 text-left transition-colors hover:bg-transparent",
               isManualProjectSorting ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
+              isActiveProject && "bg-background/70 text-foreground shadow-sm",
             )}
             style={SIDEBAR_PROJECT_ROW_STYLE}
             {...(isManualProjectSorting && dragHandleProps ? dragHandleProps.attributes : {})}
@@ -1631,6 +1657,11 @@ export default function Sidebar() {
                 >
                   {project.name}
                 </span>
+                {hasProjectChat ? (
+                  <span className="shrink-0 rounded-full bg-background/70 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground/80">
+                    Chat
+                  </span>
+                ) : null}
                 {isMissingOnDisk ? <MissingOnDiskBadge path={project.cwd} /> : null}
               </span>
             )}
@@ -1751,29 +1782,12 @@ export default function Sidebar() {
       if (selectedThreadIds.size > 0) {
         clearSelection();
       }
-      // When expanding a project with exactly one thread, navigate directly to it.
-      const project = projectById.get(projectId);
-      if (project && !project.expanded) {
-        const projectThreads = sortedThreadsByProjectId.get(projectId) ?? EMPTY_THREADS;
-        if (projectThreads.length === 1) {
-          toggleProject(projectId);
-          void navigate({
-            to: "/$threadId",
-            params: { threadId: projectThreads[0]!.id },
-          });
-          return;
-        }
-      }
-      toggleProject(projectId);
+      void navigate({
+        to: "/project/$projectId",
+        params: { projectId },
+      });
     },
-    [
-      clearSelection,
-      navigate,
-      projectById,
-      selectedThreadIds.size,
-      sortedThreadsByProjectId,
-      toggleProject,
-    ],
+    [clearSelection, navigate, selectedThreadIds.size],
   );
 
   const handleProjectTitleKeyDown = useCallback(
@@ -1783,22 +1797,12 @@ export default function Sidebar() {
       if (dragInProgressRef.current) {
         return;
       }
-      // When expanding a project with exactly one thread, navigate directly to it.
-      const project = projectById.get(projectId);
-      if (project && !project.expanded) {
-        const projectThreads = sortedThreadsByProjectId.get(projectId) ?? EMPTY_THREADS;
-        if (projectThreads.length === 1) {
-          toggleProject(projectId);
-          void navigate({
-            to: "/$threadId",
-            params: { threadId: projectThreads[0]!.id },
-          });
-          return;
-        }
-      }
-      toggleProject(projectId);
+      void navigate({
+        to: "/project/$projectId",
+        params: { projectId },
+      });
     },
-    [navigate, projectById, sortedThreadsByProjectId, toggleProject],
+    [navigate],
   );
 
   useEffect(() => {
@@ -2474,10 +2478,10 @@ export default function Sidebar() {
                 <SidebarMenuButton
                   size="sm"
                   className="gap-2 px-2 py-1.5 text-muted-foreground/70 hover:bg-accent hover:text-foreground"
-                  onClick={() => void navigate({ to: "/sme-chat" })}
+                  onClick={() => void navigate({ to: "/" })}
                 >
-                  <BookOpenIcon className="size-3.5" />
-                  <span className="text-xs">SME Chat</span>
+                  <ChevronRightIcon className="size-3.5" />
+                  <span className="text-xs">Projects</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               {hasWorktreeCleanupCandidates ? (

@@ -42,6 +42,7 @@ function makeSnapshot(input: {
     threads: [
       {
         id: input.threadId,
+        kind: "thread",
         projectId: input.projectId,
         title: "Thread",
         model: "gpt-5-codex",

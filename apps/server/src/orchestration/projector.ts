@@ -266,6 +266,7 @@ export function projectEvent(
           OrchestrationThread,
           {
             id: payload.threadId,
+            kind: payload.kind,
             projectId: payload.projectId,
             title: payload.title,
             model: payload.model,

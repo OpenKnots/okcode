@@ -248,6 +248,7 @@ function createSnapshotForTargetUser(options: {
     threads: [
       {
         id: THREAD_ID,
+        kind: "thread",
         projectId: PROJECT_ID,
         title: "Browser test thread",
         model: "gpt-5",
@@ -330,6 +331,7 @@ function addThreadToSnapshot(
       ...snapshot.threads,
       {
         id: threadId,
+        kind: "thread",
         projectId: PROJECT_ID,
         title: "New thread",
         model: "gpt-5",

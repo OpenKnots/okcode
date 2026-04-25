@@ -47,16 +47,6 @@ import {
   PrSubmitReviewInput,
 } from "./prReview";
 import {
-  DECISION_WS_CHANNELS,
-  DECISION_WS_METHODS,
-  DecisionExecuteRecommendationInput,
-  DecisionGetWorkspaceInput,
-  DecisionListCasesInput,
-  DecisionRequestConsultationInput,
-  DecisionRespondConsultationInput,
-  DecisionUpdatedPayload,
-} from "./decision";
-import {
   TerminalClearInput,
   TerminalCloseInput,
   TerminalEvent,
@@ -83,11 +73,8 @@ import {
 import { ProjectFileTreeChangedPayload } from "./project";
 import { OpenInEditorInput, OpenPathInput } from "./editor";
 import {
-  ExchangeCompanionBootstrapInput,
-  GenerateCompanionPairingBundleInput,
   GeneratePairingLinkInput,
   ResetOpenclawGatewayDeviceStateInput,
-  RevokePairedDeviceInput,
   RevokeTokenInput,
   SaveOpenclawGatewayConfigInput,
   ServerConfigUpdatedPayload,
@@ -106,22 +93,6 @@ import {
   SkillSearchInput,
   SkillUninstallInput,
 } from "./skill";
-import {
-  SME_WS_METHODS,
-  SME_WS_CHANNELS,
-  SmeUploadDocumentInput,
-  SmeDeleteDocumentInput,
-  SmeListDocumentsInput,
-  SmeCreateConversationInput,
-  SmeUpdateConversationInput,
-  SmeDeleteConversationInput,
-  SmeListConversationsInput,
-  SmeGetConversationInput,
-  SmeSendMessageInput,
-  SmeInterruptMessageInput,
-  SmeMessageEvent,
-  SmeValidateSetupInput,
-} from "./sme";
 
 // ── WebSocket RPC Method Names ───────────────────────────────────────
 
@@ -181,14 +152,6 @@ export const WS_METHODS = {
   prReviewRunWorkflowStep: "prReview.runWorkflowStep",
   prReviewSubmitReview: "prReview.submitReview",
 
-  // Decision workspace methods
-  decisionListCases: DECISION_WS_METHODS.listCases,
-  decisionGetWorkspace: DECISION_WS_METHODS.getWorkspace,
-  decisionReanalyze: DECISION_WS_METHODS.reanalyze,
-  decisionRequestConsultation: DECISION_WS_METHODS.requestConsultation,
-  decisionRespondConsultation: DECISION_WS_METHODS.respondConsultation,
-  decisionExecuteRecommendation: DECISION_WS_METHODS.executeRecommendation,
-
   // Terminal methods
   terminalOpen: "terminal.open",
   terminalWrite: "terminal.write",
@@ -228,30 +191,11 @@ export const WS_METHODS = {
   serverSaveOpenclawGatewayConfig: "server.saveOpenclawGatewayConfig",
   serverResetOpenclawGatewayDeviceState: "server.resetOpenclawGatewayDeviceState",
 
-  // Companion pairing
-  serverGenerateCompanionPairingBundle: "server.generateCompanionPairingBundle",
-  serverExchangeCompanionBootstrap: "server.exchangeCompanionBootstrap",
-  serverListPairedDevices: "server.listPairedDevices",
-  serverRevokePairedDevice: "server.revokePairedDevice",
-
   // OpenClaw gateway
   serverTestOpenclawGateway: "server.testOpenclawGateway",
 
   // Connection health
   serverPing: "server.ping",
-
-  // SME Chat methods
-  smeUploadDocument: SME_WS_METHODS.uploadDocument,
-  smeDeleteDocument: SME_WS_METHODS.deleteDocument,
-  smeListDocuments: SME_WS_METHODS.listDocuments,
-  smeCreateConversation: SME_WS_METHODS.createConversation,
-  smeUpdateConversation: SME_WS_METHODS.updateConversation,
-  smeDeleteConversation: SME_WS_METHODS.deleteConversation,
-  smeListConversations: SME_WS_METHODS.listConversations,
-  smeGetConversation: SME_WS_METHODS.getConversation,
-  smeValidateSetup: SME_WS_METHODS.validateSetup,
-  smeSendMessage: SME_WS_METHODS.sendMessage,
-  smeInterruptMessage: SME_WS_METHODS.interruptMessage,
 } as const;
 
 // ── Push Event Channels ──────────────────────────────────────────────
@@ -260,12 +204,10 @@ export const WS_CHANNELS = {
   gitActionProgress: "git.actionProgress",
   prReviewSyncUpdated: "prReview.syncUpdated",
   prReviewRepoConfigUpdated: "prReview.repoConfigUpdated",
-  decisionUpdated: DECISION_WS_CHANNELS.updated,
   terminalEvent: "terminal.event",
   serverWelcome: "server.welcome",
   serverConfigUpdated: "server.configUpdated",
   projectFileTreeChanged: "project.fileTreeChanged",
-  smeMessageEvent: SME_WS_CHANNELS.messageEvent,
 } as const;
 
 // -- Tagged Union of all request body schemas ─────────────────────────
@@ -346,14 +288,6 @@ const WebSocketRequestBody = Schema.Union([
   tagRequestBody(WS_METHODS.prReviewRunWorkflowStep, PrReviewRunWorkflowStepInput),
   tagRequestBody(WS_METHODS.prReviewSubmitReview, PrSubmitReviewInput),
 
-  // Decision workspace methods
-  tagRequestBody(WS_METHODS.decisionListCases, DecisionListCasesInput),
-  tagRequestBody(WS_METHODS.decisionGetWorkspace, DecisionGetWorkspaceInput),
-  tagRequestBody(WS_METHODS.decisionReanalyze, DecisionGetWorkspaceInput),
-  tagRequestBody(WS_METHODS.decisionRequestConsultation, DecisionRequestConsultationInput),
-  tagRequestBody(WS_METHODS.decisionRespondConsultation, DecisionRespondConsultationInput),
-  tagRequestBody(WS_METHODS.decisionExecuteRecommendation, DecisionExecuteRecommendationInput),
-
   // Orchestration detail methods
   tagRequestBody(ORCHESTRATION_WS_METHODS.getThreadDetail, OrchestrationGetThreadDetailInput),
 
@@ -375,19 +309,6 @@ const WebSocketRequestBody = Schema.Union([
   tagRequestBody(WS_METHODS.skillUninstall, SkillUninstallInput),
   tagRequestBody(WS_METHODS.skillImport, SkillImportInput),
   tagRequestBody(WS_METHODS.skillSearch, SkillSearchInput),
-
-  // SME Chat methods
-  tagRequestBody(WS_METHODS.smeUploadDocument, SmeUploadDocumentInput),
-  tagRequestBody(WS_METHODS.smeDeleteDocument, SmeDeleteDocumentInput),
-  tagRequestBody(WS_METHODS.smeListDocuments, SmeListDocumentsInput),
-  tagRequestBody(WS_METHODS.smeCreateConversation, SmeCreateConversationInput),
-  tagRequestBody(WS_METHODS.smeUpdateConversation, SmeUpdateConversationInput),
-  tagRequestBody(WS_METHODS.smeDeleteConversation, SmeDeleteConversationInput),
-  tagRequestBody(WS_METHODS.smeListConversations, SmeListConversationsInput),
-  tagRequestBody(WS_METHODS.smeGetConversation, SmeGetConversationInput),
-  tagRequestBody(WS_METHODS.smeValidateSetup, SmeValidateSetupInput),
-  tagRequestBody(WS_METHODS.smeSendMessage, SmeSendMessageInput),
-  tagRequestBody(WS_METHODS.smeInterruptMessage, SmeInterruptMessageInput),
 
   // Server meta
   tagRequestBody(WS_METHODS.serverGetConfig, Schema.Struct({})),
@@ -417,15 +338,6 @@ const WebSocketRequestBody = Schema.Union([
     WS_METHODS.serverResetOpenclawGatewayDeviceState,
     ResetOpenclawGatewayDeviceStateInput,
   ),
-
-  // Companion pairing
-  tagRequestBody(
-    WS_METHODS.serverGenerateCompanionPairingBundle,
-    GenerateCompanionPairingBundleInput,
-  ),
-  tagRequestBody(WS_METHODS.serverExchangeCompanionBootstrap, ExchangeCompanionBootstrapInput),
-  tagRequestBody(WS_METHODS.serverListPairedDevices, Schema.Struct({})),
-  tagRequestBody(WS_METHODS.serverRevokePairedDevice, RevokePairedDeviceInput),
 
   // OpenClaw gateway
   tagRequestBody(WS_METHODS.serverTestOpenclawGateway, TestOpenclawGatewayInput),
@@ -471,11 +383,9 @@ export interface WsPushPayloadByChannel {
   readonly [WS_CHANNELS.gitActionProgress]: typeof GitActionProgressEvent.Type;
   readonly [WS_CHANNELS.prReviewSyncUpdated]: typeof PrReviewSyncUpdatedPayload.Type;
   readonly [WS_CHANNELS.prReviewRepoConfigUpdated]: typeof PrReviewRepoConfigUpdatedPayload.Type;
-  readonly [WS_CHANNELS.decisionUpdated]: typeof DecisionUpdatedPayload.Type;
   readonly [WS_CHANNELS.terminalEvent]: typeof TerminalEvent.Type;
   readonly [WS_CHANNELS.projectFileTreeChanged]: typeof ProjectFileTreeChangedPayload.Type;
   readonly [ORCHESTRATION_WS_CHANNELS.domainEvent]: OrchestrationEvent;
-  readonly [SME_WS_CHANNELS.messageEvent]: typeof SmeMessageEvent.Type;
 }
 
 export type WsPushChannel = keyof WsPushPayloadByChannel;
@@ -509,10 +419,6 @@ export const WsPushPrReviewRepoConfigUpdated = makeWsPushSchema(
   WS_CHANNELS.prReviewRepoConfigUpdated,
   PrReviewRepoConfigUpdatedPayload,
 );
-export const WsPushDecisionUpdated = makeWsPushSchema(
-  WS_CHANNELS.decisionUpdated,
-  DecisionUpdatedPayload,
-);
 export const WsPushTerminalEvent = makeWsPushSchema(WS_CHANNELS.terminalEvent, TerminalEvent);
 export const WsPushProjectFileTreeChanged = makeWsPushSchema(
   WS_CHANNELS.projectFileTreeChanged,
@@ -522,22 +428,16 @@ export const WsPushOrchestrationDomainEvent = makeWsPushSchema(
   ORCHESTRATION_WS_CHANNELS.domainEvent,
   OrchestrationEvent,
 );
-export const WsPushSmeMessageEvent = makeWsPushSchema(
-  SME_WS_CHANNELS.messageEvent,
-  SmeMessageEvent,
-);
 
 export const WsPushChannelSchema = Schema.Literals([
   WS_CHANNELS.gitActionProgress,
   WS_CHANNELS.prReviewSyncUpdated,
   WS_CHANNELS.prReviewRepoConfigUpdated,
-  WS_CHANNELS.decisionUpdated,
   WS_CHANNELS.serverWelcome,
   WS_CHANNELS.serverConfigUpdated,
   WS_CHANNELS.terminalEvent,
   WS_CHANNELS.projectFileTreeChanged,
   ORCHESTRATION_WS_CHANNELS.domainEvent,
-  SME_WS_CHANNELS.messageEvent,
 ]);
 export type WsPushChannelSchema = typeof WsPushChannelSchema.Type;
 
@@ -547,11 +447,9 @@ export const WsPush = Schema.Union([
   WsPushGitActionProgress,
   WsPushPrReviewSyncUpdated,
   WsPushPrReviewRepoConfigUpdated,
-  WsPushDecisionUpdated,
   WsPushTerminalEvent,
   WsPushProjectFileTreeChanged,
   WsPushOrchestrationDomainEvent,
-  WsPushSmeMessageEvent,
 ]);
 export type WsPush = typeof WsPush.Type;
 

@@ -127,6 +127,26 @@ export function requireThreadAbsent(input: {
   );
 }
 
+export function requireProjectChatThreadAbsent(input: {
+  readonly readModel: OrchestrationReadModel;
+  readonly command: OrchestrationCommand;
+  readonly projectId: ProjectId;
+}): Effect.Effect<void, OrchestrationCommandInvariantError> {
+  const existingProjectChatThread = listActiveThreadsByProjectId(
+    input.readModel,
+    input.projectId,
+  ).find((thread) => thread.kind === "project-chat");
+  if (!existingProjectChatThread) {
+    return Effect.void;
+  }
+  return Effect.fail(
+    invariantError(
+      input.command.type,
+      `Project '${input.projectId}' already has a project chat thread ('${existingProjectChatThread.id}').`,
+    ),
+  );
+}
+
 export function requireNonNegativeInteger(input: {
   readonly commandType: OrchestrationCommand["type"];
   readonly field: string;

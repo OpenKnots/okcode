@@ -39,6 +39,7 @@ import Migration0024 from "./Migrations/024_OpenclawGatewayConfig.ts";
 import Migration0025 from "./Migrations/025_CanonicalizeModelSelections.ts";
 import Migration0026 from "./Migrations/025_ProjectionProjectIconPath.ts";
 import Migration0027 from "./Migrations/027_CanonicalizeModelSelectionsBackfill.ts";
+import Migration0028 from "./Migrations/028_ProjectionThreadKind.ts";
 import { Effect } from "effect";
 
 /**
@@ -79,6 +80,7 @@ const loader = Migrator.fromRecord({
   "25_CanonicalizeModelSelections": Migration0025,
   "26_ProjectionProjectIconPath": Migration0026,
   "27_CanonicalizeModelSelectionsBackfill": Migration0027,
+  "28_ProjectionThreadKind": Migration0028,
 });
 
 /**

@@ -138,6 +138,7 @@ describe("orchestration projector", () => {
       threads: [
         {
           id: ThreadId.makeUnsafe("thread-delete"),
+          kind: "thread",
           projectId: ProjectId.makeUnsafe("project-delete"),
           title: "Delete me",
           model: "gpt-5-codex",

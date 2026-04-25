@@ -212,6 +212,7 @@ const makeProjectionOverviewQuery = Effect.gen(function* () {
       sql`
         SELECT
           t.thread_id AS "threadId",
+          t.kind,
           t.project_id AS "projectId",
           t.title,
           t.model,
@@ -380,6 +381,7 @@ const makeProjectionOverviewQuery = Effect.gen(function* () {
             const latestTurn = latestTurnByThread.get(row.threadId) ?? null;
             return {
               id: row.threadId,
+              kind: row.kind,
               projectId: row.projectId,
               title: row.title,
               model: row.model,

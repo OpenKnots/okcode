@@ -1514,7 +1514,7 @@ export default function ChatView({
           type: "slash-command",
           command: "skill",
           label: "/skill",
-          description: "Manage skills and plugins",
+          description: "Manage skills",
         },
       ] satisfies ReadonlyArray<Extract<ComposerCommandItem, { type: "slash-command" }>>;
 
@@ -3724,6 +3724,7 @@ export default function ChatView({
           type: "thread.create",
           commandId: newCommandId(),
           threadId: threadIdForSend,
+          kind: "thread",
           projectId: activeProject.id,
           title,
           model: selectedModel,
@@ -4231,6 +4232,7 @@ export default function ChatView({
         type: "thread.create",
         commandId: newCommandId(),
         threadId: nextThreadId,
+        kind: "thread",
         projectId: activeProject.id,
         title: nextThreadTitle,
         model: selectedModel,
@@ -4925,6 +4927,7 @@ export default function ChatView({
         <ChatHeader
           activeThreadId={activeThread.id}
           activeThreadTitle={activeThread.title}
+          threadKind={activeThread.kind}
           activeProjectId={activeProject?.id}
           activeProjectName={activeProject?.name}
           activeProjectCwd={activeProject?.cwd}

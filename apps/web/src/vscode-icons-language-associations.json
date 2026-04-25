@@ -1,7 +1,7 @@
 {
   "version": "12.17.0",
   "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/v12.17.0/src/iconsManifest/languages.ts",
-  "generatedAt": "2026-04-10T17:52:29.528Z",
+  "generatedAt": "2026-04-21T03:58:30.999Z",
   "extensionToLanguageId": {
     "as": "actionscript",
     "ada": "ada",

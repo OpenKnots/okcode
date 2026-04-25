@@ -20,6 +20,7 @@ export default Effect.gen(function* () {
   yield* sql`
     CREATE TABLE IF NOT EXISTS projection_threads (
       thread_id TEXT PRIMARY KEY,
+      kind TEXT NOT NULL DEFAULT 'thread',
       project_id TEXT NOT NULL,
       title TEXT NOT NULL,
       model TEXT NOT NULL,

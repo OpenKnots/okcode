@@ -14,6 +14,7 @@ import { makeTerminalRuntimeEnvResolver } from "./RuntimeEnvResolver.ts";
 
 const baseThread: ProjectionThread = {
   threadId: "thread-1" as never,
+  kind: "thread",
   projectId: "project-1" as never,
   title: "Thread",
   model: "gpt-5.4",

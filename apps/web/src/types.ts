@@ -7,6 +7,7 @@ import type {
   GitHubRef,
   ModelSelection,
   ThreadId,
+  ThreadKind,
   ProjectId,
   TurnId,
   MessageId,
@@ -104,6 +105,7 @@ export interface Project {
 export interface Thread {
   id: ThreadId;
   codexThreadId: string | null;
+  kind: ThreadKind;
   projectId: ProjectId;
   title: string;
   model: string;

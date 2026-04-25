@@ -134,35 +134,6 @@ import type {
   OrchestrationReadModel,
   OrchestrationThread,
 } from "./orchestration";
-import type {
-  DecisionCaseSummary,
-  DecisionExecuteRecommendationInput,
-  DecisionExecutionResult,
-  DecisionGetWorkspaceInput,
-  DecisionListCasesInput,
-  DecisionRequestConsultationInput,
-  DecisionRespondConsultationInput,
-  DecisionUpdatedPayload,
-  DecisionWorkspace,
-} from "./decision";
-import type {
-  SmeConversation,
-  SmeCreateConversationInput,
-  SmeDeleteConversationInput,
-  SmeDeleteDocumentInput,
-  SmeGetConversationInput,
-  SmeInterruptMessageInput,
-  SmeKnowledgeDocument,
-  SmeListConversationsInput,
-  SmeListDocumentsInput,
-  SmeMessage,
-  SmeMessageEvent,
-  SmeSendMessageInput,
-  SmeUpdateConversationInput,
-  SmeUploadDocumentInput,
-  SmeValidateSetupInput,
-  SmeValidateSetupResult,
-} from "./sme";
 import { EditorId } from "./editor";
 
 export interface ContextMenuItem<T extends string = string> {
@@ -453,17 +424,6 @@ export interface NativeApi {
       callback: (payload: PrReviewRepoConfigUpdatedPayload) => void,
     ) => () => void;
   };
-  decision: {
-    listCases: (input: DecisionListCasesInput) => Promise<ReadonlyArray<DecisionCaseSummary>>;
-    getWorkspace: (input: DecisionGetWorkspaceInput) => Promise<DecisionWorkspace>;
-    reanalyze: (input: DecisionGetWorkspaceInput) => Promise<DecisionWorkspace>;
-    requestConsultation: (input: DecisionRequestConsultationInput) => Promise<DecisionWorkspace>;
-    respondConsultation: (input: DecisionRespondConsultationInput) => Promise<DecisionWorkspace>;
-    executeRecommendation: (
-      input: DecisionExecuteRecommendationInput,
-    ) => Promise<DecisionExecutionResult>;
-    onUpdated: (callback: (payload: DecisionUpdatedPayload) => void) => () => void;
-  };
   skills: {
     list: (input?: SkillListInput) => Promise<SkillListResult>;
     catalog: (input?: SkillCatalogInput) => Promise<SkillCatalogResult>;
@@ -520,23 +480,5 @@ export interface NativeApi {
     ) => Promise<OrchestrationGetFullThreadDiffResult>;
     replayEvents: (fromSequenceExclusive: number) => Promise<OrchestrationEvent[]>;
     onDomainEvent: (callback: (event: OrchestrationEvent) => void) => () => void;
-  };
-  sme: {
-    uploadDocument: (input: SmeUploadDocumentInput) => Promise<SmeKnowledgeDocument>;
-    deleteDocument: (input: SmeDeleteDocumentInput) => Promise<void>;
-    listDocuments: (input: SmeListDocumentsInput) => Promise<ReadonlyArray<SmeKnowledgeDocument>>;
-    createConversation: (input: SmeCreateConversationInput) => Promise<SmeConversation>;
-    updateConversation: (input: SmeUpdateConversationInput) => Promise<SmeConversation>;
-    deleteConversation: (input: SmeDeleteConversationInput) => Promise<void>;
-    listConversations: (
-      input: SmeListConversationsInput,
-    ) => Promise<ReadonlyArray<SmeConversation>>;
-    getConversation: (
-      input: SmeGetConversationInput,
-    ) => Promise<{ conversation: SmeConversation; messages: ReadonlyArray<SmeMessage> } | null>;
-    validateSetup: (input: SmeValidateSetupInput) => Promise<SmeValidateSetupResult>;
-    sendMessage: (input: SmeSendMessageInput) => Promise<void>;
-    interruptMessage: (input: SmeInterruptMessageInput) => Promise<void>;
-    onMessageEvent: (callback: (event: SmeMessageEvent) => void) => () => void;
   };
 }

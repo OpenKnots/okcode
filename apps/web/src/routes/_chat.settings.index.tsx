@@ -17,7 +17,6 @@ import {
   type KeybindingRule,
   type ProjectId,
   type ProviderKind,
-  type ServerProviderStatus,
   DEFAULT_GIT_TEXT_GENERATION_MODEL,
 } from "@okcode/contracts";
 import { getModelOptions, normalizeModelSlug } from "@okcode/shared/model";
@@ -38,6 +37,7 @@ import { Button } from "../components/ui/button";
 import { Collapsible, CollapsibleContent } from "../components/ui/collapsible";
 import { EnvironmentVariablesEditor } from "../components/EnvironmentVariablesEditor";
 import { HotkeysSettingsSection } from "../components/settings/HotkeysSettingsSection";
+import { ProviderCapabilityMatrix } from "../components/settings/ProviderCapabilityMatrix";
 import { ProviderStatusRefreshButton } from "../components/settings/ProviderStatusRefreshButton";
 import { SettingsShell, type SettingsSectionId } from "../components/settings/SettingsShell";
 import { useSettingsRouteContext } from "../components/settings/SettingsRouteContext";
@@ -66,10 +66,7 @@ import {
 import { normalizeProjectIconPath } from "../lib/projectIcons";
 import { useProjectIconFilePicker } from "../hooks/useProjectIconFilePicker";
 import { updateProjectIconOverride } from "../lib/projectMeta";
-import {
-  getSelectableThreadProviders,
-  isProviderReadyForThreadSelection,
-} from "../lib/providerAvailability";
+import { getSelectableThreadProviders } from "../lib/providerAvailability";
 import { serverConfigQueryOptions, serverQueryKeys } from "../lib/serverReactQuery";
 import { cn } from "../lib/utils";
 import { ensureNativeApi } from "../nativeApi";
@@ -77,19 +74,7 @@ import { useStore } from "../store";
 import { PairingLink } from "../components/mobile/PairingLink";
 import { ProjectIcon } from "../components/ProjectIcon";
 import { CodexBackendSection } from "../components/settings/CodexBackendSection";
-import {
-  getProviderLabel as getProviderStatusLabelName,
-  getProviderStatusDescription,
-  getProviderStatusHeading,
-} from "../components/chat/providerStatusPresentation";
-import {
-  INSTALL_PROVIDER_SETTINGS,
-  LOCAL_BACKEND_AUTH_GUIDES,
-  LOCAL_BACKEND_LABELS,
-  type LocalBackendKey,
-  PROVIDER_AUTH_GUIDES,
-  SETTINGS_AUTH_PROVIDER_ORDER,
-} from "../lib/settingsProviderMetadata";
+import { INSTALL_PROVIDER_SETTINGS } from "../lib/settingsProviderMetadata";
 import { APP_LOCALE_PREFERENCES } from "../i18n/types";
 import { useT } from "../i18n/useI18n";
 
@@ -233,191 +218,6 @@ function formatOpenclawGatewayDebugReport(result: TestOpenclawGatewayResult): st
   }
 
   return lines.join("\n");
-}
-
-function getAuthenticationBadgeCopy(input: {
-  status: ServerProviderStatus | null;
-  provider: ProviderKind;
-  openclawGatewayUrl: string;
-}): {
-  tone: "success" | "warning" | "error";
-  label: string;
-} {
-  if (
-    isProviderReadyForThreadSelection({
-      provider: input.provider,
-      statuses: input.status ? [input.status] : [],
-      openclawGatewayUrl: input.openclawGatewayUrl,
-    })
-  ) {
-    return { tone: "success", label: "Available in thread picker" };
-  }
-
-  if (input.status?.authStatus === "unauthenticated") {
-    return { tone: "error", label: "Sign-in required" };
-  }
-
-  if (input.provider === "openclaw" && input.openclawGatewayUrl.trim().length === 0) {
-    return { tone: "warning", label: "Gateway not configured" };
-  }
-
-  if (input.status?.available === false || input.status?.status === "error") {
-    return { tone: "error", label: "Unavailable" };
-  }
-
-  return { tone: "warning", label: "Needs verification" };
-}
-
-function AuthenticationStatusCard({
-  provider,
-  status,
-  openclawGatewayUrl,
-}: {
-  provider: ProviderKind;
-  status: ServerProviderStatus | null;
-  openclawGatewayUrl: string;
-}) {
-  const guide = PROVIDER_AUTH_GUIDES[provider];
-  const badge = getAuthenticationBadgeCopy({
-    status,
-    provider,
-    openclawGatewayUrl,
-  });
-  const badgeClassName =
-    badge.tone === "success"
-      ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-      : badge.tone === "error"
-        ? "border-red-500/25 bg-red-500/10 text-red-700 dark:text-red-300"
-        : "border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300";
-  const heading =
-    status !== null
-      ? getProviderStatusHeading(status)
-      : provider === "openclaw" && openclawGatewayUrl.trim().length > 0
-        ? "OpenClaw gateway is configured locally"
-        : `${getProviderStatusLabelName(provider)} needs configuration`;
-  const description =
-    status !== null
-      ? getProviderStatusDescription(status)
-      : provider === "openclaw" && openclawGatewayUrl.trim().length > 0
-        ? "OpenClaw is configured in local settings. Use Test Connection below to verify the gateway before starting a thread."
-        : guide.note;
-
-  return (
-    <div className="rounded-xl border border-border/70 bg-background/70 p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <h3 className="text-sm font-medium text-foreground">
-              {getProviderStatusLabelName(provider)}
-            </h3>
-            <span
-              className={cn(
-                "rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em]",
-                badgeClassName,
-              )}
-            >
-              {badge.label}
-            </span>
-          </div>
-          <p className="text-xs font-medium text-foreground">{heading}</p>
-          <p className="max-w-2xl text-xs text-muted-foreground">{description}</p>
-        </div>
-        {status?.checkedAt ? (
-          <span className="text-[11px] text-muted-foreground">
-            Checked {new Date(status.checkedAt).toLocaleString()}
-          </span>
-        ) : null}
-      </div>
-
-      <div className="mt-4 grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
-        <div className="rounded-lg border border-border/60 bg-card/60 px-3 py-2">
-          <div className="font-medium text-foreground">Install</div>
-          <code className="mt-1 block break-all text-[11px]">
-            {guide.installCmd ?? "Configured in-app"}
-          </code>
-        </div>
-        <div className="rounded-lg border border-border/60 bg-card/60 px-3 py-2">
-          <div className="font-medium text-foreground">Authenticate</div>
-          <code className="mt-1 block break-all text-[11px]">
-            {guide.authCmd ?? "Use gateway shared secret/token"}
-          </code>
-        </div>
-        <div className="rounded-lg border border-border/60 bg-card/60 px-3 py-2">
-          <div className="font-medium text-foreground">Verify</div>
-          <code className="mt-1 block break-all text-[11px]">{guide.verifyCmd ?? "N/A"}</code>
-        </div>
-      </div>
-
-      <p className="mt-3 text-xs text-muted-foreground">{guide.note}</p>
-    </div>
-  );
-}
-
-function LocalBackendAuthenticationCard({
-  backend,
-  detection,
-}: {
-  backend: LocalBackendKey;
-  detection?: { reachable: boolean; modelCount?: number | undefined } | null;
-}) {
-  const guide = LOCAL_BACKEND_AUTH_GUIDES[backend];
-  const label = LOCAL_BACKEND_LABELS[backend];
-  const reachable = detection?.reachable === true;
-  const badgeClassName = reachable
-    ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-    : "border-slate-500/25 bg-slate-500/10 text-slate-700 dark:text-slate-300";
-  const badgeLabel = reachable
-    ? typeof detection?.modelCount === "number"
-      ? `Detected · ${detection.modelCount} model${detection.modelCount === 1 ? "" : "s"}`
-      : "Detected"
-    : "Not running";
-  const heading = reachable
-    ? `${label} is reachable on localhost`
-    : `${label} is not running locally yet`;
-  const description = reachable
-    ? `${label} is ready to use as a Codex backend. Set model_provider in ~/.codex/config.toml to activate it for new threads.`
-    : guide.note;
-
-  return (
-    <div className="rounded-xl border border-border/70 bg-background/70 p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <h3 className="text-sm font-medium text-foreground">{label}</h3>
-            <span
-              className={cn(
-                "rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em]",
-                badgeClassName,
-              )}
-            >
-              {badgeLabel}
-            </span>
-          </div>
-          <p className="text-xs font-medium text-foreground">{heading}</p>
-          <p className="max-w-2xl text-xs text-muted-foreground">{description}</p>
-        </div>
-      </div>
-
-      <div className="mt-4 grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
-        <div className="rounded-lg border border-border/60 bg-card/60 px-3 py-2">
-          <div className="font-medium text-foreground">Install</div>
-          <code className="mt-1 block break-all text-[11px]">
-            {guide.installCmd ?? "Configured in-app"}
-          </code>
-        </div>
-        <div className="rounded-lg border border-border/60 bg-card/60 px-3 py-2">
-          <div className="font-medium text-foreground">Run</div>
-          <code className="mt-1 block break-all text-[11px]">{guide.authCmd ?? "N/A"}</code>
-        </div>
-        <div className="rounded-lg border border-border/60 bg-card/60 px-3 py-2">
-          <div className="font-medium text-foreground">Verify</div>
-          <code className="mt-1 block break-all text-[11px]">{guide.verifyCmd ?? "N/A"}</code>
-        </div>
-      </div>
-
-      <p className="mt-3 text-xs text-muted-foreground">{guide.note}</p>
-    </div>
-  );
 }
 
 function getErrorMessage(error: unknown): string {
@@ -1389,44 +1189,15 @@ function SettingsRouteView() {
             }
           >
             <SettingsRow
-              title="Thread picker availability"
-              description="These checks decide which providers show up in the thread composer before a provider is locked in."
+              title="Provider matrix"
+              description="One shared chat architecture, one shared capability contract, and only a few provider-specific differences where they materially change setup or behavior."
               status={`${selectableProviders.length} provider${selectableProviders.length === 1 ? "" : "s"} currently selectable`}
             >
-              <div className="mt-4 space-y-3">
-                {SETTINGS_AUTH_PROVIDER_ORDER.flatMap((provider) => {
-                  const card = (
-                    <AuthenticationStatusCard
-                      key={provider}
-                      provider={provider}
-                      status={
-                        providerStatuses.find((status) => status.provider === provider) ?? null
-                      }
-                      openclawGatewayUrl={settings.openclawGatewayUrl}
-                    />
-                  );
-                  if (provider === "codex") {
-                    return [
-                      card,
-                      <LocalBackendAuthenticationCard
-                        key="local-backend-ollama"
-                        backend="ollama"
-                        detection={
-                          serverConfigQuery.data?.codexConfig?.detectedLocalBackends?.ollama ?? null
-                        }
-                      />,
-                      <LocalBackendAuthenticationCard
-                        key="local-backend-lmstudio"
-                        backend="lmstudio"
-                        detection={
-                          serverConfigQuery.data?.codexConfig?.detectedLocalBackends?.lmstudio ??
-                          null
-                        }
-                      />,
-                    ];
-                  }
-                  return [card];
-                })}
+              <div className="mt-4">
+                <ProviderCapabilityMatrix
+                  statuses={providerStatuses}
+                  openclawGatewayUrl={settings.openclawGatewayUrl}
+                />
               </div>
             </SettingsRow>
 

@@ -19,6 +19,8 @@ type GatewayRequestFrame = {
   };
 };
 
+type GatewayAuthPayload = NonNullable<GatewayRequestFrame["params"]>["auth"];
+
 afterEach(async () => {
   await Promise.all(
     [...servers].map(
@@ -62,7 +64,7 @@ function sendChallenge(socket: WebSocket): void {
 
 describe("OpenclawGatewayClient", () => {
   it("retries with auth.password when a gateway rejects token-style shared-secret auth", async () => {
-    const attemptedAuths: GatewayRequestFrame["params"]["auth"][] = [];
+    const attemptedAuths: GatewayAuthPayload[] = [];
     const gateway = await createGatewayServer((socket) => {
       sendChallenge(socket);
       socket.on("message", (data) => {

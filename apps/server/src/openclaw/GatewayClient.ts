@@ -299,7 +299,8 @@ export class OpenclawGatewayClient {
 
     try {
       return await this.performConnectAttempt("sharedToken");
-    } catch (error) {
+    } catch (caughtError) {
+      let error = caughtError;
       let parsedError =
         error instanceof OpenclawGatewayClientError ? error.gatewayError : undefined;
 

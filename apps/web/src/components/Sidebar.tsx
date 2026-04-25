@@ -59,6 +59,7 @@ import {
 } from "react";
 import { CloneRepositoryDialog } from "~/components/CloneRepositoryDialog";
 import { EditableThreadTitle } from "~/components/EditableThreadTitle";
+import { ServerFolderPickerDialog } from "~/components/ServerFolderPickerDialog";
 import { ProjectIconEditorDialog } from "~/components/ProjectIconEditorDialog";
 import { ProjectIcon } from "~/components/ProjectIcon";
 import { RemoteFolderPickerDialog } from "~/components/RemoteFolderPickerDialog";
@@ -602,6 +603,7 @@ export default function Sidebar() {
   const [manualProjectPathEntry, setManualProjectPathEntry] = useState(false);
   const [remoteFolderPickerOpen, setRemoteFolderPickerOpen] = useState(false);
   const [cloneDialogOpen, setCloneDialogOpen] = useState(false);
+  const [serverFolderPickerOpen, setServerFolderPickerOpen] = useState(false);
   const [projectIconDialogOpen, setProjectIconDialogOpen] = useState(false);
   const [projectIconDialogProjectId, setProjectIconDialogProjectId] = useState<ProjectId | null>(
     null,
@@ -974,21 +976,42 @@ export default function Sidebar() {
     }
     setIsPickingFolder(true);
     let pickedPath: string | null = null;
+    let pickerFailed = false;
     try {
       pickedPath = await api.dialogs.pickFolder();
     } catch (error) {
+      pickerFailed = true;
       toastManager.add({
         type: "error",
         title: "Could not open folder picker",
         description: error instanceof Error ? error.message : "An unexpected error occurred.",
       });
     }
+    setIsPickingFolder(false);
+
     if (pickedPath) {
       await addProjectFromPath(pickedPath);
-    } else if (!shouldBrowseForProjectImmediately) {
+      return;
+    }
+
+    // In browser/mobile mode the server-side native picker (osascript / zenity
+    // / kdialog) will return null on headless hosts — that's the normal remote
+    // case. Fall back to the in-app folder browser so users can still navigate
+    // the server's filesystem. Electron desktop users keep the native OS
+    // dialog flow and don't see this fallback.
+    if (!isElectron && !pickerFailed) {
+      setServerFolderPickerOpen(true);
+      return;
+    }
+
+    if (!shouldBrowseForProjectImmediately) {
       addProjectInputRef.current?.focus();
     }
-    setIsPickingFolder(false);
+  };
+
+  const handleServerFolderSelected = async (selectedPath: string) => {
+    setServerFolderPickerOpen(false);
+    await addProjectFromPath(selectedPath);
   };
 
   const handleStartAddProject = () => {
@@ -2575,6 +2598,12 @@ export default function Sidebar() {
         open={cloneDialogOpen}
         onOpenChange={setCloneDialogOpen}
         onCloned={handleCloneComplete}
+      />
+
+      <ServerFolderPickerDialog
+        open={serverFolderPickerOpen}
+        onOpenChange={setServerFolderPickerOpen}
+        onSelect={handleServerFolderSelected}
       />
     </>
   );

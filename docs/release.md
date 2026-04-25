@@ -2,13 +2,13 @@
 
 Canonical release process documentation for OK Code.
 
-**Last updated:** 2026-04-20
+**Last updated:** 2026-04-25
 
 ## Overview
 
 The next stable train ships one semver across desktop, CLI, and iOS surfaces:
 
-- macOS arm64 desktop DMG plus updater metadata
+- macOS arm64 and x64 desktop DMGs plus updater metadata
 - Windows x64 signed NSIS installer
 - Linux x64 AppImage
 - iOS TestFlight build from the same release tag, dispatched separately
@@ -19,7 +19,7 @@ The next stable train ships one semver across desktop, CLI, and iOS surfaces:
 ## Defaults
 
 - iOS is TestFlight-only for this release train.
-- Intel mac is non-blocking and runs in the separate `Desktop Intel Compatibility` workflow.
+- Both macOS architectures are blocking for the main desktop release, and the published `latest-mac.yml` manifest must contain arm64 and x64 payloads.
 - Android is non-blocking.
 - Windows stable support requires signing. Do not ship unsigned Windows artifacts as stable.
 
@@ -79,6 +79,16 @@ bun run release:validate <version>
 
 This checks documentation completeness, version alignment, git state, iOS project version, and optionally runs all quality gates. Use `--skip-quality` for a docs-only pass or `--ci` for CI pipelines.
 
+### One-shot release shipping
+
+Use the end-to-end release command for the normal desktop + CLI train:
+
+```bash
+bun run release:ship <version>
+```
+
+This command runs local preflight, invokes release preparation, pushes the release tag, waits for `release.yml`, and verifies the published GitHub Release assets plus the merged macOS OTA manifest before returning success.
+
 ## Platform matrix
 
 Blocking stable matrix:
@@ -86,24 +96,27 @@ Blocking stable matrix:
 | Surface     | Runner         | Artifact                                | Blocking |
 | ----------- | -------------- | --------------------------------------- | -------- |
 | macOS arm64 | `macos-14`     | signed/notarized DMG + updater metadata | yes      |
+| macOS x64   | `macos-13`     | signed/notarized DMG + updater metadata | yes      |
 | Windows x64 | `windows-2022` | signed NSIS installer                   | yes      |
 | Linux x64   | `ubuntu-24.04` | AppImage                                | yes      |
 | iOS         | `macos-14`     | TestFlight upload                       | separate |
 | CLI         | `ubuntu-24.04` | npm publish                             | yes      |
 
-Non-blocking compatibility lane:
+Optional manual rebuild lane:
 
-| Surface   | Workflow                                                                    | Artifact  |
-| --------- | --------------------------------------------------------------------------- | --------- |
-| macOS x64 | [`release-intel-compat.yml`](../.github/workflows/release-intel-compat.yml) | Intel DMG |
+| Surface   | Workflow                                                                    | Artifact          |
+| --------- | --------------------------------------------------------------------------- | ----------------- |
+| macOS x64 | [`release-intel-compat.yml`](../.github/workflows/release-intel-compat.yml) | Intel DMG rebuild |
 
 ## Desktop release requirements
 
 - Build artifacts with `bun run dist:desktop:artifact`.
 - Refuse macOS stable release builds unless signing and notarization secrets are present.
 - Refuse Windows stable release builds unless Azure Trusted Signing secrets are present.
+- Publish both macOS arm64 and x64 DMG/ZIP payloads from the main `release.yml` workflow.
+- Merge `latest-mac.yml` and `latest-mac-x64.yml` into one published `latest-mac.yml` before creating the GitHub Release.
 - Validate packaged outputs before upload:
-  - macOS: DMG exists and updater manifest exists
+  - macOS: both arch-specific DMGs exist and updater manifests are present
   - Windows: installer exists
   - Linux: AppImage exists
 - Keep `bun run test:desktop-smoke` and `bun run release:smoke` green before tagging.

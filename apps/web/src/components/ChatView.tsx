@@ -4914,6 +4914,16 @@ export default function ChatView({
         </Suspense>
       </div>
     ) : null;
+  const isFullscreenPreviewMode = Boolean(
+    previewOpen && activeProject && previewLayoutMode === "fullscreen",
+  );
+  const floatingComposerStatus = isTurnActive
+    ? `Working for ${formatElapsed(activeWorkStartedAt, nowIso)}`
+    : showPlanFollowUpPrompt && activeProposedPlan
+      ? "Plan ready for follow-up"
+      : phase === "disconnected"
+        ? "Chat offline"
+        : "Ready for follow-up";
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden bg-background">
@@ -4982,7 +4992,7 @@ export default function ChatView({
         <div
           ref={previewSplitRef}
           className={cn(
-            "flex min-h-0 min-w-0 flex-1",
+            "relative flex min-h-0 min-w-0 flex-1",
             previewOpen && activeProject && previewLayoutMode === "top"
               ? "flex-col"
               : previewOpen && activeProject && previewLayoutMode === "side"
@@ -5051,14 +5061,15 @@ export default function ChatView({
             </div>
           ) : null}
 
-          {/* Chat column — hidden in fullscreen preview mode */}
+          {/* Chat column */}
           <div
             className={cn(
               "flex min-h-0 min-w-0 flex-1 flex-col",
-              previewOpen && activeProject && previewLayoutMode === "fullscreen" && "hidden",
+              isFullscreenPreviewMode &&
+                "pointer-events-none absolute inset-x-0 bottom-0 z-20 min-h-0 flex-none",
             )}
           >
-            {isMobileCompanion ? (
+            {!isFullscreenPreviewMode && isMobileCompanion ? (
               <div className="mx-auto w-full max-w-7xl px-3 pt-3 sm:px-5">
                 <MobileThreadAttentionBar
                   activePendingApproval={activePendingApproval}
@@ -5073,75 +5084,87 @@ export default function ChatView({
               </div>
             ) : null}
             {/* Messages Wrapper */}
-            <div className="relative flex min-h-0 flex-1 flex-col">
-              {/* Messages */}
-              <div
-                ref={setMessagesScrollContainerRef}
-                className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain px-3 py-3 sm:px-5 sm:py-4"
-                onScroll={onMessagesScroll}
-                onClickCapture={onMessagesClickCapture}
-                onWheel={onMessagesWheel}
-                onPointerDown={onMessagesPointerDown}
-                onPointerUp={onMessagesPointerUp}
-                onPointerCancel={onMessagesPointerCancel}
-                onTouchStart={onMessagesTouchStart}
-                onTouchMove={onMessagesTouchMove}
-                onTouchEnd={onMessagesTouchEnd}
-                onTouchCancel={onMessagesTouchEnd}
-              >
-                <MessagesTimeline
-                  threadId={activeThread.id}
-                  key={activeThread.id}
-                  hasMessages={timelineEntries.length > 0}
-                  isWorking={isWorking}
-                  activeTurnInProgress={isWorking || !latestTurnSettled}
-                  activeTurnStartedAt={activeWorkStartedAt}
-                  scrollContainer={messagesScrollElement}
-                  timelineEntries={timelineEntries}
-                  completionDividerBeforeEntryId={completionDividerBeforeEntryId}
-                  completionSummary={completionSummary}
-                  turnDiffSummaryByAssistantMessageId={turnDiffSummaryByAssistantMessageId}
-                  nowIso={nowIso}
-                  expandedWorkGroups={expandedWorkGroups}
-                  onToggleWorkGroup={onToggleWorkGroup}
-                  revertTurnCountByUserMessageId={revertTurnCountByUserMessageId}
-                  onRevertUserMessage={onRevertUserMessage}
-                  isRevertingCheckpoint={isRevertingCheckpoint}
-                  onImageExpand={onExpandTimelineImage}
-                  markdownCwd={gitCwd ?? undefined}
-                  resolvedTheme={resolvedTheme}
-                  showReasoningContent={showReasoningContent}
-                  timestampFormat={timestampFormat}
-                  workspaceRoot={activeProject?.cwd ?? undefined}
-                  shortcutGuides={chatShortcutGuides}
-                  onRemoveQueuedMessage={onRemoveQueuedMessage}
-                  onOpenSettings={() => void navigate({ to: "/settings" })}
-                  onOpenTurnDiff={handleOpenTurnDiff}
-                />
-                <div ref={messagesBottomRef} aria-hidden="true" className="h-px w-full" />
-              </div>
-
-              {/* scroll to bottom pill — shown when user has scrolled away from the bottom */}
-              {showScrollToBottom && (
-                <div className="pointer-events-none absolute bottom-1 left-1/2 z-30 flex -translate-x-1/2 justify-center py-1.5">
-                  <button
-                    type="button"
-                    onClick={() => scrollMessagesToBottom("smooth")}
-                    className="pointer-events-auto flex items-center gap-1.5 rounded-full border border-border/60 bg-card px-3 py-1 text-muted-foreground text-xs shadow-sm transition-colors hover:border-border hover:text-foreground hover:cursor-pointer"
-                  >
-                    <ChevronDownIcon className="size-3.5" />
-                    Scroll to bottom
-                  </button>
+            {!isFullscreenPreviewMode ? (
+              <div className="relative flex min-h-0 flex-1 flex-col">
+                {/* Messages */}
+                <div
+                  ref={setMessagesScrollContainerRef}
+                  className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain px-3 py-3 sm:px-5 sm:py-4"
+                  onScroll={onMessagesScroll}
+                  onClickCapture={onMessagesClickCapture}
+                  onWheel={onMessagesWheel}
+                  onPointerDown={onMessagesPointerDown}
+                  onPointerUp={onMessagesPointerUp}
+                  onPointerCancel={onMessagesPointerCancel}
+                  onTouchStart={onMessagesTouchStart}
+                  onTouchMove={onMessagesTouchMove}
+                  onTouchEnd={onMessagesTouchEnd}
+                  onTouchCancel={onMessagesTouchEnd}
+                >
+                  <MessagesTimeline
+                    threadId={activeThread.id}
+                    key={activeThread.id}
+                    hasMessages={timelineEntries.length > 0}
+                    isWorking={isWorking}
+                    activeTurnInProgress={isWorking || !latestTurnSettled}
+                    activeTurnStartedAt={activeWorkStartedAt}
+                    scrollContainer={messagesScrollElement}
+                    timelineEntries={timelineEntries}
+                    completionDividerBeforeEntryId={completionDividerBeforeEntryId}
+                    completionSummary={completionSummary}
+                    turnDiffSummaryByAssistantMessageId={turnDiffSummaryByAssistantMessageId}
+                    nowIso={nowIso}
+                    expandedWorkGroups={expandedWorkGroups}
+                    onToggleWorkGroup={onToggleWorkGroup}
+                    revertTurnCountByUserMessageId={revertTurnCountByUserMessageId}
+                    onRevertUserMessage={onRevertUserMessage}
+                    isRevertingCheckpoint={isRevertingCheckpoint}
+                    onImageExpand={onExpandTimelineImage}
+                    markdownCwd={gitCwd ?? undefined}
+                    resolvedTheme={resolvedTheme}
+                    showReasoningContent={showReasoningContent}
+                    timestampFormat={timestampFormat}
+                    workspaceRoot={activeProject?.cwd ?? undefined}
+                    shortcutGuides={chatShortcutGuides}
+                    onRemoveQueuedMessage={onRemoveQueuedMessage}
+                    onOpenSettings={() => void navigate({ to: "/settings" })}
+                    onOpenTurnDiff={handleOpenTurnDiff}
+                  />
+                  <div ref={messagesBottomRef} aria-hidden="true" className="h-px w-full" />
                 </div>
-              )}
-            </div>
+
+                {/* scroll to bottom pill — shown when user has scrolled away from the bottom */}
+                {showScrollToBottom && (
+                  <div className="pointer-events-none absolute bottom-1 left-1/2 z-30 flex -translate-x-1/2 justify-center py-1.5">
+                    <button
+                      type="button"
+                      onClick={() => scrollMessagesToBottom("smooth")}
+                      className="pointer-events-auto flex items-center gap-1.5 rounded-full border border-border/60 bg-card px-3 py-1 text-muted-foreground text-xs shadow-sm transition-colors hover:border-border hover:text-foreground hover:cursor-pointer"
+                    >
+                      <ChevronDownIcon className="size-3.5" />
+                      Scroll to bottom
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : null}
 
             {/* Input bar */}
-            <div className={cn("px-3 pt-1.5 sm:px-5 sm:pt-2", isGitRepo ? "pb-1" : "pb-3 sm:pb-4")}>
+            <div
+              className={cn(
+                isFullscreenPreviewMode
+                  ? "pointer-events-auto px-4 pb-4 sm:px-6 sm:pb-6"
+                  : "px-3 pt-1.5 sm:px-5 sm:pt-2",
+                !isFullscreenPreviewMode && (isGitRepo ? "pb-1" : "pb-3 sm:pb-4"),
+              )}
+            >
               <form
                 ref={composerFormRef}
                 onSubmit={onSend}
-                className="mx-auto w-full min-w-0 max-w-7xl"
+                className={cn(
+                  "w-full min-w-0",
+                  isFullscreenPreviewMode ? "mx-auto max-w-4xl" : "mx-auto max-w-7xl",
+                )}
                 data-chat-composer-form="true"
               >
                 <input
@@ -5154,8 +5177,10 @@ export default function ChatView({
                 />
                 <div
                   className={cn(
-                    "group relative rounded-[22px] p-px transition-colors duration-200",
-                    composerProviderState.composerFrameClassName,
+                    "group relative p-px transition-colors duration-200",
+                    isFullscreenPreviewMode
+                      ? "overflow-hidden rounded-[30px] border border-white/10 bg-[rgba(28,28,32,0.92)] text-white shadow-[0_24px_80px_rgba(0,0,0,0.45)] backdrop-blur-2xl"
+                      : ["rounded-[22px]", composerProviderState.composerFrameClassName],
                   )}
                   onDragEnter={onComposerDragEnter}
                   onDragOver={onComposerDragOver}
@@ -5179,22 +5204,46 @@ export default function ChatView({
                       </div>
                     </div>
                   )}
+                  {isFullscreenPreviewMode ? (
+                    <div className="flex items-center justify-between gap-3 border-white/10 border-b px-4 py-3 text-[12px] text-white/70">
+                      <span className="truncate font-medium text-white/82">
+                        {floatingComposerStatus}
+                      </span>
+                      <span className="shrink-0 text-white/45">Preview</span>
+                    </div>
+                  ) : null}
                   <div
                     className={cn(
-                      "rounded-[20px] border bg-card transition-colors duration-200 focus-within:border-ring/45",
-                      isDragOverComposer ? "border-primary/70 bg-accent/30" : "border-border",
-                      composerProviderState.composerSurfaceClassName,
+                      isFullscreenPreviewMode
+                        ? "bg-transparent"
+                        : "rounded-[20px] border bg-card transition-colors duration-200 focus-within:border-ring/45",
+                      isFullscreenPreviewMode
+                        ? null
+                        : isDragOverComposer
+                          ? "border-primary/70 bg-accent/30"
+                          : "border-border",
+                      !isFullscreenPreviewMode && composerProviderState.composerSurfaceClassName,
                     )}
                   >
                     {activePendingApproval ? (
-                      <div className="rounded-t-[19px] border-b border-border/65 bg-muted/20">
+                      <div
+                        className={cn(
+                          "border-b border-border/65 bg-muted/20",
+                          !isFullscreenPreviewMode && "rounded-t-[19px]",
+                        )}
+                      >
                         <ComposerPendingApprovalPanel
                           approval={activePendingApproval}
                           pendingCount={pendingApprovals.length}
                         />
                       </div>
                     ) : pendingUserInputs.length > 0 ? (
-                      <div className="rounded-t-[19px] border-b border-border/65 bg-muted/20">
+                      <div
+                        className={cn(
+                          "border-b border-border/65 bg-muted/20",
+                          !isFullscreenPreviewMode && "rounded-t-[19px]",
+                        )}
+                      >
                         <ComposerPendingUserInputPanel
                           pendingUserInputs={pendingUserInputs}
                           respondingRequestIds={respondingRequestIds}
@@ -5205,7 +5254,12 @@ export default function ChatView({
                         />
                       </div>
                     ) : showPlanFollowUpPrompt && activeProposedPlan ? (
-                      <div className="rounded-t-[19px] border-b border-border/65 bg-muted/20">
+                      <div
+                        className={cn(
+                          "border-b border-border/65 bg-muted/20",
+                          !isFullscreenPreviewMode && "rounded-t-[19px]",
+                        )}
+                      >
                         <ComposerPlanFollowUpBanner
                           key={activeProposedPlan.id}
                           planTitle={proposedPlanTitle(activeProposedPlan.planMarkdown) ?? null}
@@ -5866,7 +5920,7 @@ export default function ChatView({
               </form>
             </div>
 
-            {isGitRepo && (
+            {!isFullscreenPreviewMode && isGitRepo && (
               <BranchToolbar
                 threadId={activeThread.id}
                 onEnvModeChange={onEnvModeChange}
@@ -5877,7 +5931,7 @@ export default function ChatView({
                   : {})}
               />
             )}
-            {pullRequestDialogState ? (
+            {!isFullscreenPreviewMode && pullRequestDialogState ? (
               <PullRequestThreadDialog
                 key={pullRequestDialogState.key}
                 open

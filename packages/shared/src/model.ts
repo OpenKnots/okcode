@@ -33,6 +33,21 @@ const CLAUDE_OPUS_4_6_MODEL = "claude-opus-4-6";
 const CLAUDE_SONNET_4_6_MODEL = "claude-sonnet-4-6";
 const CLAUDE_HAIKU_4_5_MODEL = "claude-haiku-4-5";
 
+const CODEX_FAST_MODE_MODELS: ReadonlySet<string> = new Set([
+  "gpt-5.5",
+  "gpt-5.5-mini",
+  "gpt-5.4",
+  "gpt-5.4-mini",
+]);
+
+/**
+ * The Codex `serviceTier: "fast"` (priority service tier) is only available on
+ * the official OpenAI backend for a curated subset of newer GPT-5.x models.
+ * Selecting a local backend (Ollama, LM Studio) or any third-party Codex
+ * backend means the request never hits OpenAI, so fast mode does not apply.
+ */
+const CODEX_FAST_MODE_BACKEND_ID = "openai";
+
 export interface SelectableModelOption {
   slug: string;
   name: string;
@@ -49,6 +64,32 @@ export function getDefaultModel(provider: ProviderKind = "codex"): ModelSlug {
 export function supportsClaudeFastMode(model: string | null | undefined): boolean {
   const normalized = normalizeModelSlug(model, "claudeAgent");
   return normalized === CLAUDE_OPUS_4_7_MODEL || normalized === CLAUDE_OPUS_4_6_MODEL;
+}
+
+/**
+ * Codex fast mode is only genuinely available when:
+ *   1. The codex backend is OpenAI's hosted endpoint (priority service tier
+ *      is an OpenAI-platform feature, not something local backends or
+ *      third-party gateways can honor), and
+ *   2. The selected model is one of the GPT-5.x slugs that supports the
+ *      priority/`serviceTier: "fast"` request.
+ *
+ * Pass `null` or `undefined` for `backendId` to indicate "use the implicit
+ * OpenAI default backend" — that is treated as the OpenAI backend.
+ */
+export function supportsCodexFastMode(
+  model: string | null | undefined,
+  backendId?: string | null | undefined,
+): boolean {
+  const normalized = normalizeModelSlug(model, "codex");
+  if (!normalized || !CODEX_FAST_MODE_MODELS.has(normalized)) {
+    return false;
+  }
+  const trimmedBackend = typeof backendId === "string" ? backendId.trim() : "";
+  if (trimmedBackend.length === 0) {
+    return true;
+  }
+  return trimmedBackend === CODEX_FAST_MODE_BACKEND_ID;
 }
 
 export function supportsClaudeAdaptiveReasoning(model: string | null | undefined): boolean {
@@ -330,12 +371,20 @@ export function resolveClaudeUltrathinkSdkConfig(
 
 export function normalizeCodexModelOptions(
   modelOptions: CodexModelOptions | null | undefined,
+  context?: { model?: string | null | undefined; backendId?: string | null | undefined },
 ): CodexModelOptions | undefined {
   const defaultReasoningEffort = getDefaultReasoningEffort("codex");
   const reasoningEffort =
     resolveReasoningEffortForProvider("codex", modelOptions?.reasoningEffort) ??
     defaultReasoningEffort;
-  const fastModeEnabled = modelOptions?.fastMode === true;
+  // When no model/backend context is provided, preserve legacy behavior of
+  // honoring whatever the caller stored. Once context is supplied, fast mode
+  // is only retained when the model+backend genuinely support it.
+  const fastModeRequested = modelOptions?.fastMode === true;
+  const fastModeEnabled =
+    fastModeRequested &&
+    (context === undefined ||
+      supportsCodexFastMode(context.model ?? undefined, context.backendId ?? undefined));
   const nextOptions: CodexModelOptions = {
     ...(reasoningEffort !== defaultReasoningEffort ? { reasoningEffort } : {}),
     ...(fastModeEnabled ? { fastMode: true } : {}),

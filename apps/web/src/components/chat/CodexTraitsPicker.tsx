@@ -9,6 +9,7 @@ import {
   getReasoningEffortOptions,
   normalizeCodexModelOptions,
   resolveReasoningEffortForProvider,
+  supportsCodexFastMode,
 } from "@okcode/shared/model";
 import { memo, useState } from "react";
 import { ChevronDownIcon } from "lucide-react";
@@ -33,26 +34,43 @@ const CODEX_REASONING_LABELS: Record<CodexReasoningEffort, string> = {
   xhigh: "Extra High",
 };
 
-function getSelectedCodexTraits(modelOptions: CodexModelOptions | null | undefined): {
+function getSelectedCodexTraits(input: {
+  modelOptions: CodexModelOptions | null | undefined;
+  model: string | null | undefined;
+  backendId: string | null | undefined;
+}): {
   effort: CodexReasoningEffort;
   fastModeEnabled: boolean;
+  fastModeAvailable: boolean;
 } {
   const defaultReasoningEffort = getDefaultReasoningEffort(PROVIDER);
+  const fastModeAvailable = supportsCodexFastMode(input.model, input.backendId);
   return {
     effort:
-      resolveReasoningEffortForProvider(PROVIDER, modelOptions?.reasoningEffort) ??
+      resolveReasoningEffortForProvider(PROVIDER, input.modelOptions?.reasoningEffort) ??
       defaultReasoningEffort,
-    fastModeEnabled: modelOptions?.fastMode === true,
+    fastModeEnabled: fastModeAvailable && input.modelOptions?.fastMode === true,
+    fastModeAvailable,
   };
 }
 
-function CodexTraitsMenuContentImpl(props: { threadId: ThreadId }) {
+interface CodexTraitsContextProps {
+  threadId: ThreadId;
+  model: string | null | undefined;
+  backendId: string | null | undefined;
+}
+
+function CodexTraitsMenuContentImpl(props: CodexTraitsContextProps) {
   const draft = useComposerThreadDraft(props.threadId);
   const modelOptions = draft.modelOptions?.[PROVIDER];
   const setProviderModelOptions = useComposerDraftStore((store) => store.setProviderModelOptions);
   const options = getReasoningEffortOptions(PROVIDER);
   const defaultReasoningEffort = getDefaultReasoningEffort(PROVIDER);
-  const { effort, fastModeEnabled } = getSelectedCodexTraits(modelOptions);
+  const { effort, fastModeEnabled, fastModeAvailable } = getSelectedCodexTraits({
+    modelOptions,
+    model: props.model,
+    backendId: props.backendId,
+  });
 
   return (
     <>
@@ -67,10 +85,13 @@ function CodexTraitsMenuContentImpl(props: { threadId: ThreadId }) {
             setProviderModelOptions(
               props.threadId,
               PROVIDER,
-              normalizeCodexModelOptions({
-                ...modelOptions,
-                reasoningEffort: nextEffort,
-              }),
+              normalizeCodexModelOptions(
+                {
+                  ...modelOptions,
+                  reasoningEffort: nextEffort,
+                },
+                { model: props.model, backendId: props.backendId },
+              ),
               { persistSticky: true },
             );
           }}
@@ -83,37 +104,48 @@ function CodexTraitsMenuContentImpl(props: { threadId: ThreadId }) {
           ))}
         </MenuRadioGroup>
       </MenuGroup>
-      <MenuDivider />
-      <MenuGroup>
-        <div className="px-2 py-1.5 font-medium text-muted-foreground text-xs">Fast Mode</div>
-        <MenuRadioGroup
-          value={fastModeEnabled ? "on" : "off"}
-          onValueChange={(value) => {
-            setProviderModelOptions(
-              props.threadId,
-              PROVIDER,
-              normalizeCodexModelOptions({
-                ...modelOptions,
-                fastMode: value === "on",
-              }),
-              { persistSticky: true },
-            );
-          }}
-        >
-          <MenuRadioItem value="off">off</MenuRadioItem>
-          <MenuRadioItem value="on">on</MenuRadioItem>
-        </MenuRadioGroup>
-      </MenuGroup>
+      {fastModeAvailable ? (
+        <>
+          <MenuDivider />
+          <MenuGroup>
+            <div className="px-2 py-1.5 font-medium text-muted-foreground text-xs">Fast Mode</div>
+            <MenuRadioGroup
+              value={fastModeEnabled ? "on" : "off"}
+              onValueChange={(value) => {
+                setProviderModelOptions(
+                  props.threadId,
+                  PROVIDER,
+                  normalizeCodexModelOptions(
+                    {
+                      ...modelOptions,
+                      fastMode: value === "on",
+                    },
+                    { model: props.model, backendId: props.backendId },
+                  ),
+                  { persistSticky: true },
+                );
+              }}
+            >
+              <MenuRadioItem value="off">off</MenuRadioItem>
+              <MenuRadioItem value="on">on</MenuRadioItem>
+            </MenuRadioGroup>
+          </MenuGroup>
+        </>
+      ) : null}
     </>
   );
 }
 
 export const CodexTraitsMenuContent = memo(CodexTraitsMenuContentImpl);
 
-export const CodexTraitsPicker = memo(function CodexTraitsPicker(props: { threadId: ThreadId }) {
+export const CodexTraitsPicker = memo(function CodexTraitsPicker(props: CodexTraitsContextProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const modelOptions = useComposerThreadDraft(props.threadId).modelOptions?.codex;
-  const { effort, fastModeEnabled } = getSelectedCodexTraits(modelOptions);
+  const { effort, fastModeEnabled } = getSelectedCodexTraits({
+    modelOptions,
+    model: props.model,
+    backendId: props.backendId,
+  });
   const triggerLabel = [CODEX_REASONING_LABELS[effort], ...(fastModeEnabled ? ["Fast"] : [])]
     .filter(Boolean)
     .join(" · ");
@@ -140,7 +172,11 @@ export const CodexTraitsPicker = memo(function CodexTraitsPicker(props: { thread
         </span>
       </MenuTrigger>
       <MenuPopup align="start">
-        <CodexTraitsMenuContent threadId={props.threadId} />
+        <CodexTraitsMenuContent
+          threadId={props.threadId}
+          model={props.model}
+          backendId={props.backendId}
+        />
       </MenuPopup>
     </Menu>
   );

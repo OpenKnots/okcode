@@ -11,11 +11,14 @@ import { COMPOSER_DRAFT_STORAGE_KEY, useComposerDraftStore } from "../../compose
 async function mountPicker(props: {
   reasoningEffort?: "low" | "medium" | "high" | "xhigh";
   fastModeEnabled: boolean;
+  model?: string | null;
+  backendId?: string | null;
 }) {
   const threadId = ThreadId.makeUnsafe("thread-codex-traits");
   const draftsByThreadId = {} as ReturnType<
     typeof useComposerDraftStore.getState
   >["draftsByThreadId"];
+  const model = props.model === undefined ? "gpt-5.4" : props.model;
   draftsByThreadId[threadId] = {
     prompt: "",
     attachments: [],
@@ -25,7 +28,7 @@ async function mountPicker(props: {
     promptEnhancement: null,
     promptEnhancementOriginalPrompt: null,
     provider: "codex",
-    model: null,
+    model,
     modelOptions: {
       codex: {
         ...(props.reasoningEffort ? { reasoningEffort: props.reasoningEffort } : {}),
@@ -44,7 +47,10 @@ async function mountPicker(props: {
   });
   const host = document.createElement("div");
   document.body.append(host);
-  const screen = await render(<CodexTraitsPicker threadId={threadId} />, { container: host });
+  const screen = await render(
+    <CodexTraitsPicker threadId={threadId} model={model} backendId={props.backendId ?? null} />,
+    { container: host },
+  );
 
   return {
     cleanup: async () => {
@@ -168,7 +174,10 @@ describe("CodexTraitsPicker", () => {
 
     const host = document.createElement("div");
     document.body.append(host);
-    const screen = await render(<CodexTraitsPicker threadId={threadId} />, { container: host });
+    const screen = await render(
+      <CodexTraitsPicker threadId={threadId} model="gpt-5.4" backendId={null} />,
+      { container: host },
+    );
 
     try {
       await useComposerDraftStore.persist.rehydrate();
@@ -185,6 +194,45 @@ describe("CodexTraitsPicker", () => {
     } finally {
       await screen.unmount();
       host.remove();
+    }
+  });
+
+  it("hides fast mode controls when the model does not support priority service tier", async () => {
+    const mounted = await mountPicker({
+      fastModeEnabled: false,
+      model: "gpt-5.3-codex",
+    });
+
+    try {
+      await page.getByRole("button").click();
+
+      await vi.waitFor(() => {
+        const text = document.body.textContent ?? "";
+        expect(text).toContain("Reasoning");
+        expect(text).not.toContain("Fast Mode");
+      });
+    } finally {
+      await mounted.cleanup();
+    }
+  });
+
+  it("hides fast mode controls when a non-OpenAI codex backend is selected", async () => {
+    const mounted = await mountPicker({
+      fastModeEnabled: false,
+      model: "gpt-5.4",
+      backendId: "ollama",
+    });
+
+    try {
+      await page.getByRole("button").click();
+
+      await vi.waitFor(() => {
+        const text = document.body.textContent ?? "";
+        expect(text).toContain("Reasoning");
+        expect(text).not.toContain("Fast Mode");
+      });
+    } finally {
+      await mounted.cleanup();
     }
   });
 });

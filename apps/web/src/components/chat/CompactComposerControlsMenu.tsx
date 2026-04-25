@@ -1,6 +1,6 @@
 import { ProviderInteractionMode, RuntimeMode } from "@okcode/contracts";
 import { memo, type ReactNode } from "react";
-import { EllipsisIcon, ListTodoIcon } from "lucide-react";
+import { CheckIcon, EllipsisIcon, ListTodoIcon, SparklesIcon } from "lucide-react";
 import { Button } from "../ui/button";
 import {
   Menu,
@@ -11,6 +11,7 @@ import {
   MenuSeparator as MenuDivider,
   MenuTrigger,
 } from "../ui/menu";
+import { PROMPT_ENHANCEMENTS, type PromptEnhancementId } from "../../promptEnhancement";
 
 export const CompactComposerControlsMenu = memo(function CompactComposerControlsMenu(props: {
   activePlan: boolean;
@@ -18,10 +19,17 @@ export const CompactComposerControlsMenu = memo(function CompactComposerControls
   planSidebarOpen: boolean;
   runtimeMode: RuntimeMode;
   traitsMenuContent?: ReactNode;
+  promptEnhancement?: PromptEnhancementId | null;
+  promptEnhancementAvailable?: boolean;
+  promptEnhancementBusy?: boolean;
+  onPromptEnhancementChange?: (next: PromptEnhancementId | null) => void | Promise<void>;
   onInteractionModeChange: (mode: ProviderInteractionMode) => void;
   onTogglePlanSidebar: () => void;
   onToggleRuntimeMode: () => void;
 }) {
+  const showPromptEnhancement =
+    typeof props.onPromptEnhancementChange === "function" &&
+    props.promptEnhancementAvailable !== false;
   return (
     <Menu>
       <MenuTrigger
@@ -75,6 +83,39 @@ export const CompactComposerControlsMenu = memo(function CompactComposerControls
               <ListTodoIcon className="size-4 shrink-0" />
               {props.planSidebarOpen ? "Hide plan sidebar" : "Show plan sidebar"}
             </MenuItem>
+          </>
+        ) : null}
+        {showPromptEnhancement ? (
+          <>
+            <MenuDivider />
+            <div className="flex items-center gap-1.5 px-2 py-1.5 font-medium text-muted-foreground text-xs">
+              <SparklesIcon className="size-3.5" aria-hidden="true" />
+              <span>Prompt enhancement</span>
+            </div>
+            {PROMPT_ENHANCEMENTS.map((enhancement) => {
+              const isSelected = props.promptEnhancement === enhancement.id;
+              return (
+                <MenuItem
+                  key={enhancement.id}
+                  disabled={props.promptEnhancementBusy === true}
+                  onClick={() => {
+                    void props.onPromptEnhancementChange?.(isSelected ? null : enhancement.id);
+                  }}
+                >
+                  {isSelected ? (
+                    <CheckIcon className="size-3.5 shrink-0 text-green-500" />
+                  ) : (
+                    <span className="size-3.5 shrink-0" />
+                  )}
+                  <span className="flex flex-col">
+                    <span>{enhancement.label}</span>
+                    <span className="text-muted-foreground/70 text-xs">
+                      {enhancement.description}
+                    </span>
+                  </span>
+                </MenuItem>
+              );
+            })}
           </>
         ) : null}
       </MenuPopup>

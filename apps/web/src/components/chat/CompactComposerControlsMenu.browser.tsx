@@ -15,6 +15,7 @@ async function mountMenu(props?: {
   prompt?: string;
   provider?: "codex" | "claudeAgent";
   modelOptions?: ProviderModelOptions | null;
+  withPromptEnhancement?: boolean;
 }) {
   const threadId = ThreadId.makeUnsafe("thread-compact-menu");
   const provider = props?.provider ?? "claudeAgent";
@@ -43,6 +44,7 @@ async function mountMenu(props?: {
   const host = document.createElement("div");
   document.body.append(host);
   const onPromptChange = vi.fn();
+  const onPromptEnhancementChange = vi.fn();
   const screen = await render(
     <CompactComposerControlsMenu
       activePlan={false}
@@ -51,7 +53,11 @@ async function mountMenu(props?: {
       runtimeMode="approval-required"
       traitsMenuContent={
         provider === "codex" ? (
-          <CodexTraitsMenuContent threadId={threadId} />
+          <CodexTraitsMenuContent
+            threadId={threadId}
+            model={props?.model ?? "gpt-5.4"}
+            backendId={null}
+          />
         ) : (
           <ClaudeTraitsMenuContent
             threadId={threadId}
@@ -60,6 +66,14 @@ async function mountMenu(props?: {
           />
         )
       }
+      {...(props?.withPromptEnhancement
+        ? {
+            promptEnhancement: null,
+            promptEnhancementAvailable: true,
+            promptEnhancementBusy: false,
+            onPromptEnhancementChange,
+          }
+        : {})}
       onInteractionModeChange={vi.fn()}
       onTogglePlanSidebar={vi.fn()}
       onToggleRuntimeMode={vi.fn()}
@@ -68,6 +82,7 @@ async function mountMenu(props?: {
   );
 
   return {
+    onPromptEnhancementChange,
     cleanup: async () => {
       await screen.unmount();
       host.remove();
@@ -181,6 +196,26 @@ describe("CompactComposerControlsMenu", () => {
         expect(text).toContain("Remove Ultrathink from the prompt to change effort.");
         expect(text).not.toContain("Fallback Effort");
       });
+    } finally {
+      await mounted.cleanup();
+    }
+  });
+
+  it("exposes prompt enhancements directly inside the compact controls menu", async () => {
+    const mounted = await mountMenu({ withPromptEnhancement: true });
+
+    try {
+      await page.getByLabelText("More composer controls").click();
+
+      await vi.waitFor(() => {
+        const text = document.body.textContent ?? "";
+        expect(text).toContain("Prompt enhancement");
+        expect(text).toContain("Full rewrite");
+        expect(text).toContain("Add specificity");
+      });
+
+      await page.getByRole("menuitem", { name: /Full rewrite/ }).click();
+      expect(mounted.onPromptEnhancementChange).toHaveBeenCalledWith("rewrite");
     } finally {
       await mounted.cleanup();
     }

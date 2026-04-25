@@ -46,7 +46,13 @@ function getSelectedClaudeTraits(
   prompt: string,
   modelOptions: ClaudeModelOptions | null | undefined,
 ): {
-  effort: Exclude<ClaudeCodeEffort, "ultrathink"> | null;
+  /**
+   * The effort value to mirror in the radio group. When ultrathink is currently
+   * active (because the prompt carries the `ultrathink` keyword), this is
+   * `"ultrathink"` so that the radio group draws a checkmark next to the
+   * Ultrathink option, matching how every other thinking level renders.
+   */
+  effort: ClaudeCodeEffort | null;
   thinkingEnabled: boolean | null;
   fastModeEnabled: boolean;
   options: ReadonlyArray<ClaudeCodeEffort>;
@@ -59,7 +65,7 @@ function getSelectedClaudeTraits(
     "ultrathink"
   >;
   const resolvedEffort = resolveReasoningEffortForProvider(PROVIDER, modelOptions?.effort);
-  const effort =
+  const baseEffort: Exclude<ClaudeCodeEffort, "ultrathink"> | null =
     resolvedEffort && resolvedEffort !== "ultrathink" && options.includes(resolvedEffort)
       ? resolvedEffort
       : options.includes(defaultReasoningEffort)
@@ -69,13 +75,15 @@ function getSelectedClaudeTraits(
     ? (modelOptions?.thinking ?? true)
     : null;
   const supportsFastMode = supportsClaudeFastMode(model);
+  const ultrathinkPromptControlled =
+    supportsClaudeUltrathinkKeyword(model) && isClaudeUltrathinkPrompt(prompt);
+  const effort: ClaudeCodeEffort | null = ultrathinkPromptControlled ? "ultrathink" : baseEffort;
   return {
     effort,
     thinkingEnabled,
     fastModeEnabled: supportsFastMode && modelOptions?.fastMode === true,
     options,
-    ultrathinkPromptControlled:
-      supportsClaudeUltrathinkKeyword(model) && isClaudeUltrathinkPrompt(prompt),
+    ultrathinkPromptControlled,
     supportsFastMode,
   };
 }

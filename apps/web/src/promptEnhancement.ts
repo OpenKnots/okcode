@@ -1,4 +1,5 @@
 export const PROMPT_ENHANCEMENT_IDS = [
+  "rewrite",
   "specificity",
   "clarity",
   "constraints",
@@ -17,6 +18,16 @@ export interface PromptEnhancementDefinition {
 }
 
 export const PROMPT_ENHANCEMENTS: readonly PromptEnhancementDefinition[] = [
+  {
+    id: "rewrite",
+    label: "Full rewrite",
+    description: "Restructure the prompt around goal, approach, and validation",
+    guidance: [
+      "Lead with a single-sentence goal that captures the user's actual intent.",
+      "Translate the request into a concrete approach, an explicit definition of done, and a short validation checklist.",
+      "Preserve the original scope and compatibility expectations — do not invent new requirements.",
+    ],
+  },
   {
     id: "specificity",
     label: "Add specificity",
@@ -117,6 +128,21 @@ export function enhancePrompt(
   }
 
   switch (enhancementId) {
+    case "rewrite":
+      return [
+        "Goal:",
+        `- ${normalizedPrompt}`,
+        "",
+        "Approach:",
+        "- Identify the most direct way to satisfy this goal without widening scope.",
+        "- Replace vague phrasing with concrete, observable behavior on the relevant surface.",
+        "- Preserve compatibility with the existing flow unless the goal explicitly says otherwise.",
+        "",
+        "Definition of done:",
+        "- The user-visible outcome is explicit and predictable.",
+        "- The most likely edge cases are handled.",
+        "- Tests are added or updated when they meaningfully exercise the change.",
+      ].join("\n");
     case "specificity":
       return [
         normalizedPrompt,

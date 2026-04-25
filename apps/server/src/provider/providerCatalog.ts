@@ -16,6 +16,38 @@ const noCapabilities = null;
 export const BUILT_IN_PROVIDER_MODELS: Record<ProviderKind, ReadonlyArray<ProviderCatalogEntry>> = {
   codex: [
     {
+      slug: "gpt-5.5",
+      name: "GPT-5.5",
+      capabilities: {
+        reasoningEffortLevels: [
+          { value: "low", label: "Low" },
+          { value: "medium", label: "Medium" },
+          { value: "high", label: "High", isDefault: true },
+          { value: "xhigh", label: "Extra High" },
+        ],
+        supportsFastMode: true,
+        supportsThinkingToggle: false,
+        contextWindowOptions: [],
+        promptInjectedEffortLevels: [],
+      },
+    },
+    {
+      slug: "gpt-5.5-mini",
+      name: "GPT-5.5 Mini",
+      capabilities: {
+        reasoningEffortLevels: [
+          { value: "low", label: "Low" },
+          { value: "medium", label: "Medium" },
+          { value: "high", label: "High", isDefault: true },
+          { value: "xhigh", label: "Extra High" },
+        ],
+        supportsFastMode: true,
+        supportsThinkingToggle: false,
+        contextWindowOptions: [],
+        promptInjectedEffortLevels: [],
+      },
+    },
+    {
       slug: "gpt-5.4",
       name: "GPT-5.4",
       capabilities: {
@@ -117,6 +149,8 @@ export const BUILT_IN_PROVIDER_MODELS: Record<ProviderKind, ReadonlyArray<Provid
   ],
   openclaw: [],
   copilot: [
+    { slug: "gpt-5.5", name: "GPT-5.5", capabilities: noCapabilities },
+    { slug: "gpt-5.5-mini", name: "GPT-5.5 Mini", capabilities: noCapabilities },
     { slug: "gpt-5.4", name: "GPT-5.4", capabilities: noCapabilities },
     { slug: "gpt-5.4-mini", name: "GPT-5.4 Mini", capabilities: noCapabilities },
     { slug: "gpt-5.3-codex", name: "GPT-5.3 Codex", capabilities: noCapabilities },

@@ -176,6 +176,27 @@ describe("ClaudeTraitsPicker", () => {
     }
   });
 
+  it("checks the Ultrathink option when ultrathink is active in the prompt", async () => {
+    const mounted = await mountPicker({
+      model: "claude-opus-4-6",
+      prompt: "Ultrathink:\nInvestigate this",
+    });
+
+    try {
+      await page.getByRole("button").click();
+
+      const ultrathinkItem = page.getByRole("menuitemradio", { name: "Ultrathink" });
+      await vi.waitFor(() => {
+        expect(ultrathinkItem.element().getAttribute("aria-checked")).toBe("true");
+      });
+
+      const highItem = page.getByRole("menuitemradio", { name: "High (default)" });
+      expect(highItem.element().getAttribute("aria-checked")).toBe("false");
+    } finally {
+      await mounted.cleanup();
+    }
+  });
+
   it("persists sticky claude model options when traits change", async () => {
     const mounted = await mountPicker({
       model: "claude-opus-4-6",

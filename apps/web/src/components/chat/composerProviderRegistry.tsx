@@ -22,6 +22,7 @@ export type ComposerProviderStateInput = {
   model: ModelSlug;
   prompt: string;
   modelOptions: ProviderModelOptions | null | undefined;
+  codexBackendId?: string | null | undefined;
 };
 
 export type ComposerProviderState = {
@@ -33,27 +34,29 @@ export type ComposerProviderState = {
   modelPickerIconClassName?: string;
 };
 
+export type RenderTraitsInput = {
+  threadId: ThreadId;
+  model: ModelSlug;
+  onPromptChange: (prompt: string) => void;
+  codexBackendId?: string | null | undefined;
+};
+
 type ProviderRegistryEntry = {
   getState: (input: ComposerProviderStateInput) => ComposerProviderState;
-  renderTraitsMenuContent: (input: {
-    threadId: ThreadId;
-    model: ModelSlug;
-    onPromptChange: (prompt: string) => void;
-  }) => ReactNode;
-  renderTraitsPicker: (input: {
-    threadId: ThreadId;
-    model: ModelSlug;
-    onPromptChange: (prompt: string) => void;
-  }) => ReactNode;
+  renderTraitsMenuContent: (input: RenderTraitsInput) => ReactNode;
+  renderTraitsPicker: (input: RenderTraitsInput) => ReactNode;
 };
 
 const composerProviderRegistry: Record<ProviderKind, ProviderRegistryEntry> = {
   codex: {
-    getState: ({ modelOptions }) => {
+    getState: ({ model, modelOptions, codexBackendId }) => {
       const promptEffort =
         resolveReasoningEffortForProvider("codex", modelOptions?.codex?.reasoningEffort) ??
         getDefaultReasoningEffort("codex");
-      const normalizedCodexOptions = normalizeCodexModelOptions(modelOptions?.codex);
+      const normalizedCodexOptions = normalizeCodexModelOptions(modelOptions?.codex, {
+        model,
+        backendId: codexBackendId,
+      });
 
       return {
         provider: "codex",
@@ -63,8 +66,16 @@ const composerProviderRegistry: Record<ProviderKind, ProviderRegistryEntry> = {
           : undefined,
       };
     },
-    renderTraitsMenuContent: ({ threadId }) => <CodexTraitsMenuContent threadId={threadId} />,
-    renderTraitsPicker: ({ threadId }) => <CodexTraitsPicker threadId={threadId} />,
+    renderTraitsMenuContent: ({ threadId, model, codexBackendId }) => (
+      <CodexTraitsMenuContent
+        threadId={threadId}
+        model={model}
+        backendId={codexBackendId ?? null}
+      />
+    ),
+    renderTraitsPicker: ({ threadId, model, codexBackendId }) => (
+      <CodexTraitsPicker threadId={threadId} model={model} backendId={codexBackendId ?? null} />
+    ),
   },
   claudeAgent: {
     getState: ({ model, prompt, modelOptions }) => {
@@ -159,11 +170,13 @@ export function renderProviderTraitsMenuContent(input: {
   threadId: ThreadId;
   model: ModelSlug;
   onPromptChange: (prompt: string) => void;
+  codexBackendId?: string | null | undefined;
 }): ReactNode {
   return composerProviderRegistry[input.provider].renderTraitsMenuContent({
     threadId: input.threadId,
     model: input.model,
     onPromptChange: input.onPromptChange,
+    codexBackendId: input.codexBackendId ?? null,
   });
 }
 
@@ -172,10 +185,12 @@ export function renderProviderTraitsPicker(input: {
   threadId: ThreadId;
   model: ModelSlug;
   onPromptChange: (prompt: string) => void;
+  codexBackendId?: string | null | undefined;
 }): ReactNode {
   return composerProviderRegistry[input.provider].renderTraitsPicker({
     threadId: input.threadId,
     model: input.model,
     onPromptChange: input.onPromptChange,
+    codexBackendId: input.codexBackendId ?? null,
   });
 }

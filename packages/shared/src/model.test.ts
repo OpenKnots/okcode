@@ -31,6 +31,7 @@ import {
   supportsClaudeMaxEffort,
   supportsClaudeThinkingToggle,
   supportsClaudeUltrathinkKeyword,
+  supportsCodexFastMode,
 } from "./model";
 
 describe("normalizeModelSlug", () => {
@@ -62,6 +63,15 @@ describe("normalizeModelSlug", () => {
     expect(normalizeModelSlug("opus-4.7", "claudeAgent")).toBe("claude-opus-4-7");
     expect(normalizeModelSlug("opus-4.6", "claudeAgent")).toBe("claude-opus-4-6");
     expect(normalizeModelSlug("claude-haiku-4-5-20251001", "claudeAgent")).toBe("claude-haiku-4-5");
+  });
+
+  it("resolves GPT-5.5 aliases for codex and copilot", () => {
+    expect(normalizeModelSlug("5.5", "codex")).toBe("gpt-5.5");
+    expect(normalizeModelSlug("5.5-mini", "codex")).toBe("gpt-5.5-mini");
+    expect(normalizeModelSlug("5.5", "copilot")).toBe("gpt-5.5");
+    expect(normalizeModelSlug("gpt-5.5-mini", "copilot")).toBe("gpt-5.5-mini");
+    expect(resolveModelSlug("gpt-5.5")).toBe("gpt-5.5");
+    expect(resolveModelSlug("gpt-5.5-mini")).toBe("gpt-5.5-mini");
   });
 
   it("accepts Anthropic-prefixed Claude model slugs", () => {
@@ -343,6 +353,76 @@ describe("normalizeCodexModelOptions", () => {
       reasoningEffort: "xhigh",
       fastMode: true,
     });
+  });
+
+  it("drops fastMode when the model+backend cannot support priority service tier", () => {
+    expect(
+      normalizeCodexModelOptions(
+        { reasoningEffort: "xhigh", fastMode: true },
+        { model: "gpt-5.4", backendId: "ollama" },
+      ),
+    ).toEqual({ reasoningEffort: "xhigh" });
+
+    expect(
+      normalizeCodexModelOptions(
+        { reasoningEffort: "high", fastMode: true },
+        { model: "gpt-5.3-codex", backendId: "openai" },
+      ),
+    ).toBeUndefined();
+  });
+
+  it("preserves fastMode for fast-mode capable models on the OpenAI backend", () => {
+    expect(
+      normalizeCodexModelOptions(
+        { reasoningEffort: "xhigh", fastMode: true },
+        { model: "gpt-5.5", backendId: "openai" },
+      ),
+    ).toEqual({ reasoningEffort: "xhigh", fastMode: true });
+
+    expect(
+      normalizeCodexModelOptions(
+        { reasoningEffort: "high", fastMode: true },
+        { model: "gpt-5.5-mini", backendId: null },
+      ),
+    ).toEqual({ fastMode: true });
+  });
+});
+
+describe("supportsCodexFastMode", () => {
+  it("enables fast mode for newer GPT-5.x models on the OpenAI backend", () => {
+    expect(supportsCodexFastMode("gpt-5.5")).toBe(true);
+    expect(supportsCodexFastMode("gpt-5.5-mini")).toBe(true);
+    expect(supportsCodexFastMode("gpt-5.4")).toBe(true);
+    expect(supportsCodexFastMode("gpt-5.4-mini")).toBe(true);
+    expect(supportsCodexFastMode("gpt-5.5", "openai")).toBe(true);
+    expect(supportsCodexFastMode("gpt-5.5", null)).toBe(true);
+    expect(supportsCodexFastMode("gpt-5.5", undefined)).toBe(true);
+  });
+
+  it("rejects older models that do not support priority service tier", () => {
+    expect(supportsCodexFastMode("gpt-5.3-codex")).toBe(false);
+    expect(supportsCodexFastMode("gpt-5.3-codex-spark")).toBe(false);
+    expect(supportsCodexFastMode("gpt-5.2")).toBe(false);
+    expect(supportsCodexFastMode("gpt-5.2-codex")).toBe(false);
+  });
+
+  it("rejects fast mode when the codex backend is not OpenAI", () => {
+    expect(supportsCodexFastMode("gpt-5.5", "ollama")).toBe(false);
+    expect(supportsCodexFastMode("gpt-5.5", "lmstudio")).toBe(false);
+    expect(supportsCodexFastMode("gpt-5.4", "azure")).toBe(false);
+    expect(supportsCodexFastMode("gpt-5.4", "openrouter")).toBe(false);
+    expect(supportsCodexFastMode("gpt-5.4-mini", "groq")).toBe(false);
+  });
+
+  it("rejects fast mode for missing or empty model slugs", () => {
+    expect(supportsCodexFastMode(undefined)).toBe(false);
+    expect(supportsCodexFastMode(null)).toBe(false);
+    expect(supportsCodexFastMode("")).toBe(false);
+    expect(supportsCodexFastMode("   ")).toBe(false);
+  });
+
+  it("treats whitespace-only backend IDs as the implicit OpenAI default", () => {
+    expect(supportsCodexFastMode("gpt-5.5", "   ")).toBe(true);
   });
 });
 

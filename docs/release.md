@@ -11,7 +11,7 @@ The next stable train ships one semver across desktop, CLI, and iOS surfaces:
 - macOS arm64 and x64 desktop DMGs plus updater metadata
 - Windows x64 signed NSIS installer
 - Linux x64 AppImage
-- iOS TestFlight build from the same release tag, dispatched separately
+- iOS TestFlight build from the same release version/ref, dispatched separately
 - `okcodes` npm package from the same tag
 
 `docs/release.md` is the source of truth for release policy, release gates, and the platform matrix. Treat `docs/releases/README.md` and README release references as pointers only.
@@ -127,7 +127,7 @@ Optional manual rebuild lane:
 - Build the mobile web bundle and sync Capacitor before archiving.
 - Run a simulator build in CI before archive/upload.
 - Upload the archive to TestFlight from the dedicated `release-ios.yml` workflow.
-- Dispatch `release-ios.yml` with the release version and matching tag/ref (defaults to `refs/tags/vX.Y.Z`).
+- Dispatch `release-ios.yml` with the release version and matching tag/ref. If `ref` is left blank, it builds the workflow dispatch commit.
 - During RC soak, manually verify on:
   - one current supported iPhone/iOS
   - one older supported iPhone/iOS
@@ -189,7 +189,7 @@ If any blocker fails, cut a new RC and repeat the soak.
 ## Post-release expectations
 
 - The GitHub release includes desktop artifacts plus release notes and asset manifest.
-- iOS is distributed through TestFlight by a separate `release-ios.yml` dispatch against the release tag, not attached to the GitHub release.
+- iOS is distributed through TestFlight by a separate `release-ios.yml` dispatch against the release tag or exact release commit, not attached to the GitHub release.
 - `finalize` updates version strings and pushes the post-release bump to `main`.
 
 ## Troubleshooting

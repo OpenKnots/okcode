@@ -9,7 +9,7 @@ Canonical release process documentation for OK Code.
 The next stable train ships one semver across desktop, CLI, and iOS surfaces:
 
 - macOS arm64 and x64 desktop DMGs plus updater metadata
-- Windows x64 signed NSIS installer
+- Windows x64 NSIS installer
 - Linux x64 AppImage
 - iOS TestFlight build from the same release version/ref, dispatched separately
 - `okcodes` npm package from the same tag
@@ -21,7 +21,7 @@ The next stable train ships one semver across desktop, CLI, and iOS surfaces:
 - iOS is TestFlight-only for this release train.
 - Both macOS architectures are blocking for the main desktop release, and the published `latest-mac.yml` manifest must contain arm64 and x64 payloads.
 - Android is non-blocking.
-- Windows stable support requires signing. Do not ship unsigned Windows artifacts as stable.
+- Only macOS signing/notarization is mandatory. Windows signs when Azure Trusted Signing secrets are configured; otherwise the release publishes an unsigned Windows installer.
 
 ## Versioning and promotion
 
@@ -93,14 +93,14 @@ This command runs local preflight, invokes release preparation, pushes the relea
 
 Blocking stable matrix:
 
-| Surface     | Runner         | Artifact                                | Blocking |
-| ----------- | -------------- | --------------------------------------- | -------- |
-| macOS arm64 | `macos-14`     | signed/notarized DMG + updater metadata | yes      |
-| macOS x64   | `macos-13`     | signed/notarized DMG + updater metadata | yes      |
-| Windows x64 | `windows-2022` | signed NSIS installer                   | yes      |
-| Linux x64   | `ubuntu-24.04` | AppImage                                | yes      |
-| iOS         | `macos-14`     | TestFlight upload                       | separate |
-| CLI         | `ubuntu-24.04` | npm publish                             | yes      |
+| Surface     | Runner           | Artifact                                | Blocking |
+| ----------- | ---------------- | --------------------------------------- | -------- |
+| macOS arm64 | `macos-14`       | signed/notarized DMG + updater metadata | yes      |
+| macOS x64   | `macos-15-intel` | signed/notarized DMG + updater metadata | yes      |
+| Windows x64 | `windows-2022`   | NSIS installer                          | yes      |
+| Linux x64   | `ubuntu-24.04`   | AppImage                                | yes      |
+| iOS         | `macos-14`       | TestFlight upload                       | separate |
+| CLI         | `ubuntu-24.04`   | npm publish                             | yes      |
 
 Optional manual rebuild lane:
 
@@ -112,7 +112,7 @@ Optional manual rebuild lane:
 
 - Build artifacts with `bun run dist:desktop:artifact`.
 - Refuse macOS stable release builds unless signing and notarization secrets are present.
-- Refuse Windows stable release builds unless Azure Trusted Signing secrets are present.
+- Sign Windows builds when Azure Trusted Signing secrets are present; otherwise publish the unsigned installer.
 - Publish both macOS arm64 and x64 DMG/ZIP payloads from the main `release.yml` workflow.
 - Merge `latest-mac.yml` and `latest-mac-x64.yml` into one published `latest-mac.yml` before creating the GitHub Release.
 - Validate packaged outputs before upload:

@@ -14,7 +14,7 @@ permissions:
 jobs:
   macos_intel_compat:
     name: macOS x64 compatibility build
-    runs-on: macos-13
+    runs-on: macos-15-intel
     env:
       OKCODE_COMMIT_HASH: ${{ github.sha }}
       OKCODE_BUILD_TIMESTAMP: ${{ github.event.inputs.version }}

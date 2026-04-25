@@ -118,7 +118,7 @@ jobs:
             target: dmg
             arch: arm64
           - label: macOS x64
-            runner: macos-13
+            runner: macos-15-intel
             platform: mac
             target: dmg
             arch: x64

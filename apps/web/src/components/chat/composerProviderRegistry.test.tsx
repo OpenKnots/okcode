@@ -146,4 +146,53 @@ describe("getComposerProviderState", () => {
       modelOptionsForDispatch: undefined,
     });
   });
+
+  it("drops codex fastMode dispatch when the selected backend cannot honor it", () => {
+    const state = getComposerProviderState({
+      provider: "codex",
+      model: "gpt-5.4",
+      prompt: "",
+      codexBackendId: "ollama",
+      modelOptions: {
+        codex: {
+          reasoningEffort: "xhigh",
+          fastMode: true,
+        },
+      },
+    });
+
+    expect(state).toEqual({
+      provider: "codex",
+      promptEffort: "xhigh",
+      modelOptionsForDispatch: {
+        codex: {
+          reasoningEffort: "xhigh",
+        },
+      },
+    });
+  });
+
+  it("preserves codex fastMode dispatch for the GPT-5.5 model on the OpenAI backend", () => {
+    const state = getComposerProviderState({
+      provider: "codex",
+      model: "gpt-5.5",
+      prompt: "",
+      codexBackendId: "openai",
+      modelOptions: {
+        codex: {
+          fastMode: true,
+        },
+      },
+    });
+
+    expect(state).toEqual({
+      provider: "codex",
+      promptEffort: "high",
+      modelOptionsForDispatch: {
+        codex: {
+          fastMode: true,
+        },
+      },
+    });
+  });
 });

@@ -939,6 +939,7 @@ export default function ChatView({
     ],
   );
   const selectedModel = getModelSelectionModel(selectedModelSelection);
+  const codexBackendId = serverConfigQuery.data?.codexConfig?.selectedModelProviderId ?? null;
   const composerProviderState = useMemo(
     () =>
       getComposerProviderState({
@@ -946,8 +947,9 @@ export default function ChatView({
         model: selectedModel,
         prompt,
         modelOptions: draftModelOptions,
+        codexBackendId,
       }),
-    [draftModelOptions, prompt, selectedModel, selectedProvider],
+    [codexBackendId, draftModelOptions, prompt, selectedModel, selectedProvider],
   );
   const selectedPromptEffort = composerProviderState.promptEffort;
   const selectedModelOptionsForDispatch = composerProviderState.modelOptionsForDispatch;
@@ -4407,12 +4409,14 @@ export default function ChatView({
     threadId,
     model: selectedModel,
     onPromptChange: setPromptFromTraits,
+    codexBackendId,
   });
   const providerTraitsPicker = renderProviderTraitsPicker({
     provider: selectedProvider,
     threadId,
     model: selectedModel,
     onPromptChange: setPromptFromTraits,
+    codexBackendId,
   });
   const onEnvModeChange = useCallback(
     (mode: DraftThreadEnvMode) => {
@@ -5512,6 +5516,10 @@ export default function ChatView({
                               planSidebarOpen={planSidebarOpen}
                               runtimeMode={runtimeMode}
                               traitsMenuContent={providerTraitsMenuContent}
+                              promptEnhancement={composerPromptEnhancement}
+                              promptEnhancementAvailable={pendingUserInputs.length === 0}
+                              promptEnhancementBusy={isEnhancingPrompt}
+                              onPromptEnhancementChange={onPromptEnhancementChange}
                               onInteractionModeChange={handleInteractionModeChange}
                               onTogglePlanSidebar={togglePlanSidebar}
                               onToggleRuntimeMode={toggleRuntimeMode}

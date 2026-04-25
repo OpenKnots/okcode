@@ -9,6 +9,7 @@ Use this directory for versioned release notes and asset manifests only:
 
 | Version              | Summary                                                                                                   | Assets                        |
 | -------------------- | --------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| [0.26.4](v0.26.4.md) | Out-of-memory session recovery and CLI release hardening                                                  | [manifest](v0.26.4/assets.md) |
 | [0.26.3](v0.26.3.md) | Release with 2 new feature(s)                                                                             | [manifest](v0.26.3/assets.md) |
 | [0.26.2](v0.26.2.md) | Release with 1 new feature(s), 4 fix(es), 3 improvement(s)                                                | [manifest](v0.26.2/assets.md) |
 | [0.26.0](v0.26.0.md) | File-content search, desktop terminal docking, transport sna                                              | [manifest](v0.26.0/assets.md) |

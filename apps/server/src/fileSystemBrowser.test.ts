@@ -66,7 +66,7 @@ describe("browseFileSystemDirectory", () => {
     fs.mkdirSync(path.join(root, ".hidden-dir"));
 
     const result = await browseFileSystemDirectory({ path: root, includeHidden: true });
-    const names = result.entries.map((e) => e.name).sort();
+    const names = result.entries.map((e) => e.name).toSorted();
 
     assert.deepEqual(names, [".hidden-dir", ".secret", "visible.txt"]);
   });

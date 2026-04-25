@@ -265,7 +265,7 @@ ${highlights || "- See changelog for detailed changes."}
 
 - **CLI:** \`npm install -g okcodes@${version}\` once the desktop/CLI release workflow finishes.
 - **Desktop:** Download from [GitHub Releases](${REPO_URL}/releases/tag/v${version}). Filenames are listed in [assets.md](v${version}/assets.md).
-- **iOS:** Available via TestFlight after the separate Release iOS workflow is dispatched for this tag.
+- **iOS:** Available via TestFlight after the separate Release iOS workflow is dispatched for the matching release tag/ref.
 
 ## Known limitations
 

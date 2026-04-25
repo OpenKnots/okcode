@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       ref:
-        description: "Git ref to build (defaults to refs/tags/v<version>; may also be a branch or SHA)"
+        description: "Git ref to build (defaults to the workflow dispatch commit; may also be a tag, branch, or SHA)"
         required: false
         type: string
 
@@ -52,7 +52,7 @@ jobs:
             if [[ -n "$requested_ref" ]]; then
               resolved_ref="$requested_ref"
             else
-              resolved_ref="refs/tags/$tag"
+              resolved_ref="$GITHUB_SHA"
             fi
           else
             resolved_ref="$requested_ref"

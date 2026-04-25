@@ -3895,17 +3895,6 @@ export default function ChatView({
     });
   };
 
-  const onRecoverFromOutOfMemory = async () => {
-    const api = readNativeApi();
-    if (!api || !activeThread || isRemoteActionBlocked) return;
-    await api.orchestration.dispatchCommand({
-      type: "thread.session.stop",
-      commandId: newCommandId(),
-      threadId: activeThread.id,
-      createdAt: new Date().toISOString(),
-    });
-  };
-
   const onClearQueue = useCallback(() => {
     setOptimisticUserMessages((existing) => {
       for (const msg of existing) {

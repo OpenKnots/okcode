@@ -2,6 +2,7 @@
 import "../index.css";
 
 import {
+  EventId,
   type GitBranch,
   ORCHESTRATION_WS_METHODS,
   type MessageId,
@@ -40,6 +41,12 @@ const NOW_ISO = "2026-03-04T12:00:00.000Z";
 const BASE_TIME_MS = Date.parse(NOW_ISO);
 const ATTACHMENT_SVG = "<svg xmlns='http://www.w3.org/2000/svg' width='120' height='300'></svg>";
 const ONBOARDING_STORAGE_KEY = "okcode:onboarding-completed:v1";
+const PLAN_FOLLOW_UP_TURN_ID = "turn-plan-follow-up" as TurnId;
+const PLAN_IMPLEMENTATION_TURN_ID = "turn-plan-implementation" as TurnId;
+const PLAN_FOLLOW_UP_ID = "plan-follow-up-browser";
+const PLAN_STEP_INSPECT_FILES = "Inspect files";
+const PLAN_STEP_APPLY_PATCH = "Apply patch";
+const PLAN_STEP_VERIFY_SIDEBAR = "Verify sidebar stability";
 
 interface WsRequestEnvelope {
   id: string;
@@ -462,6 +469,147 @@ function createSnapshotWithLongProposedPlan(): OrchestrationReadModel {
   };
 }
 
+function replaceThreadInSnapshot(
+  snapshot: OrchestrationReadModel,
+  updater: (
+    thread: OrchestrationReadModel["threads"][number],
+  ) => OrchestrationReadModel["threads"][number],
+): OrchestrationReadModel {
+  const nextThreadIndex = snapshot.threads.findIndex((thread) => thread.id === THREAD_ID);
+  if (nextThreadIndex < 0) {
+    return snapshot;
+  }
+  const nextThreads = [...snapshot.threads];
+  nextThreads[nextThreadIndex] = updater(nextThreads[nextThreadIndex]!);
+  return {
+    ...snapshot,
+    threads: nextThreads,
+  };
+}
+
+function createPlanFollowUpSnapshot(): OrchestrationReadModel {
+  const snapshot = createSnapshotForTargetUser({
+    targetMessageId: "msg-user-plan-follow-up-target" as MessageId,
+    targetText: "plan follow-up thread",
+  });
+  const planMarkdown = [
+    "# Stabilize plan implementation flow",
+    "",
+    `- ${PLAN_STEP_INSPECT_FILES}`,
+    `- ${PLAN_STEP_APPLY_PATCH}`,
+    `- ${PLAN_STEP_VERIFY_SIDEBAR}`,
+  ].join("\n");
+
+  return replaceThreadInSnapshot(snapshot, (thread) => {
+    if (!thread.session) {
+      return thread;
+    }
+    return {
+      ...thread,
+      interactionMode: "plan",
+      latestTurn: {
+        turnId: PLAN_FOLLOW_UP_TURN_ID,
+        state: "completed",
+        requestedAt: isoAt(1_100),
+        startedAt: isoAt(1_101),
+        completedAt: isoAt(1_102),
+        assistantMessageId: null,
+      },
+      proposedPlans: [
+        {
+          id: PLAN_FOLLOW_UP_ID,
+          turnId: PLAN_FOLLOW_UP_TURN_ID,
+          planMarkdown,
+          implementedAt: null,
+          implementationThreadId: null,
+          createdAt: isoAt(1_100),
+          updatedAt: isoAt(1_101),
+        },
+      ],
+      session: {
+        ...thread.session,
+        status: "ready",
+        activeTurnId: null,
+        updatedAt: isoAt(1_102),
+      },
+      updatedAt: isoAt(1_102),
+    };
+  });
+}
+
+function createRunningPlanImplementationSnapshot(snapshotSequence: number): OrchestrationReadModel {
+  const snapshot = createPlanFollowUpSnapshot();
+  const snapshotWithRunningThread = replaceThreadInSnapshot(snapshot, (thread) => {
+    if (!thread.session) {
+      return thread;
+    }
+    const activities: OrchestrationReadModel["threads"][number]["activities"] = [
+      {
+        id: EventId.makeUnsafe("evt-plan-implementation-1"),
+        tone: "info",
+        kind: "turn.plan.updated",
+        summary: "Plan updated",
+        payload: {
+          explanation: "Executing the queued plan steps.",
+          plan: [
+            { step: PLAN_STEP_INSPECT_FILES, status: "completed" },
+            { step: PLAN_STEP_APPLY_PATCH, status: "in_progress" },
+            { step: PLAN_STEP_VERIFY_SIDEBAR, status: "pending" },
+          ],
+        },
+        turnId: PLAN_IMPLEMENTATION_TURN_ID,
+        sequence: 40,
+        createdAt: isoAt(1_202),
+      },
+      {
+        id: EventId.makeUnsafe("evt-plan-implementation-2"),
+        tone: "tool",
+        kind: "tool.updated",
+        summary: "Editing files",
+        payload: {
+          itemType: "command_execution",
+          status: "in_progress",
+          title: "Apply patch",
+          detail: "Editing files",
+        },
+        turnId: PLAN_IMPLEMENTATION_TURN_ID,
+        sequence: 41,
+        createdAt: isoAt(1_203),
+      },
+    ];
+
+    return {
+      ...thread,
+      interactionMode: "code",
+      latestTurn: {
+        turnId: PLAN_IMPLEMENTATION_TURN_ID,
+        state: "running",
+        requestedAt: isoAt(1_200),
+        startedAt: isoAt(1_201),
+        completedAt: null,
+        assistantMessageId: null,
+        sourceProposedPlan: {
+          threadId: THREAD_ID,
+          planId: PLAN_FOLLOW_UP_ID,
+        },
+      },
+      activities,
+      session: {
+        ...thread.session,
+        status: "running",
+        activeTurnId: PLAN_IMPLEMENTATION_TURN_ID,
+        updatedAt: isoAt(1_204),
+      },
+      updatedAt: isoAt(1_204),
+    };
+  });
+
+  return {
+    ...snapshotWithRunningThread,
+    snapshotSequence,
+  };
+}
+
 function resolveWsRpc(body: WsRequestEnvelope["body"]): unknown {
   const tag = body._tag;
   const fixtureThread = fixture.snapshot.threads.find((thread) => thread.id === THREAD_ID) ?? null;
@@ -677,6 +825,24 @@ async function waitForSendButton(): Promise<HTMLButtonElement> {
     () => document.querySelector<HTMLButtonElement>('button[aria-label="Send message"]'),
     "Unable to find send button.",
   );
+}
+
+async function waitForPlanFollowUpImplementButton(): Promise<HTMLButtonElement> {
+  return waitForElement(
+    () =>
+      [...document.querySelectorAll<HTMLButtonElement>('button[type="submit"]')].find(
+        (button) => button.textContent?.trim() === "Implement",
+      ) ?? null,
+    "Unable to find plan implement button.",
+  );
+}
+
+function submitWithButton(button: HTMLButtonElement): void {
+  const form = button.closest("form");
+  if (!(form instanceof HTMLFormElement)) {
+    throw new Error("Unable to locate composer form for submit button.");
+  }
+  form.requestSubmit(button);
 }
 
 function isVisibleElement(element: Element | null): element is HTMLElement {
@@ -910,6 +1076,15 @@ async function mountChatView(options: {
   };
 }
 
+async function syncFixtureSnapshot(snapshot: OrchestrationReadModel): Promise<void> {
+  fixture = {
+    ...fixture,
+    snapshot,
+  };
+  useStore.getState().syncServerReadModel(snapshot);
+  await waitForLayout();
+}
+
 async function measureUserRowAtViewport(options: {
   snapshot: OrchestrationReadModel;
   targetMessageId: MessageId;
@@ -990,6 +1165,141 @@ describe("ChatView timeline estimator parity (full app)", () => {
       });
 
       await expect.element(page.getByTestId("new-thread-button")).toBeInTheDocument();
+      expect(
+        consoleErrorSpy.mock.calls.some((call) =>
+          call.some(
+            (value) =>
+              typeof value === "string" &&
+              (value.includes("Too many re-renders") ||
+                value.includes("Minified React error #301")),
+          ),
+        ),
+      ).toBe(false);
+    } finally {
+      consoleErrorSpy.mockRestore();
+      await mounted.cleanup();
+    }
+  });
+
+  it("implements a proposed plan on the same thread without tripping a render loop", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const mounted = await mountChatView({
+      viewport: DEFAULT_VIEWPORT,
+      snapshot: createPlanFollowUpSnapshot(),
+    });
+
+    try {
+      await waitForServerConfigToApply();
+      await vi.waitFor(async () => {
+        expect(await readCurrentInteractionModeLabel()).toBe("Plan");
+      });
+
+      const sendButton = await waitForPlanFollowUpImplementButton();
+      await vi.waitFor(() => {
+        expect(sendButton.disabled).toBe(false);
+      });
+      submitWithButton(sendButton);
+
+      await vi.waitFor(() => {
+        const request = wsRequests.find(
+          (entry) =>
+            entry._tag === ORCHESTRATION_WS_METHODS.dispatchCommand &&
+            typeof entry.command === "object" &&
+            entry.command !== null &&
+            "type" in entry.command &&
+            entry.command.type === "thread.turn.start" &&
+            "threadId" in entry.command &&
+            entry.command.threadId === THREAD_ID,
+        );
+        expect(request).toMatchObject({
+          _tag: ORCHESTRATION_WS_METHODS.dispatchCommand,
+          command: {
+            type: "thread.turn.start",
+            threadId: THREAD_ID,
+            interactionMode: "code",
+            sourceProposedPlan: {
+              threadId: THREAD_ID,
+              planId: PLAN_FOLLOW_UP_ID,
+            },
+          },
+        });
+      });
+
+      await vi.waitFor(async () => {
+        expect(await readCurrentInteractionModeLabel()).toBe("Code");
+      });
+
+      await syncFixtureSnapshot(createRunningPlanImplementationSnapshot(2));
+
+      await vi.waitFor(
+        () => {
+          expect(
+            document.querySelector<HTMLButtonElement>('button[aria-label="Close plan sidebar"]'),
+          ).toBeTruthy();
+          expect(document.body.textContent).toContain(PLAN_STEP_INSPECT_FILES);
+          expect(document.body.textContent).toContain(PLAN_STEP_APPLY_PATCH);
+        },
+        { timeout: 8_000, interval: 16 },
+      );
+
+      expect(
+        consoleErrorSpy.mock.calls.some((call) =>
+          call.some(
+            (value) =>
+              typeof value === "string" &&
+              (value.includes("Too many re-renders") ||
+                value.includes("Minified React error #301")),
+          ),
+        ),
+      ).toBe(false);
+    } finally {
+      consoleErrorSpy.mockRestore();
+      await mounted.cleanup();
+    }
+  });
+
+  it("keeps the same-thread implementation surface stable across repeated identical snapshots", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const mounted = await mountChatView({
+      viewport: DEFAULT_VIEWPORT,
+      snapshot: createPlanFollowUpSnapshot(),
+    });
+
+    try {
+      await waitForServerConfigToApply();
+      const sendButton = await waitForPlanFollowUpImplementButton();
+      await vi.waitFor(() => {
+        expect(sendButton.disabled).toBe(false);
+      });
+      submitWithButton(sendButton);
+
+      await vi.waitFor(() => {
+        const request = wsRequests.find(
+          (entry) =>
+            entry._tag === ORCHESTRATION_WS_METHODS.dispatchCommand &&
+            typeof entry.command === "object" &&
+            entry.command !== null &&
+            "type" in entry.command &&
+            entry.command.type === "thread.turn.start" &&
+            "threadId" in entry.command &&
+            entry.command.threadId === THREAD_ID,
+        );
+        expect(request).toBeTruthy();
+      });
+
+      await syncFixtureSnapshot(createRunningPlanImplementationSnapshot(2));
+      await syncFixtureSnapshot(createRunningPlanImplementationSnapshot(3));
+      await syncFixtureSnapshot(createRunningPlanImplementationSnapshot(4));
+
+      await vi.waitFor(
+        () => {
+          expect(document.body.textContent).toContain(PLAN_STEP_VERIFY_SIDEBAR);
+          expect(document.body.textContent).not.toContain("Plan ready");
+          expect(document.querySelectorAll('[aria-label="Close plan sidebar"]')).toHaveLength(1);
+        },
+        { timeout: 8_000, interval: 16 },
+      );
+
       expect(
         consoleErrorSpy.mock.calls.some((call) =>
           call.some(

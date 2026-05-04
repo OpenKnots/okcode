@@ -193,10 +193,15 @@ function isStalePendingRequestFailureDetail(detail: string | undefined): boolean
 export function derivePendingApprovals(
   activities: ReadonlyArray<OrchestrationThreadActivity>,
 ): PendingApproval[] {
-  const openByRequestId = new Map<ApprovalRequestId, PendingApproval>();
-  const ordered = [...activities].toSorted(compareActivitiesByOrder);
+  return derivePendingApprovalsFromOrderedActivities(orderThreadActivities(activities));
+}
 
-  for (const activity of ordered) {
+export function derivePendingApprovalsFromOrderedActivities(
+  orderedActivities: ReadonlyArray<OrchestrationThreadActivity>,
+): PendingApproval[] {
+  const openByRequestId = new Map<ApprovalRequestId, PendingApproval>();
+
+  for (const activity of orderedActivities) {
     const payload =
       activity.payload && typeof activity.payload === "object"
         ? (activity.payload as Record<string, unknown>)
@@ -298,10 +303,15 @@ function parseUserInputQuestions(
 export function derivePendingUserInputs(
   activities: ReadonlyArray<OrchestrationThreadActivity>,
 ): PendingUserInput[] {
-  const openByRequestId = new Map<ApprovalRequestId, PendingUserInput>();
-  const ordered = [...activities].toSorted(compareActivitiesByOrder);
+  return derivePendingUserInputsFromOrderedActivities(orderThreadActivities(activities));
+}
 
-  for (const activity of ordered) {
+export function derivePendingUserInputsFromOrderedActivities(
+  orderedActivities: ReadonlyArray<OrchestrationThreadActivity>,
+): PendingUserInput[] {
+  const openByRequestId = new Map<ApprovalRequestId, PendingUserInput>();
+
+  for (const activity of orderedActivities) {
     const payload =
       activity.payload && typeof activity.payload === "object"
         ? (activity.payload as Record<string, unknown>)
@@ -348,8 +358,17 @@ export function deriveActivePlanState(
   activities: ReadonlyArray<OrchestrationThreadActivity>,
   latestTurnId: TurnId | undefined,
 ): ActivePlanState | null {
-  const ordered = [...activities].toSorted(compareActivitiesByOrder);
-  const candidates = ordered.filter((activity) => {
+  return deriveActivePlanStateFromOrderedActivities(
+    orderThreadActivities(activities),
+    latestTurnId,
+  );
+}
+
+export function deriveActivePlanStateFromOrderedActivities(
+  orderedActivities: ReadonlyArray<OrchestrationThreadActivity>,
+  latestTurnId: TurnId | undefined,
+): ActivePlanState | null {
+  const candidates = orderedActivities.filter((activity) => {
     if (activity.kind !== "turn.plan.updated") {
       return false;
     }
@@ -477,8 +496,14 @@ export function deriveWorkLogEntries(
   activities: ReadonlyArray<OrchestrationThreadActivity>,
   latestTurnId: TurnId | undefined,
 ): WorkLogEntry[] {
-  const ordered = [...activities].toSorted(compareActivitiesByOrder);
-  const entries = ordered
+  return deriveWorkLogEntriesFromOrderedActivities(orderThreadActivities(activities), latestTurnId);
+}
+
+export function deriveWorkLogEntriesFromOrderedActivities(
+  orderedActivities: ReadonlyArray<OrchestrationThreadActivity>,
+  latestTurnId: TurnId | undefined,
+): WorkLogEntry[] {
+  const entries = orderedActivities
     .filter((activity) => (latestTurnId ? activity.turnId === latestTurnId : true))
     .filter((activity) => activity.kind !== "tool.started")
     .filter((activity) => activity.kind !== "task.started" && activity.kind !== "task.completed")
@@ -855,6 +880,12 @@ function extractChangedFiles(payload: Record<string, unknown> | null): string[] 
   const seen = new Set<string>();
   collectChangedFiles(asRecord(payload?.data), changedFiles, seen, 0);
   return changedFiles;
+}
+
+export function orderThreadActivities(
+  activities: ReadonlyArray<OrchestrationThreadActivity>,
+): OrchestrationThreadActivity[] {
+  return [...activities].toSorted(compareActivitiesByOrder);
 }
 
 function compareActivitiesByOrder(

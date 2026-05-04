@@ -14,7 +14,6 @@ export function useFileViewNavigation() {
     strict: false,
     select: (params) => (params as Record<string, string | undefined>).threadId ?? null,
   });
-  const threads = useStore((s) => s.threads);
 
   return useCallback(
     (cwd: string, relativePath: string) => {
@@ -22,6 +21,7 @@ export function useFileViewNavigation() {
       // If not already on a thread page, navigate to the most recent thread
       // so the workspace inline sidebar is visible.
       if (!threadId) {
+        const threads = useStore.getState().threads;
         const sorted = threads.toSorted((a, b) =>
           (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt),
         );
@@ -33,6 +33,6 @@ export function useFileViewNavigation() {
         }
       }
     },
-    [navigate, openFile, threadId, threads],
+    [navigate, openFile, threadId],
   );
 }

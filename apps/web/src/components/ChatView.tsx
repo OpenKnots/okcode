@@ -69,19 +69,20 @@ import {
   replaceTextRange,
 } from "../composer-logic";
 import {
-  derivePendingApprovals,
-  derivePendingUserInputs,
+  derivePendingApprovalsFromOrderedActivities,
+  derivePendingUserInputsFromOrderedActivities,
   derivePhase,
   deriveTimelineEntries,
   deriveActiveWorkStartedAt,
-  deriveActivePlanState,
+  deriveActivePlanStateFromOrderedActivities,
   findSidebarProposedPlan,
   findLatestProposedPlan,
-  deriveWorkLogEntries,
+  deriveWorkLogEntriesFromOrderedActivities,
   hasActionableProposedPlan,
   hasToolActivityForTurn,
   isLatestTurnSettled,
   formatElapsed,
+  orderThreadActivities,
 } from "../session-logic";
 import { isScrollContainerNearBottom } from "../chat-scroll";
 import {
@@ -1001,21 +1002,29 @@ export default function ChatView({
     sendStartedAt,
   );
   const threadActivities = activeThread?.activities ?? EMPTY_ACTIVITIES;
+  const orderedThreadActivities = useMemo(
+    () => orderThreadActivities(threadActivities),
+    [threadActivities],
+  );
   const workLogEntries = useMemo(
-    () => deriveWorkLogEntries(threadActivities, activeLatestTurn?.turnId ?? undefined),
-    [activeLatestTurn?.turnId, threadActivities],
+    () =>
+      deriveWorkLogEntriesFromOrderedActivities(
+        orderedThreadActivities,
+        activeLatestTurn?.turnId ?? undefined,
+      ),
+    [activeLatestTurn?.turnId, orderedThreadActivities],
   );
   const latestTurnHasToolActivity = useMemo(
     () => hasToolActivityForTurn(threadActivities, activeLatestTurn?.turnId),
     [activeLatestTurn?.turnId, threadActivities],
   );
   const pendingApprovals = useMemo(
-    () => derivePendingApprovals(threadActivities),
-    [threadActivities],
+    () => derivePendingApprovalsFromOrderedActivities(orderedThreadActivities),
+    [orderedThreadActivities],
   );
   const pendingUserInputs = useMemo(
-    () => derivePendingUserInputs(threadActivities),
-    [threadActivities],
+    () => derivePendingUserInputsFromOrderedActivities(orderedThreadActivities),
+    [orderedThreadActivities],
   );
   const activePendingUserInput = pendingUserInputs[0] ?? null;
   const activePendingDraftAnswers = useMemo(
@@ -1070,14 +1079,20 @@ export default function ChatView({
     [activeLatestTurn, activeThread?.id, latestTurnSettled, threads],
   );
   const activePlan = useMemo(
-    () => deriveActivePlanState(threadActivities, activeLatestTurn?.turnId ?? undefined),
-    [activeLatestTurn?.turnId, threadActivities],
+    () =>
+      deriveActivePlanStateFromOrderedActivities(
+        orderedThreadActivities,
+        activeLatestTurn?.turnId ?? undefined,
+      ),
+    [activeLatestTurn?.turnId, orderedThreadActivities],
   );
   const activePlanTurnId = activePlan?.turnId ?? null;
   const activePendingUserInputRequestId = activePendingUserInput?.requestId ?? null;
   const hasPendingPlanFeedback =
     activePendingUserInputRequestId !== null &&
     (activePlanTurnId !== null || interactionMode === "plan");
+  const planSidebarAutoOpenTurnKey =
+    activePlanTurnId ?? sidebarProposedPlan?.turnId ?? activeLatestTurn?.turnId ?? null;
   const showPlanFollowUpPrompt =
     pendingUserInputs.length === 0 &&
     interactionMode === "plan" &&
@@ -1133,21 +1148,17 @@ export default function ChatView({
     activePendingProgress?.activeQuestion?.id,
   ]);
   useEffect(() => {
-    if (!hasPendingPlanFeedback) {
+    if (!hasPendingPlanFeedback || planSidebarOpen) {
       return;
     }
-    const turnKey =
-      activePlanTurnId ?? sidebarProposedPlan?.turnId ?? activeLatestTurn?.turnId ?? null;
-    if (!turnKey || planSidebarDismissedForTurnRef.current === turnKey) {
+    if (
+      !planSidebarAutoOpenTurnKey ||
+      planSidebarDismissedForTurnRef.current === planSidebarAutoOpenTurnKey
+    ) {
       return;
     }
     setPlanSidebarOpen(true);
-  }, [
-    activeLatestTurn?.turnId,
-    activePlanTurnId,
-    hasPendingPlanFeedback,
-    sidebarProposedPlan?.turnId,
-  ]);
+  }, [hasPendingPlanFeedback, planSidebarAutoOpenTurnKey, planSidebarOpen]);
 
   useEffect(() => {
     attachmentPreviewHandoffByMessageIdRef.current = attachmentPreviewHandoffByMessageId;

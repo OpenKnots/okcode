@@ -68,11 +68,11 @@ describe("AppSettingsSchema", () => {
 describe("clampSidebarProjectRowHeight", () => {
   it("exposes the expected accessibility-minded bounds", () => {
     expect(SIDEBAR_PROJECT_ROW_HEIGHT_MIN).toBe(32);
-    expect(SIDEBAR_PROJECT_ROW_HEIGHT_MAX).toBe(72);
+    expect(SIDEBAR_PROJECT_ROW_HEIGHT_MAX).toBe(48);
     expect(DEFAULT_SIDEBAR_PROJECT_ROW_HEIGHT).toBe(32);
   });
 
-  it("clamps below-floor values up to the new floor of 32", () => {
+  it("clamps below-floor values up to the floor of 32", () => {
     expect(clampSidebarProjectRowHeight(0)).toBe(32);
     expect(clampSidebarProjectRowHeight(24)).toBe(32); // legacy floor
     expect(clampSidebarProjectRowHeight(28)).toBe(32); // legacy default
@@ -81,15 +81,16 @@ describe("clampSidebarProjectRowHeight", () => {
 
   it("accepts in-range values and rounds fractional input", () => {
     expect(clampSidebarProjectRowHeight(32)).toBe(32);
+    expect(clampSidebarProjectRowHeight(40)).toBe(40);
+    expect(clampSidebarProjectRowHeight(47.4)).toBe(47);
     expect(clampSidebarProjectRowHeight(48)).toBe(48);
-    expect(clampSidebarProjectRowHeight(71.4)).toBe(71);
-    expect(clampSidebarProjectRowHeight(72)).toBe(72);
   });
 
-  it("clamps above-ceiling values down to the new max of 72", () => {
-    expect(clampSidebarProjectRowHeight(73)).toBe(72);
-    expect(clampSidebarProjectRowHeight(120)).toBe(72);
-    expect(clampSidebarProjectRowHeight(Number.POSITIVE_INFINITY)).toBe(72);
+  it("clamps above-ceiling values down to the new max of 48", () => {
+    expect(clampSidebarProjectRowHeight(49)).toBe(48);
+    expect(clampSidebarProjectRowHeight(72)).toBe(48); // legacy ceiling
+    expect(clampSidebarProjectRowHeight(120)).toBe(48);
+    expect(clampSidebarProjectRowHeight(Number.POSITIVE_INFINITY)).toBe(48);
   });
 });
 

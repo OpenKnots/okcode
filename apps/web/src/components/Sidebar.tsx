@@ -38,6 +38,7 @@ import {
   GitBranchIcon,
   GitMergeIcon,
   GitPullRequestIcon,
+  HomeIcon,
   LinkIcon,
   PanelLeftCloseIcon,
   PlusIcon,
@@ -140,7 +141,6 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
-  SidebarSeparator,
   SidebarTrigger,
   useSidebar,
 } from "./ui/sidebar";
@@ -2474,7 +2474,6 @@ export default function Sidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarSeparator />
       <SidebarFooter className="p-2">
         <SidebarMenu>
           {isOnSubPage ? (
@@ -2506,8 +2505,8 @@ export default function Sidebar() {
                   className="gap-2 px-2 py-1.5 text-muted-foreground/70 hover:bg-accent hover:text-foreground"
                   onClick={() => void navigate({ to: "/" })}
                 >
-                  <ChevronRightIcon className="size-3.5" />
-                  <span className="text-xs">Projects</span>
+                  <HomeIcon className="size-3.5" />
+                  <span className="text-xs">Home</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               {hasWorktreeCleanupCandidates ? (
@@ -2561,18 +2560,9 @@ export default function Sidebar() {
                       {APP_BASE_NAME}
                     </span>
                   </div>
-                  <div className="ml-auto flex shrink-0 items-center gap-2">
-                    <span
-                      className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]"
-                      style={brandFooterStatus.pillStyle}
-                    >
-                      <CircleDotIcon className="size-2.5" />
-                      {brandFooterStatus.label}
-                    </span>
-                    <span className="text-[10px] font-medium tracking-wide text-muted-foreground/80">
-                      v{APP_VERSION}
-                    </span>
-                  </div>
+                  <span className="ml-auto shrink-0 text-[10px] font-medium tracking-wide text-muted-foreground/80">
+                    v{APP_VERSION}
+                  </span>
                 </div>
               </button>
             }

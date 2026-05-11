@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.5] - 2026-05-11
+
+See [docs/releases/v0.26.5.md](docs/releases/v0.26.5.md) for full notes and [docs/releases/v0.26.5/assets.md](docs/releases/v0.26.5/assets.md) for release asset inventory.
+
+### Added
+
+- Add prompt enhancement controls and GPT-5.5 support.
+
+### Changed
+
+- Stabilize plan sidebar and file navigation.
+- Simplify the workspace home row.
+- Default preview layout to side panel.
+
+### Fixed
+
+- Open browser preview beside chat.
+
+### Removed
+
+- Remove app zoom settings control.
+
 ## [0.26.4] - 2026-04-22
 
 See [docs/releases/v0.26.4.md](docs/releases/v0.26.4.md) for full notes and [docs/releases/v0.26.4/assets.md](docs/releases/v0.26.4/assets.md) for release asset inventory.
@@ -897,3 +919,4 @@ First public version tag. See [docs/releases/v0.0.1.md](docs/releases/v0.0.1.md)
 [0.26.0]: https://github.com/OpenKnots/okcode/releases/tag/v0.26.0
 [0.26.2]: https://github.com/OpenKnots/okcode/releases/tag/v0.26.2
 [0.26.3]: https://github.com/OpenKnots/okcode/releases/tag/v0.26.3
+[0.26.5]: https://github.com/OpenKnots/okcode/releases/tag/v0.26.5

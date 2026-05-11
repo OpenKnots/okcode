@@ -1,7 +1,7 @@
 export type Theme = "light" | "dark" | "system";
 export type ColorTheme =
   | "default"
-  | "iridescent-void"
+  | "mocha-mousse"
   | "carbon"
   | "purple-stuff"
   | "hot-tamale"
@@ -161,7 +161,7 @@ export const CODE_FONTS: ReadonlyArray<FontOption<CodeFont>> = [
 
 export const COLOR_THEMES: { id: ColorTheme; label: string }[] = [
   { id: "default", label: "Default" },
-  { id: "iridescent-void", label: "Iridescent Void" },
+  { id: "mocha-mousse", label: "Mocha Mousse" },
   { id: "carbon", label: "Carbon" },
   { id: "purple-stuff", label: "Deep Purple" },
   { id: "hot-tamale", label: "Hot Tamale" },

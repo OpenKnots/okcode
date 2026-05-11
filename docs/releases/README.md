@@ -9,6 +9,7 @@ Use this directory for versioned release notes and asset manifests only:
 
 | Version              | Summary                                                                                                   | Assets                        |
 | -------------------- | --------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| [0.26.6](v0.26.6.md) | Browser preview tabs now open beside chat, and GitHub Releas                                              | [manifest](v0.26.6/assets.md) |
 | [0.26.5](v0.26.5.md) | Browser preview tabs now open beside chat with the side pane                                              | [manifest](v0.26.5/assets.md) |
 | [0.26.4](v0.26.4.md) | Out-of-memory session recovery and CLI release hardening                                                  | [manifest](v0.26.4/assets.md) |
 | [0.26.3](v0.26.3.md) | Release with 2 new feature(s)                                                                             | [manifest](v0.26.3/assets.md) |

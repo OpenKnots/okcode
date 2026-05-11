@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.6] - 2026-05-11
+
+See [docs/releases/v0.26.6.md](docs/releases/v0.26.6.md) for full notes and [docs/releases/v0.26.6/assets.md](docs/releases/v0.26.6/assets.md) for release asset inventory.
+
+### Changed
+
+- Publish CLI after GitHub release.
+
 ## [0.26.5] - 2026-05-11
 
 See [docs/releases/v0.26.5.md](docs/releases/v0.26.5.md) for full notes and [docs/releases/v0.26.5/assets.md](docs/releases/v0.26.5/assets.md) for release asset inventory.
@@ -920,3 +928,4 @@ First public version tag. See [docs/releases/v0.0.1.md](docs/releases/v0.0.1.md)
 [0.26.2]: https://github.com/OpenKnots/okcode/releases/tag/v0.26.2
 [0.26.3]: https://github.com/OpenKnots/okcode/releases/tag/v0.26.3
 [0.26.5]: https://github.com/OpenKnots/okcode/releases/tag/v0.26.5
+[0.26.6]: https://github.com/OpenKnots/okcode/releases/tag/v0.26.6

@@ -1,6 +1,6 @@
 {
   "name": "@okcode/mobile",
-  "version": "0.26.5",
+  "version": "0.26.6",
   "private": true,
   "type": "module",
   "scripts": {

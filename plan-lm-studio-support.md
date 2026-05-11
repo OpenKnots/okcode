@@ -23,13 +23,12 @@ Specifically:
 
 - `claudeAgent` can run against LM Studio via LM Studio's Anthropic-compatible endpoint.
 - `codex` can run against LM Studio through Codex custom-provider mode, using an isolated `CODEX_HOME` managed by OK Code.
-- `openclaw` stays unchanged.
 
 This is the least-widening design.
 
 Why:
 
-- OK Code's provider model is agent-runtime-oriented today. `codex`, `claudeAgent`, and `openclaw` are not just model endpoints; they own approvals, streaming semantics, interrupts, recovery, and event normalization.
+- OK Code's provider model is agent-runtime-oriented today. `codex` and `claudeAgent` are not just model endpoints; they own approvals, streaming semantics, interrupts, recovery, and event normalization.
 - LM Studio is an inference server, not a coding-agent runtime. A first-class `lmstudio` provider would force OK Code to invent a new agent loop or degrade existing agent semantics.
 - LM Studio's own docs make LM Link a routing mode behind the local server surface, not a separate API contract. From OK Code's perspective, the API target can stay local while diagnostics explain whether the actual model execution is local or routed over LM Link.
 
@@ -57,7 +56,6 @@ Why:
 - A new `lmstudio` provider kind.
 - A generic "OpenAI-compatible provider marketplace" abstraction.
 - Writing into the user's global `~/.codex/config.toml`.
-- Reworking OpenClaw.
 - Guaranteeing every local model can handle OK Code's full tool and attachment surface.
 - Automatic inference of every per-model capability on day one.
 
@@ -193,7 +191,7 @@ Work:
   - [packages/contracts/src/orchestration.ts](/Users/buns/.okcode/worktrees/okcode/okcode-7e142d13/packages/contracts/src/orchestration.ts)
   - [packages/contracts/src/server.ts](/Users/buns/.okcode/worktrees/okcode/okcode-7e142d13/packages/contracts/src/server.ts)
 - Add a dedicated LM Studio diagnostics service on the server.
-- Add a `server.testLmStudioConnection` RPC analogous to the OpenClaw gateway test.
+- Add a `server.testLmStudioConnection` RPC for diagnostics.
 - Add a lightweight LM Studio status payload to `server.getConfig` or a dedicated query path.
 
 Important design rule:
@@ -402,7 +400,7 @@ Mitigation:
 - Model selection comes from LM Studio when LM Studio is active.
 - Provider-native controls that are not stable through LM Studio are hidden or disabled.
 - Session recovery preserves the selected backend and fails closed on mismatch.
-- Existing Codex, Claude Code, and OpenClaw behavior remains unchanged when LM Studio is not selected.
+- Existing Codex and Claude Code behavior remains unchanged when LM Studio is not selected.
 
 ## Recommended Order of Execution
 

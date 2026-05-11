@@ -25,8 +25,6 @@ function buildDefaultModelSelection(provider: ProviderKind): ModelSelection {
       return { provider, model: getDefaultModel(provider) };
     case "gemini":
       return { provider, model: getDefaultModel(provider) };
-    case "openclaw":
-      return { provider, model: getDefaultModel(provider) };
   }
 }
 

@@ -93,17 +93,12 @@ import type {
   TerminalWriteInput,
 } from "./terminal";
 import type {
-  OpenclawGatewayConfigSummary,
-  ResetOpenclawGatewayDeviceStateInput,
-  SaveOpenclawGatewayConfigInput,
   ServerConfig,
   ServerReplaceKeybindingRulesInput,
   ServerReplaceKeybindingRulesResult,
   ServerUpsertKeybindingInput,
   ServerUpsertKeybindingResult,
   ServerUpdateInfo,
-  TestOpenclawGatewayInput,
-  TestOpenclawGatewayResult,
 } from "./server";
 import type {
   SkillListInput,
@@ -456,17 +451,9 @@ export interface NativeApi {
       input: SaveProjectEnvironmentVariablesInput,
     ) => Promise<ProjectEnvironmentVariablesResult>;
     upsertKeybinding: (input: ServerUpsertKeybindingInput) => Promise<ServerUpsertKeybindingResult>;
-    getOpenclawGatewayConfig: () => Promise<OpenclawGatewayConfigSummary>;
-    saveOpenclawGatewayConfig: (
-      input: SaveOpenclawGatewayConfigInput,
-    ) => Promise<OpenclawGatewayConfigSummary>;
-    resetOpenclawGatewayDeviceState: (
-      input?: ResetOpenclawGatewayDeviceStateInput,
-    ) => Promise<OpenclawGatewayConfigSummary>;
     replaceKeybindingRules: (
       input: ServerReplaceKeybindingRulesInput,
     ) => Promise<ServerReplaceKeybindingRulesResult>;
-    testOpenclawGateway: (input: TestOpenclawGatewayInput) => Promise<TestOpenclawGatewayResult>;
   };
   orchestration: {
     getSnapshot: () => Promise<OrchestrationReadModel>;

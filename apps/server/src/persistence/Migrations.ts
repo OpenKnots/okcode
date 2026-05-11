@@ -35,7 +35,6 @@ import Migration0020 from "./Migrations/020_SmeConversationProviderAuth.ts";
 import Migration0021 from "./Migrations/021_ProjectionPendingUserInputs.ts";
 import Migration0022 from "./Migrations/022_DecisionWorkspace.ts";
 import Migration0023 from "./Migrations/023_ProjectionPendingUserInputsBackfill.ts";
-import Migration0024 from "./Migrations/024_OpenclawGatewayConfig.ts";
 import Migration0025 from "./Migrations/025_CanonicalizeModelSelections.ts";
 import Migration0026 from "./Migrations/025_ProjectionProjectIconPath.ts";
 import Migration0027 from "./Migrations/027_CanonicalizeModelSelectionsBackfill.ts";
@@ -76,7 +75,6 @@ const loader = Migrator.fromRecord({
   "21_ProjectionPendingUserInputs": Migration0021,
   "22_DecisionWorkspace": Migration0022,
   "23_ProjectionPendingUserInputsBackfill": Migration0023,
-  "24_OpenclawGatewayConfig": Migration0024,
   "25_CanonicalizeModelSelections": Migration0025,
   "26_ProjectionProjectIconPath": Migration0026,
   "27_CanonicalizeModelSelectionsBackfill": Migration0027,

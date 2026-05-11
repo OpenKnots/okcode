@@ -79,81 +79,22 @@ describe("providerAvailability", () => {
     ).toBe(false);
   });
 
-  it("treats configured OpenClaw as selectable even when server auth state is unknown", () => {
-    expect(
-      isProviderReadyForThreadSelection({
-        provider: "openclaw",
-        statuses: [],
-        openclawGatewayUrl: "ws://localhost:8080",
-      }),
-    ).toBe(true);
-  });
-
-  it("shows openclaw as selectable when gateway URL is set but not yet probed", () => {
-    expect(
-      isProviderReadyForThreadSelection({
-        provider: "openclaw",
-        statuses: [
-          makeStatus("openclaw", {
-            status: "warning",
-            available: false,
-            authStatus: "unknown",
-          }),
-        ],
-        openclawGatewayUrl: "ws://gateway.example/local",
-      }),
-    ).toBe(true);
-  });
-
-  it("shows openclaw as selectable when status is ready && available", () => {
-    expect(
-      isProviderReadyForThreadSelection({
-        provider: "openclaw",
-        statuses: [
-          makeStatus("openclaw", {
-            status: "ready",
-            available: true,
-            authStatus: "authenticated",
-          }),
-        ],
-        openclawGatewayUrl: "",
-      }),
-    ).toBe(true);
-  });
-
-  it("excludes openclaw when gateway URL is blank and status is not ready", () => {
-    expect(
-      isProviderReadyForThreadSelection({
-        provider: "openclaw",
-        statuses: [
-          makeStatus("openclaw", {
-            status: "error",
-            available: false,
-            authStatus: "unauthenticated",
-          }),
-        ],
-        openclawGatewayUrl: "",
-      }),
-    ).toBe(false);
-  });
-
   it("returns selectable providers in stable picker order", () => {
     expect(
       getSelectableThreadProviders({
         statuses: [
-          makeStatus("openclaw", { authStatus: "unknown" }),
           makeStatus("codex"),
           makeStatus("claudeAgent", { status: "error", authStatus: "unauthenticated" }),
         ],
       }),
-    ).toEqual(["codex", "openclaw"]);
+    ).toEqual(["codex"]);
   });
 
   it("falls back to the first selectable provider when the preferred one is unavailable", () => {
     expect(
       resolveThreadProviderSelection({
         preferredProvider: "claudeAgent",
-        selectableProviders: ["codex", "openclaw"],
+        selectableProviders: ["codex"],
       }),
     ).toBe("codex");
   });

@@ -1145,7 +1145,6 @@ describe("PROVIDER_OPTIONS", () => {
     expect(PROVIDER_OPTIONS).toEqual([
       { value: "codex", label: "Codex", available: true },
       { value: "claudeAgent", label: "Claude Code", available: true },
-      { value: "openclaw", label: "OpenClaw", available: true },
       { value: "copilot", label: "GitHub Copilot", available: true },
       { value: "cursor", label: "Cursor", available: false },
     ]);

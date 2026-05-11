@@ -7,7 +7,6 @@ import { Effect, Layer, Stream } from "effect";
 import { ClaudeAdapter, ClaudeAdapterShape } from "../Services/ClaudeAdapter.ts";
 import { CopilotAdapter, CopilotAdapterShape } from "../Services/CopilotAdapter.ts";
 import { CodexAdapter, CodexAdapterShape } from "../Services/CodexAdapter.ts";
-import { OpenClawAdapter, OpenClawAdapterShape } from "../Services/OpenClawAdapter.ts";
 import { ProviderAdapterRegistry } from "../Services/ProviderAdapterRegistry.ts";
 import { ProviderAdapterRegistryLive } from "./ProviderAdapterRegistry.ts";
 import { ProviderUnsupportedError } from "../Errors.ts";
@@ -47,23 +46,6 @@ const fakeClaudeAdapter: ClaudeAdapterShape = {
   streamEvents: Stream.empty,
 };
 
-const fakeOpenClawAdapter: OpenClawAdapterShape = {
-  provider: "openclaw",
-  capabilities: { sessionModelSwitch: "restart-session" },
-  startSession: vi.fn(),
-  sendTurn: vi.fn(),
-  interruptTurn: vi.fn(),
-  respondToRequest: vi.fn(),
-  respondToUserInput: vi.fn(),
-  stopSession: vi.fn(),
-  listSessions: vi.fn(),
-  hasSession: vi.fn(),
-  readThread: vi.fn(),
-  rollbackThread: vi.fn(),
-  stopAll: vi.fn(),
-  streamEvents: Stream.empty,
-};
-
 const fakeCopilotAdapter: CopilotAdapterShape = {
   provider: "copilot",
   capabilities: { sessionModelSwitch: "in-session" },
@@ -88,7 +70,6 @@ const layer = it.layer(
       Layer.mergeAll(
         Layer.succeed(CodexAdapter, fakeCodexAdapter),
         Layer.succeed(ClaudeAdapter, fakeClaudeAdapter),
-        Layer.succeed(OpenClawAdapter, fakeOpenClawAdapter),
         Layer.succeed(CopilotAdapter, fakeCopilotAdapter),
       ),
     ),
@@ -106,7 +87,7 @@ layer("ProviderAdapterRegistryLive", (it) => {
       assert.equal(claude, fakeClaudeAdapter);
 
       const providers = yield* registry.listProviders();
-      assert.deepEqual(providers, ["codex", "claudeAgent", "openclaw", "copilot"]);
+      assert.deepEqual(providers, ["codex", "claudeAgent", "copilot"]);
     }),
   );
 

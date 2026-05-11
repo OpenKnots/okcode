@@ -34,9 +34,8 @@ function ProjectChatRouteView() {
     () =>
       getSelectableThreadProviders({
         statuses: serverConfigQuery.data?.providers ?? [],
-        openclawGatewayUrl: settings.openclawGatewayUrl,
       }),
-    [serverConfigQuery.data?.providers, settings.openclawGatewayUrl],
+    [serverConfigQuery.data?.providers],
   );
   const [createAttempt, setCreateAttempt] = useState(0);
   const [createError, setCreateError] = useState<string | null>(null);

@@ -13,16 +13,14 @@ import {
 } from "../../lib/settingsProviderMetadata";
 import { cn } from "../../lib/utils";
 
-function getProviderBadge(input: {
-  provider: ProviderKind;
-  status: ServerProviderStatus | null;
-  openclawGatewayUrl: string;
-}): { tone: "success" | "warning" | "error"; label: string } {
+function getProviderBadge(input: { provider: ProviderKind; status: ServerProviderStatus | null }): {
+  tone: "success" | "warning" | "error";
+  label: string;
+} {
   if (
     isProviderReadyForThreadSelection({
       provider: input.provider,
       statuses: input.status ? [input.status] : [],
-      openclawGatewayUrl: input.openclawGatewayUrl,
     })
   ) {
     return { tone: "success", label: "Available" };
@@ -30,10 +28,6 @@ function getProviderBadge(input: {
 
   if (input.status?.authStatus === "unauthenticated") {
     return { tone: "error", label: "Sign-in required" };
-  }
-
-  if (input.provider === "openclaw" && input.openclawGatewayUrl.trim().length === 0) {
-    return { tone: "warning", label: "Gateway missing" };
   }
 
   if (input.status?.available === false || input.status?.status === "error") {
@@ -56,10 +50,8 @@ function getBadgeClassName(tone: "success" | "warning" | "error"): string {
 
 export function ProviderCapabilityMatrix({
   statuses,
-  openclawGatewayUrl,
 }: {
   statuses: ReadonlyArray<ServerProviderStatus>;
-  openclawGatewayUrl: string;
 }) {
   return (
     <div className="space-y-4">
@@ -90,7 +82,6 @@ export function ProviderCapabilityMatrix({
           const badge = getProviderBadge({
             provider,
             status,
-            openclawGatewayUrl,
           });
           const heading = status
             ? getProviderStatusHeading(status)

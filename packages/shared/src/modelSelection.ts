@@ -16,7 +16,6 @@ type SelectableModel = {
 const PROVIDER_MODEL_SET = {
   codex: new Set(MODEL_OPTIONS_BY_PROVIDER.codex.map((option) => option.slug)),
   claudeAgent: new Set(MODEL_OPTIONS_BY_PROVIDER.claudeAgent.map((option) => option.slug)),
-  openclaw: new Set<string>(),
   copilot: new Set(MODEL_OPTIONS_BY_PROVIDER.copilot.map((option) => option.slug)),
   gemini: new Set(MODEL_OPTIONS_BY_PROVIDER.gemini.map((option) => option.slug)),
 } as const satisfies Record<ProviderKind, ReadonlySet<string>>;
@@ -138,7 +137,6 @@ export function normalizeModelSelectionWithCapabilities(
             : {}),
         },
       };
-    case "openclaw":
     case "copilot":
     case "gemini":
       return selection;

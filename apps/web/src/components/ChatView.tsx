@@ -878,9 +878,8 @@ export default function ChatView({
     () =>
       getSelectableThreadProviders({
         statuses: providerStatuses,
-        openclawGatewayUrl: settings.openclawGatewayUrl,
       }),
-    [providerStatuses, settings.openclawGatewayUrl],
+    [providerStatuses],
   );
   const hasThreadStarted = Boolean(
     activeThread &&
@@ -5513,7 +5512,6 @@ export default function ChatView({
                             codexSelectedModelProviderId={
                               serverConfigQuery.data?.codexConfig?.selectedModelProviderId ?? null
                             }
-                            openclawGatewayUrl={settings.openclawGatewayUrl}
                             {...(composerProviderState.modelPickerIconClassName
                               ? {
                                   activeProviderIconClassName:

@@ -394,15 +394,8 @@ export function createWsNativeApi(): NativeApi {
       saveProjectEnvironmentVariables: (input) =>
         transport.request(WS_METHODS.serverSaveProjectEnvironmentVariables, input),
       upsertKeybinding: (input) => transport.request(WS_METHODS.serverUpsertKeybinding, input),
-      getOpenclawGatewayConfig: () => transport.request(WS_METHODS.serverGetOpenclawGatewayConfig),
-      saveOpenclawGatewayConfig: (input) =>
-        transport.request(WS_METHODS.serverSaveOpenclawGatewayConfig, input),
-      resetOpenclawGatewayDeviceState: (input) =>
-        transport.request(WS_METHODS.serverResetOpenclawGatewayDeviceState, input),
       replaceKeybindingRules: (input) =>
         transport.request(WS_METHODS.serverReplaceKeybindingRules, input),
-      testOpenclawGateway: (input) =>
-        transport.request(WS_METHODS.serverTestOpenclawGateway, input),
     },
     orchestration: {
       getSnapshot: () => transport.request(ORCHESTRATION_WS_METHODS.getSnapshot),

@@ -420,7 +420,7 @@ Structured validation plan for the highest-risk surfaces in v${version}.
 | Step | Expected | Pass |
 | ---- | -------- | ---- |
 | Configure each primary provider from Settings | Provider setup screens save cleanly and validation messages stay actionable | [ ] |
-| Exercise Claude and OpenClaw auth flows after reload | Saved credentials and provider state restore without stale or conflicting UI | [ ] |
+| Exercise Claude auth flows after reload | Saved credentials and provider state restore without stale or conflicting UI | [ ] |
 | Start a Codex or Copilot-backed conversation after provider setup | Turn creation, streaming, and provider selection remain consistent | [ ] |
 | Trigger an auth failure intentionally | Errors surface clearly without leaking secrets or breaking follow-up retries | [ ] |
 

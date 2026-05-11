@@ -74,12 +74,9 @@ import { ProjectFileTreeChangedPayload } from "./project";
 import { OpenInEditorInput, OpenPathInput } from "./editor";
 import {
   GeneratePairingLinkInput,
-  ResetOpenclawGatewayDeviceStateInput,
   RevokeTokenInput,
-  SaveOpenclawGatewayConfigInput,
   ServerConfigUpdatedPayload,
   ServerReplaceKeybindingRulesInput,
-  TestOpenclawGatewayInput,
 } from "./server";
 import { GitHubGetIssueInput, GitHubListIssuesInput, GitHubPostCommentInput } from "./github";
 import {
@@ -187,12 +184,6 @@ export const WS_METHODS = {
   serverRotateToken: "server.rotateToken",
   serverRevokeToken: "server.revokeToken",
   serverListTokens: "server.listTokens",
-  serverGetOpenclawGatewayConfig: "server.getOpenclawGatewayConfig",
-  serverSaveOpenclawGatewayConfig: "server.saveOpenclawGatewayConfig",
-  serverResetOpenclawGatewayDeviceState: "server.resetOpenclawGatewayDeviceState",
-
-  // OpenClaw gateway
-  serverTestOpenclawGateway: "server.testOpenclawGateway",
 
   // Connection health
   serverPing: "server.ping",
@@ -332,15 +323,6 @@ const WebSocketRequestBody = Schema.Union([
   tagRequestBody(WS_METHODS.serverRotateToken, Schema.Struct({})),
   tagRequestBody(WS_METHODS.serverRevokeToken, RevokeTokenInput),
   tagRequestBody(WS_METHODS.serverListTokens, Schema.Struct({})),
-  tagRequestBody(WS_METHODS.serverGetOpenclawGatewayConfig, Schema.Struct({})),
-  tagRequestBody(WS_METHODS.serverSaveOpenclawGatewayConfig, SaveOpenclawGatewayConfigInput),
-  tagRequestBody(
-    WS_METHODS.serverResetOpenclawGatewayDeviceState,
-    ResetOpenclawGatewayDeviceStateInput,
-  ),
-
-  // OpenClaw gateway
-  tagRequestBody(WS_METHODS.serverTestOpenclawGateway, TestOpenclawGatewayInput),
 
   // Connection health
   tagRequestBody(WS_METHODS.serverPing, Schema.Struct({})),

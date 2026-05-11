@@ -99,7 +99,6 @@ export interface SkillServiceShape {
       | "image-gen"
       | "plugin-creator"
       | "skill-installer"
-      | "openclaw-docs"
       | "openai-docs"
       | "anthropic-docs";
     readonly scope: "global" | "project";

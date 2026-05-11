@@ -33,7 +33,7 @@ type LocalProfileDefinition = {
   title: string;
   body: string;
   repositories: string[];
-  adapter: "openclawMaintainer";
+  adapter: "maintainer";
   maintainersRepo: string;
   relativePath: string;
   absolutePath: string;
@@ -527,7 +527,7 @@ function parseLocalProfileDocument(input: { absolutePath: string; raw: string })
         issues: [toIssue("warning", relativePath, "Profile is missing repositories[] matchers.")],
       };
     }
-    if (adapterRaw !== "openclawMaintainer") {
+    if (adapterRaw !== "maintainer") {
       return {
         profile: null,
         issues: [
@@ -548,7 +548,7 @@ function parseLocalProfileDocument(input: { absolutePath: string; raw: string })
         title,
         body,
         repositories,
-        adapter: "openclawMaintainer",
+        adapter: "maintainer",
         maintainersRepo: resolveMaybeHomePath(maintainersRepoRaw),
         relativePath,
         absolutePath: input.absolutePath,
@@ -634,7 +634,7 @@ async function determineGitHubRepositoryNameWithOwner(cwd: string): Promise<stri
   return parseGitHubRepositoryNameWithOwnerFromRemoteUrl(remoteUrl);
 }
 
-async function buildOpenClawMaintainerConfig(input: {
+async function buildMaintainerConfig(input: {
   profile: LocalProfileDefinition;
   issues: PrReviewConfigIssue[];
 }): Promise<PrReviewConfig> {
@@ -684,7 +684,7 @@ async function buildOpenClawMaintainerConfig(input: {
 
   const workflowDoc = readTitleAndDescription({
     raw: workflowFile.raw,
-    fallbackTitle: "OpenClaw Maintainer PR Workflow",
+    fallbackTitle: "Maintainer PR Workflow",
     fallbackDescription: "Private maintainer workflow loaded from a local OK Code profile.",
   });
   const reviewSkillDoc = readTitleAndDescription({
@@ -881,9 +881,9 @@ async function loadLocalProfileConfig(cwd: string): Promise<{
     if (!parsed.profile.repositories.includes(normalizedRepository)) {
       continue;
     }
-    if (parsed.profile.adapter === "openclawMaintainer") {
+    if (parsed.profile.adapter === "maintainer") {
       return {
-        config: await buildOpenClawMaintainerConfig({
+        config: await buildMaintainerConfig({
           profile: parsed.profile,
           issues: [...issues],
         }),

@@ -46,14 +46,7 @@ export function createServerRouteHandlers(input: {
     revoke: (tokenId: string) => boolean;
     list: () => unknown;
   };
-  openclawGatewayConfig: {
-    getSummary: () => Effect.Effect<unknown, unknown, never>;
-    save: (body: unknown) => Effect.Effect<unknown, unknown, never>;
-    resetDeviceState: (body: unknown) => Effect.Effect<unknown, unknown, never>;
-    resolveForConnect: (body: unknown) => Effect.Effect<any, unknown, never>;
-  };
   publishServerConfigUpdated: () => Effect.Effect<void, unknown, never>;
-  testOpenclawGateway: (body: unknown) => Effect.Effect<unknown, unknown, never>;
   isNewerSemver: (a: string, b: string) => boolean;
   createRouteRequestError: (message: string) => unknown;
 }): WebSocketRouteRegistry {
@@ -167,47 +160,6 @@ export function createServerRouteHandlers(input: {
     },
 
     [WS_METHODS.serverListTokens]: () => Effect.succeed({ tokens: input.tokenManager.list() }),
-
-    [WS_METHODS.serverGetOpenclawGatewayConfig]: () => input.openclawGatewayConfig.getSummary(),
-
-    [WS_METHODS.serverSaveOpenclawGatewayConfig]: (_ws, request) =>
-      Effect.gen(function* () {
-        const body = stripTaggedBody(request.body as any);
-        const summary = yield* input.openclawGatewayConfig.save(body);
-        yield* input.publishServerConfigUpdated();
-        return summary;
-      }),
-
-    [WS_METHODS.serverResetOpenclawGatewayDeviceState]: (_ws, request) =>
-      Effect.gen(function* () {
-        const body = stripTaggedBody(request.body as any);
-        const summary = yield* input.openclawGatewayConfig.resetDeviceState(body);
-        yield* input.publishServerConfigUpdated();
-        return summary;
-      }),
-
-    [WS_METHODS.serverTestOpenclawGateway]: (_ws, request) =>
-      Effect.gen(function* () {
-        const body = stripTaggedBody(request.body as any);
-        const resolvedConfig = yield* input.openclawGatewayConfig.resolveForConnect({
-          ...(body.gatewayUrl ? { gatewayUrl: body.gatewayUrl } : {}),
-          ...(body.password ? { sharedSecret: body.password } : {}),
-          allowEphemeralIdentity: body.gatewayUrl !== undefined,
-        });
-        if (!resolvedConfig) {
-          return yield* Effect.fail(
-            input.createRouteRequestError(
-              "OpenClaw gateway URL is not configured. Save it in Settings or provide a test override.",
-            ),
-          );
-        }
-        const result = yield* input.testOpenclawGateway({
-          gatewayUrl: resolvedConfig.gatewayUrl,
-          password: body.password ?? resolvedConfig.sharedSecret,
-        });
-        yield* input.publishServerConfigUpdated();
-        return result;
-      }),
 
     [WS_METHODS.serverPing]: () =>
       Effect.succeed({

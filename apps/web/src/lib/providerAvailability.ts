@@ -5,7 +5,6 @@ const THREAD_PROVIDER_ORDER: readonly ProviderKind[] = [
   "claudeAgent",
   "gemini",
   "copilot",
-  "openclaw",
 ];
 
 const THREAD_PROVIDER_LABELS: Record<ProviderKind, string> = {
@@ -13,7 +12,6 @@ const THREAD_PROVIDER_LABELS: Record<ProviderKind, string> = {
   claudeAgent: "Claude Code",
   gemini: "Gemini",
   copilot: "GitHub Copilot",
-  openclaw: "OpenClaw",
 };
 
 export function getThreadProviderLabel(provider: ProviderKind): string {
@@ -30,16 +28,8 @@ export function getProviderStatusByKind(
 export function isProviderReadyForThreadSelection(input: {
   provider: ProviderKind;
   statuses: ReadonlyArray<ServerProviderStatus>;
-  openclawGatewayUrl?: string | null | undefined;
 }): boolean {
   const status = getProviderStatusByKind(input.statuses, input.provider);
-
-  if (input.provider === "openclaw") {
-    if (status?.status === "ready" && status.available) {
-      return true;
-    }
-    return (input.openclawGatewayUrl ?? "").trim().length > 0;
-  }
 
   if (!status) {
     return false;
@@ -51,13 +41,11 @@ export function isProviderReadyForThreadSelection(input: {
 
 export function getSelectableThreadProviders(input: {
   statuses: ReadonlyArray<ServerProviderStatus>;
-  openclawGatewayUrl?: string | null | undefined;
 }): ProviderKind[] {
   return THREAD_PROVIDER_ORDER.filter((provider) =>
     isProviderReadyForThreadSelection({
       provider,
       statuses: input.statuses,
-      openclawGatewayUrl: input.openclawGatewayUrl,
     }),
   );
 }

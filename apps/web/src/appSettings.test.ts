@@ -103,8 +103,6 @@ describe("getProviderStartOptions", () => {
         codexHomePath: "",
         copilotBinaryPath: "",
         copilotConfigDir: "",
-        openclawGatewayUrl: "",
-        openclawPassword: "",
       }),
     ).toEqual({
       claudeAgent: {
@@ -121,8 +119,6 @@ describe("getProviderStartOptions", () => {
         codexHomePath: "",
         copilotBinaryPath: "",
         copilotConfigDir: "",
-        openclawGatewayUrl: "",
-        openclawPassword: "",
       }),
     ).toBeUndefined();
   });

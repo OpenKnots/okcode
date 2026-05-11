@@ -57,7 +57,6 @@ Supported provider matrix:
 - Claude Code
 - GitHub Copilot
 - Gemini CLI
-- OpenClaw
 
 Shared provider contract:
 
@@ -76,7 +75,6 @@ Provider-specific behavior is only justified when it changes real setup or runti
 - Claude Code: permission and thinking controls
 - GitHub Copilot: binary and config-directory overrides
 - Gemini CLI: binary and credential diagnostics
-- OpenClaw: gateway configuration and live gateway testing
 
 ## Future Scope Guidance
 

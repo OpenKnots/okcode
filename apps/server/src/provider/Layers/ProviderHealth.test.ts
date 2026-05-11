@@ -7,7 +7,6 @@ import { ChildProcessSpawner } from "effect/unstable/process";
 import {
   checkClaudeProviderStatus,
   checkCodexProviderStatus,
-  isOpenClawGatewayUnauthenticatedDetailCode,
   parseAuthStatusFromOutput,
   parseClaudeAuthStatusFromOutput,
   setCodexAppServerThreadStartProbeForTest,
@@ -106,21 +105,6 @@ function withCodexAppServerThreadStartProbe<A, E, R>(
 }
 
 it.layer(NodeServices.layer)("ProviderHealth", (it) => {
-  describe("isOpenClawGatewayUnauthenticatedDetailCode", () => {
-    it("treats password-mode auth failures as unauthenticated", () => {
-      assert.strictEqual(isOpenClawGatewayUnauthenticatedDetailCode("AUTH_PASSWORD_MISSING"), true);
-      assert.strictEqual(
-        isOpenClawGatewayUnauthenticatedDetailCode("AUTH_PASSWORD_MISMATCH"),
-        true,
-      );
-      assert.strictEqual(isOpenClawGatewayUnauthenticatedDetailCode("AUTH_TOKEN_MISSING"), true);
-      assert.strictEqual(
-        isOpenClawGatewayUnauthenticatedDetailCode("SOME_OTHER_GATEWAY_CODE"),
-        false,
-      );
-    });
-  });
-
   // ── checkCodexProviderStatus tests ────────────────────────────────
   //
   // These tests control CODEX_HOME to ensure the custom-provider detection

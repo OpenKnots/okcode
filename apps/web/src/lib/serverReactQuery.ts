@@ -4,7 +4,6 @@ import { ensureNativeApi } from "~/nativeApi";
 export const serverQueryKeys = {
   all: ["server"] as const,
   config: () => ["server", "config"] as const,
-  openclawGatewayConfig: () => ["server", "openclawGatewayConfig"] as const,
   update: () => ["server", "update"] as const,
 };
 
@@ -30,16 +29,5 @@ export function serverUpdateQueryOptions() {
     staleTime: 60 * 60 * 1_000,
     gcTime: 2 * 60 * 60 * 1_000,
     retry: false,
-  });
-}
-
-export function openclawGatewayConfigQueryOptions() {
-  return queryOptions({
-    queryKey: serverQueryKeys.openclawGatewayConfig(),
-    queryFn: async () => {
-      const api = ensureNativeApi();
-      return api.server.getOpenclawGatewayConfig();
-    },
-    staleTime: Infinity,
   });
 }

@@ -21,7 +21,6 @@ export const BundledSkillId = Schema.Literals([
   "image-gen",
   "plugin-creator",
   "skill-installer",
-  "openclaw-docs",
   "openai-docs",
   "anthropic-docs",
 ]);

@@ -147,7 +147,6 @@ export const BUILT_IN_PROVIDER_MODELS: Record<ProviderKind, ReadonlyArray<Provid
       },
     },
   ],
-  openclaw: [],
   copilot: [
     { slug: "gpt-5.5", name: "GPT-5.5", capabilities: noCapabilities },
     { slug: "gpt-5.5-mini", name: "GPT-5.5 Mini", capabilities: noCapabilities },

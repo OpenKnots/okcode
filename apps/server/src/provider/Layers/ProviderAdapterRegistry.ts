@@ -20,7 +20,6 @@ import { ClaudeAdapter } from "../Services/ClaudeAdapter.ts";
 import { CopilotAdapter } from "../Services/CopilotAdapter.ts";
 import { CodexAdapter } from "../Services/CodexAdapter.ts";
 import { GeminiAdapter } from "../Services/GeminiAdapter.ts";
-import { OpenClawAdapter } from "../Services/OpenClawAdapter.ts";
 
 export interface ProviderAdapterRegistryLiveOptions {
   readonly adapters?: ReadonlyArray<ProviderAdapterShape<ProviderAdapterError>>;
@@ -35,7 +34,6 @@ const makeProviderAdapterRegistry = (options?: ProviderAdapterRegistryLiveOption
         : [
             yield* CodexAdapter,
             yield* ClaudeAdapter,
-            yield* OpenClawAdapter,
             yield* CopilotAdapter,
             ...(Option.isSome(maybeGeminiAdapter) ? [maybeGeminiAdapter.value] : []),
           ];

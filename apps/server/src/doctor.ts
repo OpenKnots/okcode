@@ -35,7 +35,6 @@ const PROVIDER_LABELS: Record<string, string> = {
   claudeAgent: "Claude Code",
   copilot: "GitHub Copilot",
   gemini: "Gemini CLI",
-  openclaw: "OpenClaw",
 };
 
 function printStatus(status: ServerProviderStatus): void {

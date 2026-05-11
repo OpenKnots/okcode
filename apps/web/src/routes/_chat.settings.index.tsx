@@ -10,7 +10,6 @@ import {
   XIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import type { TestOpenclawGatewayHostKind, TestOpenclawGatewayResult } from "@okcode/contracts";
 import {
   type BuildMetadata,
   type KeybindingCommand,
@@ -98,128 +97,6 @@ const PR_REVIEW_REQUEST_CHANGES_TONE_OPTIONS: ReadonlyArray<{
   { value: "brand", label: "Brand" },
 ];
 
-function describeOpenclawGatewayHostKind(hostKind: TestOpenclawGatewayHostKind): string {
-  switch (hostKind) {
-    case "loopback":
-      return "Loopback / same machine";
-    case "tailscale":
-      return "Tailscale / tailnet";
-    case "private":
-      return "Private LAN";
-    case "public":
-      return "Public / internet-routable";
-    case "unknown":
-      return "Unknown";
-  }
-}
-
-function describeOpenclawGatewayHealthStatus(result: TestOpenclawGatewayResult): string | null {
-  const diagnostics = result.diagnostics;
-  if (!diagnostics) return null;
-  switch (diagnostics.healthStatus) {
-    case "pass":
-      return diagnostics.healthDetail ? `Reachable (${diagnostics.healthDetail})` : "Reachable";
-    case "fail":
-      return diagnostics.healthDetail ? `Failed (${diagnostics.healthDetail})` : "Failed";
-    case "skip":
-      return diagnostics.healthDetail ?? "Skipped";
-  }
-}
-
-function formatOpenclawGatewayDebugReport(result: TestOpenclawGatewayResult): string {
-  const lines = [
-    `OpenClaw gateway connection test: ${result.success ? "success" : "failed"}`,
-    `Total duration: ${result.totalDurationMs}ms`,
-  ];
-
-  if (result.error) {
-    lines.push(`Error: ${result.error}`);
-  }
-
-  lines.push("");
-  lines.push("Steps:");
-  for (const step of result.steps) {
-    lines.push(
-      `- ${step.name}: ${step.status} (${step.durationMs}ms)${
-        step.detail ? ` — ${step.detail}` : ""
-      }`,
-    );
-  }
-
-  if (result.serverInfo) {
-    lines.push("");
-    lines.push("Server info:");
-    if (result.serverInfo.version) {
-      lines.push(`- Version: ${result.serverInfo.version}`);
-    }
-    if (result.serverInfo.sessionId) {
-      lines.push(`- Session: ${result.serverInfo.sessionId}`);
-    }
-  }
-
-  if (result.diagnostics) {
-    const diagnostics = result.diagnostics;
-    lines.push("");
-    lines.push("Diagnostics:");
-    if (diagnostics.normalizedUrl) {
-      lines.push(`- Endpoint: ${diagnostics.normalizedUrl}`);
-    }
-    if (diagnostics.hostKind) {
-      lines.push(`- Host type: ${describeOpenclawGatewayHostKind(diagnostics.hostKind)}`);
-    }
-    if (diagnostics.resolvedAddresses.length > 0) {
-      lines.push(`- Resolved: ${diagnostics.resolvedAddresses.join(", ")}`);
-    }
-    const healthStatus = describeOpenclawGatewayHealthStatus(result);
-    if (healthStatus) {
-      lines.push(
-        `- Health probe: ${healthStatus}${
-          diagnostics.healthUrl ? ` at ${diagnostics.healthUrl}` : ""
-        }`,
-      );
-    }
-    if (diagnostics.socketCloseCode !== undefined) {
-      lines.push(
-        `- Socket close: ${diagnostics.socketCloseCode}${
-          diagnostics.socketCloseReason ? ` (${diagnostics.socketCloseReason})` : ""
-        }`,
-      );
-    }
-    if (diagnostics.socketError) {
-      lines.push(`- Socket error: ${diagnostics.socketError}`);
-    }
-    if (diagnostics.gatewayErrorCode) {
-      lines.push(`- Gateway error code: ${diagnostics.gatewayErrorCode}`);
-    }
-    if (diagnostics.gatewayErrorDetailCode) {
-      lines.push(`- Gateway detail code: ${diagnostics.gatewayErrorDetailCode}`);
-    }
-    if (diagnostics.gatewayErrorDetailReason) {
-      lines.push(`- Gateway detail reason: ${diagnostics.gatewayErrorDetailReason}`);
-    }
-    if (diagnostics.gatewayRecommendedNextStep) {
-      lines.push(`- Gateway next step: ${diagnostics.gatewayRecommendedNextStep}`);
-    }
-    if (diagnostics.gatewayCanRetryWithDeviceToken !== undefined) {
-      lines.push(
-        `- Device-token retry available: ${diagnostics.gatewayCanRetryWithDeviceToken ? "yes" : "no"}`,
-      );
-    }
-    if (diagnostics.observedNotifications.length > 0) {
-      lines.push(`- Gateway events: ${diagnostics.observedNotifications.join(", ")}`);
-    }
-    if (diagnostics.hints.length > 0) {
-      lines.push("");
-      lines.push("Troubleshooting:");
-      for (const hint of diagnostics.hints) {
-        lines.push(`- ${hint}`);
-      }
-    }
-  }
-
-  return lines.join("\n");
-}
-
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message.trim().length > 0) {
     return error.message;
@@ -287,7 +164,6 @@ function SettingsRouteView() {
     claudeAgent: Boolean(settings.claudeBinaryPath),
     gemini: false,
     copilot: Boolean(settings.copilotBinaryPath || settings.copilotConfigDir),
-    openclaw: Boolean(settings.openclawGatewayUrl || settings.openclawPassword),
   });
   const [selectedCustomModelProvider, setSelectedCustomModelProvider] =
     useState<ProviderKind>("codex");
@@ -298,18 +174,11 @@ function SettingsRouteView() {
     claudeAgent: "",
     gemini: "",
     copilot: "",
-    openclaw: "",
   });
   const [customModelErrorByProvider, setCustomModelErrorByProvider] = useState<
     Partial<Record<ProviderKind, string | null>>
   >({});
   const [showAllCustomModels, setShowAllCustomModels] = useState(false);
-  const [openclawTestResult, setOpenclawTestResult] = useState<TestOpenclawGatewayResult | null>(
-    null,
-  );
-  const [openclawTestLoading, setOpenclawTestLoading] = useState(false);
-  const { copyToClipboard: copyOpenclawDebugReport, isCopied: openclawDebugReportCopied } =
-    useCopyToClipboard();
 
   const globalEnvironmentVariablesQuery = useQuery(globalEnvironmentVariablesQueryOptions());
   const activeProjectId = selectedProjectId ?? projects[0]?.id ?? null;
@@ -350,7 +219,6 @@ function SettingsRouteView() {
   const isRefreshingProviderStatuses = serverConfigQuery.isFetching;
   const selectableProviders = getSelectableThreadProviders({
     statuses: providerStatuses,
-    openclawGatewayUrl: settings.openclawGatewayUrl,
   });
 
   const gitTextGenerationModelOptions = getAppModelOptions(
@@ -376,8 +244,7 @@ function SettingsRouteView() {
     settings.customCodexModels.length +
     settings.customClaudeModels.length +
     settings.customCopilotModels.length +
-    settings.customGeminiModels.length +
-    settings.customOpenClawModels.length;
+    settings.customGeminiModels.length;
   const activeProjectEnvironmentVariables = selectedProjectEnvironmentVariablesQuery.data?.entries;
   const savedCustomModelRows = MODEL_PROVIDER_SETTINGS.flatMap((providerSettings) =>
     getCustomModelsForProvider(settings, providerSettings.provider).map((slug) => ({
@@ -396,9 +263,6 @@ function SettingsRouteView() {
     settings.copilotConfigDir !== defaults.copilotConfigDir ||
     settings.codexBinaryPath !== defaults.codexBinaryPath ||
     settings.codexHomePath !== defaults.codexHomePath;
-  const isOpenClawSettingsDirty =
-    settings.openclawGatewayUrl !== defaults.openclawGatewayUrl ||
-    settings.openclawPassword !== defaults.openclawPassword;
 
   const openKeybindingsFile = useCallback(() => {
     if (!keybindingsConfigPath) return;
@@ -475,37 +339,6 @@ function SettingsRouteView() {
     const api = ensureNativeApi();
     await updateProjectIconOverride(api, selectedProject.id, nextIconPath);
   }, [projectIconDraft, selectedProject]);
-
-  const testOpenclawGateway = useCallback(async () => {
-    if (openclawTestLoading) return;
-    setOpenclawTestLoading(true);
-    setOpenclawTestResult(null);
-    try {
-      const api = ensureNativeApi();
-      const result = await api.server.testOpenclawGateway({
-        gatewayUrl: settings.openclawGatewayUrl,
-        password: settings.openclawPassword || undefined,
-      });
-      setOpenclawTestResult(result);
-      if (result.success) {
-        await queryClient.invalidateQueries({ queryKey: serverQueryKeys.config() });
-      }
-    } catch (err) {
-      setOpenclawTestResult({
-        success: false,
-        steps: [],
-        totalDurationMs: 0,
-        error: err instanceof Error ? err.message : "Unexpected error during test.",
-      });
-    } finally {
-      setOpenclawTestLoading(false);
-    }
-  }, [openclawTestLoading, queryClient, settings.openclawGatewayUrl, settings.openclawPassword]);
-
-  const handleCopyOpenclawDebugReport = useCallback(() => {
-    if (!openclawTestResult) return;
-    copyOpenclawDebugReport(formatOpenclawGatewayDebugReport(openclawTestResult), undefined);
-  }, [copyOpenclawDebugReport, openclawTestResult]);
 
   const addCustomModel = useCallback(
     (provider: ProviderKind) => {
@@ -1194,10 +1027,7 @@ function SettingsRouteView() {
               status={`${selectableProviders.length} provider${selectableProviders.length === 1 ? "" : "s"} currently selectable`}
             >
               <div className="mt-4">
-                <ProviderCapabilityMatrix
-                  statuses={providerStatuses}
-                  openclawGatewayUrl={settings.openclawGatewayUrl}
-                />
+                <ProviderCapabilityMatrix statuses={providerStatuses} />
               </div>
             </SettingsRow>
 
@@ -1222,7 +1052,6 @@ function SettingsRouteView() {
                         claudeAgent: false,
                         gemini: false,
                         copilot: false,
-                        openclaw: false,
                       });
                     }}
                   />
@@ -1368,158 +1197,6 @@ function SettingsRouteView() {
                     );
                   })}
                 </div>
-              </div>
-            </SettingsRow>
-
-            <SettingsRow
-              title="OpenClaw gateway"
-              description="Connect to an OpenClaw gateway for remote agent sessions."
-              status={
-                settings.openclawGatewayUrl.trim().length > 0
-                  ? `Configured for ${settings.openclawGatewayUrl}`
-                  : "Not configured"
-              }
-              resetAction={
-                isOpenClawSettingsDirty ? (
-                  <SettingResetButton
-                    label="OpenClaw gateway"
-                    onClick={() =>
-                      updateSettings({
-                        openclawGatewayUrl: defaults.openclawGatewayUrl,
-                        openclawPassword: defaults.openclawPassword,
-                      })
-                    }
-                  />
-                ) : null
-              }
-            >
-              <div className="mt-4 space-y-3">
-                <label htmlFor="openclaw-gateway-url" className="block">
-                  <span className="block text-xs font-medium text-foreground">Gateway URL</span>
-                  <Input
-                    id="openclaw-gateway-url"
-                    className="mt-1"
-                    value={settings.openclawGatewayUrl}
-                    onChange={(event) => {
-                      updateSettings({ openclawGatewayUrl: event.target.value });
-                      setOpenclawTestResult(null);
-                    }}
-                    placeholder="ws://localhost:8080"
-                    spellCheck={false}
-                  />
-                  <span className="mt-1 block text-xs text-muted-foreground">
-                    WebSocket URL of the OpenClaw gateway. Leave blank when not using OpenClaw.
-                  </span>
-                </label>
-                <label htmlFor="openclaw-password" className="block">
-                  <span className="block text-xs font-medium text-foreground">Shared Secret</span>
-                  <Input
-                    id="openclaw-password"
-                    className="mt-1"
-                    type="password"
-                    value={settings.openclawPassword}
-                    onChange={(event) => {
-                      updateSettings({ openclawPassword: event.target.value });
-                      setOpenclawTestResult(null);
-                    }}
-                    placeholder="Shared secret"
-                    spellCheck={false}
-                    autoComplete="off"
-                  />
-                  <span className="mt-1 block text-xs text-muted-foreground">
-                    Shared secret used to authenticate with the gateway. OK Code will try
-                    token-style and password-style auth as needed. This is the recommended default
-                    for remote and Tailscale gateways.
-                  </span>
-                </label>
-
-                <div className="pt-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={!settings.openclawGatewayUrl || openclawTestLoading}
-                    onClick={testOpenclawGateway}
-                  >
-                    {openclawTestLoading ? (
-                      <>
-                        <Loader2Icon className="mr-1.5 size-3.5 animate-spin" />
-                        Testing…
-                      </>
-                    ) : (
-                      "Test Connection"
-                    )}
-                  </Button>
-                </div>
-
-                {openclawTestResult ? (
-                  <div className="mt-3 rounded-md border border-border bg-muted/30 p-3">
-                    <div className="flex items-center gap-2">
-                      {openclawTestResult.success ? (
-                        <CheckCircle2Icon className="size-4 text-emerald-500" />
-                      ) : (
-                        <XCircleIcon className="size-4 text-red-500" />
-                      )}
-                      <span
-                        className={cn(
-                          "text-xs font-semibold",
-                          openclawTestResult.success ? "text-emerald-500" : "text-red-500",
-                        )}
-                      >
-                        {openclawTestResult.success ? "Connection successful" : "Connection failed"}
-                      </span>
-                      <span className="ml-auto text-[10px] tabular-nums text-muted-foreground">
-                        {openclawTestResult.totalDurationMs}ms total
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="xs"
-                        className="h-6 px-2 text-[10px]"
-                        onClick={handleCopyOpenclawDebugReport}
-                      >
-                        {openclawDebugReportCopied ? "Copied!" : "Copy debug report"}
-                      </Button>
-                    </div>
-
-                    {openclawTestResult.steps.length > 0 ? (
-                      <div className="mt-2.5 space-y-1.5">
-                        {openclawTestResult.steps.map((step) => (
-                          <div
-                            key={`${step.name}-${step.status}-${step.durationMs}`}
-                            className="flex items-start gap-2 text-xs"
-                          >
-                            {step.status === "pass" ? (
-                              <CheckCircle2Icon className="mt-px size-3.5 shrink-0 text-emerald-500" />
-                            ) : null}
-                            {step.status === "fail" ? (
-                              <XCircleIcon className="mt-px size-3.5 shrink-0 text-red-500" />
-                            ) : null}
-                            {step.status === "skip" ? (
-                              <SkipForwardIcon className="mt-px size-3.5 shrink-0 text-muted-foreground" />
-                            ) : null}
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-baseline gap-2">
-                                <span className="font-medium text-foreground">{step.name}</span>
-                                <span className="text-[10px] tabular-nums text-muted-foreground">
-                                  {step.durationMs}ms
-                                </span>
-                              </div>
-                              {step.detail ? (
-                                <span className="block break-all text-muted-foreground">
-                                  {step.detail}
-                                </span>
-                              ) : null}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : null}
-
-                    {openclawTestResult.error &&
-                    !openclawTestResult.steps.some((step) => step.status === "fail") ? (
-                      <div className="mt-2 text-xs text-red-500">{openclawTestResult.error}</div>
-                    ) : null}
-                  </div>
-                ) : null}
               </div>
             </SettingsRow>
           </SettingsSection>
@@ -1826,7 +1503,7 @@ function SettingsRouteView() {
 
             <SettingsRow
               title="Custom models"
-              description="Add custom model slugs for Codex, Claude Code, Gemini CLI, GitHub Copilot, or OpenClaw. The chat picker groups models by provider."
+              description="Add custom model slugs for Codex, Claude Code, Gemini CLI, or GitHub Copilot. The chat picker groups models by provider."
               resetAction={
                 totalCustomModels > 0 ? (
                   <SettingResetButton
@@ -1837,7 +1514,6 @@ function SettingsRouteView() {
                         customClaudeModels: defaults.customClaudeModels,
                         customCopilotModels: defaults.customCopilotModels,
                         customGeminiModels: defaults.customGeminiModels,
-                        customOpenClawModels: defaults.customOpenClawModels,
                       });
                       setCustomModelErrorByProvider({});
                       setShowAllCustomModels(false);

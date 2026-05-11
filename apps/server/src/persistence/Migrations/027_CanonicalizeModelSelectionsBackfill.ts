@@ -17,7 +17,6 @@ type ThreadRow = {
 
 function inferProviderKind(model: string): ProviderKind {
   if (model.startsWith("claude-")) return "claudeAgent";
-  if (model.startsWith("openclaw/")) return "openclaw";
   if (model.startsWith("copilot/")) return "copilot";
   if (model.startsWith("gemini-") || model.startsWith("auto-gemini-")) return "gemini";
   return "codex";

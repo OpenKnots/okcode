@@ -6,7 +6,6 @@ export type ProviderSetupPhase = "install" | "authenticate" | "verify" | "ready"
 const PROVIDER_LABELS = {
   codex: "OpenAI (Codex CLI)",
   claudeAgent: "Claude Code",
-  openclaw: "OpenClaw",
   copilot: "GitHub Copilot",
   gemini: "Gemini CLI",
 } as const;

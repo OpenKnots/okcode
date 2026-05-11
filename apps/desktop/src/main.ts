@@ -55,7 +55,6 @@ import { isArm64HostRunningIntelBuild, resolveDesktopRuntimeInfo } from "./runti
 syncShellEnvironment();
 
 const PICK_FOLDER_CHANNEL = "desktop:pick-folder";
-const CAPTURE_WINDOW_CHANNEL = "desktop:capture-window";
 const CONFIRM_CHANNEL = "desktop:confirm";
 const SET_THEME_CHANNEL = "desktop:set-theme";
 const SET_SIDEBAR_OPACITY_CHANNEL = "desktop:set-sidebar-opacity";
@@ -1176,19 +1175,6 @@ function registerIpcHandlers(): void {
         });
     if (result.canceled) return null;
     return result.filePaths[0] ?? null;
-  });
-
-  ipcMain.removeHandler(CAPTURE_WINDOW_CHANNEL);
-  ipcMain.handle(CAPTURE_WINDOW_CHANNEL, async (event) => {
-    try {
-      const image = await event.sender.capturePage();
-      if (image.isEmpty()) {
-        return null;
-      }
-      return image.toDataURL();
-    } catch {
-      return null;
-    }
   });
 
   ipcMain.removeHandler(CONFIRM_CHANNEL);

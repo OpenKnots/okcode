@@ -5,10 +5,7 @@ import { Input } from "../ui/input";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { cn } from "../../lib/utils";
 import { Undo2Icon } from "lucide-react";
-import {
-  BACKGROUND_IMAGE_OPACITY_MAX,
-  BACKGROUND_IMAGE_OPACITY_MIN,
-} from "../../appSettings";
+import { BACKGROUND_IMAGE_OPACITY_MAX, BACKGROUND_IMAGE_OPACITY_MIN } from "../../appSettings";
 
 export function SettingsSection({
   title,

@@ -444,14 +444,20 @@ const MemoizedThreadRow = memo(
 
     return (
       <SidebarMenuSubItem key={thread.id} className="relative w-full" data-thread-item>
+        {isActive ? (
+          <span
+            aria-hidden
+            className="pointer-events-none absolute left-0 top-1/2 h-[60%] w-[2px] -translate-y-1/2 rounded-full bg-primary/70"
+          />
+        ) : null}
         <SidebarMenuSubButton
           render={<div role="button" tabIndex={0} />}
           size="sm"
           isActive={isActive}
           className={cn(
-            "h-auto translate-x-0 items-center rounded-md text-left",
+            "h-auto translate-x-0 items-center rounded-md text-left transition-colors duration-150",
             isActive
-              ? "bg-accent/60 text-foreground"
+              ? "bg-accent/70 text-foreground"
               : isSelected
                 ? "bg-accent/40 text-foreground"
                 : "text-muted-foreground hover:bg-accent/40 hover:text-foreground",
@@ -1569,7 +1575,6 @@ export default function Sidebar() {
     visualIndex: number,
   ) {
     const projectThreads = sidebarThreadsByProjectId.get(project.id) ?? EMPTY_THREADS;
-    const hasProjectChat = projectChatThreadByProjectId.has(project.id);
     const activeThreadId = routeThreadId ?? undefined;
     const isThreadListExpanded = expandedThreadListsByProject.has(project.id);
     const pinnedCollapsedThread =
@@ -1598,7 +1603,10 @@ export default function Sidebar() {
     return (
       <Collapsible className="group/collapsible" open={shouldShowThreadPanel}>
         <div
-          className="group/project-header relative flex items-center rounded-md"
+          className={cn(
+            "group/project-header relative flex items-center rounded-md transition-shadow duration-150",
+            isActiveProject && "ring-1 ring-border/60 shadow-sm",
+          )}
           style={{
             ...SIDEBAR_PROJECT_HEADER_STYLE,
             backgroundColor: isDark ? pColor.bgDark : pColor.bg,
@@ -1607,7 +1615,7 @@ export default function Sidebar() {
           <button
             type="button"
             aria-label={project.expanded ? "Collapse project threads" : "Expand project threads"}
-            className="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground/60 transition-colors hover:bg-accent hover:text-foreground"
+            className="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground/60 transition-colors duration-150 hover:bg-accent hover:text-foreground"
             onClick={(event) => {
               event.preventDefault();
               event.stopPropagation();
@@ -1624,9 +1632,9 @@ export default function Sidebar() {
             ref={isManualProjectSorting ? dragHandleProps?.setActivatorNodeRef : undefined}
             size="sm"
             className={cn(
-              "h-auto min-w-0 flex-1 gap-1.5 rounded-md px-2 text-left transition-colors hover:bg-transparent",
+              "h-auto min-w-0 flex-1 gap-1.5 rounded-md px-2 text-left transition-colors duration-150 hover:bg-transparent",
               isManualProjectSorting ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
-              isActiveProject && "bg-background/70 text-foreground shadow-sm",
+              isActiveProject && "bg-background/80 text-foreground",
             )}
             style={SIDEBAR_PROJECT_ROW_STYLE}
             {...(isManualProjectSorting && dragHandleProps ? dragHandleProps.attributes : {})}
@@ -1680,11 +1688,6 @@ export default function Sidebar() {
                 >
                   {project.name}
                 </span>
-                {hasProjectChat ? (
-                  <span className="shrink-0 rounded-full bg-background/70 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground/80">
-                    Chat
-                  </span>
-                ) : null}
                 {isMissingOnDisk ? <MissingOnDiskBadge path={project.cwd} /> : null}
               </span>
             )}

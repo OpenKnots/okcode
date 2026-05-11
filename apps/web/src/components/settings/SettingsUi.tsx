@@ -5,6 +5,10 @@ import { Input } from "../ui/input";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { cn } from "../../lib/utils";
 import { Undo2Icon } from "lucide-react";
+import {
+  BACKGROUND_IMAGE_OPACITY_MAX,
+  BACKGROUND_IMAGE_OPACITY_MIN,
+} from "../../appSettings";
 
 export function SettingsSection({
   title,
@@ -168,13 +172,13 @@ export function BackgroundImageSettings({
       {hasBackground && (
         <SettingsRow
           title="Background opacity"
-          description="Adjust the visibility of the custom background image."
+          description="Adjust the visibility of the custom background image. Capped to keep foreground content readable."
           control={
             <div className="flex items-center gap-2">
               <input
                 type="range"
-                min={5}
-                max={100}
+                min={Math.round(BACKGROUND_IMAGE_OPACITY_MIN * 100)}
+                max={Math.round(BACKGROUND_IMAGE_OPACITY_MAX * 100)}
                 value={Math.round(backgroundImageOpacity * 100)}
                 onChange={(e) => {
                   const value = Number(e.target.value) / 100;

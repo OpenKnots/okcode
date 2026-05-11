@@ -21,18 +21,30 @@ const MAX_CUSTOM_MODEL_COUNT = 32;
 export const MAX_CUSTOM_MODEL_LENGTH = 256;
 const BACKGROUND_IMAGE_KEY = "okcode:background-image";
 const BACKGROUND_OPACITY_KEY = "okcode:background-opacity";
+// Sidebar density constraints are tuned to keep rows within
+// best-practice layouts and ratios. Tap targets stay >=28px,
+// rows stay below an upper bound that preserves list density,
+// and font/spacing values stay inside a legibility window.
 export const SIDEBAR_PROJECT_ROW_HEIGHT_MIN = 32;
-export const SIDEBAR_PROJECT_ROW_HEIGHT_MAX = 72;
+export const SIDEBAR_PROJECT_ROW_HEIGHT_MAX = 48;
 export const DEFAULT_SIDEBAR_PROJECT_ROW_HEIGHT = 32;
-export const SIDEBAR_THREAD_ROW_HEIGHT_MIN = 24;
-export const SIDEBAR_THREAD_ROW_HEIGHT_MAX = 44;
+export const SIDEBAR_THREAD_ROW_HEIGHT_MIN = 28;
+export const SIDEBAR_THREAD_ROW_HEIGHT_MAX = 40;
 export const DEFAULT_SIDEBAR_THREAD_ROW_HEIGHT = 28;
-export const SIDEBAR_FONT_SIZE_MIN = 10;
-export const SIDEBAR_FONT_SIZE_MAX = 16;
+export const SIDEBAR_FONT_SIZE_MIN = 11;
+export const SIDEBAR_FONT_SIZE_MAX = 15;
 export const DEFAULT_SIDEBAR_FONT_SIZE = 12;
-export const SIDEBAR_SPACING_MIN = 4;
+export const SIDEBAR_SPACING_MIN = 6;
 export const SIDEBAR_SPACING_MAX = 12;
 export const DEFAULT_SIDEBAR_SPACING = 8;
+// Transparency floors keep the sidebar readable and prevent
+// background images from competing with foreground content.
+export const SIDEBAR_OPACITY_MIN = 0.6;
+export const SIDEBAR_OPACITY_MAX = 1;
+export const DEFAULT_SIDEBAR_OPACITY = 1;
+export const BACKGROUND_IMAGE_OPACITY_MIN = 0.05;
+export const BACKGROUND_IMAGE_OPACITY_MAX = 0.35;
+export const DEFAULT_BACKGROUND_IMAGE_OPACITY = 0.15;
 export const DEFAULT_BROWSER_PREVIEW_START_PAGE_URL = "https://www.google.com/";
 
 export const TimestampFormat = Schema.Literals(["locale", "12-hour", "24-hour"]);
@@ -94,7 +106,7 @@ export const AppSettingsSchema = Schema.Struct({
   codexBinaryPath: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
   codexHomePath: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
   backgroundImageUrl: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
-  backgroundImageOpacity: Schema.Number.pipe(withDefaults(() => 0.15)),
+  backgroundImageOpacity: Schema.Number.pipe(withDefaults(() => DEFAULT_BACKGROUND_IMAGE_OPACITY)),
   defaultThreadEnvMode: EnvMode.pipe(withDefaults(() => "worktree" as const satisfies EnvMode)),
   autoUpdateWorktreeBaseBranch: Schema.Boolean.pipe(withDefaults(() => false)),
   confirmThreadDelete: Schema.Boolean.pipe(withDefaults(() => true)),
@@ -117,7 +129,7 @@ export const AppSettingsSchema = Schema.Struct({
     withDefaults(() => DEFAULT_SIDEBAR_THREAD_SORT_ORDER),
   ),
   timestampFormat: TimestampFormat.pipe(withDefaults(() => DEFAULT_TIMESTAMP_FORMAT)),
-  sidebarOpacity: Schema.Number.pipe(withDefaults(() => 1)),
+  sidebarOpacity: Schema.Number.pipe(withDefaults(() => DEFAULT_SIDEBAR_OPACITY)),
   sidebarProjectRowHeight: Schema.Number.pipe(
     withDefaults(() => DEFAULT_SIDEBAR_PROJECT_ROW_HEIGHT),
   ),
@@ -230,11 +242,14 @@ export function normalizeCustomModelSlugs(
 }
 
 function clampOpacity(value: number): number {
-  return Math.max(0.3, Math.min(1, value));
+  return Math.max(SIDEBAR_OPACITY_MIN, Math.min(SIDEBAR_OPACITY_MAX, value));
 }
 
 function clampBackgroundOpacity(value: number): number {
-  return Math.max(0.05, Math.min(1, value));
+  return Math.max(
+    BACKGROUND_IMAGE_OPACITY_MIN,
+    Math.min(BACKGROUND_IMAGE_OPACITY_MAX, value),
+  );
 }
 
 export function clampSidebarProjectRowHeight(value: number): number {

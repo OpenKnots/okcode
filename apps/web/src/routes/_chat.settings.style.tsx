@@ -9,6 +9,8 @@ import {
   DEFAULT_SIDEBAR_THREAD_ROW_HEIGHT,
   SIDEBAR_FONT_SIZE_MAX,
   SIDEBAR_FONT_SIZE_MIN,
+  SIDEBAR_OPACITY_MAX,
+  SIDEBAR_OPACITY_MIN,
   SIDEBAR_PROJECT_ROW_HEIGHT_MAX,
   SIDEBAR_PROJECT_ROW_HEIGHT_MIN,
   SIDEBAR_SPACING_MAX,
@@ -426,7 +428,7 @@ function SettingsStyleRouteView() {
         >
           <SettingsRow
             title="Sidebar opacity"
-            description="Adjust the transparency of the side panel and project list."
+            description="Adjust the transparency of the side panel and project list. Constrained to keep text readable."
             resetAction={
               settings.sidebarOpacity !== defaults.sidebarOpacity ? (
                 <SettingResetButton
@@ -439,8 +441,8 @@ function SettingsStyleRouteView() {
               <div className="flex items-center gap-2">
                 <input
                   type="range"
-                  min={30}
-                  max={100}
+                  min={Math.round(SIDEBAR_OPACITY_MIN * 100)}
+                  max={Math.round(SIDEBAR_OPACITY_MAX * 100)}
                   value={Math.round(settings.sidebarOpacity * 100)}
                   onChange={(e) => {
                     const value = Number(e.target.value) / 100;

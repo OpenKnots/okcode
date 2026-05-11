@@ -4,7 +4,6 @@ import { Outlet, useParams } from "@tanstack/react-router";
 import { useChatWidgetStore } from "../../chatWidgetStore";
 import { useAppSettings } from "../../appSettings";
 import { CommandPalette } from "../CommandPalette";
-import { ScreenshotTool, ScreenshotButton } from "../ScreenshotTool";
 import ThreadSidebar from "../Sidebar";
 import { Sidebar, SidebarProvider, SidebarRail } from "../ui/sidebar";
 import { ChatWidgetBubble } from "./ChatWidgetBubble";
@@ -58,12 +57,6 @@ export function ChatWidgetShell() {
 
       {/* Global utilities available in both modes */}
       <CommandPalette />
-      <ScreenshotTool />
-      {!expanded && (
-        <div className="fixed bottom-4 right-4 z-50">
-          <ScreenshotButton />
-        </div>
-      )}
 
       {/* Expanded panel with the full chat layout */}
       <ChatWidgetPanel expanded={expanded}>

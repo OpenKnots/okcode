@@ -5,7 +5,6 @@ import { type CSSProperties, useEffect } from "react";
 
 import ThreadSidebar from "../components/Sidebar";
 import { CommandPalette } from "../components/CommandPalette";
-import { ScreenshotTool, ScreenshotButton } from "../components/ScreenshotTool";
 import { WorktreeCleanupDialog } from "../components/WorktreeCleanupDialog";
 import { useHandleNewThread } from "../hooks/useHandleNewThread";
 import { ZOOM_STEP, clearZoom, getStoredZoom, setStoredZoom } from "../lib/customTheme";
@@ -17,7 +16,6 @@ import { resolveShortcutCommand } from "../keybindings";
 import { selectThreadTerminalState, useTerminalStateStore } from "../terminalStateStore";
 import { useThreadSelectionStore } from "../threadSelectionStore";
 import { useCommandPaletteStore } from "../commandPaletteStore";
-import { useScreenshotStore } from "../screenshotStore";
 import { useStore } from "../store";
 import { resolveSidebarNewThreadEnvMode } from "~/components/Sidebar.logic";
 import { useAppSettings } from "~/appSettings";
@@ -78,7 +76,6 @@ function ChatRouteGlobalShortcuts() {
   const paletteOpen = useCommandPaletteStore((state) => state.open);
   const pushMruThread = useCommandPaletteStore((state) => state.pushMruThread);
   const pushMruProject = useCommandPaletteStore((state) => state.pushMruProject);
-  const toggleScreenshot = useScreenshotStore((state) => state.toggle);
   const storeProjects = useStore((state) => state.projects);
   const storeThreads = useStore((state) => state.threads);
   const navigate = useNavigate();
@@ -118,14 +115,6 @@ function ChatRouteGlobalShortcuts() {
         event.preventDefault();
         event.stopPropagation();
         togglePalette();
-        return;
-      }
-
-      // ── Screenshot: Cmd+Shift+S (Mac) / Ctrl+Shift+S (non-Mac) ──
-      if (key === "s" && modKey && event.shiftKey && !event.altKey && !isTerminalFocused()) {
-        event.preventDefault();
-        event.stopPropagation();
-        toggleScreenshot();
         return;
       }
 
@@ -238,7 +227,6 @@ function ChatRouteGlobalShortcuts() {
     storeThreads,
     terminalOpen,
     togglePalette,
-    toggleScreenshot,
     appSettings.defaultThreadEnvMode,
   ]);
 
@@ -350,10 +338,6 @@ function ChatRouteLayout() {
           <ChatRouteGlobalShortcuts />
           <CommandPalette />
           <WorktreeCleanupDialog />
-          <ScreenshotTool />
-          <div className="fixed bottom-4 right-4 z-50">
-            <ScreenshotButton />
-          </div>
           <Sidebar
             side="left"
             collapsible="offcanvas"

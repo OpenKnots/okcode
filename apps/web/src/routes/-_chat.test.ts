@@ -8,4 +8,22 @@ describe("chat route sidebar chrome", () => {
 
     expect(src).not.toContain("backdrop-blur-sm");
   });
+
+  it("does not expose screenshot UI or shortcuts in the chat shell", () => {
+    const chatRouteSrc = readFileSync(resolve(import.meta.dirname, "./_chat.tsx"), "utf8");
+    const chatWidgetShellSrc = readFileSync(
+      resolve(import.meta.dirname, "../components/widget/ChatWidgetShell.tsx"),
+      "utf8",
+    );
+
+    expect(chatRouteSrc).not.toContain("ScreenshotTool");
+    expect(chatRouteSrc).not.toContain("ScreenshotButton");
+    expect(chatRouteSrc).not.toContain("useScreenshotStore");
+    expect(chatRouteSrc).not.toContain("toggleScreenshot");
+    expect(chatRouteSrc).not.toContain("Cmd+Shift+S");
+    expect(chatRouteSrc).not.toContain("Ctrl+Shift+S");
+
+    expect(chatWidgetShellSrc).not.toContain("ScreenshotTool");
+    expect(chatWidgetShellSrc).not.toContain("ScreenshotButton");
+  });
 });

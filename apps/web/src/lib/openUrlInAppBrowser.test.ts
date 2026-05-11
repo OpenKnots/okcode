@@ -18,18 +18,23 @@ describe("openUrlInAppBrowser", () => {
       tabId: "tab-1",
       state: { tabs: [], activeTabId: null, visible: false },
     });
+    const popIn = vi.fn<DesktopBridge["preview"]["popIn"]>().mockResolvedValue(undefined);
     const setPreviewOpen = vi.fn();
+    const setPreviewLayoutMode = vi.fn();
 
     const result = await openUrlInAppBrowser({
       url: "https://tweakcn.com",
       projectId: projectId("project-1"),
       threadId: threadId("thread-1"),
-      previewBridge: { createTab } as unknown as DesktopBridge["preview"],
+      previewBridge: { createTab, popIn } as unknown as DesktopBridge["preview"],
       setPreviewOpen,
+      setPreviewLayoutMode,
     });
 
     expect(result).toBe("preview");
     expect(setPreviewOpen).toHaveBeenCalledWith(threadId("thread-1"), true);
+    expect(setPreviewLayoutMode).toHaveBeenCalledWith(projectId("project-1"), "side");
+    expect(popIn).toHaveBeenCalledOnce();
     expect(createTab).toHaveBeenCalledWith({
       url: "https://tweakcn.com",
       threadId: threadId("thread-1"),

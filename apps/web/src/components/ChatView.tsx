@@ -445,6 +445,7 @@ export default function ChatView({
   const previewLayoutMode = usePreviewStateStore((state) =>
     activeProjectId ? (state.layoutModeByProjectId[activeProjectId] ?? "side") : "side",
   );
+  const setPreviewLayoutMode = usePreviewStateStore((state) => state.setProjectLayoutMode);
   const previewSizeDefault =
     previewLayoutMode === "side"
       ? PREVIEW_SPLIT_SIDE_DEFAULT_SIZE_PX
@@ -1763,9 +1764,13 @@ export default function ChatView({
     (url: string) => {
       if (!activeProject || !activeThread) return;
       setPreviewOpen(activeThread.id, true);
-      void previewBridgeRef?.createTab({ url });
+      setPreviewLayoutMode(activeProject.id, "side");
+      const popInPromise = previewBridgeRef?.popIn?.() ?? Promise.resolve();
+      void popInPromise.then(() => {
+        void previewBridgeRef?.createTab({ url, threadId: activeThread.id });
+      });
     },
-    [activeProject, activeThread, setPreviewOpen, previewBridgeRef],
+    [activeProject, activeThread, setPreviewOpen, setPreviewLayoutMode, previewBridgeRef],
   );
   const openLinksExternally = settings.openLinksExternally;
   const onPreviewUrl =

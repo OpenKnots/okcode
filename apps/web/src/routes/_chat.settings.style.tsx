@@ -119,7 +119,6 @@ function SettingsStyleRouteView() {
         url: "https://tweakcn.com",
         projectId: activeProjectId,
         threadId: activeProjectPreviewThreadId,
-        popOut: true,
         nativeApi: readNativeApi(),
       });
     } catch {

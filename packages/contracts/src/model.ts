@@ -6,15 +6,12 @@ export const CODEX_REASONING_EFFORT_OPTIONS = ["xhigh", "high", "medium", "low"]
 export type CodexReasoningEffort = (typeof CODEX_REASONING_EFFORT_OPTIONS)[number];
 export const CLAUDE_CODE_EFFORT_OPTIONS = ["low", "medium", "high", "max", "ultrathink"] as const;
 export type ClaudeCodeEffort = (typeof CLAUDE_CODE_EFFORT_OPTIONS)[number];
-export const OPENCLAW_REASONING_EFFORT_OPTIONS = ["low", "medium", "high"] as const;
-export type OpenClawReasoningEffort = (typeof OPENCLAW_REASONING_EFFORT_OPTIONS)[number];
 export const COPILOT_REASONING_EFFORT_OPTIONS = ["low", "medium", "high", "xhigh"] as const;
 export type CopilotReasoningEffort = (typeof COPILOT_REASONING_EFFORT_OPTIONS)[number];
 export type GeminiReasoningEffort = never;
 export type ProviderReasoningEffort =
   | CodexReasoningEffort
   | ClaudeCodeEffort
-  | OpenClawReasoningEffort
   | CopilotReasoningEffort;
 
 export const CodexModelOptions = Schema.Struct({
@@ -31,11 +28,6 @@ export const ClaudeModelOptions = Schema.Struct({
 });
 export type ClaudeModelOptions = typeof ClaudeModelOptions.Type;
 
-export const OpenClawModelOptions = Schema.Struct({
-  reasoningEffort: Schema.optional(Schema.Literals(OPENCLAW_REASONING_EFFORT_OPTIONS)),
-});
-export type OpenClawModelOptions = typeof OpenClawModelOptions.Type;
-
 export const CopilotModelOptions = Schema.Struct({
   reasoningEffort: Schema.optional(Schema.Literals(COPILOT_REASONING_EFFORT_OPTIONS)),
 });
@@ -47,7 +39,6 @@ export type GeminiModelOptions = typeof GeminiModelOptions.Type;
 export const ProviderModelOptions = Schema.Struct({
   codex: Schema.optional(CodexModelOptions),
   claudeAgent: Schema.optional(ClaudeModelOptions),
-  openclaw: Schema.optional(OpenClawModelOptions),
   copilot: Schema.optional(CopilotModelOptions),
   gemini: Schema.optional(GeminiModelOptions),
 });
@@ -75,7 +66,6 @@ export const MODEL_OPTIONS_BY_PROVIDER = {
     { slug: "claude-sonnet-4-6", name: "Claude Sonnet 4.6" },
     { slug: "claude-haiku-4-5", name: "Claude Haiku 4.5" },
   ],
-  openclaw: [],
   copilot: [
     { slug: "gpt-5.5", name: "GPT-5.5" },
     { slug: "gpt-5.5-mini", name: "GPT-5.5 mini" },
@@ -113,7 +103,6 @@ export type ModelSlug = BuiltInModelSlug | (string & {});
 export const DEFAULT_MODEL_BY_PROVIDER: Record<ProviderKind, ModelSlug> = {
   codex: "gpt-5.4",
   claudeAgent: "claude-sonnet-4-6",
-  openclaw: "default",
   copilot: "gpt-5.3-codex",
   gemini: "auto-gemini-3",
 };
@@ -150,7 +139,6 @@ export const MODEL_SLUG_ALIASES_BY_PROVIDER: Record<ProviderKind, Record<string,
     "claude-haiku-4.5": "claude-haiku-4-5",
     "claude-haiku-4-5-20251001": "claude-haiku-4-5",
   },
-  openclaw: {},
   copilot: {
     "4.1": "gpt-4.1",
     "gpt-4.1": "gpt-4.1",
@@ -213,7 +201,6 @@ export const MODEL_SLUG_ALIASES_BY_PROVIDER: Record<ProviderKind, Record<string,
 export const REASONING_EFFORT_OPTIONS_BY_PROVIDER = {
   codex: CODEX_REASONING_EFFORT_OPTIONS,
   claudeAgent: CLAUDE_CODE_EFFORT_OPTIONS,
-  openclaw: OPENCLAW_REASONING_EFFORT_OPTIONS,
   copilot: COPILOT_REASONING_EFFORT_OPTIONS,
   gemini: [],
 } as const satisfies Record<ProviderKind, readonly ProviderReasoningEffort[]>;
@@ -221,7 +208,6 @@ export const REASONING_EFFORT_OPTIONS_BY_PROVIDER = {
 export const DEFAULT_REASONING_EFFORT_BY_PROVIDER = {
   codex: "high",
   claudeAgent: "high",
-  openclaw: "high",
   copilot: "high",
   gemini: "high",
 } as const satisfies Record<ProviderKind, ProviderReasoningEffort>;

@@ -65,7 +65,6 @@ export const DEFAULT_PR_REVIEW_REQUEST_CHANGES_TONE: PrReviewRequestChangesTone 
 type CustomModelSettingsKey =
   | "customCodexModels"
   | "customClaudeModels"
-  | "customOpenClawModels"
   | "customCopilotModels"
   | "customGeminiModels";
 export type ProviderCustomModelConfig = {
@@ -81,7 +80,6 @@ export type ProviderCustomModelConfig = {
 const BUILT_IN_MODEL_SLUGS_BY_PROVIDER: Record<ProviderKind, ReadonlySet<string>> = {
   codex: new Set(getModelOptions("codex").map((option) => option.slug)),
   claudeAgent: new Set(getModelOptions("claudeAgent").map((option) => option.slug)),
-  openclaw: new Set(getModelOptions("openclaw").map((option) => option.slug)),
   copilot: new Set(getModelOptions("copilot").map((option) => option.slug)),
   gemini: new Set(getModelOptions("gemini").map((option) => option.slug)),
 };
@@ -149,10 +147,7 @@ export const AppSettingsSchema = Schema.Struct({
   customCodexModels: Schema.Array(Schema.String).pipe(withDefaults(() => [])),
   customClaudeModels: Schema.Array(Schema.String).pipe(withDefaults(() => [])),
   customCopilotModels: Schema.Array(Schema.String).pipe(withDefaults(() => [])),
-  customOpenClawModels: Schema.Array(Schema.String).pipe(withDefaults(() => [])),
   customGeminiModels: Schema.Array(Schema.String).pipe(withDefaults(() => [])),
-  openclawGatewayUrl: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
-  openclawPassword: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
   textGenerationModel: Schema.optional(TrimmedNonEmptyString),
 });
 export type AppSettings = typeof AppSettingsSchema.Type;
@@ -190,15 +185,6 @@ const PROVIDER_CUSTOM_MODEL_CONFIG: Record<ProviderKind, ProviderCustomModelConf
     description: "Save additional GitHub Copilot model slugs for the picker and `/model` command.",
     placeholder: "your-copilot-model-slug",
     example: "gpt-5",
-  },
-  openclaw: {
-    provider: "openclaw",
-    settingsKey: "customOpenClawModels",
-    defaultSettingsKey: "customOpenClawModels",
-    title: "OpenClaw",
-    description: "Save additional OpenClaw model slugs for the picker and `/model` command.",
-    placeholder: "your-openclaw-model-slug",
-    example: "openclaw/my-custom-model",
   },
   gemini: {
     provider: "gemini",
@@ -246,10 +232,7 @@ function clampOpacity(value: number): number {
 }
 
 function clampBackgroundOpacity(value: number): number {
-  return Math.max(
-    BACKGROUND_IMAGE_OPACITY_MIN,
-    Math.min(BACKGROUND_IMAGE_OPACITY_MAX, value),
-  );
+  return Math.max(BACKGROUND_IMAGE_OPACITY_MIN, Math.min(BACKGROUND_IMAGE_OPACITY_MAX, value));
 }
 
 export function clampSidebarProjectRowHeight(value: number): number {
@@ -286,7 +269,6 @@ function normalizeAppSettings(settings: AppSettings): AppSettings {
     customCodexModels: normalizeCustomModelSlugs(settings.customCodexModels, "codex"),
     customClaudeModels: normalizeCustomModelSlugs(settings.customClaudeModels, "claudeAgent"),
     customCopilotModels: normalizeCustomModelSlugs(settings.customCopilotModels, "copilot"),
-    customOpenClawModels: normalizeCustomModelSlugs(settings.customOpenClawModels, "openclaw"),
     customGeminiModels: normalizeCustomModelSlugs(settings.customGeminiModels, "gemini"),
   };
 }
@@ -321,7 +303,6 @@ export function getCustomModelsByProvider(
     codex: getCustomModelsForProvider(settings, "codex"),
     claudeAgent: getCustomModelsForProvider(settings, "claudeAgent"),
     copilot: getCustomModelsForProvider(settings, "copilot"),
-    openclaw: getCustomModelsForProvider(settings, "openclaw"),
     gemini: getCustomModelsForProvider(settings, "gemini"),
   };
 }
@@ -389,7 +370,6 @@ export function getCustomModelOptionsByProvider(
     codex: getAppModelOptions("codex", customModelsByProvider.codex),
     claudeAgent: getAppModelOptions("claudeAgent", customModelsByProvider.claudeAgent),
     copilot: getAppModelOptions("copilot", customModelsByProvider.copilot),
-    openclaw: getAppModelOptions("openclaw", customModelsByProvider.openclaw),
     gemini: getAppModelOptions("gemini", customModelsByProvider.gemini),
   };
 }
@@ -402,8 +382,6 @@ export function getProviderStartOptions(
     | "copilotConfigDir"
     | "codexBinaryPath"
     | "codexHomePath"
-    | "openclawGatewayUrl"
-    | "openclawPassword"
   >,
 ): ProviderStartOptions | undefined {
   const providerOptions: ProviderStartOptions = {
@@ -427,14 +405,6 @@ export function getProviderStartOptions(
           copilot: {
             ...(settings.copilotBinaryPath ? { binaryPath: settings.copilotBinaryPath } : {}),
             ...(settings.copilotConfigDir ? { configDir: settings.copilotConfigDir } : {}),
-          },
-        }
-      : {}),
-    ...(settings.openclawGatewayUrl || settings.openclawPassword
-      ? {
-          openclaw: {
-            ...(settings.openclawGatewayUrl ? { gatewayUrl: settings.openclawGatewayUrl } : {}),
-            ...(settings.openclawPassword ? { password: settings.openclawPassword } : {}),
           },
         }
       : {}),

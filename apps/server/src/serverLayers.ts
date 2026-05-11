@@ -24,7 +24,6 @@ import { makeClaudeAdapterLive } from "./provider/Layers/ClaudeAdapter";
 import { makeCopilotAdapterLive } from "./provider/Layers/CopilotAdapter";
 import { makeCodexAdapterLive } from "./provider/Layers/CodexAdapter";
 import { GeminiAdapterLive } from "./provider/Layers/GeminiAdapter";
-import { makeOpenClawAdapterLive } from "./provider/Layers/OpenClawAdapter";
 import { ProviderAdapterRegistryLive } from "./provider/Layers/ProviderAdapterRegistry";
 import { makeProviderServiceLive } from "./provider/Layers/ProviderService";
 import { ProviderSessionDirectoryLive } from "./provider/Layers/ProviderSessionDirectory";
@@ -33,7 +32,6 @@ import { ProviderService } from "./provider/Services/ProviderService";
 import { makeEventNdjsonLogger } from "./provider/Layers/EventNdjsonLogger";
 import { EnvironmentVariablesLive } from "./persistence/Services/EnvironmentVariables";
 import { KeybindingsLive } from "./keybindings";
-import { OpenclawGatewayConfigLive } from "./persistence/Layers/OpenclawGatewayConfig";
 import { GitCoreLive } from "./git/Layers/GitCore";
 import { CodexTextGenerationLive } from "./git/Layers/CodexTextGeneration";
 import { GitManagerLive } from "./git/Layers/GitManager";
@@ -85,9 +83,6 @@ export function makeServerProviderLayer(): Layer.Layer<
       Layer.provideMerge(OrchestrationProjectionOverviewQueryLive),
       Layer.provideMerge(OrchestrationProjectionThreadDetailQueryLive),
     );
-    const openclawAdapterLayer = makeOpenClawAdapterLive(
-      nativeEventLogger ? { nativeEventLogger } : undefined,
-    ).pipe(Layer.provideMerge(OpenclawGatewayConfigLive));
     const copilotAdapterLayer = makeCopilotAdapterLive(
       nativeEventLogger ? { nativeEventLogger } : undefined,
     );
@@ -95,7 +90,6 @@ export function makeServerProviderLayer(): Layer.Layer<
     const adapterRegistryLayer = ProviderAdapterRegistryLive.pipe(
       Layer.provide(codexAdapterLayer),
       Layer.provide(claudeAdapterLayer),
-      Layer.provide(openclawAdapterLayer),
       Layer.provide(copilotAdapterLayer),
       Layer.provide(geminiAdapterLayer),
       Layer.provideMerge(providerSessionDirectoryLayer),
@@ -158,7 +152,6 @@ export function makeServerRuntimeServicesLayer() {
 
   const runtimeServicesLayer = Layer.empty.pipe(
     Layer.provideMerge(EnvironmentVariablesLive),
-    Layer.provideMerge(OpenclawGatewayConfigLive),
     Layer.provideMerge(OrchestrationProjectionSnapshotQueryLive),
     Layer.provideMerge(OrchestrationProjectionOverviewQueryLive),
     Layer.provideMerge(OrchestrationProjectionThreadDetailQueryLive),
@@ -184,10 +177,7 @@ export function makeServerRuntimeServicesLayer() {
     Layer.provideMerge(checkpointReactorLayer),
   );
 
-  return Layer.mergeAll(
-    orchestrationReactorLayer,
-    GitCoreLive,
-    KeybindingsLive,
-    OpenclawGatewayConfigLive,
-  ).pipe(Layer.provideMerge(NodeServices.layer));
+  return Layer.mergeAll(orchestrationReactorLayer, GitCoreLive, KeybindingsLive).pipe(
+    Layer.provideMerge(NodeServices.layer),
+  );
 }

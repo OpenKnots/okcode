@@ -19,7 +19,6 @@ export default Effect.gen(function* () {
     SET provider = CASE
       WHEN lower(model) LIKE 'claude-%' THEN 'claudeAgent'
       WHEN lower(model) LIKE 'gpt-%' THEN 'codex'
-      WHEN lower(model) LIKE 'openclaw/%' OR lower(model) = 'default' THEN 'openclaw'
       ELSE 'claudeAgent'
     END
     WHERE provider IS NULL

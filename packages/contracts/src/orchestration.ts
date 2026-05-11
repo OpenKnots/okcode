@@ -4,7 +4,6 @@ import {
   CodexModelOptions,
   CopilotModelOptions,
   GeminiModelOptions,
-  OpenClawModelOptions,
   ProviderModelOptions,
 } from "./model";
 import {
@@ -36,13 +35,7 @@ export const ORCHESTRATION_WS_CHANNELS = {
   domainEvent: "orchestration.domainEvent",
 } as const;
 
-export const ProviderKind = Schema.Literals([
-  "codex",
-  "claudeAgent",
-  "openclaw",
-  "copilot",
-  "gemini",
-]);
+export const ProviderKind = Schema.Literals(["codex", "claudeAgent", "copilot", "gemini"]);
 export type ProviderKind = typeof ProviderKind.Type;
 export const ThreadKind = Schema.Literals(["thread", "project-chat"]);
 export type ThreadKind = typeof ThreadKind.Type;
@@ -72,11 +65,6 @@ export const ClaudeProviderStartOptions = Schema.Struct({
   maxThinkingTokens: Schema.optional(NonNegativeInt),
 });
 
-export const OpenClawProviderStartOptions = Schema.Struct({
-  gatewayUrl: Schema.optional(TrimmedNonEmptyString),
-  password: Schema.optional(TrimmedNonEmptyString),
-});
-
 export const CopilotProviderStartOptions = Schema.Struct({
   binaryPath: Schema.optional(TrimmedNonEmptyString),
   configDir: Schema.optional(TrimmedNonEmptyString),
@@ -89,7 +77,6 @@ export const GeminiProviderStartOptions = Schema.Struct({
 export const ProviderStartOptions = Schema.Struct({
   codex: Schema.optional(CodexProviderStartOptions),
   claudeAgent: Schema.optional(ClaudeProviderStartOptions),
-  openclaw: Schema.optional(OpenClawProviderStartOptions),
   copilot: Schema.optional(CopilotProviderStartOptions),
   gemini: Schema.optional(GeminiProviderStartOptions),
 });
@@ -109,13 +96,6 @@ export const ClaudeModelSelection = Schema.Struct({
 });
 export type ClaudeModelSelection = typeof ClaudeModelSelection.Type;
 
-export const OpenClawModelSelection = Schema.Struct({
-  provider: Schema.Literal("openclaw"),
-  model: TrimmedNonEmptyString,
-  options: Schema.optional(OpenClawModelOptions),
-});
-export type OpenClawModelSelection = typeof OpenClawModelSelection.Type;
-
 export const CopilotModelSelection = Schema.Struct({
   provider: Schema.Literal("copilot"),
   model: TrimmedNonEmptyString,
@@ -133,7 +113,6 @@ export type GeminiModelSelection = typeof GeminiModelSelection.Type;
 export const ModelSelection = Schema.Union([
   CodexModelSelection,
   ClaudeModelSelection,
-  OpenClawModelSelection,
   CopilotModelSelection,
   GeminiModelSelection,
 ]);

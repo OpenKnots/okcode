@@ -2,7 +2,6 @@ import {
   CLAUDE_CODE_EFFORT_OPTIONS,
   COPILOT_REASONING_EFFORT_OPTIONS,
   CODEX_REASONING_EFFORT_OPTIONS,
-  OPENCLAW_REASONING_EFFORT_OPTIONS,
   DEFAULT_MODEL_BY_PROVIDER,
   DEFAULT_REASONING_EFFORT_BY_PROVIDER,
   MODEL_OPTIONS_BY_PROVIDER,
@@ -14,7 +13,6 @@ import {
   type CopilotReasoningEffort,
   type CodexModelOptions,
   type CodexReasoningEffort,
-  type OpenClawReasoningEffort,
   type ModelSlug,
   type ProviderReasoningEffort,
   type ProviderKind,
@@ -23,7 +21,6 @@ import {
 const MODEL_SLUG_SET_BY_PROVIDER: Record<ProviderKind, ReadonlySet<ModelSlug>> = {
   claudeAgent: new Set(MODEL_OPTIONS_BY_PROVIDER.claudeAgent.map((option) => option.slug)),
   codex: new Set(MODEL_OPTIONS_BY_PROVIDER.codex.map((option) => option.slug)),
-  openclaw: new Set<ModelSlug>(),
   copilot: new Set(MODEL_OPTIONS_BY_PROVIDER.copilot.map((option) => option.slug)),
   gemini: new Set(MODEL_OPTIONS_BY_PROVIDER.gemini.map((option) => option.slug)),
 };
@@ -134,11 +131,9 @@ export function normalizeModelSlug(
   const providerNormalized =
     provider === "claudeAgent" && trimmed.toLowerCase().startsWith("anthropic/")
       ? trimmed.slice("anthropic/".length)
-      : provider === "openclaw" && trimmed.toLowerCase().startsWith("openclaw/")
-        ? trimmed.slice("openclaw/".length)
-        : provider === "copilot" && trimmed.toLowerCase().startsWith("copilot/")
-          ? trimmed.slice("copilot/".length)
-          : trimmed;
+      : provider === "copilot" && trimmed.toLowerCase().startsWith("copilot/")
+        ? trimmed.slice("copilot/".length)
+        : trimmed;
 
   const aliases = MODEL_SLUG_ALIASES_BY_PROVIDER[provider] as Record<string, ModelSlug>;
   const aliased = Object.prototype.hasOwnProperty.call(aliases, providerNormalized)
@@ -228,7 +223,6 @@ export function inferProviderForModel(
   if (typeof model === "string") {
     const trimmed = model.trim();
     if (trimmed.startsWith("claude-")) return "claudeAgent";
-    if (trimmed.startsWith("openclaw/")) return "openclaw";
     if (trimmed.startsWith("copilot/")) return "copilot";
     if (trimmed.startsWith("gemini-") || trimmed.startsWith("auto-gemini-")) return "gemini";
   }
@@ -240,9 +234,6 @@ export function getReasoningEffortOptions(
   provider: "claudeAgent",
   model?: string | null | undefined,
 ): ReadonlyArray<ClaudeCodeEffort>;
-export function getReasoningEffortOptions(
-  provider: "openclaw",
-): ReadonlyArray<OpenClawReasoningEffort>;
 export function getReasoningEffortOptions(
   provider: "copilot",
 ): ReadonlyArray<CopilotReasoningEffort>;
@@ -269,7 +260,6 @@ export function getReasoningEffortOptions(
 
 export function getDefaultReasoningEffort(provider: "codex"): CodexReasoningEffort;
 export function getDefaultReasoningEffort(provider: "claudeAgent"): ClaudeCodeEffort;
-export function getDefaultReasoningEffort(provider: "openclaw"): OpenClawReasoningEffort;
 export function getDefaultReasoningEffort(provider: "copilot"): CopilotReasoningEffort;
 export function getDefaultReasoningEffort(provider: "gemini"): ProviderReasoningEffort;
 export function getDefaultReasoningEffort(provider?: ProviderKind): ProviderReasoningEffort;
@@ -287,10 +277,6 @@ export function resolveReasoningEffortForProvider(
   provider: "claudeAgent",
   effort: string | null | undefined,
 ): ClaudeCodeEffort | null;
-export function resolveReasoningEffortForProvider(
-  provider: "openclaw",
-  effort: string | null | undefined,
-): OpenClawReasoningEffort | null;
 export function resolveReasoningEffortForProvider(
   provider: "copilot",
   effort: string | null | undefined,
@@ -451,5 +437,4 @@ export {
   CLAUDE_CODE_EFFORT_OPTIONS,
   COPILOT_REASONING_EFFORT_OPTIONS,
   CODEX_REASONING_EFFORT_OPTIONS,
-  OPENCLAW_REASONING_EFFORT_OPTIONS,
 };

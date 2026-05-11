@@ -176,24 +176,6 @@ export const BUNDLED_SKILLS: readonly BundledSkillAsset[] = [
   },
   {
     entry: {
-      id: "openclaw-docs",
-      name: "OpenClaw Docs",
-      description: "Reference first-party OpenClaw and OK Code documentation.",
-      category: "docs",
-      tags: ["docs", "openclaw", "okcode"],
-      icon: "book-open",
-      installScopeDefault: "global",
-      system: true,
-      recommended: false,
-      immutable: true,
-      sourceType: "bundled",
-      sourceRef: "bundled:openclaw-docs",
-    },
-    skillName: "openclaw-docs",
-    sourcePath: "docs/openclaw-docs/SKILL.md",
-  },
-  {
-    entry: {
       id: "openai-docs",
       name: "OpenAI Docs",
       description: "Reference official OpenAI docs and API guidance.",

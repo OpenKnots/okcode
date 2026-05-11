@@ -175,33 +175,6 @@ export const ListTokensResult = Schema.Struct({
 });
 export type ListTokensResult = typeof ListTokensResult.Type;
 
-// ── OpenClaw Gateway Config ─────────────────────────────────────────
-
-export const OpenclawGatewayConfigSummary = Schema.Struct({
-  gatewayUrl: Schema.NullOr(TrimmedNonEmptyString),
-  hasSharedSecret: Schema.Boolean,
-  deviceId: Schema.NullOr(TrimmedNonEmptyString),
-  devicePublicKey: Schema.NullOr(TrimmedNonEmptyString),
-  deviceFingerprint: Schema.NullOr(TrimmedNonEmptyString),
-  hasDeviceToken: Schema.Boolean,
-  deviceTokenRole: Schema.NullOr(TrimmedNonEmptyString),
-  deviceTokenScopes: Schema.Array(TrimmedNonEmptyString),
-  updatedAt: Schema.NullOr(IsoDateTime),
-});
-export type OpenclawGatewayConfigSummary = typeof OpenclawGatewayConfigSummary.Type;
-
-export const SaveOpenclawGatewayConfigInput = Schema.Struct({
-  gatewayUrl: TrimmedNonEmptyString,
-  sharedSecret: Schema.optional(Schema.String),
-  clearSharedSecret: Schema.optional(Schema.Boolean),
-});
-export type SaveOpenclawGatewayConfigInput = typeof SaveOpenclawGatewayConfigInput.Type;
-
-export const ResetOpenclawGatewayDeviceStateInput = Schema.Struct({
-  regenerateIdentity: Schema.optional(Schema.Boolean),
-});
-export type ResetOpenclawGatewayDeviceStateInput = typeof ResetOpenclawGatewayDeviceStateInput.Type;
-
 // ── Companion Pairing (new model) ──────────────────────────────────
 // The companion pairing model replaces the single-token deep-link flow
 // with endpoint-aware bundles and device-scoped sessions. The legacy
@@ -288,71 +261,3 @@ export const RevokePairedDeviceResult = Schema.Struct({
   revoked: Schema.Boolean,
 });
 export type RevokePairedDeviceResult = typeof RevokePairedDeviceResult.Type;
-
-// ── OpenClaw Gateway Test ───────────────────────────────────────────
-
-export const TestOpenclawGatewayInput = Schema.Struct({
-  gatewayUrl: Schema.optional(Schema.String),
-  password: Schema.optional(Schema.String),
-});
-export type TestOpenclawGatewayInput = typeof TestOpenclawGatewayInput.Type;
-
-export const TestOpenclawGatewayStepStatus = Schema.Literals(["pass", "fail", "skip"]);
-export type TestOpenclawGatewayStepStatus = typeof TestOpenclawGatewayStepStatus.Type;
-
-/** Individual step result in the gateway connection test. */
-export const TestOpenclawGatewayStep = Schema.Struct({
-  name: Schema.String,
-  status: TestOpenclawGatewayStepStatus,
-  durationMs: Schema.Number,
-  detail: Schema.optional(Schema.String),
-});
-export type TestOpenclawGatewayStep = typeof TestOpenclawGatewayStep.Type;
-
-export const TestOpenclawGatewayHostKind = Schema.Literals([
-  "loopback",
-  "tailscale",
-  "private",
-  "public",
-  "unknown",
-]);
-export type TestOpenclawGatewayHostKind = typeof TestOpenclawGatewayHostKind.Type;
-
-export const TestOpenclawGatewayDiagnostics = Schema.Struct({
-  normalizedUrl: Schema.optional(Schema.String),
-  host: Schema.optional(Schema.String),
-  pathname: Schema.optional(Schema.String),
-  hostKind: Schema.optional(TestOpenclawGatewayHostKind),
-  resolvedAddresses: Schema.Array(Schema.String),
-  healthUrl: Schema.optional(Schema.String),
-  healthStatus: TestOpenclawGatewayStepStatus,
-  healthDetail: Schema.optional(Schema.String),
-  socketCloseCode: Schema.optional(Schema.Number),
-  socketCloseReason: Schema.optional(Schema.String),
-  socketError: Schema.optional(Schema.String),
-  gatewayErrorCode: Schema.optional(Schema.String),
-  gatewayErrorDetailCode: Schema.optional(Schema.String),
-  gatewayErrorDetailReason: Schema.optional(Schema.String),
-  gatewayRecommendedNextStep: Schema.optional(Schema.String),
-  gatewayCanRetryWithDeviceToken: Schema.optional(Schema.Boolean),
-  observedNotifications: Schema.Array(Schema.String),
-  hints: Schema.Array(Schema.String),
-});
-export type TestOpenclawGatewayDiagnostics = typeof TestOpenclawGatewayDiagnostics.Type;
-
-export const TestOpenclawGatewayResult = Schema.Struct({
-  success: Schema.Boolean,
-  steps: Schema.Array(TestOpenclawGatewayStep),
-  /** Total wall-clock time for the entire test sequence. */
-  totalDurationMs: Schema.Number,
-  /** Gateway-reported server info, if available. */
-  serverInfo: Schema.optional(
-    Schema.Struct({
-      version: Schema.optional(Schema.String),
-      sessionId: Schema.optional(Schema.String),
-    }),
-  ),
-  diagnostics: Schema.optional(TestOpenclawGatewayDiagnostics),
-  error: Schema.optional(Schema.String),
-});
-export type TestOpenclawGatewayResult = typeof TestOpenclawGatewayResult.Type;

@@ -18,27 +18,27 @@ If `OKCODE_HOME` is unset, that defaults to:
 ~/.okcode/pr-review-profiles/*.md
 ```
 
-## OpenClaw maintainer profile
+## Maintainer profile
 
 Current built-in adapter:
 
-- `adapter: openclawMaintainer`
+- `adapter: maintainer`
 
-This adapter is intended for repositories like `openclaw/openclaw`, where the maintainer workflow lives in a private local `maintainers` checkout.
+This adapter is intended for repositories where the maintainer workflow lives in a private local `maintainers` checkout.
 
 ### Example
 
 ```md
 ---
-id: openclaw-maintainer
-title: OpenClaw Maintainer Workflow
+id: example-maintainer
+title: Example Maintainer Workflow
 repositories:
-  - openclaw/openclaw
-adapter: openclawMaintainer
-maintainersRepo: ~/Documents/GitHub/OpenClaw/maintainers
+  - example/example
+adapter: maintainer
+maintainersRepo: ~/Documents/GitHub/Example/maintainers
 ---
 
-Load the private OpenClaw maintainer workflow and run the local wrapper scripts.
+Load the private maintainer workflow and run the local wrapper scripts.
 ```
 
 ## Behavior
@@ -50,7 +50,7 @@ When the active repo matches a local profile and no repo-local `.okcode/` workfl
 3. Project them into OK Code's internal PR workflow model.
 4. Expose runnable workflow steps in the PR Review UI.
 
-For the OpenClaw adapter, the PR Review steps run these local commands from `maintainersRepo`:
+For the maintainer adapter, the PR Review steps run these local commands from `maintainersRepo`:
 
 - `scripts/pr-review <PR>`
 - `scripts/pr-prepare run <PR>`

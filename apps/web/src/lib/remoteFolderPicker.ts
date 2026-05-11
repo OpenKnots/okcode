@@ -18,12 +18,6 @@ export function deriveRemoteFolderBrowserRoot(cwd: string | null | undefined): s
     return "/";
   }
 
-  const openclawWorkspaceMarker = "/.openclaw/workspace/";
-  const openclawWorkspaceIndex = normalized.indexOf(openclawWorkspaceMarker);
-  if (openclawWorkspaceIndex !== -1) {
-    return normalized.slice(0, openclawWorkspaceIndex + openclawWorkspaceMarker.length - 1);
-  }
-
   const windowsDriveMatch = normalized.match(/^[a-z]:/i);
   if (windowsDriveMatch) {
     return `${windowsDriveMatch[0]}\\`;

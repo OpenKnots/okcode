@@ -104,7 +104,6 @@ import { PrReview } from "./prReview/Services/PrReview.ts";
 import { GitHub } from "./github/Services/GitHub.ts";
 import { GitActionExecutionError } from "./git/Errors.ts";
 import { EnvironmentVariables } from "./persistence/Services/EnvironmentVariables.ts";
-import { OpenclawGatewayConfig } from "./persistence/Services/OpenclawGatewayConfig.ts";
 import { SkillService } from "./skills/SkillService.ts";
 import { TokenManager } from "./tokenManager.ts";
 import { resolveRuntimeEnvironment } from "./runtimeEnvironment.ts";
@@ -120,20 +119,7 @@ import {
 } from "./serverLayers.ts";
 import { version as serverVersion } from "../package.json" with { type: "json" };
 import { serverBuildInfo } from "./buildInfo";
-import { runOpenclawGatewayTest } from "./openclawGatewayTest.ts";
 import { createApiRouter } from "./api/router.ts";
-
-// ── OpenClaw Gateway Connection Test ──────────────────────────────────
-
-function testOpenclawGateway(input: import("@okcode/contracts").TestOpenclawGatewayInput) {
-  return Effect.tryPromise({
-    try: () => runOpenclawGatewayTest(input),
-    catch: (cause) =>
-      new RouteRequestError({
-        message: `OpenClaw gateway test failed: ${cause instanceof Error ? cause.message : String(cause)}`,
-      }),
-  });
-}
 
 const resolveCheckPath = Effect.fn(function* (input: string) {
   return path.resolve(yield* expandHomePath(input.trim()));
@@ -355,8 +341,7 @@ export type ServerRuntimeServices =
   | GitCore
   | Keybindings
   | Open
-  | EnvironmentVariables
-  | OpenclawGatewayConfig;
+  | EnvironmentVariables;
 
 export class ServerLifecycleError extends Schema.TaggedErrorClass<ServerLifecycleError>()(
   "ServerLifecycleError",
@@ -411,7 +396,6 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
 
   const keybindingsManager = yield* Keybindings;
   const providerHealth = yield* ProviderHealth;
-  const openclawGatewayConfig = yield* OpenclawGatewayConfig;
   const git = yield* GitCore;
   const fileSystem = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -1197,9 +1181,7 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
       isLocalWebSocketClient,
       pickFolder: pickFolderNative,
       tokenManager,
-      openclawGatewayConfig,
       publishServerConfigUpdated,
-      testOpenclawGateway,
       isNewerSemver,
       createRouteRequestError: (message: string) => new RouteRequestError({ message }),
     } as any),

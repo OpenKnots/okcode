@@ -110,9 +110,6 @@ export function SettingsRouteContextProvider({ children }: { children: ReactNode
     settings.copilotConfigDir !== defaults.copilotConfigDir ||
     settings.codexBinaryPath !== defaults.codexBinaryPath ||
     settings.codexHomePath !== defaults.codexHomePath;
-  const isOpenClawSettingsDirty =
-    settings.openclawGatewayUrl !== defaults.openclawGatewayUrl ||
-    settings.openclawPassword !== defaults.openclawPassword;
 
   const changedSettingLabels = useMemo(
     () =>
@@ -170,12 +167,10 @@ export function SettingsRouteContextProvider({ children }: { children: ReactNode
         ...(settings.customCodexModels.length > 0 ||
         settings.customClaudeModels.length > 0 ||
         settings.customCopilotModels.length > 0 ||
-        settings.customGeminiModels.length > 0 ||
-        settings.customOpenClawModels.length > 0
+        settings.customGeminiModels.length > 0
           ? ["Custom models"]
           : []),
         ...(isInstallSettingsDirty ? ["Provider installs"] : []),
-        ...(isOpenClawSettingsDirty ? ["OpenClaw gateway"] : []),
         ...(settings.backgroundImageUrl !== defaults.backgroundImageUrl
           ? ["Background image"]
           : []),
@@ -203,7 +198,6 @@ export function SettingsRouteContextProvider({ children }: { children: ReactNode
       fontSizeOverrideState,
       isGitTextGenerationModelDirty,
       isInstallSettingsDirty,
-      isOpenClawSettingsDirty,
       messageFont,
       radiusOverrideState,
       settings,

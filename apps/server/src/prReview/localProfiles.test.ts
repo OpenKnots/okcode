@@ -9,24 +9,24 @@ import {
 describe("prReview local profiles", () => {
   it("parses GitHub HTTPS and SSH remotes", () => {
     expect(
-      parseGitHubRepositoryNameWithOwnerFromRemoteUrl("https://github.com/openclaw/openclaw.git"),
-    ).toBe("openclaw/openclaw");
+      parseGitHubRepositoryNameWithOwnerFromRemoteUrl("https://github.com/acme/acme.git"),
+    ).toBe("acme/acme");
     expect(
-      parseGitHubRepositoryNameWithOwnerFromRemoteUrl("git@github.com:OpenClaw/maintainers.git"),
-    ).toBe("OpenClaw/maintainers");
+      parseGitHubRepositoryNameWithOwnerFromRemoteUrl("git@github.com:Acme/maintainers.git"),
+    ).toBe("Acme/maintainers");
   });
 
   it("round-trips encoded local command actions", () => {
     const encoded = encodePrReviewLocalCommandAction({
       kind: "localCommand",
-      cwd: "/Users/val/Documents/GitHub/OpenClaw/maintainers",
+      cwd: "/Users/val/Documents/GitHub/Acme/maintainers",
       args: ["scripts/pr-review", "{{prNumber}}"],
       label: "review-pr",
     });
 
     expect(decodePrReviewLocalCommandAction(encoded)).toEqual({
       kind: "localCommand",
-      cwd: "/Users/val/Documents/GitHub/OpenClaw/maintainers",
+      cwd: "/Users/val/Documents/GitHub/Acme/maintainers",
       args: ["scripts/pr-review", "{{prNumber}}"],
       label: "review-pr",
     });

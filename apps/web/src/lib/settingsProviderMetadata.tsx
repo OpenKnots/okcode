@@ -33,7 +33,6 @@ export const SETTINGS_AUTH_PROVIDER_ORDER = [
   "claudeAgent",
   "gemini",
   "copilot",
-  "openclaw",
 ] as const satisfies readonly ProviderKind[];
 
 export const INSTALL_PROVIDER_SETTINGS = [
@@ -106,11 +105,6 @@ export const PROVIDER_AUTH_GUIDES: Record<ProviderKind, ProviderAuthGuide> = {
     verifyCmd: "copilot auth status",
     note: "GitHub Copilot must be installed and signed in before it appears in the thread picker.",
   },
-  openclaw: {
-    authCmd: "Use gateway shared secret",
-    verifyCmd: "Test Connection",
-    note: "OpenClaw uses the gateway URL and shared secret below rather than a local CLI login. Depending on gateway auth mode, OK Code sends that shared secret as token-style or password-style auth. Shared-secret auth usually works without device pairing and is the recommended default for Tailscale and remote gateways. Connection is verified by a WebSocket handshake plus /health probe and a connect handshake; click Test Connection again if the gateway restarts or your network changes.",
-  },
 };
 
 export type LocalBackendKey = "ollama" | "lmstudio";
@@ -162,9 +156,5 @@ export const PROVIDER_CAPABILITY_METADATA: Record<ProviderKind, ProviderCapabili
   copilot: {
     uniqueCapabilities: ["Copilot CLI install override", "Copilot config directory"],
     configSurface: "Binary path and config directory",
-  },
-  openclaw: {
-    uniqueCapabilities: ["Gateway configuration", "Live gateway connection test"],
-    configSurface: "Gateway URL, shared secret/token, and device state reset",
   },
 };

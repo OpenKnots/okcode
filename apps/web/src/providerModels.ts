@@ -7,13 +7,7 @@ export type ProviderModelOption = AppModelOption & {
   capabilities?: ModelCapabilities | null | undefined;
 };
 
-const PROVIDER_KINDS: readonly ProviderKind[] = [
-  "codex",
-  "claudeAgent",
-  "copilot",
-  "openclaw",
-  "gemini",
-];
+const PROVIDER_KINDS: readonly ProviderKind[] = ["codex", "claudeAgent", "copilot", "gemini"];
 
 export function getProviderSnapshot(
   providers: ReadonlyArray<ServerProviderStatus>,

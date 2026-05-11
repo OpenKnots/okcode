@@ -13,7 +13,6 @@
 9. `09-event-state-test-expansion.md` - Tests for renderer event handling
 10. `10-unify-process-session-abstraction.md` - Unified runtime-session interface
 11. `11-effect.md` - Effect.js phased migration *(in progress)*
-12. `11-openclaw-provider-rollout.md` - OpenClaw provider rollout
 13. `13-provider-service-integration-tests.md` - ProviderService integration tests
 14. `14-server-authoritative-event-sourcing-cleanup.md` - Server-authoritative event sourcing
 15. `16-pr89-review-remediation-phases.md` - PR #89 remediation strategy *(in progress)*

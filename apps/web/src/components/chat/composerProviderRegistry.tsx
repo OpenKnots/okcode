@@ -115,22 +115,6 @@ const composerProviderRegistry: Record<ProviderKind, ProviderRegistryEntry> = {
       <ClaudeTraitsPicker threadId={threadId} model={model} onPromptChange={onPromptChange} />
     ),
   },
-  openclaw: {
-    getState: ({ modelOptions }) => {
-      const promptEffort =
-        resolveReasoningEffortForProvider("openclaw", modelOptions?.openclaw?.reasoningEffort) ??
-        getDefaultReasoningEffort("openclaw");
-      return {
-        provider: "openclaw",
-        promptEffort,
-        modelOptionsForDispatch: modelOptions?.openclaw?.reasoningEffort
-          ? { openclaw: { reasoningEffort: modelOptions.openclaw.reasoningEffort } }
-          : undefined,
-      };
-    },
-    renderTraitsMenuContent: () => null,
-    renderTraitsPicker: () => null,
-  },
   copilot: {
     getState: ({ modelOptions }) => {
       const defaultPromptEffort = getDefaultReasoningEffort("copilot");

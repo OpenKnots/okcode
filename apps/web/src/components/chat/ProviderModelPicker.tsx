@@ -4,7 +4,7 @@ import { ChevronDownIcon } from "lucide-react";
 
 import { cn } from "~/lib/utils";
 import { getThreadProviderLabel } from "~/lib/providerAvailability";
-import { ClaudeAI, Gemini, GitHubIcon, type Icon, OpenAI, OpenClawIcon } from "../Icons";
+import { ClaudeAI, Gemini, GitHubIcon, type Icon, OpenAI } from "../Icons";
 import { Button } from "../ui/button";
 import {
   Menu,
@@ -29,37 +29,16 @@ function getCodexLocalBackendLabel(id: string | null | undefined): string | null
   return CODEX_LOCAL_BACKEND_LABELS[id] ?? null;
 }
 
-type OpenclawGatewayBadge = "connected" | "url-configured" | null;
-
-function getOpenclawGatewayBadge(input: {
-  readonly snapshot: ServerProviderStatus | null;
-  readonly gatewayUrl: string | null | undefined;
-}): OpenclawGatewayBadge {
-  const snapshot = input.snapshot;
-  if (snapshot !== null) {
-    const isAvailable = snapshot.available === true || snapshot.enabled === true;
-    if (snapshot.status === "ready" && isAvailable) {
-      return "connected";
-    }
-  }
-  if (typeof input.gatewayUrl === "string" && input.gatewayUrl.trim().length > 0) {
-    return "url-configured";
-  }
-  return null;
-}
-
 const PROVIDER_ICON_BY_PROVIDER: Record<ProviderKind, Icon> = {
   codex: OpenAI,
   claudeAgent: ClaudeAI,
   gemini: Gemini,
   copilot: GitHubIcon,
-  openclaw: OpenClawIcon,
 };
 
 function providerIconClassName(provider: ProviderKind, fallbackClassName: string): string {
   if (provider === "claudeAgent") return "text-[#d97757]";
   if (provider === "gemini") return "text-[#78c2ff]";
-  if (provider === "openclaw") return "text-[#6cb4ee]";
   if (provider === "copilot") return "text-white/85";
   return fallbackClassName;
 }
@@ -82,7 +61,6 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
   providers: ReadonlyArray<ServerProviderStatus>;
   activeProviderIconClassName?: string;
   codexSelectedModelProviderId?: string | null | undefined;
-  openclawGatewayUrl?: string | null | undefined;
   compact?: boolean;
   disabled?: boolean;
   onProviderModelChange: (provider: ProviderKind, model: ModelSlug) => void;
@@ -170,13 +148,6 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
             return null;
           }
 
-          const openclawBadge =
-            provider === "openclaw"
-              ? getOpenclawGatewayBadge({
-                  snapshot: providerSnapshot,
-                  gatewayUrl: props.openclawGatewayUrl,
-                })
-              : null;
           const codexGroupBackendLabel =
             provider === "codex"
               ? getCodexLocalBackendLabel(props.codexSelectedModelProviderId ?? null)
@@ -198,21 +169,6 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
                   {codexGroupBackendLabel ? ` · ${codexGroupBackendLabel}` : ""}
                   {props.lockedProvider === provider ? " · locked for this thread" : ""}
                 </span>
-                {openclawBadge === "connected" ? (
-                  <span
-                    className="ml-auto shrink-0 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[9px] font-medium uppercase tracking-[0.08em] text-emerald-700 dark:text-emerald-300"
-                    aria-label="OpenClaw gateway connected"
-                  >
-                    ✓ Connected
-                  </span>
-                ) : openclawBadge === "url-configured" ? (
-                  <span
-                    className="ml-auto shrink-0 rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[9px] font-medium uppercase tracking-[0.08em] text-amber-700 dark:text-amber-300"
-                    aria-label="OpenClaw gateway URL configured"
-                  >
-                    URL configured
-                  </span>
-                ) : null}
               </MenuGroupLabel>
               <MenuRadioGroup
                 value={props.provider === provider ? props.model : ""}

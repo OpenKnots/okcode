@@ -306,10 +306,72 @@ jobs:
           path: release-publish/*
           if-no-files-found: error
 
+  release:
+    name: Publish GitHub Release
+    needs: [preflight, desktop_build]
+    if: ${{ always() && !cancelled() && needs.preflight.result == 'success' && needs.desktop_build.result == 'success' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.preflight.outputs.ref }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: package.json
+
+      - name: Download desktop artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: desktop-*
+          merge-multiple: true
+          path: release-assets
+
+      - name: Merge macOS updater manifests
+        run: |
+          node scripts/merge-mac-update-manifests.ts \
+            release-assets/latest-mac.yml \
+            release-assets/latest-mac-x64.yml \
+            release-assets/latest-mac.yml
+          rm release-assets/latest-mac-x64.yml
+
+      - name: Stage release documentation
+        env:
+          RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
+        run: |
+          set -euo pipefail
+          notes="docs/releases/v${RELEASE_VERSION}.md"
+          manifest="docs/releases/v${RELEASE_VERSION}/assets.md"
+
+          [[ -f "$notes" ]] || { echo "Missing release notes: $notes" >&2; exit 1; }
+          [[ -f "$manifest" ]] || { echo "Missing asset manifest: $manifest" >&2; exit 1; }
+
+          cp CHANGELOG.md release-assets/okcode-CHANGELOG.md
+          cp "$notes" release-assets/okcode-RELEASE-NOTES.md
+          cp "$manifest" release-assets/okcode-ASSETS-MANIFEST.md
+
+      - name: Validate release asset completeness
+        run: node scripts/validate-release-assets.ts release-assets
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.preflight.outputs.tag }}
+          target_commitish: ${{ needs.preflight.outputs.ref }}
+          name: OK Code v${{ needs.preflight.outputs.version }}
+          body_path: docs/releases/v${{ needs.preflight.outputs.version }}.md
+          prerelease: ${{ needs.preflight.outputs.is_prerelease }}
+          make_latest: ${{ needs.preflight.outputs.make_latest }}
+          files: release-assets/*
+          fail_on_unmatched_files: true
+
   publish_cli:
     name: Publish CLI
-    needs: [preflight, desktop_build]
-    if: ${{ !cancelled() && needs.preflight.result == 'success' && needs.desktop_build.result == 'success' }}
+    needs: [preflight, release]
+    if: ${{ !cancelled() && needs.preflight.result == 'success' && needs.release.result == 'success' }}
+    continue-on-error: true
     runs-on: ubuntu-24.04
     env:
       NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
@@ -378,67 +440,6 @@ jobs:
           ./node_modules/.bin/okcode --version
           ./node_modules/.bin/okcode --help >/dev/null
           popd >/dev/null
-
-  release:
-    name: Publish GitHub Release
-    needs: [preflight, desktop_build, publish_cli]
-    if: ${{ always() && !cancelled() && needs.preflight.result == 'success' && needs.desktop_build.result == 'success' && needs.publish_cli.result == 'success' }}
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-        with:
-          ref: ${{ needs.preflight.outputs.ref }}
-
-      - name: Setup Node
-        uses: actions/setup-node@v6
-        with:
-          node-version-file: package.json
-
-      - name: Download desktop artifacts
-        uses: actions/download-artifact@v8
-        with:
-          pattern: desktop-*
-          merge-multiple: true
-          path: release-assets
-
-      - name: Merge macOS updater manifests
-        run: |
-          node scripts/merge-mac-update-manifests.ts \
-            release-assets/latest-mac.yml \
-            release-assets/latest-mac-x64.yml \
-            release-assets/latest-mac.yml
-          rm release-assets/latest-mac-x64.yml
-
-      - name: Stage release documentation
-        env:
-          RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
-        run: |
-          set -euo pipefail
-          notes="docs/releases/v${RELEASE_VERSION}.md"
-          manifest="docs/releases/v${RELEASE_VERSION}/assets.md"
-
-          [[ -f "$notes" ]] || { echo "Missing release notes: $notes" >&2; exit 1; }
-          [[ -f "$manifest" ]] || { echo "Missing asset manifest: $manifest" >&2; exit 1; }
-
-          cp CHANGELOG.md release-assets/okcode-CHANGELOG.md
-          cp "$notes" release-assets/okcode-RELEASE-NOTES.md
-          cp "$manifest" release-assets/okcode-ASSETS-MANIFEST.md
-
-      - name: Validate release asset completeness
-        run: node scripts/validate-release-assets.ts release-assets
-
-      - name: Publish release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ needs.preflight.outputs.tag }}
-          target_commitish: ${{ needs.preflight.outputs.ref }}
-          name: OK Code v${{ needs.preflight.outputs.version }}
-          body_path: docs/releases/v${{ needs.preflight.outputs.version }}.md
-          prerelease: ${{ needs.preflight.outputs.is_prerelease }}
-          make_latest: ${{ needs.preflight.outputs.make_latest }}
-          files: release-assets/*
-          fail_on_unmatched_files: true
 
   finalize:
     name: Finalize release

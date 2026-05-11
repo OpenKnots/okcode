@@ -379,7 +379,7 @@ Step-by-step playbook for the v${version} release. Each phase must complete befo
 - [ ] Create and push tag \`v${version}\`.
 - [ ] Verify the coordinated \`release.yml\` workflow starts.
 - [ ] Trigger \`release-ios.yml\` manually for \`v${version}\` (or the matching release ref if the tag is unavailable).
-- [ ] Monitor \`release.yml\` through Preflight, Desktop builds, Publish CLI, Publish GitHub Release, and Finalize release.
+- [ ] Monitor \`release.yml\` through Preflight, Desktop builds, Publish GitHub Release, Finalize release, and post-release Publish CLI.
 - [ ] Monitor \`release-ios.yml\` through Preflight, iOS signing preflight, and iOS TestFlight.
 
 ### Asset verification
